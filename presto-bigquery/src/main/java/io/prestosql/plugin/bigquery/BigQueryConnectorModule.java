@@ -40,7 +40,7 @@ public class BigQueryConnectorModule
     @Singleton
     public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
     {
-        return FixedHeaderProvider.create("prestosql/" + nodeManager.getCurrentNode().getVersion());
+        return FixedHeaderProvider.create("user-agent", "prestosql/" + nodeManager.getCurrentNode().getVersion());
     }
 
     @Override
@@ -60,13 +60,20 @@ public class BigQueryConnectorModule
 
     @Provides
     @Singleton
-    public BigQuery provideBigQuery(BigQueryConfig config, HeaderProvider headerProvider)
+    public BigQueryCredentialsSupplier provideBigQueryCredentialsSupplier(BigQueryConfig config)
+    {
+        return new BigQueryCredentialsSupplier(config.getCredentialsKey(), config.getCredentialsFile());
+    }
+
+    @Provides
+    @Singleton
+    public BigQuery provideBigQuery(BigQueryConfig config, HeaderProvider headerProvider, BigQueryCredentialsSupplier bigQueryCredentialsSupplier)
     {
         BigQueryOptions.Builder options = BigQueryOptions.newBuilder()
                 .setHeaderProvider(headerProvider)
                 .setProjectId(config.getParentProject());
         // set credentials of provided
-        config.createCredentials().ifPresent(options::setCredentials);
+        bigQueryCredentialsSupplier.getCredentials().ifPresent(options::setCredentials);
         return options.build().getService();
     }
 }

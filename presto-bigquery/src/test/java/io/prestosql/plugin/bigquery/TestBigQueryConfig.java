@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static org.testng.Assert.assertEquals;
 
@@ -41,7 +42,7 @@ public class TestBigQueryConfig
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
         assertEquals(config.getParentProject(), "ppid");
-        assertEquals(config.getParallelism(), Optional.of(20));
+        assertEquals(config.getParallelism(), OptionalInt.of(20));
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
         assertEquals(config.getMaxReadRowsRetries(), 10);
@@ -66,7 +67,7 @@ public class TestBigQueryConfig
         assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
         assertEquals(config.getParentProject(), "ppid");
-        assertEquals(config.getParallelism(), Optional.of(20));
+        assertEquals(config.getParallelism(), OptionalInt.of(20));
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
         assertEquals(config.getMaxReadRowsRetries(), 10);

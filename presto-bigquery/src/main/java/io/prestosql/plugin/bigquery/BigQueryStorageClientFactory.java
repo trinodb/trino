@@ -36,9 +36,9 @@ public class BigQueryStorageClientFactory
     private final HeaderProvider headerProvider;
 
     @Inject
-    public BigQueryStorageClientFactory(BigQueryConfig config, HeaderProvider headerProvider)
+    public BigQueryStorageClientFactory(BigQueryCredentialsSupplier bigQueryCredentialsSupplier, HeaderProvider headerProvider)
     {
-        this.credentials = config.createCredentials();
+        this.credentials = bigQueryCredentialsSupplier.getCredentials();
         this.headerProvider = headerProvider;
     }
 

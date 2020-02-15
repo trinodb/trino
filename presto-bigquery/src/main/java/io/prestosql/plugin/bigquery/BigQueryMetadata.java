@@ -173,7 +173,6 @@ public class BigQueryMetadata
     @Override
     public boolean usesLegacyTableLayouts()
     {
-        log.debug("usesLegacyTableLayouts())");
         return false;
     }
 

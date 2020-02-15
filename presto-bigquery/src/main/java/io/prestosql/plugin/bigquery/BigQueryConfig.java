@@ -13,76 +13,34 @@
  */
 package io.prestosql.plugin.bigquery;
 
-import com.google.api.client.util.Base64;
-import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.Streams;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.OptionalInt;
 
 public class BigQueryConfig
 {
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
-    public static final String VIEWS_ENABLED = "views-enabled";
+    public static final String VIEWS_ENABLED = "bigquery.views-enabled";
 
     private Optional<String> credentialsKey = Optional.empty();
     private Optional<String> credentialsFile = Optional.empty();
     private Optional<String> projectId = Optional.empty();
     private Optional<String> parentProject = Optional.empty();
-    private Optional<Integer> parallelism = Optional.empty();
+    private OptionalInt parallelism = OptionalInt.empty();
     private boolean viewsEnabled;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
 
-    // lazy creation, cache once it's created
-    private Supplier<Optional<Credentials>> credentialsCreator = Suppliers.memoize(() -> {
-        Optional<Credentials> credentialsFromKey = credentialsKey.map(BigQueryConfig::createCredentialsFromKey);
-        Optional<Credentials> credentialsFromFile = credentialsFile.map(BigQueryConfig::createCredentialsFromFile);
-        return Stream.of(credentialsFromKey, credentialsFromFile)
-                .flatMap(Streams::stream)
-                .findFirst();
-    });
-
-    private static Credentials createCredentialsFromKey(String key)
-    {
-        try {
-            return GoogleCredentials.fromStream(new ByteArrayInputStream(Base64.decodeBase64(key)));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create Credentials from key", e);
-        }
-    }
-
-    private static Credentials createCredentialsFromFile(String file)
-    {
-        try {
-            return GoogleCredentials.fromStream(new FileInputStream(file));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create Credentials from file", e);
-        }
-    }
-
-    public Optional<Credentials> createCredentials()
-    {
-        return credentialsCreator.get();
-    }
-
-    @AssertTrue(message = "Exactly one of 'credentials-key' or 'credentials-file' must be specified, or the default GoogleCredentials could be created")
+    @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
     public boolean isCredentialsConfigurationValid()
     {
         // only one of them (at most) should be present
@@ -153,7 +111,7 @@ public class BigQueryConfig
         return this;
     }
 
-    public Optional<Integer> getParallelism()
+    public OptionalInt getParallelism()
     {
         return parallelism;
     }
@@ -162,7 +120,7 @@ public class BigQueryConfig
     @ConfigDescription("The number of partitions to split the data into.")
     public BigQueryConfig setParallelism(int parallelism)
     {
-        this.parallelism = Optional.of(parallelism);
+        this.parallelism = OptionalInt.of(parallelism);
         return this;
     }
 

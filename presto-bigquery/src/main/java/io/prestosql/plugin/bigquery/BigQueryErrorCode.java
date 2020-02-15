@@ -22,7 +22,8 @@ import static io.prestosql.spi.ErrorType.EXTERNAL;
 public enum BigQueryErrorCode
         implements ErrorCodeSupplier
 {
-    BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED(0, EXTERNAL);
+    BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED(0, EXTERNAL),
+    BIGQUERY_DATETIME_PARSING_ERROR(1, EXTERNAL);
 
     private final ErrorCode errorCode;
 

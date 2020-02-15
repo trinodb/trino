@@ -72,17 +72,17 @@ public class ReadSessionCreator
         this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
     }
 
-    public Storage.ReadSession create(TableId table, ImmutableList<String> selectedFields, String filter, int parallelism)
+    public Storage.ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
     {
         Table tableDetails = bigquery.getTable(table);
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
 
         try (BigQueryStorageClient bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient()) {
-            ReadOptions.TableReadOptions readOptions = ReadOptions.TableReadOptions.newBuilder()
-                    .addAllSelectedFields(selectedFields)
-                    .setRowRestriction(filter)
-                    .build();
+            ReadOptions.TableReadOptions.Builder readOptions = ReadOptions.TableReadOptions.newBuilder()
+                    .addAllSelectedFields(selectedFields);
+            filter.ifPresent(readOptions::setRowRestriction);
+
             TableReferenceProto.TableReference tableReference = toTableReference(actualTable.getTableId());
 
             Storage.ReadSession readSession = bigQueryStorageClient.createReadSession(
