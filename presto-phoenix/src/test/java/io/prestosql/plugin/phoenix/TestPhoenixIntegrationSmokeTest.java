@@ -157,12 +157,6 @@ public class TestPhoenixIntegrationSmokeTest
         throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
     }
 
-    @Override
-    public void testDropSchema()
-    {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
-    }
-
     private void executeInPhoenix(String sql)
             throws SQLException
     {

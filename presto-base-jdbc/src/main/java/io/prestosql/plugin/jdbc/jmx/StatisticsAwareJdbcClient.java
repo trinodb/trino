@@ -236,6 +236,12 @@ public class StatisticsAwareJdbcClient
         stats.getCreateSchema().wrap(() -> delegate().createSchema(identity, schemaName));
     }
 
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        stats.getDropSchema().wrap(() -> delegate().dropSchema(identity, schemaName));
+    }
+
     public static final class JdbcClientStats
     {
         private final JdbcApiStats schemaExists = new JdbcApiStats();
@@ -265,6 +271,7 @@ public class StatisticsAwareJdbcClient
         private final JdbcApiStats renameTable = new JdbcApiStats();
         private final JdbcApiStats createTable = new JdbcApiStats();
         private final JdbcApiStats createSchema = new JdbcApiStats();
+        private final JdbcApiStats dropSchema = new JdbcApiStats();
 
         @Managed
         @Nested
@@ -453,6 +460,13 @@ public class StatisticsAwareJdbcClient
         public JdbcApiStats getCreateSchema()
         {
             return createSchema;
+        }
+
+        @Managed
+        @Nested
+        public JdbcApiStats getDropSchema()
+        {
+            return dropSchema;
         }
     }
 }

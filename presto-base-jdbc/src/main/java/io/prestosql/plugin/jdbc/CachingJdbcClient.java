@@ -236,6 +236,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate.dropSchema(identity, schemaName);
+        invalidateSchemasCache();
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);

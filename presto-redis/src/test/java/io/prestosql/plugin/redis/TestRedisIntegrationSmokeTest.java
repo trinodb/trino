@@ -52,12 +52,6 @@ public class TestRedisIntegrationSmokeTest
     }
 
     @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Redis connector does not support column default values");

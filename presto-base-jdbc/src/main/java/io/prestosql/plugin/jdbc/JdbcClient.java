@@ -100,4 +100,6 @@ public interface JdbcClient
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain);
 
     void createSchema(JdbcIdentity identity, String schemaName);
+
+    void dropSchema(JdbcIdentity identity, String schemaName);
 }

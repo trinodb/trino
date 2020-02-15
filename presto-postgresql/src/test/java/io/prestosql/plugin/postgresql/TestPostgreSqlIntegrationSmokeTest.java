@@ -25,7 +25,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
 import java.util.UUID;
 
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -343,21 +342,6 @@ public class TestPostgreSqlIntegrationSmokeTest
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected void cleanUpSchemas(List<String> schemaNames)
-            throws SQLException
-    {
-        for (String schemaName : schemaNames) {
-            execute("DROP SCHEMA " + schemaName);
-        }
     }
 
     private void execute(String sql)

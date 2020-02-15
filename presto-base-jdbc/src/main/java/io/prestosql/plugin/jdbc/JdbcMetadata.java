@@ -308,4 +308,10 @@ public class JdbcMetadata
     {
         jdbcClient.createSchema(JdbcIdentity.from(session), schemaName);
     }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        jdbcClient.dropSchema(JdbcIdentity.from(session), schemaName);
+    }
 }

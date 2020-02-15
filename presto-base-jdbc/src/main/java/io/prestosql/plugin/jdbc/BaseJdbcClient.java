@@ -816,6 +816,17 @@ public class BaseJdbcClient
         }
     }
 
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            execute(connection, "DROP SCHEMA " + quoted(schemaName));
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
     protected void execute(Connection connection, String query)
             throws SQLException
     {
