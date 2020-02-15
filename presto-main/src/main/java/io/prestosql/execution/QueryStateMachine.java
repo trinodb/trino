@@ -815,8 +815,13 @@ public class QueryStateMachine
         requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
 
-        boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
-        if (failed) {
+        QueryState oldState = queryState.trySet(FAILED);
+        if (oldState.isDone()) {
+            QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
+            return false;
+        }
+
+        try {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
             session.getTransactionId().ifPresent(transactionId -> {
                 if (transactionManager.isAutoCommit(transactionId)) {
@@ -827,11 +832,14 @@ public class QueryStateMachine
                 }
             });
         }
-        else {
-            QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
+        finally {
+            // if the query has not started, then there is no final query info to wait for
+            if (oldState.ordinal() <= PLANNING.ordinal()) {
+                finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(getQueryInfo(Optional.empty())));
+            }
         }
 
-        return failed;
+        return true;
     }
 
     public boolean transitionToCanceled()
