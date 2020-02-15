@@ -90,7 +90,7 @@ public class AtopTableHandle
         }
         AtopTableHandle other = (AtopTableHandle) obj;
         return Objects.equals(this.schema, other.schema) &&
-                Objects.equals(this.table, other.table);
+                this.table == other.table;
     }
 
     @Override

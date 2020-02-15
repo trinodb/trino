@@ -112,7 +112,7 @@ final class Util
             if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
                 return false;
             }
-            if (!ordering.getSortOrder().equals(orderingScheme.getOrdering(symbol))) {
+            if (ordering.getSortOrder() != orderingScheme.getOrdering(symbol)) {
                 return false;
             }
         }

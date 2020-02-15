@@ -519,7 +519,7 @@ public class UnaliasSymbolReferences
 
             Map<String, Symbol> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
 
-            if (node.getType().equals(INNER)) {
+            if (node.getType() == INNER) {
                 canonicalCriteria.stream()
                         .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
                         .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))

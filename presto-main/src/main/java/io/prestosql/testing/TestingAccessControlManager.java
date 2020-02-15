@@ -424,7 +424,7 @@ public class TestingAccessControlManager
             }
             TestingPrivilege that = (TestingPrivilege) o;
             return Objects.equals(entityName, that.entityName) &&
-                    Objects.equals(type, that.type);
+                    type == that.type;
         }
 
         @Override

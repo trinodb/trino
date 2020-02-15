@@ -662,7 +662,7 @@ public class InMemoryThriftMetastore
             }
             PrincipalTableKey that = (PrincipalTableKey) o;
             return Objects.equals(principalName, that.principalName) &&
-                    Objects.equals(principalType, that.principalType) &&
+                    principalType == that.principalType &&
                     Objects.equals(table, that.table) &&
                     Objects.equals(database, that.database);
         }
