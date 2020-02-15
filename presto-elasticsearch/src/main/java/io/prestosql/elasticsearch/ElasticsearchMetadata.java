@@ -176,7 +176,7 @@ public class ElasticsearchMetadata
             Type elementType = toPrestoType(metaDataField, false);
             return new ArrayType(elementType);
         }
-        else if (type instanceof PrimitiveType) {
+        if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
                     return REAL;
