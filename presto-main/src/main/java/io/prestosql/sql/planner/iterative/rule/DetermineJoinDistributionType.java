@@ -152,7 +152,7 @@ public class DetermineJoinDistributionType
     {
         TypeProvider types = context.getSymbolAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
-        boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
+        boolean replicated = possibleJoinNode.getDistributionType().get() == REPLICATED;
         /*
          *   HACK!
          *

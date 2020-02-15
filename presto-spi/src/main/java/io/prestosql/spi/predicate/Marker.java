@@ -289,7 +289,7 @@ public final class Marker
         }
         Marker other = (Marker) obj;
         return Objects.equals(this.type, other.type)
-                && Objects.equals(this.bound, other.bound)
+                && this.bound == other.bound
                 && ((this.valueBlock.isPresent()) == (other.valueBlock.isPresent()))
                 && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
     }

@@ -262,7 +262,7 @@ public class ParquetPageSourceFactory
         for (Entry<HiveColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
             HiveColumnHandle columnHandle = entry.getKey();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (!columnHandle.getHiveType().getCategory().equals(PRIMITIVE)) {
+            if (columnHandle.getHiveType().getCategory() != PRIMITIVE) {
                 continue;
             }
 

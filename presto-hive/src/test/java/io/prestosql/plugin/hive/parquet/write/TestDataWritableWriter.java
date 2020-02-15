@@ -138,7 +138,7 @@ public class TestDataWritableWriter
             GroupType groupType = type.asGroupType();
             OriginalType originalType = type.getOriginalType();
 
-            if (OriginalType.LIST.equals(originalType)) {
+            if (OriginalType.LIST == originalType) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.LIST);
                 if (singleLevelArray) {
                     writeSingleLevelArray(value, (ListObjectInspector) inspector, groupType);
@@ -147,7 +147,7 @@ public class TestDataWritableWriter
                     writeArray(value, (ListObjectInspector) inspector, groupType);
                 }
             }
-            else if (originalType != null && (originalType.equals(OriginalType.MAP) || originalType.equals(OriginalType.MAP_KEY_VALUE))) {
+            else if (originalType != null && (originalType == OriginalType.MAP || originalType == OriginalType.MAP_KEY_VALUE)) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.MAP);
                 writeMap(value, (MapObjectInspector) inspector, groupType);
             }
@@ -167,7 +167,7 @@ public class TestDataWritableWriter
      */
     private void checkInspectorCategory(ObjectInspector inspector, ObjectInspector.Category category)
     {
-        if (!inspector.getCategory().equals(category)) {
+        if (inspector.getCategory() != category) {
             throw new IllegalArgumentException("Invalid data type: expected " + category
                     + " type, but found: " + inspector.getCategory());
         }

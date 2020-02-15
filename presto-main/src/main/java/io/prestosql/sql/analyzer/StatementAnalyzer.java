@@ -1337,7 +1337,7 @@ class StatementAnalyzer
             Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
 
             if (isLateralRelation(node.getRight())) {
-                if (node.getType().equals(RIGHT) || node.getType().equals(FULL)) {
+                if (node.getType() == RIGHT || node.getType() == FULL) {
                     Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
                     leftScopeReferences.findFirst().ifPresent(reference -> {
                         throw semanticException(INVALID_COLUMN_REFERENCE, reference, "LATERAL reference not allowed in %s JOIN", node.getType().name());

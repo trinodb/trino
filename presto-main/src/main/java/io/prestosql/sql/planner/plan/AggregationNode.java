@@ -120,7 +120,7 @@ public class AggregationNode
      */
     public boolean hasDefaultOutput()
     {
-        return hasEmptyGroupingSet() && (step.isOutputPartial() || step.equals(SINGLE));
+        return hasEmptyGroupingSet() && (step.isOutputPartial() || step == SINGLE);
     }
 
     public boolean hasEmptyGroupingSet()
