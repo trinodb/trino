@@ -50,6 +50,12 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
+    public void testCreateSchema()
+    {
+        // Cassandra does not support creating schemas
+    }
+
+    @Override
     public void testRenameTable()
     {
         // Cassandra does not support renaming tables

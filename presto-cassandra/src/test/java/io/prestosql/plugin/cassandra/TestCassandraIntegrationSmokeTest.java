@@ -105,12 +105,6 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
-    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Cassandra connector does not support column default values");

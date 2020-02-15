@@ -119,4 +119,10 @@ public class TestPhoenixDistributedQueries
         // Phoenix connector currently does not support comment on table
         assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
+
+    @Override
+    public void testCreateSchema()
+    {
+        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
+    }
 }

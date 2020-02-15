@@ -304,12 +304,6 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("DROP TABLE test.view_base");
     }
 
-    @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();

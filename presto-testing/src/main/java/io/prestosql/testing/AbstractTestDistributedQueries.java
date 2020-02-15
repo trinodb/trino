@@ -1142,4 +1142,15 @@ public abstract class AbstractTestDistributedQueries
                         "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
                 "VALUES (1, '0 00:00:01.000')");
     }
+
+    @Test
+    public void testCreateSchema()
+    {
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("test_schema_create");
+        assertUpdate("CREATE SCHEMA test_schema_create");
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains("test_schema_create");
+        assertQueryFails("CREATE SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' already exists");
+        assertUpdate("DROP SCHEMA test_schema_create");
+        assertQueryFails("DROP SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' does not exist");
+    }
 }

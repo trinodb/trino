@@ -46,6 +46,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testCreateSchema()
+    {
+        // schema creation is not supported
+    }
+
+    @Override
     public void testAddColumn()
     {
         // Adding columns via SQL are not supported until adding columns with comments are supported
