@@ -151,12 +151,6 @@ public class TestPhoenixIntegrationSmokeTest
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
     }
 
-    @Override
-    public void testCreateSchema()
-    {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
-    }
-
     private void executeInPhoenix(String sql)
             throws SQLException
     {

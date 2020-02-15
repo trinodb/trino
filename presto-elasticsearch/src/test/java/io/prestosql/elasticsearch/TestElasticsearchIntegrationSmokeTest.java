@@ -684,12 +684,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
     }
 
-    @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
     private void index(String index, Map<String, Object> document)
             throws IOException
     {

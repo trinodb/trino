@@ -51,10 +51,4 @@ public class TestThriftIntegrationSmokeTest
                 .row("sf1");
         assertContains(actualSchemas, resultBuilder.build());
     }
-
-    @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
 }

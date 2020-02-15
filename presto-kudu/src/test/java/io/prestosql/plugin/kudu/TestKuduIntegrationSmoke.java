@@ -147,12 +147,6 @@ public class TestKuduIntegrationSmoke
                 "Not found: " + key + " = " + regexValue + " in " + tableProperties);
     }
 
-    @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {

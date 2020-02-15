@@ -41,4 +41,10 @@ public class TestRaptorDistributedQueries
     {
         // No support for char type
     }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // schema creation is not supported
+    }
 }

@@ -34,12 +34,6 @@ public class TestAccumuloIntegrationSmokeTest
     }
 
     @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
-    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");

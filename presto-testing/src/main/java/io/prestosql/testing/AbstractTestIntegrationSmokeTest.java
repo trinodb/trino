@@ -21,7 +21,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
@@ -32,11 +31,6 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     protected boolean isParameterizedVarcharSupported()
-    {
-        return true;
-    }
-
-    protected boolean canCreateSchema()
     {
         return true;
     }
@@ -242,18 +236,6 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("comment", "varchar", "", "")
                     .build();
         }
-    }
-
-    @Test
-    public void testCreateSchema()
-            throws Exception
-    {
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("test_schema_create");
-        assertUpdate("CREATE SCHEMA test_schema_create");
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains("test_schema_create");
-        assertQueryFails("CREATE SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' already exists");
-        assertUpdate("DROP SCHEMA test_schema_create");
-        assertQueryFails("DROP SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' does not exist");
     }
 
     @Test
