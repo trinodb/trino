@@ -50,11 +50,9 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -158,12 +156,6 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER);
-    }
-
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        throw new SkipException("Hive connector does not support column default values");
     }
 
     @Test

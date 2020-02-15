@@ -16,6 +16,8 @@ package io.prestosql.plugin.hive;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -31,6 +33,12 @@ public class TestHiveDistributedQueries
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(getTables());
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Hive connector does not support column default values");
     }
 
     @Override

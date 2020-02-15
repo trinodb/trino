@@ -18,12 +18,9 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
@@ -217,19 +214,6 @@ public class TestMySqlIntegrationSmokeTest
                 "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
 
         assertUpdate("DROP TABLE test_column_comment");
-    }
-
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        return new TestTable(
-                mysqlServer::execute,
-                "tpch.table",
-                "(col_required BIGINT NOT NULL," +
-                        "col_nullable BIGINT," +
-                        "col_default BIGINT DEFAULT 43," +
-                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
-                        "col_required2 BIGINT NOT NULL)");
     }
 
     private void execute(String sql)

@@ -34,12 +34,6 @@ public class TestAccumuloIntegrationSmokeTest
     }
 
     @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        throw new SkipException("Accumulo connector does not support column default values");
-    }
-
-    @Override
     public void testDescribeTable()
     {
         // Override base class because table descriptions for Accumulo connector include comments
