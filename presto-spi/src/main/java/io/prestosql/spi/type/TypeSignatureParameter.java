@@ -177,7 +177,7 @@ public class TypeSignatureParameter
 
         TypeSignatureParameter other = (TypeSignatureParameter) o;
 
-        return Objects.equals(this.kind, other.kind) &&
+        return this.kind == other.kind &&
                 Objects.equals(this.value, other.value);
     }
 

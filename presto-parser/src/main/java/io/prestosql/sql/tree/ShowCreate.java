@@ -89,7 +89,7 @@ public class ShowCreate
             return false;
         }
         ShowCreate o = (ShowCreate) obj;
-        return Objects.equals(name, o.name) && Objects.equals(type, o.type);
+        return Objects.equals(name, o.name) && type == o.type;
     }
 
     @Override
