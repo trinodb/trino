@@ -34,6 +34,7 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -58,6 +59,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.apache.parquet.format.Util.readFileMetaData;
 
@@ -208,7 +211,7 @@ public final class MetadataReader
         Statistics statistics = statisticsFromFile.orElse(null);
         org.apache.parquet.column.statistics.Statistics<?> columnStatistics = new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
 
-        if (type.getOriginalType() == OriginalType.UTF8
+        if (isStringType(type)
                 && statistics != null
                 && !statistics.isSetMin_value() && !statistics.isSetMax_value() // the min,max fields used for UTF8 since Parquet PARQUET-1025
                 && statistics.isSetMin() && statistics.isSetMax()  // the min,max fields used for UTF8 before Parquet PARQUET-1025
@@ -218,6 +221,24 @@ public final class MetadataReader
         }
 
         return columnStatistics;
+    }
+
+    private static boolean isStringType(PrimitiveType type)
+    {
+        if (type.getLogicalTypeAnnotation() == null) {
+            return false;
+        }
+
+        return type.getLogicalTypeAnnotation()
+                .accept(new LogicalTypeAnnotation.LogicalTypeAnnotationVisitor<Boolean>()
+                {
+                    @Override
+                    public Optional<Boolean> visit(LogicalTypeAnnotation.StringLogicalTypeAnnotation stringLogicalType)
+                    {
+                        return Optional.of(TRUE);
+                    }
+                })
+                .orElse(FALSE);
     }
 
     private static void tryReadOldUtf8Stats(Statistics statistics, BinaryStatistics columnStatistics)
