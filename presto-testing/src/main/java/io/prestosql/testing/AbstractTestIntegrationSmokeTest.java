@@ -13,14 +13,12 @@
  */
 package io.prestosql.testing;
 
-import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.lang.String.format;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
@@ -237,19 +235,4 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .build();
         }
     }
-
-    @Test
-    public void testInsertForDefaultColumn()
-    {
-        try (TestTable testTable = createTableWithDefaultColumns()) {
-            assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (7, null, null, 8, 9)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
-
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
-        }
-    }
-
-    protected abstract TestTable createTableWithDefaultColumns();
 }

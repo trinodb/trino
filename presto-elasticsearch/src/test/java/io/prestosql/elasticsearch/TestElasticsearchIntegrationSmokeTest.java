@@ -20,7 +20,6 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
@@ -30,7 +29,6 @@ import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -69,12 +67,6 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         elasticsearch.stop();
         client.close();
-    }
-
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        throw new SkipException("ElasticSearch connector does not support column default values");
     }
 
     @Test

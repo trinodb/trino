@@ -16,6 +16,8 @@ package io.prestosql.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
@@ -27,6 +29,12 @@ public class TestRaptorDistributedQueries
             throws Exception
     {
         return createRaptorQueryRunner(ImmutableMap.of(), true, false);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Raptor connector does not support column default values");
     }
 
     @Override

@@ -15,6 +15,7 @@ package io.prestosql.plugin.phoenix;
 
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
@@ -46,6 +47,12 @@ public class TestPhoenixDistributedQueries
     protected boolean supportsArrays()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Phoenix connector does not support column default values");
     }
 
     @Override
