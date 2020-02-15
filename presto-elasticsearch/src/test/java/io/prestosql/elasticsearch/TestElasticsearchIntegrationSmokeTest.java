@@ -690,12 +690,6 @@ public class TestElasticsearchIntegrationSmokeTest
         return false;
     }
 
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
     private void index(String index, Map<String, Object> document)
             throws IOException
     {

@@ -310,12 +310,6 @@ public class TestMongoIntegrationSmokeTest
         return false;
     }
 
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();

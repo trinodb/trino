@@ -13,28 +13,19 @@
  */
 package io.prestosql.testing;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.security.SecureRandom;
-import java.util.List;
-
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.lang.Character.MAX_RADIX;
-import static java.lang.Math.abs;
-import static java.lang.Math.min;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    private static final SecureRandom random = new SecureRandom();
-    private static final int RANDOM_SUFFIX_LENGTH = 12;
-
     protected boolean isDateTypeSupported()
     {
         return true;
@@ -48,19 +39,6 @@ public abstract class AbstractTestIntegrationSmokeTest
     protected boolean canCreateSchema()
     {
         return true;
-    }
-
-    protected boolean canDropSchema()
-    {
-        return true;
-    }
-
-    protected void cleanUpSchemas(List<String> schemaNames)
-            throws Exception
-    {
-        if (!canDropSchema()) {
-            throw new IllegalStateException("cleanUpSchemas() must be implemented if canDropSchema is false");
-        }
     }
 
     @Test
@@ -270,30 +248,12 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testCreateSchema()
             throws Exception
     {
-        skipTestUnless(canCreateSchema());
-        String schemaName = "schema_" + randomNameSuffix();
-        assertEquals(computeActual(format("SHOW SCHEMAS LIKE '%s'", schemaName)).getRowCount(), 0);
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
-        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' already exists", schemaName));
-        if (canDropSchema()) {
-            assertUpdate("DROP SCHEMA " + schemaName);
-            assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
-        }
-        else {
-            cleanUpSchemas(ImmutableList.of(schemaName));
-        }
-    }
-
-    @Test
-    public void testDropSchema()
-    {
-        skipTestUnless(canCreateSchema() && canDropSchema());
-        String schemaName = "schema_" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
-        assertUpdate("DROP SCHEMA " + schemaName);
-        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("test_schema_create");
+        assertUpdate("CREATE SCHEMA test_schema_create");
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains("test_schema_create");
+        assertQueryFails("CREATE SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' already exists");
+        assertUpdate("DROP SCHEMA test_schema_create");
+        assertQueryFails("DROP SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' does not exist");
     }
 
     @Test
@@ -310,10 +270,4 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     protected abstract TestTable createTableWithDefaultColumns();
-
-    private static String randomNameSuffix()
-    {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
-        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
-    }
 }

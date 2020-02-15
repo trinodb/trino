@@ -43,12 +43,6 @@ public class TestKafkaIntegrationSmokeTest
     }
 
     @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Kafka connector does not support column default values");

@@ -207,20 +207,6 @@ public class TestMySqlIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert_not_null");
     }
 
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected void cleanUpSchemas(List<String> schemaNames)
-    {
-        for (String schemaName : schemaNames) {
-            execute("DROP SCHEMA " + schemaName);
-        }
-    }
-
     @Test
     public void testColumnComment()
     {

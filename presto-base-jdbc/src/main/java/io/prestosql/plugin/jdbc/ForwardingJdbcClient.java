@@ -229,4 +229,10 @@ public abstract class ForwardingJdbcClient
     {
         delegate().createSchema(identity, schemaName);
     }
+
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate().dropSchema(identity, schemaName);
+    }
 }

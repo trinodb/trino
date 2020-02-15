@@ -153,12 +153,6 @@ public class TestKuduIntegrationSmoke
         return false;
     }
 
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {

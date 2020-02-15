@@ -57,10 +57,4 @@ public class TestThriftIntegrationSmokeTest
     {
         return false;
     }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
 }
