@@ -229,7 +229,7 @@ public final class JsonUtil
                 return (block, position) -> String.valueOf(type.getLong(block, position));
             }
             if (type instanceof RealType) {
-                return (block, position) -> String.valueOf(intBitsToFloat((int) type.getLong(block, position)));
+                return (block, position) -> String.valueOf(intBitsToFloat(toIntExact(type.getLong(block, position))));
             }
             if (type instanceof DoubleType) {
                 return (block, position) -> String.valueOf(type.getDouble(block, position));
@@ -382,7 +382,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                float value = intBitsToFloat((int) REAL.getLong(block, position));
+                float value = intBitsToFloat(toIntExact(REAL.getLong(block, position)));
                 jsonGenerator.writeNumber(value);
             }
         }
@@ -524,8 +524,8 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                long value = DATE.getLong(block, position);
-                jsonGenerator.writeString(printDate((int) value));
+                int value = toIntExact(DATE.getLong(block, position));
+                jsonGenerator.writeString(printDate(value));
             }
         }
     }
