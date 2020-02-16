@@ -84,6 +84,7 @@ import static io.prestosql.tpch.TpchTable.PART;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
@@ -404,7 +405,7 @@ public class H2QueryRunner
                         batch.bind(column, cursor.getLong(column));
                     }
                     else if (INTEGER.equals(type)) {
-                        batch.bind(column, (int) cursor.getLong(column));
+                        batch.bind(column, toIntExact(cursor.getLong(column)));
                     }
                     else if (DOUBLE.equals(type)) {
                         batch.bind(column, cursor.getDouble(column));

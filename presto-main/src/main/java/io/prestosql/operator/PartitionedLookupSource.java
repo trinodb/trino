@@ -208,6 +208,7 @@ public class PartitionedLookupSource
 
     private int decodePartition(long partitionedJoinPosition)
     {
+        //noinspection NumericCastThatLosesPrecision - partitionMask is an int
         return (int) (partitionedJoinPosition & partitionMask);
     }
 
