@@ -33,6 +33,7 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.AWS;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ElasticsearchConnectorModule
         extends AbstractConfigurationAwareModule
@@ -46,6 +47,8 @@ public class ElasticsearchConnectorModule
         binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
         binder.bind(NodesSystemTable.class).in(Scopes.SINGLETON);
+
+        newExporter(binder).export(ElasticsearchClient.class).withGeneratedName();
 
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
