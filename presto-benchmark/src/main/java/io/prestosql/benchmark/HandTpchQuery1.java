@@ -45,6 +45,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HandTpchQuery1
@@ -251,7 +252,7 @@ public class HandTpchQuery1
                     continue;
                 }
 
-                int shipDate = (int) DATE.getLong(shipDateBlock, position);
+                int shipDate = toIntExact(DATE.getLong(shipDateBlock, position));
 
                 // where
                 //     shipdate <= '1998-09-02'

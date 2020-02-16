@@ -184,7 +184,7 @@ public class ElasticsearchClient
                         configBuilder -> configBuilder
                                 .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
                                 .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())))
-                .setMaxRetryTimeoutMillis((int) config.getMaxRetryTime().toMillis());
+                .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
 
         builder.setHttpClientConfigCallback(clientBuilder -> {
             if (config.isTlsEnabled()) {
@@ -523,7 +523,7 @@ public class ElasticsearchClient
 
         if (limit.isPresent() && limit.getAsLong() < scrollSize) {
             // Safe to cast it to int because scrollSize is int.
-            sourceBuilder.size((int) limit.getAsLong());
+            sourceBuilder.size(toIntExact(limit.getAsLong()));
         }
         else {
             sourceBuilder.size(scrollSize);
