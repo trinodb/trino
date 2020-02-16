@@ -304,7 +304,7 @@ public abstract class AbstractTestDistributedQueries
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
-    private void assertExplainAnalyze(@Language("SQL") String query)
+    protected void assertExplainAnalyze(@Language("SQL") String query)
     {
         String value = (String) computeActual(query).getOnlyValue();
 
