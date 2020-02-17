@@ -982,7 +982,11 @@ public final class DateTimeFunctions
     public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         long millis = unpackMillisUtc(timestampWithTimeZone);
-        millis = unpackChronology(timestampWithTimeZone).monthOfYear().roundCeiling(millis + 1);
+        ISOChronology isoChronology = unpackChronology(timestampWithTimeZone);
+        millis = isoChronology.monthOfYear().roundCeiling(millis + 1);
+        // millis is currently midnight in timezone of the original value
+        // convert to UTC
+        millis = millis + isoChronology.getZone().getOffset(millis) - MILLISECONDS_IN_DAY;
         return MILLISECONDS.toDays(millis);
     }
 
