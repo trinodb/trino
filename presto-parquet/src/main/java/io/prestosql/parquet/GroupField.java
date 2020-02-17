@@ -19,8 +19,10 @@ import io.prestosql.spi.type.Type;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class GroupField
         extends Field
@@ -43,5 +45,19 @@ public class GroupField
     public List<Optional<Field>> getChildren()
     {
         return children;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("type", getType())
+                .add("repetitionLevel", getRepetitionLevel())
+                .add("definitionLevel", getDefinitionLevel())
+                .add("required", isRequired())
+                .add("children", getChildren().stream()
+                        .map(field -> field.orElse(null))
+                        .collect(toList()))
+                .toString();
     }
 }
