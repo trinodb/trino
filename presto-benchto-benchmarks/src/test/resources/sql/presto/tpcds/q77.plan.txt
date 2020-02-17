@@ -6,10 +6,10 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (channel$gid, groupid, id$gid)
                         local exchange (REPARTITION, ROUND_ROBIN, [])
                             join (LEFT, PARTITIONED):
-                                final aggregation over (s_store_sk)
+                                final aggregation over (ss_store_sk)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["s_store_sk"])
-                                            partial aggregation over (s_store_sk)
+                                        remote exchange (REPARTITION, HASH, ["ss_store_sk"])
+                                            partial aggregation over (ss_store_sk)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         scan store_sales
@@ -19,10 +19,10 @@ local exchange (GATHER, SINGLE, [])
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan store
-                                final aggregation over (s_store_sk_46)
+                                final aggregation over (sr_store_sk)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["s_store_sk_46"])
-                                            partial aggregation over (s_store_sk_46)
+                                        remote exchange (REPARTITION, HASH, ["sr_store_sk"])
+                                            partial aggregation over (sr_store_sk)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         scan store_returns
@@ -54,10 +54,10 @@ local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
                             join (LEFT, PARTITIONED):
-                                final aggregation over (wp_web_page_sk)
+                                final aggregation over (ws_web_page_sk)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["wp_web_page_sk"])
-                                            partial aggregation over (wp_web_page_sk)
+                                        remote exchange (REPARTITION, HASH, ["ws_web_page_sk"])
+                                            partial aggregation over (ws_web_page_sk)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         scan web_sales
@@ -67,10 +67,10 @@ local exchange (GATHER, SINGLE, [])
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan web_page
-                                final aggregation over (wp_web_page_sk_298)
+                                final aggregation over (wr_web_page_sk)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["wp_web_page_sk_298"])
-                                            partial aggregation over (wp_web_page_sk_298)
+                                        remote exchange (REPARTITION, HASH, ["wr_web_page_sk"])
+                                            partial aggregation over (wr_web_page_sk)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         scan web_returns

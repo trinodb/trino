@@ -537,6 +537,9 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
+            // unalias symbols before adding exchanges to use same partitioning symbols in joins, aggregations and other
+            // operators that require node partitioning
+            builder.add(new UnaliasSymbolReferences(metadata));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, typeAnalyzer)));
         }
         //noinspection UnusedAssignment
