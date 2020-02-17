@@ -19,6 +19,7 @@ import io.prestosql.spi.type.Type;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class GroupField
@@ -29,6 +30,13 @@ public class GroupField
     public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, List<Optional<Field>> children)
     {
         super(type, repetitionLevel, definitionLevel, required);
+        checkArgument(
+                type.getTypeParameters().size() == children.size(),
+                "Type %s has %s parameters, but %s children: %s",
+                type,
+                type.getTypeParameters().size(),
+                children.size(),
+                children);
         this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
     }
 
