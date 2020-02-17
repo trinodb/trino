@@ -130,7 +130,16 @@ public class ShowStatsRewrite
             if (node.getRelation() instanceof TableSubquery) {
                 Query query = ((TableSubquery) node.getRelation()).getQuery();
                 QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-                Plan plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
+
+                Plan plan;
+
+                try {
+                    plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
+                }
+                catch (AccessDeniedException e) {
+                    throw rewriteAccessDeniedException(e);
+                }
+
                 validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
                 Constraint constraint = getConstraint(plan);
