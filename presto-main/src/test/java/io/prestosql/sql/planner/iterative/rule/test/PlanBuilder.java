@@ -462,13 +462,7 @@ public class PlanBuilder
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
     {
-        DeleteTarget deleteTarget = new DeleteTarget(
-                new TableHandle(
-                        new CatalogName("testConnector"),
-                        new TestingTableHandle(),
-                        TestingTransactionHandle.create(),
-                        Optional.of(TestingHandle.INSTANCE)),
-                schemaTableName);
+        DeleteTarget deleteTarget = deleteTarget(schemaTableName);
         return new TableFinishNode(
                 idAllocator.getNextId(),
                 exchange(e -> e
@@ -484,6 +478,27 @@ public class PlanBuilder
                 deleteRowId,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    public DeleteNode delete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId, List<Symbol> outputs)
+    {
+        return new DeleteNode(
+                idAllocator.getNextId(),
+                deleteSource,
+                deleteTarget(schemaTableName),
+                deleteRowId,
+                ImmutableList.copyOf(outputs));
+    }
+
+    private DeleteTarget deleteTarget(SchemaTableName schemaTableName)
+    {
+        return new DeleteTarget(
+                new TableHandle(
+                        new CatalogName("testConnector"),
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.of(TestingHandle.INSTANCE)),
+                schemaTableName);
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
