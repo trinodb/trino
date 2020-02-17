@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.base.jmx;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -27,18 +27,18 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
-// Note: There are multiple copies of this class in the codebase.  If you change one you, should change them all.
 public class ConnectorObjectNameGeneratorModule
         implements Module
 {
-    private static final String CONNECTOR_PACKAGE_NAME = "io.prestosql.plugin.hive";
-    private static final String DEFAULT_DOMAIN_BASE = "presto.plugin.hive";
-
     private final String catalogName;
+    private final String packageName;
+    private final String defaultDomainBase;
 
-    public ConnectorObjectNameGeneratorModule(String catalogName)
+    public ConnectorObjectNameGeneratorModule(String catalogName, String packageName, String defaultDomainBase)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.packageName = requireNonNull(packageName, "packageName is null");
+        this.defaultDomainBase = requireNonNull(defaultDomainBase, "defaultDomainBase is null");
     }
 
     @Override
@@ -50,8 +50,8 @@ public class ConnectorObjectNameGeneratorModule
     @Provides
     ObjectNameGenerator createPrefixObjectNameGenerator(ConnectorObjectNameGeneratorConfig config)
     {
-        String domainBase = firstNonNull(config.getDomainBase(), DEFAULT_DOMAIN_BASE);
-        return new ConnectorObjectNameGenerator(domainBase, catalogName);
+        String domainBase = firstNonNull(config.getDomainBase(), defaultDomainBase);
+        return new ConnectorObjectNameGenerator(packageName, domainBase, catalogName);
     }
 
     public static class ConnectorObjectNameGeneratorConfig
@@ -74,11 +74,13 @@ public class ConnectorObjectNameGeneratorModule
     public static final class ConnectorObjectNameGenerator
             implements ObjectNameGenerator
     {
+        private final String packageName;
         private final String domainBase;
         private final String catalogName;
 
-        public ConnectorObjectNameGenerator(String domainBase, String catalogName)
+        public ConnectorObjectNameGenerator(String packageName, String domainBase, String catalogName)
         {
+            this.packageName = packageName;
             this.domainBase = domainBase;
             this.catalogName = catalogName;
         }
@@ -108,8 +110,8 @@ public class ConnectorObjectNameGeneratorModule
         private String toDomain(Class<?> type)
         {
             String domain = type.getPackage().getName();
-            if (domain.startsWith(CONNECTOR_PACKAGE_NAME)) {
-                domain = domainBase + domain.substring(CONNECTOR_PACKAGE_NAME.length());
+            if (domain.startsWith(packageName)) {
+                domain = domainBase + domain.substring(packageName.length());
             }
             return domain;
         }
