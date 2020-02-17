@@ -25,7 +25,6 @@ import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.dictionary.Dictionary;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -109,12 +108,8 @@ public abstract class PrimitiveColumnReader
 
     private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
     {
-        Optional<Type> type = createDecimalType(descriptor);
-        if (type.isPresent()) {
-            DecimalType parquetDecimalType = (DecimalType) type.get();
-            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, parquetDecimalType));
-        }
-        return Optional.empty();
+        return createDecimalType(descriptor)
+                .map(decimalType -> DecimalColumnReaderFactory.createReader(descriptor, decimalType));
     }
 
     public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
