@@ -20,6 +20,7 @@ import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.Timestamps;
 import io.prestosql.spi.type.Type;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -39,6 +40,15 @@ public class TimestampMicrosColumnReader
     public TimestampMicrosColumnReader(RichColumnDescriptor descriptor, Type prestoType)
     {
         super(descriptor, prestoType);
+        checkArgument(
+                prestoType == TIMESTAMP_MILLIS ||
+                        prestoType == TIMESTAMP_MICROS ||
+                        prestoType == TIMESTAMP_NANOS ||
+                        prestoType == TIMESTAMP_TZ_MILLIS ||
+                        prestoType == TIMESTAMP_TZ_MICROS ||
+                        prestoType == TIMESTAMP_TZ_NANOS,
+                "Unsupported type: %s",
+                prestoType);
     }
 
     @Override

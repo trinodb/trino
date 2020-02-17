@@ -22,6 +22,7 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.parquet.ParquetTimestampUtils.decode;
 import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -38,6 +39,7 @@ public class TimestampColumnReader
     public TimestampColumnReader(RichColumnDescriptor descriptor, Type prestoType, DateTimeZone timeZone)
     {
         super(descriptor, prestoType);
+        checkArgument(prestoType instanceof TimestampType || prestoType instanceof TimestampWithTimeZoneType, "Unsupported type: %s", prestoType);
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 

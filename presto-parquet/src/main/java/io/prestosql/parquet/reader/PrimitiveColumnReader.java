@@ -52,6 +52,7 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -99,7 +100,7 @@ public abstract class PrimitiveColumnReader
         requireNonNull(prestoType, "prestoType is null");
 
         Optional<DecimalType> parquetDecimalType = createDecimalType(descriptor);
-        Optional<PrimitiveColumnReader> decimalColumnReader = createDecimalColumnReader(descriptor, prestoType);
+        Optional<Supplier<PrimitiveColumnReader>> decimalColumnReader = createDecimalColumnReader(descriptor, prestoType);
         verify(parquetDecimalType.isPresent() == decimalColumnReader.isPresent(), "parquetDecimalType and decimalColumnReader should be present at the same time");
 
         if (prestoType == BooleanType.BOOLEAN && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.BOOLEAN) {
@@ -113,7 +114,7 @@ public abstract class PrimitiveColumnReader
             // TODO verify no truncation occurs
             if (parquetDecimalType.isPresent() && parquetDecimalType.get().getScale() == 0) {
                 // TODO use IntColumnReader or LongColumnReader when applicable
-                return decimalColumnReader.orElseThrow(() -> new VerifyException("decimalColumnReader not present when parquetDecimalType is present"));
+                return decimalColumnReader.orElseThrow(() -> new VerifyException("decimalColumnReader not present when parquetDecimalType is present")).get();
             }
 
             if (!parquetDecimalType.isPresent()) {
@@ -129,7 +130,7 @@ public abstract class PrimitiveColumnReader
         if (prestoType instanceof DecimalType) {
             if (parquetDecimalType.isPresent() && ((DecimalType) prestoType).getScale() == parquetDecimalType.get().getScale()) {
                 // TODO allow rescaling
-                return decimalColumnReader.orElseThrow(() -> new VerifyException("decimalColumnReader not present when parquetDecimalType is present"));
+                return decimalColumnReader.orElseThrow(() -> new VerifyException("decimalColumnReader not present when parquetDecimalType is present")).get();
             }
         }
 
@@ -169,10 +170,10 @@ public abstract class PrimitiveColumnReader
         throw new ParquetDecodingException(format("Cannot read Presto %s from \"%s\" column", prestoType, descriptor));
     }
 
-    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor, Type prestoType)
+    private static Optional<Supplier<PrimitiveColumnReader>> createDecimalColumnReader(RichColumnDescriptor descriptor, Type prestoType)
     {
         return createDecimalType(descriptor)
-                .map(decimalType -> DecimalColumnReaderFactory.createReader(descriptor, decimalType, prestoType));
+                .map(decimalType -> () -> DecimalColumnReaderFactory.createReader(descriptor, decimalType, prestoType));
     }
 
     public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor, Type prestoType)
