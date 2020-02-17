@@ -981,8 +981,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
+        ISOChronology isoChronology = unpackChronology(timestampWithTimeZone);
         long millis = unpackMillisUtc(timestampWithTimeZone);
-        millis = unpackChronology(timestampWithTimeZone).monthOfYear().roundCeiling(millis + 1);
+        // Calculate point in time corresponding to midnight (00:00) of first day of next month in the given zone.
+        millis = isoChronology.monthOfYear().roundCeiling(millis + 1);
+        // Convert to UTC and take the previous day
+        millis = isoChronology.getZone().convertUTCToLocal(millis) - MILLISECONDS_IN_DAY;
         return MILLISECONDS.toDays(millis);
     }
 

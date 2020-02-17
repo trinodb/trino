@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.type.BigintType;
@@ -355,10 +356,19 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("last_day_of_month(TIMESTAMP '2019-08-31 23:59:59.999')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
 
         assertFunction("last_day_of_month(" + WEIRD_TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(DATE.withDayOfMonth(31)));
-        assertFunction("last_day_of_month(TIMESTAMP '2019-08-01 00:00:00.000 +05:45')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
-        assertFunction("last_day_of_month(TIMESTAMP '2019-08-01 17:00:00.000 +05:45')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
-        assertFunction("last_day_of_month(TIMESTAMP '2019-08-01 23:59:59.999 +05:45')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
-        assertFunction("last_day_of_month(TIMESTAMP '2019-08-31 23:59:59.999 +05:45')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
+        ImmutableList.of("+05:45", "+00:00", "-05:45", "Asia/Tokyo", "Europe/London", "America/Los_Angeles", "America/Bahia_Banderas").forEach(timeZone -> {
+            assertFunction("last_day_of_month(TIMESTAMP '2018-12-31 17:00:00.000 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2018, 12, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2018-12-31 20:00:00.000 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2018, 12, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2018-12-31 23:59:59.999 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2018, 12, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-01-01 00:00:00.000 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 1, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-01-01 00:00:00.001 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 1, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-01-01 03:00:00.000 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 1, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-01-01 06:00:00.000 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 1, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-08-01 00:00:00.000 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-08-01 17:00:00.000 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-08-01 23:59:59.999 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
+            assertFunction("last_day_of_month(TIMESTAMP '2019-08-31 23:59:59.999 " + timeZone + "')", DateType.DATE, toDate(LocalDate.of(2019, 8, 31)));
+        });
     }
 
     @Test
