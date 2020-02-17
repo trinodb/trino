@@ -41,14 +41,14 @@ public class ShortDecimalColumnReader
 {
     private final DecimalType parquetDecimalType;
 
-    ShortDecimalColumnReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
+    ShortDecimalColumnReader(RichColumnDescriptor descriptor, Type prestoType, DecimalType parquetDecimalType)
     {
-        super(descriptor);
+        super(descriptor, prestoType);
         this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type prestoType)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             if (!((prestoType instanceof DecimalType) || isIntegerType(prestoType))) {

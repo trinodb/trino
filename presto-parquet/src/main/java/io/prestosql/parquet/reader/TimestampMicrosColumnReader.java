@@ -36,37 +36,37 @@ import static java.lang.Math.toIntExact;
 public class TimestampMicrosColumnReader
         extends PrimitiveColumnReader
 {
-    public TimestampMicrosColumnReader(RichColumnDescriptor descriptor)
+    public TimestampMicrosColumnReader(RichColumnDescriptor descriptor, Type prestoType)
     {
-        super(descriptor);
+        super(descriptor, prestoType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long epochMicros = valuesReader.readLong();
             // TODO: specialize the class at creation time
-            if (type == TIMESTAMP_MILLIS) {
-                type.writeLong(blockBuilder, Timestamps.round(epochMicros, 3));
+            if (prestoType == TIMESTAMP_MILLIS) {
+                prestoType.writeLong(blockBuilder, Timestamps.round(epochMicros, 3));
             }
-            else if (type == TIMESTAMP_MICROS) {
-                type.writeLong(blockBuilder, epochMicros);
+            else if (prestoType == TIMESTAMP_MICROS) {
+                prestoType.writeLong(blockBuilder, epochMicros);
             }
-            else if (type == TIMESTAMP_NANOS) {
-                type.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
+            else if (prestoType == TIMESTAMP_NANOS) {
+                prestoType.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
             }
-            else if (type == TIMESTAMP_TZ_MILLIS) {
+            else if (prestoType == TIMESTAMP_TZ_MILLIS) {
                 long epochMillis = Timestamps.round(epochMicros, 3) / MICROSECONDS_PER_MILLISECOND;
-                type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
+                prestoType.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
             }
-            else if (type == TIMESTAMP_TZ_MICROS || type == TIMESTAMP_TZ_NANOS) {
+            else if (prestoType == TIMESTAMP_TZ_MICROS || prestoType == TIMESTAMP_TZ_NANOS) {
                 long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
                 int picosOfMillis = toIntExact(epochMicros % MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND;
-                type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, UTC_KEY));
+                prestoType.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, UTC_KEY));
             }
             else {
-                throw new IllegalArgumentException("wrong type: " + type);
+                throw new IllegalArgumentException("wrong type: " + prestoType);
             }
         }
         else if (isValueNull()) {
