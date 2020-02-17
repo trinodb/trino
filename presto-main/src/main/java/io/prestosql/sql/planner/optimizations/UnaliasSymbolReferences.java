@@ -521,7 +521,9 @@ public class UnaliasSymbolReferences
 
             if (node.getType() == INNER) {
                 canonicalCriteria.stream()
-                        .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))
+                        // Map right equi-condition symbol to left symbol. This helps to
+                        // reuse join node partitioning better as partitioning properties are
+                        // only derived from probe side symbols
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
