@@ -16,7 +16,6 @@ package io.prestosql.server.protocol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,11 +56,11 @@ import io.prestosql.spi.WarningCode;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.transaction.TransactionId;
+import io.prestosql.util.Failures;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -71,7 +70,6 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -90,8 +88,10 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -161,6 +161,9 @@ class Query
 
     @GuardedBy("this")
     private boolean clearTransactionId;
+
+    @GuardedBy("this")
+    private Optional<Throwable> typeSerializationException = Optional.empty();
 
     @GuardedBy("this")
     private Long updateCount;
@@ -388,62 +391,21 @@ class Query
                 .replaceQuery(queryId.toString())
                 .build();
 
-        // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
-        // NOTE: it is critical that query results are created for the pages removed from the exchange
-        // client while holding the lock because the query may transition to the finished state when the
-        // last page is removed.  If another thread observes this state before the response is cached
-        // the pages will be lost.
-        Iterable<List<Object>> data = null;
-        try {
-            ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
-            long bytes = 0;
-            long rows = 0;
-            long targetResultBytes = targetResultSize.toBytes();
-            while (bytes < targetResultBytes) {
-                SerializedPage serializedPage = exchangeClient.pollPage();
-                if (serializedPage == null) {
-                    break;
-                }
-
-                Page page = serde.deserialize(serializedPage);
-                bytes += page.getLogicalSizeInBytes();
-                rows += page.getPositionCount();
-                pages.add(new RowIterable(session, types, page));
-            }
-            if (rows > 0) {
-                // client implementations do not properly handle empty list of data
-                data = Iterables.concat(pages.build());
-            }
-        }
-        catch (Throwable cause) {
-            queryManager.failQuery(queryId, cause);
-        }
-
         // get the query info before returning
         // force update if query manager is closed
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
-        // TODO: figure out a better way to do this
-        // grab the update count for non-queries
-        if ((data != null) && (queryInfo.getUpdateType() != null) && (updateCount == null) &&
-                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
-            Iterator<List<Object>> iterator = data.iterator();
-            if (iterator.hasNext()) {
-                Number number = (Number) iterator.next().get(0);
-                if (number != null) {
-                    updateCount = number.longValue();
-                }
-            }
+        // fetch result data from exchange
+        QueryResultRows resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+
+        if ((queryInfo.getUpdateType() != null) && (updateCount == null)) {
+            // grab the update count for non-queries
+            Optional<Long> updatedRowsCount = resultRows.getUpdateCount();
+            updateCount = updatedRowsCount.orElse(null);
         }
 
         closeExchangeClientIfNecessary(queryInfo);
-
-        // for queries with no output, return a fake result for clients that require it
-        if ((queryInfo.getState() == QueryState.FINISHED) && queryInfo.getOutputStage().isEmpty()) {
-            columns = ImmutableList.of(createColumn("result", BooleanType.BOOLEAN));
-            data = ImmutableSet.of(ImmutableList.of(true));
-        }
 
         // advance next token
         // only return a next if
@@ -492,10 +454,10 @@ class Query
                 queryHtmlUri,
                 partialCancelUri,
                 nextResultsUri,
-                columns,
-                data,
+                resultRows.getColumns(),
+                resultRows.isEmpty() ? null : resultRows, // client excepts null that indicates "no data"
                 toStatementStats(queryInfo),
-                toQueryError(queryInfo),
+                toQueryError(queryInfo, typeSerializationException),
                 mappedCopy(queryInfo.getWarnings(), Query::toClientWarning),
                 queryInfo.getUpdateType(),
                 updateCount);
@@ -507,6 +469,46 @@ class Query
         return queryResults;
     }
 
+    private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
+    {
+        // For queries with no output, return a fake boolean result for clients that require it.
+        if ((queryInfo.getState() == QueryState.FINISHED) && queryInfo.getOutputStage().isEmpty()) {
+            return queryResultRowsBuilder(session)
+                    .withSingleBooleanValue(createColumn("result", BooleanType.BOOLEAN), true)
+                    .build();
+        }
+
+        // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
+        // NOTE: it is critical that query results are created for the pages removed from the exchange
+        // client while holding the lock because the query may transition to the finished state when the
+        // last page is removed.  If another thread observes this state before the response is cached
+        // the pages will be lost.
+        QueryResultRows.Builder resultBuilder = queryResultRowsBuilder(session)
+                // Intercept serialization exceptions and fail query if it's still possible.
+                // Put serialization exception aside to return failed query result.
+                .withExceptionConsumer(this::handleSerializationException)
+                .withColumns(columns, types);
+
+        try {
+            long bytes = 0;
+            while (bytes < targetResultBytes) {
+                SerializedPage serializedPage = exchangeClient.pollPage();
+                if (serializedPage == null) {
+                    break;
+                }
+
+                Page page = serde.deserialize(serializedPage);
+                bytes += page.getLogicalSizeInBytes();
+                resultBuilder.addPage(page);
+            }
+        }
+        catch (Throwable cause) {
+            queryManager.failQuery(queryId, cause);
+        }
+
+        return resultBuilder.build();
+    }
+
     private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
     {
         // Close the exchange client if the query has failed, or if the query
@@ -515,6 +517,21 @@ class Query
         if ((queryInfo.getState() == FAILED) ||
                 (queryInfo.getState().isDone() && queryInfo.getOutputStage().isEmpty())) {
             exchangeClient.close();
+        }
+    }
+
+    private void handleSerializationException(Throwable exception)
+    {
+        // failQuery can throw exception if query has already finished.
+        try {
+            queryManager.failQuery(queryId, exception);
+        }
+        catch (RuntimeException e) {
+            log.debug("Could not fail query", e);
+        }
+
+        if (typeSerializationException.isEmpty()) {
+            typeSerializationException = Optional.of(exception);
         }
     }
 
@@ -716,16 +733,19 @@ class Query
         return Optional.of(stage.getStageId().getId());
     }
 
-    private static QueryError toQueryError(QueryInfo queryInfo)
+    private static QueryError toQueryError(QueryInfo queryInfo, Optional<Throwable> exception)
     {
         QueryState state = queryInfo.getState();
-        if (state != FAILED) {
+        if (state != FAILED && exception.isEmpty()) {
             return null;
         }
 
         ExecutionFailureInfo executionFailure;
         if (queryInfo.getFailureInfo() != null) {
             executionFailure = queryInfo.getFailureInfo();
+        }
+        else if (exception.isPresent()) {
+            executionFailure = Failures.toFailure(exception.get());
         }
         else {
             log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
@@ -736,6 +756,9 @@ class Query
         ErrorCode errorCode;
         if (queryInfo.getErrorCode() != null) {
             errorCode = queryInfo.getErrorCode();
+        }
+        else if (exception.isPresent()) {
+            errorCode = SERIALIZATION_ERROR.toErrorCode();
         }
         else {
             errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
