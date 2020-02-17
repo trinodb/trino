@@ -24,12 +24,12 @@ import static java.util.Objects.requireNonNull;
 public class GroupField
         extends Field
 {
-    private final ImmutableList<Optional<Field>> children;
+    private final List<Optional<Field>> children;
 
-    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, ImmutableList<Optional<Field>> children)
+    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, List<Optional<Field>> children)
     {
         super(type, repetitionLevel, definitionLevel, required);
-        this.children = requireNonNull(children, "children is required");
+        this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
     }
 
     public List<Optional<Field>> getChildren()
