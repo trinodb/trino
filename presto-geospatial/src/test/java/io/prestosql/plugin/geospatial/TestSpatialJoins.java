@@ -55,6 +55,12 @@ public class TestSpatialJoins
             "(7.1, 7.2, 'z', 3), " +
             "(null, 1.2, 'null', 4)";
 
+    private static final String MULTI_POINTS_SQL = "VALUES " +
+            "(-0.1, -0.1, 5.1, 5.1, 'x', 1), " +
+            "(7.1, 7.1, 2.1, 2.1, 'y', 2), " +
+            "(7.1, 7.2, 8, 9, 'z', 3), " +
+            "(null, 1.2, 4, null, 'null', 4)";
+
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
@@ -354,5 +360,45 @@ public class TestSpatialJoins
                         "RIGHT JOIN (" + POINTS_SQL + ") AS b (latitude, longitude, name, id) ON a.latitude = b.latitude AND a.longitude = b.longitude AND a.latitude > 0 " +
                         "JOIN (" + POINTS_SQL + ") AS c (latitude, longitude, name, id) ON ST_Distance(ST_Point(a.latitude, b.longitude), ST_Point(c.latitude, c.longitude)) < 1 ",
                 "VALUES ('y', 'y', 'y'), ('z', 'z', 'z')");
+    }
+
+    @Test
+    public void testSpatialJoinOverLeftJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "LEFT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c'), ('z', NULL), ('null', NULL)");
+    }
+
+    @Test
+    public void testSpatialJoinOverRightJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "RIGHT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c'), (NULL, 'd'), (NULL, 'empty'), (NULL, 'null')");
+    }
+
+    @Test
+    public void testSpatialJoinOverInnerJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "INNER JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c')");
+    }
+
+    @Test
+    public void testSpatialJoinOverFullJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "FULL JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b'), ('y', 'c'), (NULL, 'd'), (NULL, 'empty'), ('z', NULL), (NULL, 'null'), ('null', NULL)");
     }
 }
