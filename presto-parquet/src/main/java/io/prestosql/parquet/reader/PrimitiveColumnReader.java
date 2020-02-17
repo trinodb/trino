@@ -13,6 +13,7 @@
  */
 package io.prestosql.parquet.reader;
 
+import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
 import io.prestosql.parquet.DataPage;
 import io.prestosql.parquet.DataPageV1;
@@ -23,9 +24,21 @@ import io.prestosql.parquet.ParquetEncoding;
 import io.prestosql.parquet.ParquetTypeUtils;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.dictionary.Dictionary;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.bytes.ByteBufferInputStream;
@@ -35,6 +48,7 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.OriginalType;
 import org.joda.time.DateTimeZone;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -46,7 +60,7 @@ import static io.prestosql.parquet.ParquetTypeUtils.createDecimalType;
 import static io.prestosql.parquet.ValuesType.DEFINITION_LEVEL;
 import static io.prestosql.parquet.ValuesType.REPETITION_LEVEL;
 import static io.prestosql.parquet.ValuesType.VALUES;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveColumnReader
@@ -78,38 +92,80 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, Type prestoType, DateTimeZone timeZone)
     {
-        switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
-            case BOOLEAN:
-                return new BooleanColumnReader(descriptor);
-            case INT32:
-                return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
-            case INT64:
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIME_MICROS) {
-                    return new TimeMicrosColumnReader(descriptor);
-                }
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
-                    return new TimestampMicrosColumnReader(descriptor);
-                }
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
-                    return new Int64TimestampMillisColumnReader(descriptor);
-                }
-                return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
-            case INT96:
-                return new TimestampColumnReader(descriptor, timeZone);
-            case FLOAT:
-                return new FloatColumnReader(descriptor);
-            case DOUBLE:
-                return new DoubleColumnReader(descriptor);
-            case BINARY:
-                return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
-            case FIXED_LEN_BYTE_ARRAY:
-                return createDecimalColumnReader(descriptor)
-                        .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
-            default:
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+        requireNonNull(descriptor, "descriptor is null");
+        requireNonNull(prestoType, "prestoType is null");
+
+        Optional<DecimalType> parquetDecimalType = createDecimalType(descriptor);
+        Optional<PrimitiveColumnReader> decimalColumnReader = createDecimalColumnReader(descriptor);
+        verify(parquetDecimalType.isPresent() == decimalColumnReader.isPresent(), "parquetDecimalType and decimalColumnReader should be present at the same time");
+
+        if (prestoType == BooleanType.BOOLEAN && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.BOOLEAN) {
+            return new BooleanColumnReader(descriptor);
         }
+
+        if (prestoType == TinyintType.TINYINT
+                || prestoType == SmallintType.SMALLINT
+                || prestoType == IntegerType.INTEGER
+                || prestoType == BigintType.BIGINT) {
+            // TODO verify no truncation occurs
+            if (parquetDecimalType.isPresent() && parquetDecimalType.get().getScale() == 0) {
+                // TODO use IntColumnReader or LongColumnReader when applicable
+                return decimalColumnReader.orElseThrow(() -> new VerifyException("decimalColumnReader not present when parquetDecimalType is present"));
+            }
+
+            if (!parquetDecimalType.isPresent()) {
+                if (descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.INT32) {
+                    return new IntColumnReader(descriptor);
+                }
+                if (descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.INT64) {
+                    return new LongColumnReader(descriptor);
+                }
+            }
+        }
+
+        if (prestoType instanceof DecimalType) {
+            if (parquetDecimalType.isPresent() && ((DecimalType) prestoType).getScale() == parquetDecimalType.get().getScale()) {
+                // TODO allow rescaling
+                return decimalColumnReader.orElseThrow(() -> new VerifyException("decimalColumnReader not present when parquetDecimalType is present"));
+            }
+        }
+
+        if (prestoType == RealType.REAL && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.FLOAT) {
+            return new FloatColumnReader(descriptor);
+        }
+
+        if (prestoType == DoubleType.DOUBLE && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.DOUBLE) {
+            return new DoubleColumnReader(descriptor);
+        }
+
+        if (prestoType == DateType.DATE && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.INT32) {
+            // TODO verify no truncation occurs
+            return new IntColumnReader(descriptor);
+        }
+
+        if (prestoType == TimestampType.TIMESTAMP && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.INT96) {
+            return new TimestampColumnReader(descriptor, timeZone);
+        }
+
+        if (prestoType == TimestampType.TIMESTAMP && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.INT64 && descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
+            return new TimestampMicrosColumnReader(descriptor);
+        }
+
+        if (prestoType instanceof VarcharType && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.BINARY) {
+            return new BinaryColumnReader(descriptor);
+        }
+
+        if (prestoType instanceof CharType && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.BINARY) {
+            return new BinaryColumnReader(descriptor);
+        }
+
+        if (prestoType instanceof VarbinaryType && descriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.BINARY) {
+            return new BinaryColumnReader(descriptor);
+        }
+
+        throw new ParquetDecodingException(format("Cannot read Presto %s from \"%s\" column", prestoType, descriptor));
     }
 
     private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)

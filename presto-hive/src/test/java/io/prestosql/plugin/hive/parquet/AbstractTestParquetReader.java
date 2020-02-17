@@ -35,6 +35,7 @@ import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -874,10 +875,14 @@ public abstract class AbstractTestParquetReader
 
     @Test
     public void testParquetShortDecimalWriteToPrestoDecimalWithNonMatchingScale()
-            throws Exception
     {
-        MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
-        tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(10L), ImmutableList.of(SqlDecimal.of(100L, 10, 2)), createDecimalType(10, 2), Optional.of(parquetSchema));
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
+            tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(10L), ImmutableList.of(SqlDecimal.of(100L, 10, 2)), createDecimalType(10, 2), Optional.of(parquetSchema));
+        })
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Cannot read Presto decimal(10,2) from \"[test] optional int64 test (DECIMAL(10,1))\" column")
+                .hasCauseInstanceOf(ParquetDecodingException.class);
     }
 
     @Test
@@ -906,13 +911,16 @@ public abstract class AbstractTestParquetReader
 
     @Test
     public void testParquetLongDecimalWriteToPrestoDecimalWithNonMatchingScale()
-            throws Exception
     {
-        tester.testRoundTrip(
-                new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
-                ImmutableList.of(HiveDecimal.create(100 * longTenToNth(10), 10)),
-                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(100 * longTenToNth(9)), 38, 9)),
-                createDecimalType(38, 9));
+        assertThatThrownBy(() ->
+                tester.testRoundTrip(
+                        new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
+                        ImmutableList.of(HiveDecimal.create(100 * longTenToNth(10), 10)),
+                        ImmutableList.of(new SqlDecimal(BigInteger.valueOf(100 * longTenToNth(9)), 38, 9)),
+                        createDecimalType(38, 9)))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Cannot read Presto decimal(38,9) from \"[test] optional fixed_len_byte_array(16) test (DECIMAL(38,10))\" column")
+                .hasCauseInstanceOf(ParquetDecodingException.class);
     }
 
     @Test
@@ -981,8 +989,10 @@ public abstract class AbstractTestParquetReader
         assertThatThrownBy(() -> {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
             tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), BIGINT, Optional.of(parquetSchema));
-        }).hasMessage("Unsupported Presto column type (bigint) for Parquet column ([test] optional int64 test (DECIMAL(10,1)))")
-                .isInstanceOf(PrestoException.class);
+        })
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Cannot read Presto bigint from \"[test] optional int64 test (DECIMAL(10,1))\" column")
+                .hasCauseInstanceOf(ParquetDecodingException.class);
     }
 
     @Test
