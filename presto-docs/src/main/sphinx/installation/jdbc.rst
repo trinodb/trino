@@ -112,4 +112,13 @@ Name                                   Description
                                        specified as a list of key-value pairs. For example,
                                        ``foo:bar;abc:xyz`` creates the credential named ``abc``
                                        with value ``xyz`` and the credential named ``foo`` with value ``bar``.
+``roles``                              Authorization roles to use for catalogs, specified as a list of
+                                       key-value pairs for the catalog and role. For example,
+                                       ``catalog1:roleA;catalog2:roleB`` sets ``roleA``
+                                       for ``catalog1`` and ``roleB`` for ``catalog2``.
+``sessionProperties``                  Session properties to set for the system and for catalogs,
+                                       specified as a list of key-value pairs.
+                                       For example, ``abc:xyz;example.foo:bar`` sets the system property
+                                       ``abc`` to the value ``xyz`` and the ``foo`` property for
+                                       catalog ``example`` to the value ``bar``.
 ====================================== =======================================================================
