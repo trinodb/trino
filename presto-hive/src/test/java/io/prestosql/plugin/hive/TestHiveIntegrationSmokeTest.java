@@ -126,6 +126,7 @@ import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -5608,6 +5609,84 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testColumnPruning()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "orc_use_column_names", "true")
+                .setCatalogSessionProperty("hive", "parquet_use_column_names", "true")
+                .build();
+
+        testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.ORC), this::testColumnPruning);
+        testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.PARQUET), this::testColumnPruning);
+    }
+
+    private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH);
+        String evolvedTableName = tableName + "_evolved";
+
+        assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        assertUpdate(session, "DROP TABLE IF EXISTS " + evolvedTableName);
+
+        assertUpdate(session, format(
+                "CREATE TABLE %s(" +
+                        "  a bigint, " +
+                        "  b varchar, " +
+                        "  c row(" +
+                        "    f1 row(" +
+                        "      g1 bigint," +
+                        "      g2 bigint), " +
+                        "    f2 varchar, " +
+                        "    f3 varbinary), " +
+                        "  d integer) " +
+                        "WITH (format='%s')",
+                tableName,
+                storageFormat));
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (42, 'ala', ROW(ROW(177, 873321), 'ma kota', X'abcdef'), 12345678)", 1);
+
+        // All data
+        assertQuery(
+                session,
+                "SELECT a, b, c.f1.g1, c.f1.g2, c.f2, c.f3, d FROM " + tableName,
+                "VALUES (42, 'ala', 177, 873321, 'ma kota', X'abcdef', 12345678)");
+
+        // Pruning
+        assertQuery(
+                session,
+                "SELECT b, c.f1.g2, c.f3, d FROM " + tableName,
+                "VALUES ('ala', 873321, X'abcdef', 12345678)");
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+
+        assertUpdate(session, format(
+                "CREATE TABLE %s(" +
+                        "  e tinyint, " + // added
+                        "  a bigint, " +
+                        "  bxx varchar, " + // renamed
+                        "  c row(" +
+                        "    f1 row(" +
+                        "      g1xx bigint," + // renamed
+                        "      g2 bigint), " +
+                        "    f2xx varchar, " + // renamed
+                        "    f3 varbinary), " +
+                        "  d integer, " +
+                        "  f smallint) " + // added
+                        "WITH (format='%s', external_location='%s')",
+                evolvedTableName,
+                storageFormat,
+                tableLocation));
+
+        // Pruning being an effected of renamed fields (schema evolution)
+        assertQuery(
+                session,
+                "SELECT a, bxx, c.f1.g1xx, c.f1.g2, c.f2xx, c.f3,  d, e, f FROM " + evolvedTableName + " t",
+                "VALUES (42, NULL, NULL, 873321, NULL, X'abcdef', 12345678, NULL, NULL)");
+
+        assertUpdate(session, "DROP TABLE " + evolvedTableName);
+        assertUpdate(session, "DROP TABLE " + tableName);
     }
 
     @Test
