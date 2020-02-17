@@ -38,6 +38,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
         </dependency>
