@@ -97,9 +97,23 @@ public class StateMachine<T>
      * Sets the state.
      * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
+     * @throws IllegalStateException if state change would cause a transition from a terminal state
      * @return the old state
      */
     public T set(T newState)
+    {
+        T oldState = trySet(newState);
+        checkState(oldState.equals(newState) || !isTerminalState(oldState), "%s cannot transition from %s to %s", name, state, newState);
+        return oldState;
+    }
+
+    /**
+     * Tries to change the state.  State will not change if the new state {@code .equals()} the current state,
+     * of if the current state is a terminal state. If the state changed, listeners and waiters will be notified.
+     *
+     * @return the state before the possible state change
+     */
+    public T trySet(T newState)
     {
         checkState(!Thread.holdsLock(lock), "Cannot set state while holding the lock");
         requireNonNull(newState, "newState is null");
@@ -108,11 +122,9 @@ public class StateMachine<T>
         FutureStateChange<T> futureStateChange;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (lock) {
-            if (state.equals(newState)) {
+            if (state.equals(newState) || isTerminalState(state)) {
                 return state;
             }
-
-            checkState(!isTerminalState(state), "%s cannot transition from %s to %s", name, state, newState);
 
             oldState = state;
             state = newState;
