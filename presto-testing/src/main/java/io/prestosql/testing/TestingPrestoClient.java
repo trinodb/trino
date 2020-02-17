@@ -259,6 +259,9 @@ public class TestingPrestoClient
         else if (type.getBaseName().equals("ObjectId")) {
             return value;
         }
+        else if (type.getBaseName().equals("Bogus")) {
+            return value;
+        }
         else if (JSON.equals(type)) {
             return value;
         }
