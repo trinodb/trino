@@ -397,17 +397,9 @@ public class IcebergPageSourceProvider
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = new ParquetReader(
-                    Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    messageColumnIO,
-                    blocks,
-                    dataSource,
-                    UTC,
-                    systemMemoryContext,
-                    options);
 
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
-            ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
+            ImmutableList.Builder<Optional<Field>> internalFieldsBuilder = ImmutableList.builder();
             for (int columnIndex = 0; columnIndex < regularColumns.size(); columnIndex++) {
                 IcebergColumnHandle column = regularColumns.get(columnIndex);
                 org.apache.parquet.schema.Type parquetField = parquetFields.get(columnIndex);
@@ -417,14 +409,24 @@ public class IcebergPageSourceProvider
                 prestoTypes.add(prestoType);
 
                 if (parquetField == null) {
-                    internalFields.add(Optional.empty());
+                    internalFieldsBuilder.add(Optional.empty());
                 }
                 else {
-                    internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.getName())));
+                    internalFieldsBuilder.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.getName())));
                 }
             }
 
-            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build());
+            List<Optional<Field>> internalFields = internalFieldsBuilder.build();
+            ParquetReader parquetReader = new ParquetReader(
+                    Optional.ofNullable(fileMetaData.getCreatedBy()),
+                    messageColumnIO,
+                    internalFields,
+                    blocks,
+                    dataSource,
+                    UTC,
+                    systemMemoryContext,
+                    options);
+            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields);
         }
         catch (IOException | RuntimeException e) {
             try {

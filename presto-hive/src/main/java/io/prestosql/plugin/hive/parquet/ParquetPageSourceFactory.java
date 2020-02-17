@@ -183,11 +183,13 @@ public class ParquetPageSourceFactory
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
-            Optional<MessageType> message = projectSufficientColumns(columns)
+            List<Optional<org.apache.parquet.schema.Type>> parquetFields = projectSufficientColumns(columns)
                     .map(ReaderProjections::getReaderColumns)
                     .orElse(columns).stream()
                     .filter(column -> column.getColumnType() == REGULAR)
                     .map(column -> getColumnType(column, fileSchema, useColumnNames))
+                    .collect(toImmutableList());
+            Optional<MessageType> message = parquetFields.stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(type -> new MessageType(fileSchema.getName(), type))
@@ -214,9 +216,25 @@ public class ParquetPageSourceFactory
                     blocks.add(block);
                 }
             }
+
+            ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
+            ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
+            for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+                HiveColumnHandle column = columns.get(columnIndex);
+                Optional<org.apache.parquet.schema.Type> parquetField = parquetFields.get(columnIndex);
+
+                prestoTypes.add(column.getType());
+
+                internalFields.add(parquetField.flatMap(field -> {
+                    String columnName = useColumnNames ? column.getName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
+                    return constructField(column.getType(), lookupColumnByName(messageColumn, columnName));
+                }));
+            }
+
             parquetReader = new ParquetReader(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumn,
+                    internalFields.build(),
                     blocks.build(),
                     dataSource,
                     timeZone,

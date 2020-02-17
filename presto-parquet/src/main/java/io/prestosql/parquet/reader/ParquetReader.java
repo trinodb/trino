@@ -53,8 +53,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
 import static io.prestosql.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static java.lang.Math.max;
@@ -82,6 +84,7 @@ public class ParquetReader
     private long nextRowInGroup;
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
+    private final Type[] prestoTypes;
     private final PrimitiveColumnReader[] columnReaders;
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
@@ -94,6 +97,7 @@ public class ParquetReader
     public ParquetReader(
             Optional<String> fileCreatedBy,
             MessageColumnIO messageColumnIO,
+            List<Optional<Field>> internalFields,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
@@ -109,6 +113,13 @@ public class ParquetReader
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
+        this.prestoTypes = new Type[columns.size()];
+        internalFields.stream()
+                .flatMap(ParquetReader::primitiveFields)
+                .forEach(field -> {
+                    checkArgument(prestoTypes[field.getId()] == null, "Field %s already assigned a type", field.getId());
+                    prestoTypes[field.getId()] = field.getType();
+                });
         this.columnReaders = new PrimitiveColumnReader[columns.size()];
         this.maxBytesPerCell = new long[columns.size()];
 
@@ -245,6 +256,7 @@ public class ParquetReader
     {
         ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
+        verify(field.getType().equals(prestoTypes[fieldId]), "Expected field %s to be %s, but is %s", fieldId, prestoTypes[fieldId], field.getType());
         PrimitiveColumnReader columnReader = columnReaders[fieldId];
         if (columnReader.getPageReader() == null) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
@@ -289,6 +301,21 @@ public class ParquetReader
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
             columnReaders[columnIO.getId()] = PrimitiveColumnReader.createReader(column, timeZone);
         }
+    }
+
+    private static Stream<PrimitiveField> primitiveFields(Optional<Field> optionalField)
+    {
+        return optionalField
+                .map(field -> {
+                    if (field.getType() instanceof RowType
+                            || field.getType() instanceof MapType
+                            || field.getType() instanceof ArrayType) {
+                        return ((GroupField) field).getChildren().stream()
+                                .flatMap(ParquetReader::primitiveFields);
+                    }
+                    return Stream.of((PrimitiveField) field);
+                })
+                .orElseGet(Stream::of);
     }
 
     public Block readBlock(Field field)
