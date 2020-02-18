@@ -354,6 +354,16 @@ public class OrcReader
                     createOrcColumn(path, "key", orcType.getFieldTypeIndex(0), types, orcDataSourceId),
                     createOrcColumn(path, "value", orcType.getFieldTypeIndex(1), types, orcDataSourceId));
         }
+        else if (orcType.getOrcTypeKind() == OrcTypeKind.UNION) {
+            nestedColumns = IntStream.range(0, orcType.getFieldCount())
+                    .mapToObj(fieldId -> createOrcColumn(
+                            path,
+                            "field" + fieldId,
+                            orcType.getFieldTypeIndex(fieldId),
+                            types,
+                            orcDataSourceId))
+                    .collect(toImmutableList());
+        }
         return new OrcColumn(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedColumns, orcType.getAttributes());
     }
 
