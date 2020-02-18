@@ -23,6 +23,7 @@ import {
     getStageStateColor,
     initializeGraph,
     initializeSvg,
+    parseAndFormatDataSize,
     truncateString
 } from "../utils";
 import {QueryHeader} from "./QueryHeader";
@@ -92,16 +93,16 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
                     {stage.state}
                     <hr/>
                     CPU: {stats.totalCpuTime}<br />
-                    Buffered: {stats.bufferedDataSize}<br />
+                    Buffered: {parseAndFormatDataSize(stats.bufferedDataSize)}<br />
                     {stats.fullyBlocked ?
                         <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
                         <div>Blocked: {stats.totalBlockedTime} </div>
                     }
-                    Memory: {stats.userMemoryReservation}
+                    Memory: {parseAndFormatDataSize(stats.userMemoryReservation)}
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <hr/>
-                    Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
+                    Input: {parseAndFormatDataSize(stats.rawInputDataSize) + " / " + formatRows(stats.rawInputPositions)}
                 </div>
             </div>
         );
@@ -243,7 +244,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
-                                label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                                label: parseAndFormatDataSize(sourceStats.outputDataSize) + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
                         });
