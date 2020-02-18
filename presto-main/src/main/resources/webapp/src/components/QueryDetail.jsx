@@ -32,6 +32,7 @@ import {
     getTaskIdSuffix,
     getTaskNumber,
     GLYPHICON_HIGHLIGHT,
+    parseAndFormatDataSize,
     parseDataSize,
     parseDuration,
     precisionRound
@@ -420,7 +421,7 @@ class StageSummary extends React.Component {
                                             Current
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.userMemoryReservation}
+                                            {parseAndFormatDataSize(stage.stageStats.userMemoryReservation)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -436,7 +437,7 @@ class StageSummary extends React.Component {
                                             Peak
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.peakUserMemoryReservation}
+                                            {parseAndFormatDataSize(stage.stageStats.peakUserMemoryReservation)}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -1352,7 +1353,7 @@ export class QueryDetail extends React.Component {
                                             Input Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.processedInputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1368,7 +1369,7 @@ export class QueryDetail extends React.Component {
                                             Physical Input Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.physicalInputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1376,7 +1377,7 @@ export class QueryDetail extends React.Component {
                                             Physical Input Read Time
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.physicalInputReadTime}
+                                            {parseAndFormatDataSize(query.queryStats.physicalInputReadTime)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1392,7 +1393,7 @@ export class QueryDetail extends React.Component {
                                             Internal Network Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.internalNetworkInputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1400,7 +1401,7 @@ export class QueryDetail extends React.Component {
                                             Peak User Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakUserMemoryReservation}
+                                            {parseAndFormatDataSize(query.queryStats.peakUserMemoryReservation)}
                                         </td>
                                     </tr>
                                     {parseDataSize(query.queryStats.peakRevocableMemoryReservation) > 0 &&
@@ -1409,7 +1410,7 @@ export class QueryDetail extends React.Component {
                                             Peak Revocable Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakRevocableMemoryReservation}
+                                            {parseAndFormatDataSize(query.queryStats.peakRevocableMemoryReservation)}
                                         </td>
                                     </tr>
                                     }
@@ -1418,7 +1419,7 @@ export class QueryDetail extends React.Component {
                                             Peak Total Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakTotalMemoryReservation}
+                                            {parseAndFormatDataSize(query.queryStats.peakTotalMemoryReservation)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1450,7 +1451,7 @@ export class QueryDetail extends React.Component {
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.outputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.outputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1466,7 +1467,7 @@ export class QueryDetail extends React.Component {
                                             Logical Written Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.logicalWrittenDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.logicalWrittenDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1474,7 +1475,7 @@ export class QueryDetail extends React.Component {
                                             Physical Written Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.physicalWrittenDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
                                         </td>
                                     </tr>
                                     {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
@@ -1483,7 +1484,7 @@ export class QueryDetail extends React.Component {
                                             Spilled Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.spilledDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.spilledDataSize)}
                                         </td>
                                     </tr>
                                     }
