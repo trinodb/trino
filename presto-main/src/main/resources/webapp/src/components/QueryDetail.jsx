@@ -638,11 +638,14 @@ export class QueryDetail extends React.Component {
             lastCpuTime: 0,
             lastRowInput: 0,
             lastByteInput: 0,
+            lastPhysicalInput: 0,
+            lastPhysicalTime: 0,
 
             scheduledTimeRate: [],
             cpuTimeRate: [],
             rowInputRate: [],
             byteInputRate: [],
+            physicalInputRate: [],
 
             reservedMemory: [],
 
@@ -736,6 +739,8 @@ export class QueryDetail extends React.Component {
             const lastCpuTime = this.state.lastCpuTime;
             const lastRowInput = this.state.lastRowInput;
             const lastByteInput = this.state.lastByteInput;
+            const lastPhysicalInput = this.state.lastPhysicalInput;
+            const lastPhysicalTime = this.state.lastPhysicalTime;
             const alreadyEnded = this.state.queryEnded;
             const nowMillis = Date.now();
 
@@ -744,10 +749,12 @@ export class QueryDetail extends React.Component {
                 lastSnapshotStage: lastSnapshotStages,
                 lastSnapshotTasks: lastSnapshotTasks,
 
+                lastPhysicalTime: parseDuration(query.queryStats.physicalInputReadTime),
                 lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
                 lastRowInput: query.queryStats.processedInputPositions,
                 lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
+                lastPhysicalInput: parseDataSize(query.queryStats.physicalInputDataSize),
 
                 initialized: true,
                 queryEnded: !!query.finalQueryInfo,
@@ -769,14 +776,18 @@ export class QueryDetail extends React.Component {
             if (elapsedSecsSinceLastRefresh >= 0) {
                 const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
+                const currentPhysicalReadTime = (parseDuration(query.queryStats.physicalInputReadTime) - lastPhysicalTime) / 1000;
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
                 const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                const currentPhysicalInputRate = currentPhysicalReadTime > 0 ? (parseDataSize(query.queryStats.physicalInputDataSize) - lastPhysicalInput) / currentPhysicalReadTime : 0;
+
                 this.setState({
                     scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
                     cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
                     rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
                     byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
                     reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
+                    physicalInputRate: addToHistory(currentPhysicalInputRate, this.state.physicalInputRate),
                 });
             }
             this.resetTimer();
@@ -872,6 +883,7 @@ export class QueryDetail extends React.Component {
             $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
             $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
             $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
+            $('#physical-input-rate-sparkline').sparkline(this.state.physicalInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
 
             if (this.state.lastRender === null) {
                 $('#query').each((i, block) => {
@@ -1541,6 +1553,21 @@ export class QueryDetail extends React.Component {
                                     <tr className="tr-noborder">
                                         <td className="info-sparkline-text">
                                             {formatDataSize(this.state.byteInputRate[this.state.byteInputRate.length - 1])}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Physical Input Bytes/s
+                                        </td>
+                                        <td rowSpan="2">
+                                            <div className="query-stats-sparkline-container">
+                                                <span className="sparkline" id="physical-input-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="tr-noborder">
+                                        <td className="info-sparkline-text">
+                                            {formatDataSize(this.state.physicalInputRate[this.state.physicalInputRate.length - 1])}
                                         </td>
                                     </tr>
                                     <tr>
