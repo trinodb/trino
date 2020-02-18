@@ -37,7 +37,7 @@ import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.JoniRegexpType.JONI_REGEXP;
 import static io.prestosql.type.JsonPathType.JSON_PATH;
 import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
-import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
+import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -57,7 +57,7 @@ public class TestLiteralEncoder
         assertEncode(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
         assertEncode(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, "LikePattern '[a-z]'");
         assertEncode(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, "JoniRegExp '[a-z]'");
-        assertEncode(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), RE2J_REGEXP, "Re2JRegExp '[a-z]'");
+        assertEncode(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), metadata.getType(RE2J_REGEXP_SIGNATURE), "Re2JRegExp '[a-z]'");
         assertEncode(castVarcharToJsonPath(utf8Slice("$.foo")), JSON_PATH, "JsonPath '$.foo'");
         assertEncode(castVarcharToCodePoints(utf8Slice("hello")), CODE_POINTS, "CodePoints 'hello'");
     }

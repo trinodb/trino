@@ -26,12 +26,17 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 public class Re2JRegexpType
         extends AbstractType
 {
-    public static final Re2JRegexpType RE2J_REGEXP = new Re2JRegexpType();
     public static final String NAME = "Re2JRegExp";
+    public static final TypeSignature RE2J_REGEXP_SIGNATURE = new TypeSignature(NAME);
 
-    public Re2JRegexpType()
+    private final int dfaStatesLimit;
+    private final int dfaRetries;
+
+    public Re2JRegexpType(int dfaStatesLimit, int dfaRetries)
     {
-        super(new TypeSignature(NAME), Re2JRegexp.class);
+        super(RE2J_REGEXP_SIGNATURE, Re2JRegexp.class);
+        this.dfaStatesLimit = dfaStatesLimit;
+        this.dfaRetries = dfaRetries;
     }
 
     @Override
