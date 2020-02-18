@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.prestosql.cli.Presto</main-class>
-        <dep.jline.version>3.12.1</dep.jline.version>
+        <dep.jline.version>3.13.3</dep.jline.version>
     </properties>
 
     <dependencies>
@@ -78,6 +78,13 @@
             <groupId>org.jline</groupId>
             <artifactId>jline-reader</artifactId>
             <version>${dep.jline.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-builtins</artifactId>
+            <version>${dep.jline.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
