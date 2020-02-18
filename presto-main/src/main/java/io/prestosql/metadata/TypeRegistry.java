@@ -31,13 +31,11 @@ import io.prestosql.type.DecimalParametricType;
 import io.prestosql.type.VarcharParametricType;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -91,11 +89,8 @@ final class TypeRegistry
 
     private final Cache<TypeSignature, Type> parametricTypeCache;
 
-    @Inject
-    public TypeRegistry(Set<Type> types)
+    public TypeRegistry()
     {
-        requireNonNull(types, "types is null");
-
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that cannot be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
 
@@ -137,9 +132,6 @@ final class TypeRegistry
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);
 
-        for (Type type : types) {
-            addType(type);
-        }
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .build();
