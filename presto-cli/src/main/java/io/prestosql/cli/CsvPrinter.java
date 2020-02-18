@@ -19,8 +19,11 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
+import java.util.Map;
 
 import static io.prestosql.cli.AlignedTablePrinter.formatHexDump;
+import static io.prestosql.cli.AlignedTablePrinter.formatList;
+import static io.prestosql.cli.AlignedTablePrinter.formatMap;
 import static java.util.Objects.requireNonNull;
 
 public class CsvPrinter
@@ -112,6 +115,14 @@ public class CsvPrinter
     {
         if (o == null) {
             return "";
+        }
+
+        if (o instanceof Map) {
+            return formatMap((Map<?, ?>) o);
+        }
+
+        if (o instanceof List) {
+            return formatList((List<?>) o);
         }
 
         if (o instanceof byte[]) {
