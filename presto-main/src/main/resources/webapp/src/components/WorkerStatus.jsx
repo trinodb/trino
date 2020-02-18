@@ -92,7 +92,7 @@ export class WorkerStatus extends React.Component {
         $('#nonheap-used-sparkline').sparkline(this.state.nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
 
         $('[data-toggle="tooltip"]').tooltip();
-        new Clipboard('.copy-button');
+        new window.ClipboardJS('.copy-button');
     }
 
     static renderPoolBar(name, pool) {

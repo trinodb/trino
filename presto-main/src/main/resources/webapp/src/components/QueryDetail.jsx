@@ -898,7 +898,7 @@ export class QueryDetail extends React.Component {
         }
 
         $('[data-toggle="tooltip"]').tooltip();
-        new Clipboard('.copy-button');
+        new window.ClipboardJS('.copy-button');
     }
 
     renderTasks() {

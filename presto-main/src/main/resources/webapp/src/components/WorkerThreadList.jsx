@@ -60,7 +60,7 @@ export class WorkerThreadList extends React.Component {
     }
 
     componentDidUpdate() {
-        new Clipboard('.copy-button');
+        new window.ClipboardJS('.copy-button');
     }
 
     static processThreads(threads) {

@@ -204,6 +204,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
     componentDidMount() {
         this.refreshLoop.bind(this)();
+        new window.ClipboardJS('.copy-button');
     }
 
     updateD3Stage(stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) {
