@@ -70,7 +70,6 @@ import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.JoniRegexpType.JONI_REGEXP;
 import static io.prestosql.type.JsonPathType.JSON_PATH;
 import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
-import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -226,7 +225,7 @@ public final class LiteralEncoder
             return new GenericLiteral(type.getBaseName(), ((JoniRegexp) object).pattern().toStringUtf8());
         }
 
-        if (type.equals(RE2J_REGEXP)) {
+        if (type instanceof Re2JRegexpType) {
             return new GenericLiteral(Re2JRegexpType.NAME, ((Re2JRegexp) object).pattern());
         }
 
