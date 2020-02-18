@@ -656,7 +656,7 @@ public class BackgroundHiveSplitLoader
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
             HiveType hiveType = keys.get(i).getType();
-            if (!hiveType.isSupportedType()) {
+            if (!hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
             String value = values.get(i);
