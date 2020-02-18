@@ -40,6 +40,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.UnionObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BinaryObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BooleanObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ByteObjectInspector;
@@ -63,6 +64,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
@@ -96,6 +98,8 @@ public final class SerDeUtils
                 return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
             case STRUCT:
                 return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
+            case UNION:
+                return serializeUnion(type, builder, object, (UnionObjectInspector) inspector);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
@@ -270,6 +274,42 @@ public final class SerDeUtils
         else {
             return null;
         }
+    }
+
+    // Use row blocks to represent union objects when reading
+    private static Block serializeUnion(Type type, BlockBuilder builder, Object object, UnionObjectInspector inspector)
+    {
+        if (object == null) {
+            requireNonNull(builder, "parent builder is null").appendNull();
+            return null;
+        }
+
+        boolean builderSynthesized = false;
+        if (builder == null) {
+            builderSynthesized = true;
+            builder = type.createBlockBuilder(null, 1);
+        }
+
+        BlockBuilder currentBuilder = builder.beginBlockEntry();
+
+        byte tag = inspector.getTag(object);
+        TINYINT.writeLong(currentBuilder, tag);
+
+        List<Type> typeParameters = type.getTypeParameters();
+        for (int i = 1; i < typeParameters.size(); i++) {
+            if (i == tag + 1) {
+                serializeObject(typeParameters.get(i), currentBuilder, inspector.getField(object), inspector.getObjectInspectors().get(tag));
+            }
+            else {
+                currentBuilder.appendNull();
+            }
+        }
+
+        builder.closeEntry();
+        if (builderSynthesized) {
+            return (Block) type.getObject(builder, 0);
+        }
+        return null;
     }
 
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)

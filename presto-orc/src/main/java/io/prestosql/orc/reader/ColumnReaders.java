@@ -62,6 +62,7 @@ public final class ColumnReaders
             case DECIMAL:
                 return new DecimalColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case UNION:
+                return new UnionColumnReader(type, column, systemMemoryContext, blockFactory);
             default:
                 throw new IllegalArgumentException("Unsupported type: " + column.getColumnType());
         }
