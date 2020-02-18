@@ -890,6 +890,10 @@ export class QueryDetail extends React.Component {
                 $('#query').each((i, block) => {
                     hljs.highlightBlock(block);
                 });
+
+                $('#prepared-query').each((i, block) => {
+                    hljs.highlightBlock(block);
+                });
             }
 
             this.setState({
@@ -983,7 +987,7 @@ export class QueryDetail extends React.Component {
 
     renderPreparedQuery() {
         const query = this.state.query;
-        if (query.preparedQuery === null) {
+        if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
             return;
         }
 
