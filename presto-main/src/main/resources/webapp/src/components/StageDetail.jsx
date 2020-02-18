@@ -580,6 +580,7 @@ export class StageDetail extends React.Component {
 
     componentDidMount() {
         this.refreshLoop();
+        new window.ClipboardJS('.copy-button');
     }
 
     findStage(stageId, currentStage) {
