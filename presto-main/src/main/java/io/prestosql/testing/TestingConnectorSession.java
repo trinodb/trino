@@ -159,7 +159,7 @@ public class TestingConnectorSession
 
     public static class Builder
     {
-        private final ConnectorIdentity identity = new ConnectorIdentity("user", Optional.empty(), Optional.empty());
+        private final ConnectorIdentity identity = ConnectorIdentity.ofUser("user");
         private final Optional<String> source = Optional.of("test");
         private TimeZoneKey timeZoneKey = UTC_KEY;
         private final Locale locale = ENGLISH;
