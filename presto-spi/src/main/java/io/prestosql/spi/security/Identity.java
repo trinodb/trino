@@ -59,13 +59,19 @@ public class Identity
 
     public ConnectorIdentity toConnectorIdentity()
     {
-        return new ConnectorIdentity(user, principal, Optional.empty(), extraCredentials);
+        return ConnectorIdentity.forUser(user)
+                .withPrincipal(principal)
+                .withExtraCredentials(extraCredentials)
+                .build();
     }
 
     public ConnectorIdentity toConnectorIdentity(String catalog)
     {
-        requireNonNull(catalog, "catalog is null");
-        return new ConnectorIdentity(user, principal, Optional.ofNullable(roles.get(catalog)), extraCredentials);
+        return ConnectorIdentity.forUser(user)
+                .withPrincipal(principal)
+                .withRole(Optional.ofNullable(roles.get(catalog)))
+                .withExtraCredentials(extraCredentials)
+                .build();
     }
 
     @Override
@@ -137,7 +143,7 @@ public class Identity
 
         public Builder withPrincipal(Principal principal)
         {
-            return withPrincipal(Optional.of(principal));
+            return withPrincipal(Optional.of(requireNonNull(principal, "principal is null")));
         }
 
         public Builder withPrincipal(Optional<Principal> principal)

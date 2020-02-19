@@ -177,7 +177,7 @@ public class ThriftHiveMetastore
     @Inject
     public ThriftHiveMetastore(MetastoreLocator metastoreLocator, HiveConfig hiveConfig, ThriftMetastoreConfig thriftConfig, HiveAuthenticationConfig authenticationConfig, HdfsEnvironment hdfsEnvironment)
     {
-        this.hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
+        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
