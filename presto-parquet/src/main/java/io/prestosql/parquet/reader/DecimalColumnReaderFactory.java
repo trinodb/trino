@@ -15,18 +15,19 @@ package io.prestosql.parquet.reader;
 
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Type;
 
 public final class DecimalColumnReaderFactory
 {
     private DecimalColumnReaderFactory() {}
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DecimalType sourceType, Type targetType)
     {
-        if (parquetDecimalType.isShort()) {
-            return new ShortDecimalColumnReader(descriptor, parquetDecimalType);
+        if (sourceType.isShort()) {
+            return new ShortDecimalColumnReader(descriptor, sourceType, targetType);
         }
         else {
-            return new LongDecimalColumnReader(descriptor, parquetDecimalType);
+            return new LongDecimalColumnReader(descriptor, sourceType, targetType);
         }
     }
 }

@@ -15,32 +15,23 @@ package io.prestosql.parquet.reader;
 
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.lang.String.format;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 
-public class TimestampMicrosColumnReader
+public class DateColumnReader
         extends PrimitiveColumnReader
 {
-    public TimestampMicrosColumnReader(RichColumnDescriptor descriptor)
-    {
-        super(descriptor);
-    }
-
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long utcMillis = MICROSECONDS.toMillis(valuesReader.readLong());
-            // TODO: specialize the class at creation time
-            if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
+                sourceType.writeLong(blockBuilder, valuesReader.readInteger());
             }
             else {
-                type.writeLong(blockBuilder, utcMillis);
+                throw new UnsupportedOperationException(format("Could not read type DATE from %s", columnDescriptor.getPrimitiveType()));
             }
         }
         else if (isValueNull()) {
@@ -52,7 +43,17 @@ public class TimestampMicrosColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
+            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
+                valuesReader.readInteger();
+            }
+            else {
+                throw new UnsupportedOperationException(format("Could not read type DATE from %s", columnDescriptor.getPrimitiveType()));
+            }
         }
+    }
+
+    public DateColumnReader(RichColumnDescriptor columnDescriptor, Type sourceType, Type targetType)
+    {
+        super(columnDescriptor, sourceType, targetType);
     }
 }

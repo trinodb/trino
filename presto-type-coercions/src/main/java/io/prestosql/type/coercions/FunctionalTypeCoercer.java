@@ -11,27 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package io.prestosql.plugin.hive.coercions;
+package io.prestosql.type.coercions;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
 
-import static io.airlift.slice.Slices.utf8Slice;
-
-public class IntegerNumberToVarcharCoercer<F extends Type>
-        extends TypeCoercer<F, VarcharType>
+@FunctionalInterface
+public interface FunctionalTypeCoercer<S extends Type, T extends Type>
 {
-    public IntegerNumberToVarcharCoercer(F fromType, VarcharType toType)
-    {
-        super(fromType, toType);
-    }
-
-    @Override
-    protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
-    {
-        toType.writeSlice(blockBuilder, utf8Slice(String.valueOf(fromType.getLong(block, position))));
-    }
+    void coerceValue(S sourceType, T targetType, BlockBuilder blockBuilder, Block block, int position);
 }

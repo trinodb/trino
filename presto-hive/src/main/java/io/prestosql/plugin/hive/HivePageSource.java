@@ -16,11 +16,6 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
-import io.prestosql.plugin.hive.coercions.DoubleToFloatCoercer;
-import io.prestosql.plugin.hive.coercions.FloatToDoubleCoercer;
-import io.prestosql.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
-import io.prestosql.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
-import io.prestosql.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -40,7 +35,7 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarbinaryType;
-import io.prestosql.spi.type.VarcharType;
+import io.prestosql.type.coercions.TypeCoercers;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -60,17 +55,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
-import static io.prestosql.plugin.hive.HiveType.HIVE_BYTE;
-import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
-import static io.prestosql.plugin.hive.HiveType.HIVE_FLOAT;
-import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
-import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
-import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
-import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
-import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
-import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
-import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
-import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucket;
 import static io.prestosql.plugin.hive.util.HiveUtil.bigintPartitionKey;
 import static io.prestosql.plugin.hive.util.HiveUtil.booleanPartitionKey;
@@ -332,42 +316,7 @@ public class HivePageSource
     {
         Type fromType = fromHiveType.getType(typeManager);
         Type toType = toHiveType.getType(typeManager);
-        if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
-            return new IntegerNumberToVarcharCoercer<>(fromType, (VarcharType) toType);
-        }
-        if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return new VarcharToIntegerNumberCoercer<>((VarcharType) fromType, toType);
-        }
-        if (fromHiveType.equals(HIVE_BYTE) && (toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return new IntegerNumberUpscaleCoercer<>(fromType, toType);
-        }
-        if (fromHiveType.equals(HIVE_SHORT) && (toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return new IntegerNumberUpscaleCoercer<>(fromType, toType);
-        }
-        if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
-            return new IntegerNumberUpscaleCoercer<>(fromType, toType);
-        }
-        if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
-            return new FloatToDoubleCoercer();
-        }
-        if (fromHiveType.equals(HIVE_DOUBLE) && toHiveType.equals(HIVE_FLOAT)) {
-            return new DoubleToFloatCoercer();
-        }
-        if (fromType instanceof DecimalType && toType instanceof DecimalType) {
-            return createDecimalToDecimalCoercer((DecimalType) fromType, (DecimalType) toType);
-        }
-        if (fromType instanceof DecimalType && toType == DOUBLE) {
-            return createDecimalToDoubleCoercer((DecimalType) fromType);
-        }
-        if (fromType instanceof DecimalType && toType == REAL) {
-            return createDecimalToRealCoercer((DecimalType) fromType);
-        }
-        if (fromType == DOUBLE && toType instanceof DecimalType) {
-            return createDoubleToDecimalCoercer((DecimalType) toType);
-        }
-        if (fromType == REAL && toType instanceof DecimalType) {
-            return createRealToDecimalCoercer((DecimalType) toType);
-        }
+
         if (isArrayType(fromType) && isArrayType(toType)) {
             return new ListCoercer(typeManager, fromHiveType, toHiveType);
         }
@@ -378,7 +327,7 @@ public class HivePageSource
             return new StructCoercer(typeManager, fromHiveType, toHiveType);
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+        return TypeCoercers.get(fromType, toType);
     }
 
     private static class ListCoercer

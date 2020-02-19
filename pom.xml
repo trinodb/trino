@@ -136,6 +136,7 @@
         <module>presto-elasticsearch</module>
         <module>presto-iceberg</module>
         <module>presto-google-sheets</module>
+        <module>presto-type-coercions</module>
     </modules>
 
     <dependencyManagement>
@@ -249,6 +250,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-local-file</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-type-coercions</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

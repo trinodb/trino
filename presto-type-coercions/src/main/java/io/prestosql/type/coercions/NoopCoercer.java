@@ -11,24 +11,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package io.prestosql.plugin.hive.coercions;
+package io.prestosql.type.coercions;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
-public class IntegerNumberUpscaleCoercer<F extends Type, T extends Type>
-        extends TypeCoercer<F, T>
+import static java.lang.String.format;
+
+public class NoopCoercer
+        extends TypeCoercer
 {
-    public IntegerNumberUpscaleCoercer(F fromType, T toType)
+    public NoopCoercer(Type fromType, Type toType)
     {
         super(fromType, toType);
+
+        if (!fromType.equals(toType)) {
+            throw new IllegalArgumentException(format("Type %s does not match %s type", fromType, toType));
+        }
     }
 
     @Override
-    protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+    public Block apply(Block block)
     {
-        toType.writeLong(blockBuilder, fromType.getLong(block, position));
+        return block;
+    }
+
+    @Override
+    public void coerceValue(BlockBuilder blockBuilder, Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String toString()
+    {
+        return format("NoopCoercer<%s>", sourceType);
     }
 }

@@ -205,30 +205,34 @@ public class ParquetPageSourceFactory
                     blocks.add(block);
                 }
             }
-            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = new ParquetReader(
-                    Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    messageColumnIO,
-                    blocks.build(),
-                    dataSource,
-                    systemMemoryContext,
-                    options);
 
+            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
-            ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
+            ImmutableList.Builder<Optional<Field>> internalFieldsBuilder = ImmutableList.builder();
             for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
                 HiveColumnHandle column = columns.get(columnIndex);
                 Optional<org.apache.parquet.schema.Type> parquetField = parquetFields.get(columnIndex);
 
                 prestoTypes.add(column.getType());
 
-                internalFields.add(parquetField.flatMap(field -> {
+                internalFieldsBuilder.add(parquetField.flatMap(field -> {
                     String columnName = useParquetColumnNames ? column.getName() : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
                     return constructField(column.getType(), lookupColumnByName(messageColumnIO, columnName));
                 }));
             }
 
-            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build());
+            List<Optional<Field>> internalFields = internalFieldsBuilder.build();
+
+            ParquetReader parquetReader = new ParquetReader(
+                    Optional.ofNullable(fileMetaData.getCreatedBy()),
+                    messageColumnIO,
+                    internalFields,
+                    blocks.build(),
+                    dataSource,
+                    systemMemoryContext,
+                    options);
+
+            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields);
         }
         catch (Exception e) {
             try {

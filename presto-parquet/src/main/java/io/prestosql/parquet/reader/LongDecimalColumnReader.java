@@ -18,43 +18,24 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
-import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 
 import java.math.BigInteger;
 
-import static io.prestosql.spi.type.Decimals.isLongDecimal;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-
 public class LongDecimalColumnReader
         extends PrimitiveColumnReader
 {
-    private final DecimalType parquetDecimalType;
-
-    LongDecimalColumnReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
+    LongDecimalColumnReader(RichColumnDescriptor descriptor, DecimalType sourceType, Type targetType)
     {
-        super(descriptor);
-        this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
+        super(descriptor, sourceType, targetType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type prestoType)
+    protected void readValue(BlockBuilder blockBuilder)
     {
-        if (!isLongDecimal(prestoType)) {
-            throw new ParquetDecodingException(format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
-        }
-        DecimalType prestoDecimalType = (DecimalType) prestoType;
-        if (prestoDecimalType.getScale() != parquetDecimalType.getScale()) {
-            throw new ParquetDecodingException(format(
-                    "Presto decimal column type has different scale (%s) than Parquet decimal column (%s)",
-                    prestoDecimalType.getScale(),
-                    parquetDecimalType.getScale()));
-        }
-
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary value = valuesReader.readBytes();
-            prestoType.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
+            sourceType.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

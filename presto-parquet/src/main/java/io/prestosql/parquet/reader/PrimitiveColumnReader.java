@@ -18,15 +18,25 @@ import io.prestosql.parquet.DataPage;
 import io.prestosql.parquet.DataPageV1;
 import io.prestosql.parquet.DataPageV2;
 import io.prestosql.parquet.DictionaryPage;
-import io.prestosql.parquet.Field;
 import io.prestosql.parquet.ParquetEncoding;
 import io.prestosql.parquet.ParquetTypeUtils;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.dictionary.Dictionary;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.type.coercions.TypeCoercer;
+import io.prestosql.type.coercions.TypeCoercers;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.bytes.ByteBufferInputStream;
@@ -43,7 +53,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.parquet.ParquetReaderUtils.toInputStream;
-import static io.prestosql.parquet.ParquetTypeUtils.createDecimalType;
 import static io.prestosql.parquet.ValuesType.DEFINITION_LEVEL;
 import static io.prestosql.parquet.ValuesType.REPETITION_LEVEL;
 import static io.prestosql.parquet.ValuesType.VALUES;
@@ -54,7 +63,9 @@ public abstract class PrimitiveColumnReader
 {
     private static final int EMPTY_LEVEL_VALUE = -1;
     protected final RichColumnDescriptor columnDescriptor;
-
+    protected final Type sourceType;
+    protected final Type targetType;
+    protected final TypeCoercer coercer;
     protected int definitionLevel = EMPTY_LEVEL_VALUE;
     protected int repetitionLevel = EMPTY_LEVEL_VALUE;
     protected ValuesReader valuesReader;
@@ -70,7 +81,7 @@ public abstract class PrimitiveColumnReader
     private int remainingValueCountInPage;
     private int readOffset;
 
-    protected abstract void readValue(BlockBuilder blockBuilder, Type type);
+    protected abstract void readValue(BlockBuilder blockBuilder);
 
     protected abstract void skipValue();
 
@@ -79,48 +90,108 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, Type targetType)
     {
+        Type sourceType = getReadType(descriptor);
+
+        if (sourceType instanceof DecimalType) {
+            return DecimalColumnReaderFactory.createReader(descriptor, (DecimalType) sourceType, targetType);
+        }
+
+        if (sourceType instanceof TimestampType) {
+            return new TimestampColumnReader(descriptor, sourceType, targetType);
+        }
+
+        if (sourceType instanceof DateType) {
+            return new DateColumnReader(descriptor, sourceType, targetType);
+        }
+
         switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN:
-                return new BooleanColumnReader(descriptor);
+                return new BooleanColumnReader(descriptor, sourceType, targetType);
             case INT32:
-                return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
+                return new IntColumnReader(descriptor, sourceType, targetType);
             case INT64:
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
-                    return new TimestampMicrosColumnReader(descriptor);
-                }
-                return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
-            case INT96:
-                return new TimestampColumnReader(descriptor);
+                return new LongColumnReader(descriptor, sourceType, targetType);
             case FLOAT:
-                return new FloatColumnReader(descriptor);
+                return new FloatColumnReader(descriptor, sourceType, targetType);
             case DOUBLE:
-                return new DoubleColumnReader(descriptor);
+                return new DoubleColumnReader(descriptor, sourceType, targetType);
             case BINARY:
-                return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
-                return createDecimalColumnReader(descriptor)
-                        .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
+                return new BinaryColumnReader(descriptor, sourceType, targetType);
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
         }
     }
 
-    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
+    private static Type getReadType(RichColumnDescriptor descriptor)
     {
-        Optional<Type> type = createDecimalType(descriptor);
-        if (type.isPresent()) {
-            DecimalType parquetDecimalType = (DecimalType) type.get();
-            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, parquetDecimalType));
+        Optional<DecimalType> decimalType = ParquetTypeUtils.createDecimalType(descriptor);
+
+        if (decimalType.isPresent()) {
+            return decimalType.get();
         }
-        return Optional.empty();
+
+        if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
+            return TimestampType.TIMESTAMP;
+        }
+
+        if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
+            return TimestampType.TIMESTAMP;
+        }
+
+        if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.DATE) {
+            return DateType.DATE;
+        }
+
+        if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIME_MILLIS) {
+            return TimeType.TIME;
+        }
+
+        if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIME_MICROS) {
+            return TimeType.TIME;
+        }
+
+        switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
+            case BOOLEAN:
+                return BooleanType.BOOLEAN;
+            case INT32:
+                return IntegerType.INTEGER;
+            case INT64:
+                return BigintType.BIGINT;
+            case INT96:
+                return TimestampType.TIMESTAMP;
+            case FLOAT:
+                return RealType.REAL;
+            case DOUBLE:
+                return DoubleType.DOUBLE;
+            case BINARY:
+            case FIXED_LEN_BYTE_ARRAY:
+                return VarbinaryType.VARBINARY;
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+        }
     }
 
-    public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
+    public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor, Type sourceType, Type targetType)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
+        this.sourceType = requireNonNull(sourceType, "prestoType is null");
+        this.targetType = requireNonNull(targetType, "targetType is null");
+        this.coercer = TypeCoercers.get(sourceType, targetType);
+
         pageReader = null;
+    }
+
+    public Type getSourceType()
+    {
+        return sourceType;
+    }
+
+    public Type getTargetType()
+    {
+        return targetType;
     }
 
     public PageReader getPageReader()
@@ -154,32 +225,34 @@ public abstract class PrimitiveColumnReader
         nextBatchSize = batchSize;
     }
 
-    public ColumnChunk readPrimitive(Field field)
+    public ColumnChunk readPrimitive()
     {
         IntList definitionLevels = new IntArrayList();
         IntList repetitionLevels = new IntArrayList();
         seek();
-        BlockBuilder blockBuilder = field.getType().createBlockBuilder(null, nextBatchSize);
+
+        BlockBuilder blockBuilder = sourceType.createBlockBuilder(null, nextBatchSize);
         int valueCount = 0;
         while (valueCount < nextBatchSize) {
             if (page == null) {
                 readNextPage();
             }
             int valuesToRead = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
-            readValues(blockBuilder, valuesToRead, field.getType(), definitionLevels, repetitionLevels);
+            readValues(blockBuilder, valuesToRead, definitionLevels, repetitionLevels);
             valueCount += valuesToRead;
         }
         checkArgument(valueCount == nextBatchSize, "valueCount %s not equals to batchSize %s", valueCount, nextBatchSize);
 
         readOffset = 0;
         nextBatchSize = 0;
-        return new ColumnChunk(blockBuilder.build(), definitionLevels.toIntArray(), repetitionLevels.toIntArray());
+
+        return new ColumnChunk(coercer.apply(blockBuilder.build()), definitionLevels.toIntArray(), repetitionLevels.toIntArray());
     }
 
-    private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
+    protected void readValues(BlockBuilder blockBuilder, int valuesToRead, IntList definitionLevels, IntList repetitionLevels)
     {
         processValues(valuesToRead, () -> {
-            readValue(blockBuilder, type);
+            readValue(blockBuilder);
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
         });
@@ -190,7 +263,7 @@ public abstract class PrimitiveColumnReader
         processValues(valuesToRead, this::skipValue);
     }
 
-    private void processValues(int valuesToRead, Runnable valueReader)
+    protected void processValues(int valuesToRead, Runnable valueReader)
     {
         if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
             definitionLevel = definitionReader.readLevel();

@@ -22,16 +22,16 @@ import static java.lang.Float.floatToRawIntBits;
 public class FloatColumnReader
         extends PrimitiveColumnReader
 {
-    public FloatColumnReader(RichColumnDescriptor descriptor)
+    public FloatColumnReader(RichColumnDescriptor columnDescriptor, Type sourceType, Type targetType)
     {
-        super(descriptor);
+        super(columnDescriptor, sourceType, targetType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
+            sourceType.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

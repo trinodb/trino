@@ -87,6 +87,11 @@ public abstract class DecimalType
         return precision <= MAX_SHORT_PRECISION;
     }
 
+    public boolean isLong()
+    {
+        return !isShort();
+    }
+
     void validatePrecisionScale(int precision, int scale, int maxPrecision)
     {
         if (precision <= 0 || precision > maxPrecision) {

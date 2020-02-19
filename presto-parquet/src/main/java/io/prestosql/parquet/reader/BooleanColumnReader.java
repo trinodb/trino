@@ -20,16 +20,16 @@ import io.prestosql.spi.type.Type;
 public class BooleanColumnReader
         extends PrimitiveColumnReader
 {
-    public BooleanColumnReader(RichColumnDescriptor descriptor)
+    public BooleanColumnReader(RichColumnDescriptor columnDescriptor, Type sourceType, Type targetType)
     {
-        super(descriptor);
+        super(columnDescriptor, sourceType, targetType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeBoolean(blockBuilder, valuesReader.readBoolean());
+            sourceType.writeBoolean(blockBuilder, valuesReader.readBoolean());
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

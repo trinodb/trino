@@ -19,21 +19,41 @@ import io.prestosql.spi.type.Type;
 import org.apache.parquet.io.api.Binary;
 
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public class TimestampColumnReader
         extends PrimitiveColumnReader
 {
-    public TimestampColumnReader(RichColumnDescriptor descriptor)
+    public TimestampColumnReader(RichColumnDescriptor columnDescriptor, Type sourceType, Type targetType)
     {
-        super(descriptor);
+        super(columnDescriptor, sourceType, targetType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            type.writeLong(blockBuilder, getTimestampMillis(binary));
+            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
+                if (columnDescriptor.getPrimitiveType().getOriginalType() == TIMESTAMP_MILLIS) {
+                    sourceType.writeLong(blockBuilder, MILLISECONDS.toMillis(valuesReader.readLong()));
+                }
+                else if (columnDescriptor.getPrimitiveType().getOriginalType() == TIMESTAMP_MICROS) {
+                    sourceType.writeLong(blockBuilder, MICROSECONDS.toMillis(valuesReader.readLong()));
+                }
+            }
+            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT96) {
+                Binary binary = valuesReader.readBytes();
+                sourceType.writeLong(blockBuilder, getTimestampMillis(binary));
+            }
+            else {
+                throw new UnsupportedOperationException(format("Could not read type TIMESTAMP from %s", columnDescriptor.getPrimitiveType()));
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
@@ -44,7 +64,15 @@ public class TimestampColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
+                valuesReader.readLong();
+            }
+            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT96) {
+                valuesReader.readBytes();
+            }
+            else {
+                throw new UnsupportedOperationException(format("Could not skip type TIMESTAMP with %s", columnDescriptor.getPrimitiveType()));
+            }
         }
     }
 }

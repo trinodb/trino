@@ -21,21 +21,17 @@ import org.apache.parquet.io.api.Binary;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.spi.type.Chars.isCharType;
-import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
-import static io.prestosql.spi.type.Varchars.truncateToLength;
 
 public class BinaryColumnReader
         extends PrimitiveColumnReader
 {
-    public BinaryColumnReader(RichColumnDescriptor descriptor)
+    public BinaryColumnReader(RichColumnDescriptor columnDescriptor, Type sourceType, Type targetType)
     {
-        super(descriptor);
+        super(columnDescriptor, sourceType, targetType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
@@ -46,13 +42,8 @@ public class BinaryColumnReader
             else {
                 value = wrappedBuffer(binary.getBytes());
             }
-            if (isVarcharType(type)) {
-                value = truncateToLength(value, type);
-            }
-            if (isCharType(type)) {
-                value = truncateToLengthAndTrimSpaces(value, type);
-            }
-            type.writeSlice(blockBuilder, value);
+
+            sourceType.writeSlice(blockBuilder, value);
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
