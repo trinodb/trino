@@ -31,7 +31,7 @@ The following can be helpful for diagnosing garbage collection (GC) issues:
     -XX:+PrintSafepointStatistics
     -XX:PrintSafepointStatisticsCount=1
 
-If Java JMV Version > 9:
+If running on Java 9 or later:
 
 .. code-block:: none
     -Xlog:gc*,safepoint::time,level,tags,tid
