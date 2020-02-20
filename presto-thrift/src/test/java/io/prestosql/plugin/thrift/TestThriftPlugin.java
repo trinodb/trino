@@ -21,7 +21,6 @@ import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.ServiceLoader;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -32,8 +31,7 @@ public class TestThriftPlugin
     @Test
     public void testPlugin()
     {
-        ThriftPlugin plugin = loadPlugin(ThriftPlugin.class);
-
+        Plugin plugin = new ThriftPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, ThriftConnectorFactory.class);
 
@@ -42,16 +40,5 @@ public class TestThriftPlugin
         Connector connector = factory.create("test", config, new TestingConnectorContext());
         assertNotNull(connector);
         assertInstanceOf(connector, ThriftConnector.class);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends Plugin> T loadPlugin(Class<T> clazz)
-    {
-        for (Plugin plugin : ServiceLoader.load(Plugin.class)) {
-            if (clazz.isInstance(plugin)) {
-                return (T) plugin;
-            }
-        }
-        throw new AssertionError("did not find plugin: " + clazz.getName());
     }
 }

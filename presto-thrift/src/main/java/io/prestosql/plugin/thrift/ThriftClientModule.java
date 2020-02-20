@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.thrift;
 
+import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.prestosql.plugin.thrift.api.PrestoThriftService;
 
@@ -20,20 +21,15 @@ import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.drift.client.guice.DriftClientBinder.driftClientBinder;
 import static io.prestosql.plugin.thrift.location.ExtendedSimpleAddressSelectorBinder.extendedSimpleAddressSelector;
 
-public class ThriftPluginInfo
+public class ThriftClientModule
+        implements Module
 {
-    public String getName()
+    @Override
+    public void configure(Binder binder)
     {
-        return "presto-thrift";
-    }
-
-    public Module getModule()
-    {
-        return binder -> {
-            binder.bind(ThriftHeaderProvider.class).to(DefaultThriftHeaderProvider.class).in(SINGLETON);
-            driftClientBinder(binder)
-                    .bindDriftClient(PrestoThriftService.class)
-                    .withAddressSelector(extendedSimpleAddressSelector());
-        };
+        binder.bind(ThriftHeaderProvider.class).to(DefaultThriftHeaderProvider.class).in(SINGLETON);
+        driftClientBinder(binder)
+                .bindDriftClient(PrestoThriftService.class)
+                .withAddressSelector(extendedSimpleAddressSelector());
     }
 }
