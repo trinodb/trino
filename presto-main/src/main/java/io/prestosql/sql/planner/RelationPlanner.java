@@ -170,7 +170,26 @@ class RelationPlanner
 
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
         PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
-        return new RelationPlan(root, scope, outputSymbols);
+
+        RelationPlan tableScan = new RelationPlan(root, scope, outputSymbols);
+        tableScan = addRowFilters(node, tableScan);
+        return tableScan;
+    }
+
+    private RelationPlan addRowFilters(Table node, RelationPlan plan)
+    {
+        PlanBuilder planBuilder = new PlanBuilder(new TranslationMap(plan, analysis, ImmutableMap.of()), plan.getRoot());
+
+        for (Expression filter : analysis.getRowFilters(node)) {
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, filter);
+
+            planBuilder = planBuilder.withNewRoot(new FilterNode(
+                    idAllocator.getNextId(),
+                    planBuilder.getRoot(),
+                    planBuilder.rewrite(filter)));
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
     }
 
     @Override

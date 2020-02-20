@@ -13,6 +13,7 @@
  */
 package io.prestosql.security;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
@@ -22,6 +23,7 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.security.Principal;
 import java.util.List;
@@ -322,4 +324,9 @@ public interface AccessControl
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(SecurityContext context, String catalogName);
+
+    default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    {
+        return ImmutableList.of();
+    }
 }

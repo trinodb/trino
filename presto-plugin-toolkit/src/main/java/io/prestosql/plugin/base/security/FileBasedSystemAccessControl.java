@@ -29,6 +29,7 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.nio.file.Paths;
 import java.security.Principal;
@@ -519,5 +520,11 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    {
+        return Optional.empty();
     }
 }
