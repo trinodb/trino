@@ -21,6 +21,13 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This {@link WorkProcessorOperator} adapter allows to adapt {@link WorkProcessor} operators
+ * that require customization of input handling (e.g aggregation operators that want to skip extra
+ * buffering step or operators that require more sophisticated initial blocking condition).
+ * If such customization is not required, it's recommended to use {@link BasicWorkProcessorOperatorAdapter}
+ * instead.
+ */
 public class WorkProcessorOperatorAdapter
         implements Operator
 {
