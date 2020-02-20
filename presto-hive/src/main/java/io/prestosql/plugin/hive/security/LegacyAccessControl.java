@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
 
 import javax.inject.Inject;
 
@@ -266,5 +267,11 @@ public class LegacyAccessControl
     @Override
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
     }
 }

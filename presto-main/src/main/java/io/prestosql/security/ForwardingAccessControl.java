@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.security.Principal;
 import java.util.List;
@@ -299,5 +300,11 @@ public abstract class ForwardingAccessControl
     public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
     {
         delegate().checkCanShowRoleGrants(context, catalogName);
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    {
+        return delegate().getRowFilters(context, tableName);
     }
 }

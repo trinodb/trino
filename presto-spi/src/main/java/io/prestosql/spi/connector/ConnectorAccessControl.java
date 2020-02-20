@@ -15,6 +15,7 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.util.Collections;
 import java.util.List;
@@ -367,5 +368,17 @@ public interface ConnectorAccessControl
     default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    /**
+     * Get a row filter associated with the given table and identity.
+     *
+     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the filter, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
     }
 }

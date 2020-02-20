@@ -39,6 +39,7 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
+import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.Managed;
@@ -719,6 +720,28 @@ public class AccessControlManager
         checkCanAccessCatalog(securityContext, catalogName);
 
         catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleGrants(context, catalogName));
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    {
+        requireNonNull(context, "securityContext is null");
+        requireNonNull(tableName, "catalogName is null");
+
+        ImmutableList.Builder<ViewExpression> filters = ImmutableList.builder();
+        CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), tableName.getCatalogName());
+
+        if (entry != null) {
+            entry.getAccessControl().getRowFilter(entry.toConnectorSecurityContext(context), tableName.asSchemaTableName())
+                    .ifPresent(filters::add);
+        }
+
+        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            systemAccessControl.getRowFilter(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName())
+                    .ifPresent(filters::add);
+        }
+
+        return filters.build();
     }
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
