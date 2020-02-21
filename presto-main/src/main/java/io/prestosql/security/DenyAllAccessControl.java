@@ -65,7 +65,6 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRol
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMetadata;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 
 public class DenyAllAccessControl
@@ -159,12 +158,6 @@ public class DenyAllAccessControl
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         denyCommentTable(tableName.toString());
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(SecurityContext context, CatalogSchemaName schema)
-    {
-        denyShowTablesMetadata(schema.toString());
     }
 
     @Override
