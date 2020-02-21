@@ -354,7 +354,7 @@ public class GlueHiveMetastore
     public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         List<String> partitionValues = toPartitionValues(partitionName);
-        Partition partition = getPartition(table.getDatabaseName(), table.getTableName(), partitionValues)
+        Partition partition = getPartition(identity, table, partitionValues)
                 .orElseThrow(() -> new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName));
 
         PartitionStatistics currentStatistics = getPartitionStatistics(partition);
@@ -657,17 +657,12 @@ public class GlueHiveMetastore
     @Override
     public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
     {
-        return getPartition(table.getDatabaseName(), table.getTableName(), partitionValues);
-    }
-
-    private Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
-    {
         try {
             GetPartitionResult result = stats.getGetPartition().call(() ->
                     glueClient.getPartition(new GetPartitionRequest()
                             .withCatalogId(catalogId)
-                            .withDatabaseName(databaseName)
-                            .withTableName(tableName)
+                            .withDatabaseName(table.getDatabaseName())
+                            .withTableName(table.getTableName())
                             .withPartitionValues(partitionValues)));
             return Optional.of(GlueToPrestoConverter.convertPartition(result.getPartition()));
         }
