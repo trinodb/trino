@@ -307,4 +307,10 @@ public abstract class ForwardingAccessControl
     {
         return delegate().getRowFilters(context, tableName);
     }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName)
+    {
+        return delegate().getColumnMasks(context, tableName, columnName);
+    }
 }

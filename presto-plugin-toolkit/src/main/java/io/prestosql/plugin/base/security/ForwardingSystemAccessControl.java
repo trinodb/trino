@@ -270,4 +270,10 @@ public abstract class ForwardingSystemAccessControl
     {
         return delegate().getRowFilter(context, tableName);
     }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName)
+    {
+        return delegate().getColumnMask(context, tableName, columnName);
+    }
 }

@@ -40,12 +40,14 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
+import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.testing.TestingConnectorContext;
 import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -166,6 +168,61 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                });
+    }
+
+    @Test
+    public void testColumnMaskOrdering()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+
+        accessControlManager.addSystemAccessControlFactory(new SystemAccessControlFactory() {
+            @Override
+            public String getName()
+            {
+                return "test";
+            }
+
+            @Override
+            public SystemAccessControl create(Map<String, String> config)
+            {
+                return new SystemAccessControl() {
+                    @Override
+                    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String column)
+                    {
+                        return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "system mask"));
+                    }
+
+                    @Override
+                    public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+                    {
+                    }
+                };
+            }
+        });
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+
+        CatalogName catalogName = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
+        accessControlManager.addCatalogAccessControl(catalogName, new ConnectorAccessControl() {
+            @Override
+            public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String column)
+            {
+                return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "connector mask"));
+            }
+
+            @Override
+            public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+            {
+            }
+        });
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    List<ViewExpression> masks = accessControlManager.getColumnMasks(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), "column");
+                    assertEquals(masks.get(0).getExpression(), "connector mask");
+                    assertEquals(masks.get(1).getExpression(), "system mask");
                 });
     }
 

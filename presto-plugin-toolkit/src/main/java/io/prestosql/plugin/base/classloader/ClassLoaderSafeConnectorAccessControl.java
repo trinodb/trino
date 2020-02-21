@@ -322,4 +322,12 @@ public class ClassLoaderSafeConnectorAccessControl
             return delegate.getRowFilter(context, tableName);
         }
     }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getColumnMask(context, tableName, columnName);
+        }
+    }
 }

@@ -255,4 +255,10 @@ public abstract class ForwardingConnectorAccessControl
     {
         return delegate().getRowFilter(context, tableName);
     }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    {
+        return delegate().getColumnMask(context, tableName, columnName);
+    }
 }
