@@ -97,17 +97,32 @@ public abstract class AbstractTestHiveLocal
     }
 
     @Override
-    public void testGetAllTableNames() {}
+    public void testGetAllTableNames()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetAllTableColumns() {}
+    public void testGetAllTableColumns()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetAllTableColumnsInSchema() {}
+    public void testGetAllTableColumnsInSchema()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetTableNames() {}
+    public void testGetTableNames()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetTableSchemaOffline() {}
+    public void testGetTableSchemaOffline()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 }
