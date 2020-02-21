@@ -252,7 +252,7 @@ public class TestWorkProcessor
     }
 
     @Test(timeOut = 5000)
-    public void testFinishWheb()
+    public void testFinished()
     {
         AtomicBoolean finished = new AtomicBoolean();
         SettableFuture<?> future = SettableFuture.create();
