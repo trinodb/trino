@@ -155,22 +155,11 @@ public final class TestRun
                         .withFileSystemBind(pathResolver.resolvePlaceholders(testJar).toString(), "/docker/test.jar", READ_ONLY)
                         .withEnv("TESTS_HIVE_VERSION_MAJOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MAJOR", "1"))
                         .withEnv("TESTS_HIVE_VERSION_MINOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MINOR", "2"))
+                        .withEnv("TEMPTO_ENVIRONMENT_CONFIG_FILE", System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
                         .withCommand(ImmutableList.<String>builder()
                                 .add("bash", "-xeuc", "nc -l \"$1\" < /dev/null; shift; exec \"$@\"", "-")
                                 .add(Integer.toString(TESTS_READY_PORT))
-                                .add(
-                                        "java",
-                                        // "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007", // TODO implement sth like --debug switch
-                                        "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
-                                        "-Duser.timezone=Asia/Kathmandu",
-                                        "-jar", "/docker/test.jar", // TODO "-cp", "/docker/presto-jdbc.jar:..." "io.prestosql.tests.TemptoProductTestRunner"
-                                        // TODO "--report-dir" "/docker/test-reports/$(date "+%Y-%m-%dT%H:%M:%S")"
-                                        "--config", String.join(",", ImmutableList.<String>builder()
-                                                .add("tempto-configuration.yaml") // this comes from classpath
-                                                .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
-                                                .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml")
-                                                .add(System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
-                                                .build()))
+                                .add("/docker/presto-product-tests/run-tempto.sh")
                                 .addAll(testArguments)
                                 .build().toArray(new String[0]));
             });
