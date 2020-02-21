@@ -82,7 +82,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.SortedMap;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -94,7 +93,6 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.SC
 import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
-import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -186,8 +184,6 @@ final class ShowQueriesRewrite
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
-            accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), schema);
-
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
                 throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
             }
@@ -231,10 +227,6 @@ final class ShowQueriesRewrite
 
                 catalogName = qualifiedTableName.getCatalogName();
 
-                accessControl.checkCanShowTablesMetadata(
-                        session.toSecurityContext(),
-                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
-
                 predicate = Optional.of(combineConjuncts(
                         metadata,
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
@@ -243,11 +235,6 @@ final class ShowQueriesRewrite
             else {
                 if (catalogName == null) {
                     throw semanticException(MISSING_CATALOG_NAME, showGrants, "Catalog must be specified when session catalog is not set");
-                }
-
-                Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
-                for (String schema : allowedSchemas) {
-                    accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), new CatalogSchemaName(catalogName, schema));
                 }
             }
 

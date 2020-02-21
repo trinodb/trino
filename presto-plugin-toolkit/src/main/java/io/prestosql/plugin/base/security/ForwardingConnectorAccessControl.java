@@ -100,12 +100,6 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
-    {
-        delegate().checkCanShowTablesMetadata(context, schemaName);
-    }
-
-    @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
         return delegate().filterTables(context, tableNames);
