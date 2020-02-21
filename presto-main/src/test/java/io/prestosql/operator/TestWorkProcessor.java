@@ -37,6 +37,7 @@ import static io.prestosql.operator.WorkProcessorAssertion.assertUnblocks;
 import static io.prestosql.operator.WorkProcessorAssertion.assertYields;
 import static io.prestosql.operator.WorkProcessorAssertion.processorFrom;
 import static io.prestosql.operator.WorkProcessorAssertion.transformationFrom;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -59,22 +60,28 @@ public class TestWorkProcessor
         assertFalse(iterator.hasNext());
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Cannot iterate over yielding WorkProcessor")
+    @Test
     public void testIteratorFailsWhenWorkProcessorHasYielded()
     {
         // iterator should fail if underlying work has yielded
         WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.yield()));
         Iterator<Integer> iterator = processor.iterator();
-        iterator.hasNext();
+        //noinspection ResultOfMethodCallIgnored
+        assertThatThrownBy(iterator::hasNext)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot iterate over yielding WorkProcessor");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Cannot iterate over blocking WorkProcessor")
+    @Test
     public void testIteratorFailsWhenWorkProcessorIsBlocked()
     {
         // iterator should fail if underlying work is blocked
         WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.blocked(SettableFuture.create())));
         Iterator<Integer> iterator = processor.iterator();
-        iterator.hasNext();
+        //noinspection ResultOfMethodCallIgnored
+        assertThatThrownBy(iterator::hasNext)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot iterate over blocking WorkProcessor");
     }
 
     @Test(timeOut = 5000)
