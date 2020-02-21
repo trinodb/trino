@@ -101,6 +101,7 @@ public class TestingAccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
+    private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
     private Predicate<String> deniedCatalogs = s -> true;
 
     @Inject
@@ -131,11 +132,18 @@ public class TestingAccessControlManager
                 .add(filter);
     }
 
+    public void columnMask(QualifiedObjectName table, String column, String identity, ViewExpression mask)
+    {
+        columnMasks.computeIfAbsent(new ColumnMaskKey(identity, table, column), key -> new ArrayList<>())
+                .add(mask);
+    }
+
     public void reset()
     {
         denyPrivileges.clear();
         deniedCatalogs = s -> true;
         rowFilters.clear();
+        columnMasks.clear();
     }
 
     public void denyCatalogs(Predicate<String> deniedCatalogs)
@@ -457,6 +465,12 @@ public class TestingAccessControlManager
         return rowFilters.getOrDefault(new RowFilterKey(context.getIdentity().getUser(), tableName), ImmutableList.of());
     }
 
+    @Override
+    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String column)
+    {
+        return columnMasks.getOrDefault(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column), ImmutableList.of());
+    }
+
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
     {
         return shouldDenyPrivilege(privilege(userName, entityName, type));
@@ -564,6 +578,41 @@ public class TestingAccessControlManager
         public int hashCode()
         {
             return Objects.hash(identity, table);
+        }
+    }
+
+    private static class ColumnMaskKey
+    {
+        private final String identity;
+        private final QualifiedObjectName table;
+        private final String column;
+
+        public ColumnMaskKey(String identity, QualifiedObjectName table, String column)
+        {
+            this.identity = identity;
+            this.table = table;
+            this.column = column;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMaskKey that = (ColumnMaskKey) o;
+            return identity.equals(that.identity) &&
+                    table.equals(that.table) &&
+                    column.equals(that.column);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, table, column);
         }
     }
 }
