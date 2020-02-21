@@ -35,7 +35,7 @@ public class TestHiveMetadata
             HiveColumnHandle.ColumnType.PARTITION_KEY,
             Optional.empty());
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testCreatePredicate()
     {
         ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
