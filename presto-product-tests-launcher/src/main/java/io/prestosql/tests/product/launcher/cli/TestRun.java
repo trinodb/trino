@@ -163,8 +163,7 @@ public final class TestRun
                                         // "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007", // TODO implement sth like --debug switch
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
-                                        "-jar", "/docker/test.jar", // TODO "-cp", "/docker/presto-jdbc.jar:..." "io.prestosql.tests.TemptoProductTestRunner"
-                                        // TODO "--report-dir" "/docker/test-reports/$(date "+%Y-%m-%dT%H:%M:%S")"
+                                        "-jar", "/docker/test.jar",
                                         "--config", String.join(",", ImmutableList.<String>builder()
                                                 .add("tempto-configuration.yaml") // this comes from classpath
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
