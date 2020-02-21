@@ -156,6 +156,7 @@ public final class TestRun
                         .withEnv("TESTS_HIVE_VERSION_MAJOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MAJOR", "1"))
                         .withEnv("TESTS_HIVE_VERSION_MINOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MINOR", "2"))
                         .withEnv("TEMPTO_ENVIRONMENT_CONFIG_FILE", System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
+                        .withEnv("TEMPTO_OPTS", System.getenv().getOrDefault("TEMPTO_OPTS", ""))
                         .withCommand(ImmutableList.<String>builder()
                                 .add("bash", "-xeuc", "nc -l \"$1\" < /dev/null; shift; exec \"$@\"", "-")
                                 .add(Integer.toString(TESTS_READY_PORT))

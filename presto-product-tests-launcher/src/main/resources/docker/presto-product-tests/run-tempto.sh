@@ -21,6 +21,7 @@ exec java \
  `#-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007` \
  -Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties \
  -Duser.timezone=Asia/Kathmandu \
+ ${TEMPTO_OPTS:-} \
  `#TODO "-cp", "/docker/presto-jdbc.jar:..." "io.prestosql.tests.TemptoProductTestRunner"` \
  -jar /docker/test.jar \
  `#TODO --report-dir /docker/test-reports/$(date "+%Y-%m-%dT%H:%M:%S")` \
