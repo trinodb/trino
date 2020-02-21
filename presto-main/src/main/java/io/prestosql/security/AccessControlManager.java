@@ -319,6 +319,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowCreateTable(SecurityContext securityContext, QualifiedObjectName tableName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowCreateTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanShowCreateTable(context, tableName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanCreateTable(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");

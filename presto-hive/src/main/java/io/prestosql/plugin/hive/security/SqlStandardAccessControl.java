@@ -77,6 +77,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -135,6 +136,15 @@ public class SqlStandardAccessControl
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
         return schemaNames;
+    }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        // This should really be OWNERSHIP, but Hive uses `SELECT with GRANT`
+        if (!checkTablePermission(context, tableName, SELECT, true)) {
+            denyShowCreateTable(tableName.toString());
+        }
     }
 
     @Override

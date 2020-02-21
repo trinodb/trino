@@ -324,6 +324,12 @@ public class TestAccessControlManager
         }
 
         @Override
+        public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();

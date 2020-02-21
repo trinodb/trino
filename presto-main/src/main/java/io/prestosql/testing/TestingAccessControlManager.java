@@ -61,6 +61,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_TABLE;
@@ -85,6 +86,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static java.util.Objects.requireNonNull;
 
@@ -235,6 +237,17 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameSchema(context, schemaName, newSchemaName);
+        }
+    }
+
+    @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SHOW_CREATE_TABLE)) {
+            denyShowCreateTable(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanShowCreateTable(context, tableName);
         }
     }
 
@@ -445,7 +458,7 @@ public class TestingAccessControlManager
         SET_USER, IMPERSONATE_USER,
         EXECUTE_QUERY, VIEW_QUERY, KILL_QUERY,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
-        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, INSERT_TABLE, DELETE_TABLE, SHOW_COLUMNS,
+        SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, INSERT_TABLE, DELETE_TABLE, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
         SET_SESSION

@@ -133,6 +133,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanShowCreateTable(context, table);
+    }
+
+    @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanCreateTable(context, table);

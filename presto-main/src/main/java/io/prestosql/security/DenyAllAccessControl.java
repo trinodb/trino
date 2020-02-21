@@ -60,6 +60,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
@@ -128,6 +129,12 @@ public class DenyAllAccessControl
     public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName)
     {
         denyRenameSchema(schemaName.toString(), newSchemaName);
+    }
+
+    @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+        denyShowCreateTable(tableName.toString());
     }
 
     @Override

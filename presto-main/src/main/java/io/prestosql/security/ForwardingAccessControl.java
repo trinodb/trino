@@ -122,6 +122,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanShowCreateTable(context, tableName);
+    }
+
+    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanCreateTable(context, tableName);

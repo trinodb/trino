@@ -109,6 +109,13 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName);
+
+    /**
      * Check if identity is allowed to create the specified table in this catalog.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
