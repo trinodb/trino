@@ -111,7 +111,7 @@ public final class GlueToPrestoConverter
                                 Order.fromMetastoreApiOrder(column.getSortOrder(), "unknown")))
                         .collect(toImmutableList());
             }
-            BucketingVersion bucketingVersion = HiveBucketing.getBucketingVersion(sd.getParameters()); // TODO is it correct?
+            BucketingVersion bucketingVersion = HiveBucketing.getBucketingVersion(firstNonNull(sd.getParameters(), ImmutableMap.of())); // TODO is it correct?
             bucketProperty = Optional.of(new HiveBucketProperty(sd.getBucketColumns(), bucketingVersion, sd.getNumberOfBuckets(), sortedBy));
         }
 
