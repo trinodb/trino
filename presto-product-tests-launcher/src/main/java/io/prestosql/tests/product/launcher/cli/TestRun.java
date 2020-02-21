@@ -170,7 +170,6 @@ public final class TestRun
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml")
                                                 .add(System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
-                                                .add(System.getenv().getOrDefault("TEMPTO_EXTRA_CONFIG_FILE", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)
                                 .build().toArray(new String[0]));
