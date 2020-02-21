@@ -324,6 +324,12 @@ public class FileBasedAccessControl
         return Optional.empty();
     }
 
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    {
+        return Optional.empty();
+    }
+
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)
     {
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {

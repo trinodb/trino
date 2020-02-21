@@ -84,6 +84,7 @@ import io.prestosql.type.TypeCoercion;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -173,12 +174,13 @@ class RelationPlanner
 
         RelationPlan tableScan = new RelationPlan(root, scope, outputSymbols);
         tableScan = addRowFilters(node, tableScan);
+        tableScan = addColumnMasks(node, tableScan);
         return tableScan;
     }
 
     private RelationPlan addRowFilters(Table node, RelationPlan plan)
     {
-        PlanBuilder planBuilder = new PlanBuilder(new TranslationMap(plan, analysis, ImmutableMap.of()), plan.getRoot());
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
 
         for (Expression filter : analysis.getRowFilters(node)) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, filter);
@@ -190,6 +192,40 @@ class RelationPlanner
         }
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
+    }
+
+    private RelationPlan addColumnMasks(Table table, RelationPlan plan)
+    {
+        Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
+
+        PlanNode root = plan.getRoot();
+        List<Symbol> mappings = plan.getFieldMappings();
+
+        TranslationMap translations = new TranslationMap(plan, analysis, lambdaDeclarationToSymbolMap);
+        translations.setFieldMappings(mappings);
+
+        PlanBuilder planBuilder = new PlanBuilder(translations, root);
+
+        for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
+            Field field = plan.getDescriptor().getFieldByIndex(i);
+
+            for (Expression mask : columnMasks.getOrDefault(field.getName().get(), ImmutableList.of())) {
+                planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask);
+
+                Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+                for (Symbol symbol : root.getOutputSymbols()) {
+                    assignments.put(symbol, symbol.toSymbolReference());
+                }
+                assignments.put(mappings.get(i), translations.rewrite(mask));
+
+                planBuilder = planBuilder.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        planBuilder.getRoot(),
+                        Assignments.copyOf(assignments)));
+            }
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), mappings);
     }
 
     @Override

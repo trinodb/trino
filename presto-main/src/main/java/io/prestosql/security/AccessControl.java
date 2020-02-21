@@ -329,4 +329,9 @@ public interface AccessControl
     {
         return ImmutableList.of();
     }
+
+    default List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName)
+    {
+        return ImmutableList.of();
+    }
 }

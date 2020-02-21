@@ -206,4 +206,10 @@ public class AllowAllAccessControl
     {
         return Optional.empty();
     }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    {
+        return Optional.empty();
+    }
 }

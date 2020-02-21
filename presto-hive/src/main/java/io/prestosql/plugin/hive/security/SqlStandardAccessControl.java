@@ -396,6 +396,12 @@ public class SqlStandardAccessControl
         return Optional.empty();
     }
 
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    {
+        return Optional.empty();
+    }
+
     private boolean isAdmin(ConnectorSecurityContext context)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
