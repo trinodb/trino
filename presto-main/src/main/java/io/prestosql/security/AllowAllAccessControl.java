@@ -94,6 +94,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
