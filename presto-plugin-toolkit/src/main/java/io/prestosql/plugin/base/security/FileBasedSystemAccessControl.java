@@ -394,11 +394,6 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-    }
-
-    @Override
     public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         if (!canAccessCatalog(context.getIdentity(), catalogName, READ_ONLY)) {

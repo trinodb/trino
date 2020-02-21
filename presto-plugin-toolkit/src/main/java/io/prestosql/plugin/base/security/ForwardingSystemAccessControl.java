@@ -163,12 +163,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-        delegate().checkCanShowTablesMetadata(context, schema);
-    }
-
-    @Override
     public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return delegate().filterTables(context, catalogName, tableNames);

@@ -181,16 +181,6 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyShowTablesMetadata(String schemaName)
-    {
-        denyShowTablesMetadata(schemaName, null);
-    }
-
-    public static void denyShowTablesMetadata(String schemaName, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
-    }
-
     public static void denyShowColumnsMetadata(String tableName)
     {
         throw new AccessDeniedException(format("Cannot show columns of table %s", tableName));
