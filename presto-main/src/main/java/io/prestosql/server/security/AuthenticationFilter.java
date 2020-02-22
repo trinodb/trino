@@ -203,7 +203,15 @@ public class AuthenticationFilter
             throws IOException, ServletException
     {
         request.setAttribute(AUTHENTICATED_IDENTITY, authenticatedIdentity);
-        nextFilter.doFilter(withPrincipal(request, authenticatedIdentity.getPrincipal()), response);
+        try {
+            nextFilter.doFilter(withPrincipal(request, authenticatedIdentity.getPrincipal()), response);
+        }
+        finally {
+            // destroy identity if identity is still attached to the request
+            Optional.ofNullable(request.getAttribute(AUTHENTICATED_IDENTITY))
+                    .map(Identity.class::cast)
+                    .ifPresent(Identity::destroy);
+        }
     }
 
     private static ServletRequest withPrincipal(HttpServletRequest request, Optional<Principal> principal)
