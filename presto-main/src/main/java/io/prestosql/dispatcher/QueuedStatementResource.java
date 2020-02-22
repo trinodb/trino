@@ -129,7 +129,16 @@ public class QueuedStatementResource
 
                             // forget about this query if the query manager is no longer tracking it
                             if (!dispatchManager.isQueryRegistered(entry.getKey())) {
-                                queries.remove(entry.getKey());
+                                Query query = queries.remove(entry.getKey());
+                                if (query != null) {
+                                    try {
+                                        query.destroy();
+                                    }
+                                    catch (Throwable e) {
+                                        // this catch clause is broad so query purger does not get stuck
+                                        log.warn(e, "Error destroying identity");
+                                    }
+                                }
                             }
                         }
                     }
@@ -168,6 +177,9 @@ public class QueuedStatementResource
         SessionContext sessionContext = new HttpRequestSessionContext(forwardedHeaderSupport, headers, remoteAddress, identity);
         Query query = new Query(statement, sessionContext, dispatchManager);
         queries.put(query.getQueryId(), query);
+
+        // let authentication filter know that identity lifecycle has been handed off
+        servletRequest.setAttribute(AUTHENTICATED_IDENTITY, null);
 
         return Response.ok(query.getQueryResults(query.getLastToken(), uriInfo, xForwardedProto)).build();
     }
@@ -384,6 +396,11 @@ public class QueuedStatementResource
         public synchronized void cancel()
         {
             querySubmissionFuture.addListener(() -> dispatchManager.cancelQuery(queryId), directExecutor());
+        }
+
+        public void destroy()
+        {
+            sessionContext.getIdentity().destroy();
         }
 
         private QueryResults createQueryResults(long token, UriInfo uriInfo, String xForwardedProto, DispatchInfo dispatchInfo)
