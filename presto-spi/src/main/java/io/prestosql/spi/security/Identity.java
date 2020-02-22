@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -28,13 +29,15 @@ public class Identity
     private final Optional<Principal> principal;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
+    private final Optional<Runnable> onDestroy;
 
-    private Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
+    private Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials, Optional<Runnable> onDestroy)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.roles = unmodifiableMap(new HashMap<>(requireNonNull(roles, "roles is null")));
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
+        this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
     }
 
     public String getUser()
@@ -72,6 +75,11 @@ public class Identity
                 .withRole(Optional.ofNullable(roles.get(catalog)))
                 .withExtraCredentials(extraCredentials)
                 .build();
+    }
+
+    public void destroy()
+    {
+        onDestroy.ifPresent(Runnable::run);
     }
 
     @Override
@@ -129,6 +137,7 @@ public class Identity
         private Optional<Principal> principal = Optional.empty();
         private Map<String, SelectedRole> roles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
+        private Optional<Runnable> onDestroy = Optional.empty();
 
         public Builder(String user)
         {
@@ -186,9 +195,38 @@ public class Identity
             return this;
         }
 
+        public void withOnDestroy(Runnable onDestroy)
+        {
+            requireNonNull(onDestroy, "onDestroy is null");
+            if (this.onDestroy.isPresent()) {
+                throw new IllegalStateException("Destroy callback already set");
+            }
+            this.onDestroy = Optional.of(new InvokeOnceRunnable(onDestroy));
+        }
+
         public Identity build()
         {
-            return new Identity(user, principal, roles, extraCredentials);
+            return new Identity(user, principal, roles, extraCredentials, onDestroy);
+        }
+    }
+
+    private static final class InvokeOnceRunnable
+            implements Runnable
+    {
+        private final Runnable delegate;
+        private final AtomicBoolean invoked = new AtomicBoolean();
+
+        public InvokeOnceRunnable(Runnable delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void run()
+        {
+            if (invoked.compareAndSet(false, true)) {
+                delegate.run();
+            }
         }
     }
 }
