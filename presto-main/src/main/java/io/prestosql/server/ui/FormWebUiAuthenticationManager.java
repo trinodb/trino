@@ -49,9 +49,12 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static java.lang.Integer.parseInt;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -313,14 +316,25 @@ public class FormWebUiAuthenticationManager
         return getRedirectLocation(request, path, null);
     }
 
-    private static String getRedirectLocation(HttpServletRequest request, String path, String queryParameter)
+    static String getRedirectLocation(HttpServletRequest request, String path, String queryParameter)
     {
-        String proto = firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_PROTO)), request.getScheme());
-        HttpUriBuilder builder = uriBuilder()
-                .scheme(proto)
-                .host(request.getServerName())
-                .port(request.getServerPort())
-                .replacePath(path);
+        HttpUriBuilder builder;
+        if (isNullOrEmpty(request.getHeader(X_FORWARDED_HOST))) {
+            // not forwarded
+            builder = uriBuilder()
+                    .scheme(request.getScheme())
+                    .host(request.getServerName())
+                    .port(request.getServerPort());
+        }
+        else {
+            // forwarded
+            builder = uriBuilder()
+                    .scheme(firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_PROTO)), request.getScheme()))
+                    .host(request.getHeader(X_FORWARDED_HOST));
+            getForwarderPort(request).ifPresent(builder::port);
+        }
+
+        builder.replacePath(path);
         if (queryParameter != null) {
             builder.addParameter(queryParameter);
         }
@@ -355,5 +369,17 @@ public class FormWebUiAuthenticationManager
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();
+    }
+
+    private static Optional<Integer> getForwarderPort(HttpServletRequest request)
+    {
+        if (!isNullOrEmpty(request.getHeader(X_FORWARDED_PORT))) {
+            try {
+                return Optional.of(parseInt(request.getHeader(X_FORWARDED_PORT)));
+            }
+            catch (ArithmeticException ignore) {
+            }
+        }
+        return Optional.empty();
     }
 }
