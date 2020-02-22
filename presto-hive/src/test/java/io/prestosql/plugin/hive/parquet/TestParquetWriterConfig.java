@@ -31,6 +31,7 @@ public class TestParquetWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
+                .setParquetOptimizedWriterEnabled(false)
                 .setBlockSize(DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE))
                 .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE)));
     }
@@ -39,11 +40,13 @@ public class TestParquetWriterConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.parquet.optimized-writer.enabled", "true")
                 .put("hive.parquet.writer.block-size", "234MB")
                 .put("hive.parquet.writer.page-size", "11MB")
                 .build();
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
+                .setParquetOptimizedWriterEnabled(true)
                 .setBlockSize(DataSize.of(234, MEGABYTE))
                 .setPageSize(DataSize.of(11, MEGABYTE));
 
