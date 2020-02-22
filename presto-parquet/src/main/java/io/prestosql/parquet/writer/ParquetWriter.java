@@ -61,12 +61,18 @@ public class ParquetWriter
     private ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
 
     private int rows;
+    private long bufferedBytes;
     private boolean closed;
     private boolean writeHeader;
 
     public static final Slice MAGIC = wrappedBuffer("PAR1".getBytes(US_ASCII));
 
-    public ParquetWriter(OutputStream outputStream, List<String> columnNames, List<Type> types, ParquetWriterOptions writerOption, CompressionCodecName compressionCodecName)
+    public ParquetWriter(
+            OutputStream outputStream,
+            List<String> columnNames,
+            List<Type> types,
+            ParquetWriterOptions writerOption,
+            CompressionCodecName compressionCodecName)
     {
         this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
         this.names = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -83,6 +89,16 @@ public class ParquetWriter
         this.columnWriters = ParquetWriters.getColumnWriters(messageType, parquetSchemaConverter.getPrimitiveTypes(), parquetProperties, compressionCodecName);
 
         this.chunkMaxLogicalBytes = max(1, writerOption.getMaxBlockSize() / 2);
+    }
+
+    public long getWrittenBytes()
+    {
+        return outputStream.size();
+    }
+
+    public long getBufferedBytes()
+    {
+        return bufferedBytes;
     }
 
     public void write(Page page)
@@ -121,7 +137,7 @@ public class ParquetWriter
     private void writeChunk(Page page)
             throws IOException
     {
-        long bufferedBytes = 0;
+        bufferedBytes = 0;
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             ColumnWriter writer = columnWriters.get(channel);
             writer.writeBlock(new ColumnChunk(page.getBlock(channel)));
@@ -134,6 +150,7 @@ public class ParquetWriter
             flush();
             columnWriters.forEach(ColumnWriter::reset);
             rows = 0;
+            bufferedBytes = columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
         }
     }
 
