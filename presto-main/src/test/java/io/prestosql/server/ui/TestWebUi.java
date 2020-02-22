@@ -40,6 +40,9 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.LOCATION;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
@@ -168,7 +171,7 @@ public class TestWebUi
         assertResponseCode(client, getLocation(baseUri, "/ui/unknown"), SC_NOT_FOUND);
 
         assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
-        assertRedirect(client, getLogoutLocation(baseUri), getLoginHtmlLocation(baseUri));
+        assertRedirect(client, getLogoutLocation(baseUri), getLoginHtmlLocation(baseUri), false);
         assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
     }
 
@@ -323,8 +326,32 @@ public class TestWebUi
     private static void assertRedirect(OkHttpClient client, String url, String redirectLocation)
             throws IOException
     {
-        Response response = assertResponseCode(client, url, SC_SEE_OTHER);
-        assertEquals(response.header(LOCATION), redirectLocation);
+        assertRedirect(client, url, redirectLocation, true);
+    }
+
+    private static void assertRedirect(OkHttpClient client, String url, String redirectLocation, boolean testProxy)
+            throws IOException
+    {
+        Request request = new Request.Builder()
+                .url(url)
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            assertEquals(response.code(), SC_SEE_OTHER);
+            assertEquals(response.header(LOCATION), redirectLocation);
+        }
+
+        if (testProxy) {
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_PROTO, "https")
+                    .header(X_FORWARDED_HOST, "my-load-balancer.local")
+                    .header(X_FORWARDED_PORT, "443")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(response.header(LOCATION), "https://my-load-balancer.local:443/" + redirectLocation.replaceFirst("^([^/]*/){3}", ""));
+            }
+        }
     }
 
     private static Response assertResponseCode(OkHttpClient client, String url, int expectedCode)
