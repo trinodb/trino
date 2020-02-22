@@ -22,13 +22,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.net.HttpHeaders.LOCATION;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
@@ -78,13 +73,6 @@ public class DisabledWebUiAuthenticationManager
 
     private static String getRedirectLocation(HttpServletRequest request, String path)
     {
-        try {
-            String proto = firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_PROTO)), request.getScheme());
-            URI baseServerLocation = new URI(proto, null, request.getServerName(), request.getServerPort(), null, null, null);
-            return baseServerLocation.toASCIIString() + path;
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        return FormWebUiAuthenticationManager.getRedirectLocation(request, path, null);
     }
 }
