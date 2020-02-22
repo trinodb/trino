@@ -30,6 +30,7 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -53,6 +54,8 @@ import static org.apache.parquet.bytes.BytesInput.copy;
 public class PrimitiveColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize();
+
     private final Type type;
     private final ColumnDescriptor columnDescriptor;
     private final CompressionCodecName compressionCodec;
@@ -290,6 +293,15 @@ public class PrimitiveColumnWriter
                 definitionLevelEncoder.getBufferedSize() +
                 repetitionLevelEncoder.getBufferedSize() +
                 primitiveValueWriter.getBufferedSize();
+    }
+
+    @Override
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE +
+                primitiveValueWriter.getAllocatedSize() +
+                definitionLevelEncoder.getAllocatedSize() +
+                repetitionLevelEncoder.getAllocatedSize();
     }
 
     @Override
