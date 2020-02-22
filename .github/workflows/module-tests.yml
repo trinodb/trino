@@ -14,9 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         config: [
-          config-hdp2,
-          config-hdp3,
-          # TODO config-cdh5,
+          hdp2,
+          hdp3,
+          # TODO cdh5,
         ]
     steps:
       - uses: actions/checkout@v1
@@ -29,7 +29,7 @@ jobs:
           ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-hive-hadoop2
       - name: Run Hive Tests
         run: |
-          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+          source presto-product-tests/conf/product-tests-config-${{ matrix.config }}.sh &&
             presto-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
@@ -39,7 +39,7 @@ jobs:
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source presto-product-tests/conf/product-tests-config-${{ matrix.config }}.sh &&
               presto-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
       - name: Run Hive Glue Tests

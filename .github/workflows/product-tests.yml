@@ -14,9 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         config: [
-          config-hdp2,
-          config-hdp3,
-          config-cdh5,
+          hdp2,
+          hdp3,
+          cdh5,
         ]
         suite: [
           suite-1,
@@ -47,5 +47,5 @@ jobs:
           ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server-rpm'
       - name: Product Tests
         run: |
-          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+          source presto-product-tests/conf/product-tests-config-${{ matrix.config }}.sh &&
             presto-product-tests/bin/product-tests-${{ matrix.suite }}.sh
