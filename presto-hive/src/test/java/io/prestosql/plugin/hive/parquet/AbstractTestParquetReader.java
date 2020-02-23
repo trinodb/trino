@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
@@ -32,7 +33,6 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
-import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -73,6 +73,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
+import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -876,12 +877,10 @@ public abstract class AbstractTestParquetReader
 
     @Test
     public void testParquetShortDecimalWriteToPrestoDecimalWithNonMatchingScale()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
-            tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), createDecimalType(10, 2), Optional.of(parquetSchema));
-        }).hasMessage("Presto decimal column type has different scale (2) than Parquet decimal column (1)")
-                .isInstanceOf(ParquetDecodingException.class);
+        MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
+        tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(10L), ImmutableList.of(SqlDecimal.of(100L, 10, 2)), createDecimalType(10, 2), Optional.of(parquetSchema));
     }
 
     @Test
@@ -910,15 +909,13 @@ public abstract class AbstractTestParquetReader
 
     @Test
     public void testParquetLongDecimalWriteToPrestoDecimalWithNonMatchingScale()
+            throws Exception
     {
-        assertThatThrownBy(() ->
-                tester.testRoundTrip(
-                        new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
-                        ImmutableList.of(HiveDecimal.create(0)),
-                        ImmutableList.of(new SqlDecimal(BigInteger.ZERO, 38, 10)),
-                        createDecimalType(38, 9)))
-                .hasMessage("Presto decimal column type has different scale (9) than Parquet decimal column (10)")
-                .isInstanceOf(ParquetDecodingException.class);
+        tester.testRoundTrip(
+                new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
+                ImmutableList.of(HiveDecimal.create(100 * longTenToNth(10), 10)),
+                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(100 * longTenToNth(9)), 38, 9)),
+                createDecimalType(38, 9));
     }
 
     @Test
@@ -987,8 +984,8 @@ public abstract class AbstractTestParquetReader
         assertThatThrownBy(() -> {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
             tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), BIGINT, Optional.of(parquetSchema));
-        }).hasMessage("Parquet decimal column type with non-zero scale (1) cannot be converted to Presto bigint column type")
-                .isInstanceOf(ParquetDecodingException.class);
+        }).hasMessage("Unsupported Presto column type (bigint) for Parquet column ([test] optional int64 test (DECIMAL(10,1)))")
+                .isInstanceOf(PrestoException.class);
     }
 
     @Test
