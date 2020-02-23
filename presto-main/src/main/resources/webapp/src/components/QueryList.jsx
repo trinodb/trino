@@ -130,7 +130,7 @@ export class QueryListItem extends React.Component {
                 <div className="row">
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
-                            <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" title="Query ID">
+                            <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" data-trigger="hover" title="Query ID">
                                 <a href={"query.html?" + query.queryId} target="_blank">{query.queryId}</a>
                             </div>
                             <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
