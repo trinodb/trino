@@ -42,6 +42,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Iterator;
@@ -140,6 +141,148 @@ public class TestParquetDecimalScaling
         };
     }
 
+    /**
+     * Tests if Parquet decimal with given precision and scale can be read into Presto decimal with different precision and scale
+     * if Parquet decimal value could be rescaled into Presto decimal without loosing most and least significant digits.
+     */
+    @Test(dataProvider = "testReadingRescaledDecimalsProvider")
+    public void testReadingRescaledDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values, List<String> expected)
+    {
+        String tableName = generateTableName("rescaledDecimals", precision, scale);
+
+        createTable(tableName, schemaPrecision, schemaScale);
+
+        writeParquetDecimalsRecord(
+                getParquetWritePath(tableName),
+                ImmutableList.of(new ParquetDecimalInsert("value", forceFixedLengthArray, precision, scale, values)));
+
+        assertValues(tableName, schemaScale, expected);
+
+        dropTable(tableName);
+    }
+
+    @DataProvider
+    public Object[][] testReadingRescaledDecimalsProvider()
+    {
+        // parquetPrecision, parquetScale, useFixedLengthArray, schemaPrecision, schemaScale, writeValues, expectedValues
+        return new Object[][] {
+                {10, 2, false, 12, 4,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2)),
+                        ImmutableList.of("10.0100", "10.0000", "1.2300", maximumValue(10, 2), minimumValue(10, 2))},
+                {10, 2, true, 13, 5,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2)),
+                        ImmutableList.of("10.01000", "10.0000", "1.23000", maximumValue(10, 2), minimumValue(10, 2))},
+                {4, 2, false, 6, 4,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(4, 2), minimumValue(4, 2)),
+                        ImmutableList.of("10.0100", "10.0000", "1.2300", maximumValue(4, 2), minimumValue(4, 2))},
+                {4, 2, false, 6, 2,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(4, 2), minimumValue(4, 2)),
+                        ImmutableList.of("10.01", "10.00", "1.23", maximumValue(4, 2), minimumValue(4, 2))},
+                {10, 2, false, 11, 3,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2)),
+                        ImmutableList.of("10.010", "10.000", "1.230", maximumValue(10, 2), minimumValue(10, 2))},
+                {10, 2, true, 12, 4,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2)),
+                        ImmutableList.of("10.0100", "10.0000", "1.2300", maximumValue(10, 2), minimumValue(10, 2))},
+                {4, 2, false, 10, 5,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(4, 2), minimumValue(4, 2)),
+                        ImmutableList.of("10.01000", "10.00000", "1.23000", maximumValue(4, 2), minimumValue(4, 2))},
+                {4, 2, true, 10, 5,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(4, 2), minimumValue(4, 2)),
+                        ImmutableList.of("10.01000", "10.00000", "1.23000", maximumValue(4, 2), minimumValue(4, 2))},
+                {14, 2, false, 20, 3,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(14, 2), minimumValue(14, 2)),
+                        ImmutableList.of("10.010", "10.000", "1.230", maximumValue(14, 2), minimumValue(14, 2))},
+                {6, 3, false, 9, 6,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(6, 3), minimumValue(6, 3)),
+                        ImmutableList.of("10.010000", "10.000000", "1.230000", maximumValue(6, 3), minimumValue(6, 3))},
+                {6, 3, true, 9, 6,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(6, 3), minimumValue(6, 3)),
+                        ImmutableList.of("10.010000", "10.000000", "1.230000", maximumValue(6, 3), minimumValue(6, 3))},
+                {10, 2, false, 38, 4,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2)),
+                        ImmutableList.of("10.0100", "10.0000", "1.2300", maximumValue(10, 2), minimumValue(10, 2))},
+                {18, 4, false, 38, 14,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(18, 4), minimumValue(18, 4)),
+                        ImmutableList.of("10.0100", "10.0000", "1.2300", maximumValue(18, 4), minimumValue(18, 4))},
+        };
+    }
+
+    /**
+     * Tests if Parquet decimal with given precision and scale can be read into Presto decimal with different precision and scale
+     * if Parquet decimal value will be rounded to fit into Presto decimal.
+     */
+    @Test(dataProvider = "testReadingRoundedDecimalsProvider")
+    public void testReadingRoundedDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values, List<String> expected)
+    {
+        String tableName = generateTableName("roundedDecimals", precision, scale);
+
+        createTable(tableName, schemaPrecision, schemaScale);
+
+        writeParquetDecimalsRecord(
+                getParquetWritePath(tableName),
+                ImmutableList.of(new ParquetDecimalInsert("value", forceFixedLengthArray, precision, scale, values)));
+
+        assertRoundedValues(tableName, schemaScale, expected);
+
+        dropTable(tableName);
+    }
+
+    @DataProvider
+    public Object[][] testReadingRoundedDecimalsProvider()
+    {
+        // parquetPrecision, parquetScale, useFixedLengthArray, schemaPrecision, schemaScale, writeValues, expectedValues
+        return new Object[][] {
+                {10, 2, false, 12, 1,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2)),
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2))},
+                {9, 2, true, 12, 1,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(9, 2), minimumValue(9, 2)),
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(9, 2), minimumValue(9, 2))},
+                {4, 2, false, 7, 1,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(4, 2), minimumValue(4, 2)),
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(4, 2), minimumValue(4, 2))},
+                {10, 2, false, 12, 1,
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2)),
+                        ImmutableList.of("10.01", "10", "1.23", maximumValue(10, 2), minimumValue(10, 2))},
+        };
+    }
+
+    /**
+     * Tests if Parquet decimal with given precision and scale cannot be read into Presto decimal with different precision and scale
+     * because when rescaling decimal we would loose most significant digits.
+     */
+    @Test(dataProvider = "testReadingNonRescalableDecimalsProvider")
+    public void testReadingNonRescalableDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values)
+    {
+        String tableName = generateTableName("nonRescalable", precision, scale);
+
+        createTable(tableName, schemaPrecision, schemaScale);
+
+        writeParquetDecimalsRecord(
+                getParquetWritePath(tableName),
+                ImmutableList.of(new ParquetDecimalInsert("value", forceFixedLengthArray, precision, scale, values)));
+
+        assertQueryFails(format("SELECT * FROM %s", tableName), format("Cannot cast DECIMAL\\(%d, %d\\) '.*' to DECIMAL\\(%d, %d\\)", precision, scale, schemaPrecision, schemaScale));
+
+        dropTable(tableName);
+    }
+
+    @DataProvider
+    public Object[][] testReadingNonRescalableDecimalsProvider()
+    {
+        // parquetPrecision, parquetScale, useFixedLengthArray, schemaPrecision, schemaScale, writeValues
+        return new Object[][] {
+                {4, 2, false, 4, 3, ImmutableList.of("10.01")},
+                {10, 2, false, 10, 3, ImmutableList.of("12345678.91")},
+                {10, 2, false, 3, 2, ImmutableList.of("10.01")},
+                {10, 2, true, 14, 7, ImmutableList.of("99999999.99")},
+                {10, 2, false, 10, 4, ImmutableList.of("99999999.99")},
+                {18, 8, false, 32, 23, ImmutableList.of("1234567890.12345678")},
+                {20, 8, false, 32, 21, ImmutableList.of("123456789012.12345678")},
+        };
+    }
+
     protected void createTable(String tableName, int precision, int scale)
     {
         assertUpdate(format("CREATE TABLE %s (value decimal(%d, %d)) WITH (format = 'PARQUET')", tableName, precision, scale));
@@ -161,6 +304,22 @@ public class TestParquetDecimalScaling
 
         BigDecimal[] expectedValues = expected.stream()
                 .map(value -> new BigDecimal(value).setScale(scale, UNNECESSARY))
+                .toArray(BigDecimal[]::new);
+
+        assertThat(actualValues).containsExactlyInAnyOrder(expectedValues);
+    }
+
+    protected void assertRoundedValues(String tableName, int scale, List<String> expected)
+    {
+        MaterializedResult materializedRows = computeActual(format("select value FROM %s", tableName));
+
+        List<BigDecimal> actualValues = materializedRows.getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .map(BigDecimal.class::cast)
+                .collect(toImmutableList());
+
+        BigDecimal[] expectedValues = expected.stream()
+                .map(value -> new BigDecimal(value).setScale(scale, RoundingMode.HALF_UP))
                 .toArray(BigDecimal[]::new);
 
         assertThat(actualValues).containsExactlyInAnyOrder(expectedValues);

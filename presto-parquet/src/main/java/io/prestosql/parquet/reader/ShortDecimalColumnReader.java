@@ -14,19 +14,24 @@
 package io.prestosql.parquet.reader;
 
 import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import static io.prestosql.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DecimalConversions.shortToLongCast;
+import static io.prestosql.spi.type.DecimalConversions.shortToShortCast;
+import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
+import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -47,39 +52,69 @@ public class ShortDecimalColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type prestoType)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long decimalValue;
-            // When decimals are encoded with primitive types Parquet stores unscaled values
-            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
-                decimalValue = valuesReader.readInteger();
-            }
-            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
-                decimalValue = valuesReader.readLong();
-            }
-            else {
-                decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
+            if (!((prestoType instanceof DecimalType) || isIntegerType(prestoType))) {
+                throw new ParquetDecodingException(format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
             }
 
-            if (isShortDecimal(prestoType)) {
-                validateDecimal((DecimalType) prestoType);
-                // TODO: validate that value fits Presto decimal precision
-                prestoType.writeLong(blockBuilder, decimalValue);
+            long value;
+
+            // When decimals are encoded with primitive types Parquet stores unscaled values
+            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
+                value = valuesReader.readInteger();
             }
-            else if (isLongDecimal(prestoType)) {
-                validateDecimal((DecimalType) prestoType);
-                // TODO: validate that value fits Presto decimal precision
-                prestoType.writeSlice(blockBuilder, unscaledDecimal(decimalValue));
-            }
-            else if (prestoType.equals(TINYINT) || prestoType.equals(SMALLINT) || prestoType.equals(INTEGER) || prestoType.equals(BIGINT)) {
-                if (parquetDecimalType.getScale() != 0) {
-                    throw new ParquetDecodingException(format(
-                            "Parquet decimal column type with non-zero scale (%s) cannot be converted to Presto %s column type",
-                            parquetDecimalType.getScale(),
-                            prestoType));
-                }
-                prestoType.writeLong(blockBuilder, decimalValue);
+            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
+                value = valuesReader.readLong();
             }
             else {
-                throw new ParquetDecodingException(format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
+                value = getShortDecimalValue(valuesReader.readBytes().getBytes());
+            }
+
+            if (prestoType instanceof DecimalType) {
+                DecimalType prestoDecimalType = (DecimalType) prestoType;
+
+                if (isShortDecimal(prestoDecimalType)) {
+                    long rescale = longTenToNth(Math.abs(prestoDecimalType.getScale() - parquetDecimalType.getScale()));
+                    long convertedValue = shortToShortCast(
+                            value,
+                            parquetDecimalType.getPrecision(),
+                            parquetDecimalType.getScale(),
+                            prestoDecimalType.getPrecision(),
+                            prestoDecimalType.getScale(),
+                            rescale,
+                            rescale / 2);
+
+                    prestoType.writeLong(blockBuilder, convertedValue);
+                }
+                else if (isLongDecimal(prestoDecimalType)) {
+                    prestoType.writeSlice(blockBuilder, shortToLongCast(
+                            value,
+                            parquetDecimalType.getPrecision(),
+                            parquetDecimalType.getScale(),
+                            prestoDecimalType.getPrecision(),
+                            prestoDecimalType.getScale()));
+                }
+            }
+            else {
+                if (parquetDecimalType.getScale() != 0) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
+                }
+
+                long rescale = longTenToNth(parquetDecimalType.getScale());
+                long convertedValue = shortToShortCast(
+                        value,
+                        parquetDecimalType.getPrecision(),
+                        parquetDecimalType.getScale(),
+                        MAX_SHORT_PRECISION,
+                        0,
+                        rescale,
+                        rescale / 2);
+
+                if (isInValidNumberRange(prestoType, convertedValue)) {
+                    prestoType.writeLong(blockBuilder, convertedValue);
+                }
+                else {
+                    throw new PrestoException(NOT_SUPPORTED, format("Could not coerce from %s to %s", parquetDecimalType, prestoType));
+                }
             }
         }
         else if (isValueNull()) {
@@ -87,14 +122,27 @@ public class ShortDecimalColumnReader
         }
     }
 
-    private void validateDecimal(DecimalType prestoType)
+    protected boolean isIntegerType(Type type)
     {
-        if (prestoType.getScale() != parquetDecimalType.getScale()) {
-            throw new ParquetDecodingException(format(
-                    "Presto decimal column type has different scale (%s) than Parquet decimal column (%s)",
-                    prestoType.getScale(),
-                    parquetDecimalType.getScale()));
+        return type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT);
+    }
+
+    protected boolean isInValidNumberRange(Type type, long value)
+    {
+        if (type.equals(TINYINT)) {
+            return Byte.MIN_VALUE <= value && value <= Byte.MAX_VALUE;
         }
+        else if (type.equals(SMALLINT)) {
+            return Short.MIN_VALUE <= value && value <= Short.MAX_VALUE;
+        }
+        else if (type.equals(INTEGER)) {
+            return Integer.MIN_VALUE <= value && value <= Integer.MAX_VALUE;
+        }
+        else if (type.equals(BIGINT)) {
+            return true;
+        }
+
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     @Override
