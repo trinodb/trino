@@ -823,3 +823,18 @@ g .operator-stats:hover {
 .stack-traces {
     font-size: 11px;
 }
+
+.reactable-header-sortable::after {
+    font-size: 0.6em;
+    margin-left: 0.5em;
+}
+
+.reactable-header-sort-asc::after {
+    font-family: 'Glyphicons Halflings';
+    content: "\e253";
+}
+
+.reactable-header-sort-desc::after {
+    font-family: 'Glyphicons Halflings';
+    content: "\e252";
+}
