@@ -14,6 +14,7 @@
 package io.prestosql.spi.security;
 
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -36,6 +37,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
@@ -429,6 +431,16 @@ public interface SystemAccessControl
     default void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
         denyShowRoles(catalogName);
+    }
+
+    /**
+     * Check if identity is allowed to execute the specified procedure
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
+    {
+        denyExecuteProcedure(procedure.toString());
     }
 
     /**

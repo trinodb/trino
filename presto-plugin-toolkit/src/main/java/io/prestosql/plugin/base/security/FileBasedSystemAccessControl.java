@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -525,6 +526,11 @@ public class FileBasedSystemAccessControl
 
     @Override
     public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
     }
 
