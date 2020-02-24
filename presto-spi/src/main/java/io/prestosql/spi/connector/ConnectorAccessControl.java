@@ -35,6 +35,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
@@ -383,6 +384,11 @@ public interface ConnectorAccessControl
     default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    default void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+        denyExecuteProcedure(procedure.toString());
     }
 
     /**

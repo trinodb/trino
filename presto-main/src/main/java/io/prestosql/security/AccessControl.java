@@ -336,6 +336,13 @@ public interface AccessControl
      */
     void checkCanShowRoleGrants(SecurityContext context, String catalogName);
 
+    /**
+     * Check if identity is allowed to execute procedure
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName);
+
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return ImmutableList.of();

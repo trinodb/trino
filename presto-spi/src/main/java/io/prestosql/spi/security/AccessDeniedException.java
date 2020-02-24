@@ -406,6 +406,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set role %s", role));
     }
 
+    public static void denyExecuteProcedure(String procedureName)
+    {
+        throw new AccessDeniedException(format("Cannot invoke procedure %s", procedureName));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

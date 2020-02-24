@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
+import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -271,6 +272,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
     {
     }
 

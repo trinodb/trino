@@ -14,6 +14,7 @@
 package io.prestosql.plugin.base.security;
 
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -245,6 +246,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
     }
 
