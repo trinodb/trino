@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.base.security;
 
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -136,6 +137,11 @@ public class ReadOnlySystemAccessControl
 
     @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 

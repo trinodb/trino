@@ -137,6 +137,11 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
         return tableNames;
