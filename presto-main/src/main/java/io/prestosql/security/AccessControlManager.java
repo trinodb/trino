@@ -386,6 +386,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowTables(SecurityContext securityContext, CatalogSchemaName schema)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schema, "schema is null");
+
+        checkCanAccessCatalog(securityContext, schema.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowTables(securityContext.toSystemSecurityContext(), schema));
+
+        catalogAuthorizationCheck(schema.getCatalogName(), securityContext, (control, context) -> control.checkCanShowTables(context, schema.getSchemaName()));
+    }
+
+    @Override
     public Set<SchemaTableName> filterTables(SecurityContext securityContext, String catalogName, Set<SchemaTableName> tableNames)
     {
         requireNonNull(securityContext, "securityContext is null");

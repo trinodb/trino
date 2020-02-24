@@ -119,6 +119,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
+    {
+    }
+
+    @Override
     public Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return tableNames;

@@ -52,6 +52,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMet
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 
 public interface SystemAccessControl
@@ -244,6 +245,20 @@ public interface SystemAccessControl
     default void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCommentTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterTables} method must filter all results for unauthorized users,
+     * since there are multiple ways to list tables.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
+    {
+        denyShowTables(schema.toString());
     }
 
     /**
