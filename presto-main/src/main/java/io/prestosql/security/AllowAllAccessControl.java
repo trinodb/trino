@@ -249,4 +249,9 @@ public class AllowAllAccessControl
     public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
     {
     }
+
+    @Override
+    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
+    {
+    }
 }

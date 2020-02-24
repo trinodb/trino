@@ -42,6 +42,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -327,5 +328,11 @@ public class DenyAllAccessControl
     public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
+    {
+        denyExecuteProcedure(procedureName.toString());
     }
 }

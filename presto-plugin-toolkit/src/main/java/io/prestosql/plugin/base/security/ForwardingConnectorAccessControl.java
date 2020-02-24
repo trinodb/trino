@@ -16,6 +16,7 @@ package io.prestosql.plugin.base.security;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
+import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -254,6 +255,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         delegate().checkCanShowRoleGrants(context, catalogName);
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+        delegate().checkCanExecuteProcedure(context, procedure);
     }
 
     @Override
