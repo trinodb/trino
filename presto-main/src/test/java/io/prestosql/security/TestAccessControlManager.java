@@ -23,6 +23,7 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.base.security.AllowAllAccessControl;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
@@ -61,6 +62,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -251,6 +253,62 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
+                });
+    }
+
+    @Test
+    public void testDenyExecuteProcedureBySystem()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("deny-all", ImmutableMap.of());
+
+        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot invoke procedure connector.schema.procedure");
+    }
+
+    @Test
+    public void testDenyExecuteProcedureByConnector()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControlManager.setSystemAccessControl("allow-all", ImmutableMap.of());
+
+        registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
+        accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new DenyConnectorAccessControl());
+
+        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot invoke procedure schema.procedure");
+    }
+
+    @Test
+    public void testAllowExecuteProcedure()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControlManager.setSystemAccessControl("allow-all", ImmutableMap.of());
+
+        registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
+        accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new AllowAllAccessControl());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanExecuteProcedure(context(transactionId), new QualifiedObjectName("connector", "schema", "procedure"));
+                });
+    }
+
+    private void assertDenyExecuteProcedure(TransactionManager transactionManager, AccessControlManager accessControlManager, String s)
+    {
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    assertThatThrownBy(
+                            () -> accessControlManager.checkCanExecuteProcedure(context(transactionId), new QualifiedObjectName("connector", "schema", "procedure")))
+                            .isInstanceOf(AccessDeniedException.class)
+                            .hasMessage(s);
                 });
     }
 

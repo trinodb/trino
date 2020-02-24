@@ -736,6 +736,22 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanExecuteProcedure(SecurityContext securityContext, QualifiedObjectName procedureName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(procedureName, "procedureName is null");
+
+        checkCanAccessCatalog(securityContext, procedureName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanExecuteProcedure(securityContext.toSystemSecurityContext(), procedureName.asCatalogSchemaRoutineName()));
+
+        catalogAuthorizationCheck(
+                procedureName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanExecuteProcedure(context, procedureName.asSchemaRoutineName()));
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         requireNonNull(context, "securityContext is null");

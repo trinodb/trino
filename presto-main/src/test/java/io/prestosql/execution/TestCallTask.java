@@ -21,8 +21,10 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.security.DenyAllAccessControl;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.QualifiedName;
@@ -44,6 +46,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestCallTask
@@ -84,6 +87,24 @@ public class TestCallTask
         new CallTask().execute(procedure, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of());
 
         assertThat(invoked).isTrue();
+    }
+
+    @Test
+    public void testExecuteNoPermission()
+    {
+        TransactionManager transactionManager = createTransactionManager();
+        MetadataManager metadata = createMetadataManager(transactionManager);
+        AccessControl accessControl = new DenyAllAccessControl();
+        QueryStateMachine stateMachine = stateMachine(transactionManager, metadata, accessControl);
+
+        Call procedure = getProcedureInvocation();
+
+        assertThatThrownBy(
+                () -> new CallTask().execute(procedure, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of()))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot invoke procedure test.test.testing_procedure");
+
+        assertThat(invoked).isFalse();
     }
 
     private Call getProcedureInvocation()

@@ -172,6 +172,8 @@ public class CallTask
             }
         }
 
+        accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
+
         try {
             procedure.getMethodHandle().invokeWithArguments(arguments);
         }
