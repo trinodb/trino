@@ -569,7 +569,7 @@ export class QueryList extends React.Component {
                 <div className="row toolbar-row">
                     <div className="col-xs-12 toolbar-col">
                         <div className="input-group input-group-sm">
-                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, resource group, or query text"
+                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, query state, resource group, or query text"
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
                             <span className="input-group-addon filter-addon">State:</span>
                             <div className="input-group-btn">
