@@ -16,7 +16,6 @@ package io.prestosql.execution.scheduler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -44,6 +43,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.prestosql.execution.scheduler.NodeScheduler.getAllNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
@@ -96,7 +96,7 @@ public class UniformNodeSelector
     @Override
     public List<InternalNode> allNodes()
     {
-        return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
+        return getAllNodes(nodeMap.get().get(), includeCoordinator);
     }
 
     @Override
