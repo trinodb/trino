@@ -153,6 +153,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
+    {
+        delegate().checkCanShowTables(context, schema);
+    }
+
+    @Override
     public Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return delegate().filterTables(context, catalogName, tableNames);

@@ -52,6 +52,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRol
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
@@ -153,6 +154,20 @@ public interface ConnectorAccessControl
     default void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterTables} method must filter all results for unauthorized users,
+     * since there are multiple ways to list tables.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
+    {
+        denyShowTables(schemaName);
     }
 
     /**
