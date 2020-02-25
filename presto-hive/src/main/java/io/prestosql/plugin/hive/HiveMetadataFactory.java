@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
 import io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
@@ -29,13 +30,12 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
-        implements Supplier<TransactionalMetadata>
+        implements TransactionalMetadataFactory
 {
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
@@ -164,7 +164,7 @@ public class HiveMetadataFactory
     }
 
     @Override
-    public HiveMetadata get()
+    public TransactionalMetadata create(ConnectorTransactionHandle transactionHandle)
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
@@ -192,6 +192,6 @@ public class HiveMetadataFactory
                 typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
-                accessControlMetadataFactory.create(metastore));
+                accessControlMetadataFactory.create(transactionHandle, metastore));
     }
 }

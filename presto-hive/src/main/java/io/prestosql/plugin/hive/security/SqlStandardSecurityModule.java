@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class SqlStandardSecurityModule
         implements Module
@@ -35,7 +36,7 @@ public class SqlStandardSecurityModule
         public SqlStandardAccessControlMetadataFactory() {}
 
         @Override
-        public AccessControlMetadata create(SemiTransactionalHiveMetastore metastore)
+        public AccessControlMetadata create(ConnectorTransactionHandle transactionHandle, SemiTransactionalHiveMetastore metastore)
         {
             return new SqlStandardAccessControlMetadata(metastore);
         }

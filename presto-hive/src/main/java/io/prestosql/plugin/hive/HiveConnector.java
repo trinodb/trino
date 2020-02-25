@@ -35,7 +35,6 @@ import io.prestosql.spi.transaction.IsolationLevel;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
@@ -46,7 +45,7 @@ public class HiveConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final Supplier<TransactionalMetadata> metadataFactory;
+    private final TransactionalMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -65,7 +64,7 @@ public class HiveConnector
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
-            Supplier<TransactionalMetadata> metadataFactory,
+            TransactionalMetadataFactory metadataFactory,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
@@ -189,7 +188,7 @@ public class HiveConnector
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.get());
+            transactionManager.put(transaction, metadataFactory.create(transaction));
         }
         return transaction;
     }
