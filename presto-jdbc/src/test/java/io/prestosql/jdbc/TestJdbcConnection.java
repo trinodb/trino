@@ -304,6 +304,15 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testClientTags()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("clientTags=c2,c3")) {
+            assertEquals(connection.getClientInfo("ClientTags"), "c2,c3");
+        }
+    }
+
+    @Test
     public void testRole()
             throws SQLException
     {

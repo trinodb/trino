@@ -194,7 +194,7 @@ public class PushAggregationThroughOuterJoin
     {
         checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode innerNode;
-        if (join.getType().equals(JoinNode.Type.LEFT)) {
+        if (join.getType() == JoinNode.Type.LEFT) {
             innerNode = join.getRight();
         }
         else {
@@ -207,7 +207,7 @@ public class PushAggregationThroughOuterJoin
     {
         checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode outerNode;
-        if (join.getType().equals(JoinNode.Type.LEFT)) {
+        if (join.getType() == JoinNode.Type.LEFT) {
             outerNode = join.getLeft();
         }
         else {

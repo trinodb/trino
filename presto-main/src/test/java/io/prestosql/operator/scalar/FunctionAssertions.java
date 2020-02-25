@@ -29,7 +29,7 @@ import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import io.prestosql.operator.FilterAndProjectOperator;
 import io.prestosql.operator.Operator;
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.ScanFilterAndProjectOperator;
@@ -744,7 +744,7 @@ public final class FunctionAssertions
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
 
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), DataSize.ofBytes(0), 0);
+            return FilterAndProjectOperator.createOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), DataSize.ofBytes(0), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -758,7 +758,7 @@ public final class FunctionAssertions
     {
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(filter, ImmutableList.of(projection));
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), DataSize.ofBytes(0), 0);
+            return FilterAndProjectOperator.createOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), DataSize.ofBytes(0), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
@@ -51,7 +52,6 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +64,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -81,11 +83,13 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -399,34 +403,75 @@ public class TestBackgroundHiveSplitLoader
                 tablePath + "/delta_0000002_0000002_0000/bucket_00000",
                 tablePath + "/delta_0000003_0000003_0000/bucket_00000");
 
-        try {
-            for (String path : filePaths) {
-                File file = new File(path);
+        for (String path : filePaths) {
+            File file = new File(path);
+            assertTrue(file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            assertTrue(file.createNewFile(), "Failed to create file");
+        }
+
+        // ValidWriteIdList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3 and aborted transaction=2
+        String validWriteIdsList = format("4$%s.%s:3:9223372036854775807::2", table.getDatabaseName(), table.getTableName());
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                HDFS_ENVIRONMENT,
+                TupleDomain.none(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(new ValidReaderWriteIdList(validWriteIdsList)));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        List<String> splits = drain(hiveSplitSource);
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(0))), format("%s not found in splits %s", filePaths.get(0), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(2))), format("%s not found in splits %s", filePaths.get(2), splits));
+
+        deleteRecursively(tablePath, ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testFullAcidTableWithOriginalFilesFails()
+            throws Exception
+    {
+        java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
+        Table table = table(
+                tablePath.toString(),
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableMap.of("transactional", "true"));
+
+        List<String> filePaths = ImmutableList.of(
+                tablePath + "/000000_1",
+                tablePath + "/delta_0000002_0000002_0000/bucket_00000");
+
+        for (String path : filePaths) {
+            File file = new File(path);
+            if (!file.getParent().equals(tablePath.toString())) {
                 assertTrue(file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-                file.createNewFile();
             }
-
-            // ValidWriteIdList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
-            // This writeId list has high watermark transaction=3 and aborted transaction=2
-            String validWriteIdsList = format("4$%s.%s:3:9223372036854775807::2", table.getDatabaseName(), table.getTableName());
-
-            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                    HDFS_ENVIRONMENT,
-                    TupleDomain.none(),
-                    Optional.empty(),
-                    table,
-                    Optional.empty(),
-                    Optional.of(new ValidReaderWriteIdList(validWriteIdsList)));
-
-            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
-            backgroundHiveSplitLoader.start(hiveSplitSource);
-            List<String> splits = drain(hiveSplitSource);
-            assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(0))), format("%s not found in splits %s", filePaths.get(0), splits));
-            assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(2))), format("%s not found in splits %s", filePaths.get(2), splits));
+            Files.write(file.toPath(), "test".getBytes(UTF_8));
         }
-        finally {
-            Files.walk(tablePath).sorted(Comparator.reverseOrder()).map(java.nio.file.Path::toFile).forEach(File::delete);
-        }
+
+        // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3
+        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                HDFS_ENVIRONMENT,
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(validWriteIdsList));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        assertThatThrownBy(() -> drain(hiveSplitSource))
+                .isInstanceOfSatisfying(PrestoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
+                .hasMessage("Original non-ACID files in transactional tables are not supported");
+
+        deleteRecursively(tablePath, ALLOW_INSECURE);
     }
 
     private static List<String> drain(HiveSplitSource source)

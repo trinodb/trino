@@ -11,28 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.raptor.legacy;
+package io.prestosql.plugin.kafka;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.prestosql.plugin.raptor.legacy.metadata.DatabaseMetadataModule;
+import com.google.inject.Scopes;
 
-import java.util.Map;
-
-public class PluginInfo
+public class KafkaConsumerModule
+        implements Module
 {
-    public String getName()
+    @Override
+    public void configure(Binder binder)
     {
-        return "raptor-legacy";
-    }
-
-    public Module getMetadataModule()
-    {
-        return new DatabaseMetadataModule();
-    }
-
-    public Map<String, Module> getBackupProviders()
-    {
-        return ImmutableMap.of();
+        binder.bind(KafkaConsumerFactory.class).to(PlainTextKafkaConsumerFactory.class).in(Scopes.SINGLETON);
     }
 }

@@ -199,6 +199,40 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(new SystemSecurityContext(identity)));
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    {
+        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwners);
+        }
+        return queryOwners;
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(queryOwner, "queryOwner is null");
+
+        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         requireNonNull(identity, "identity is null");
@@ -285,6 +319,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowCreateTable(SecurityContext securityContext, QualifiedObjectName tableName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowCreateTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanShowCreateTable(context, tableName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanCreateTable(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -335,19 +382,6 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanSetTableComment(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
 
         catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetTableComment(context, tableName.asSchemaTableName()));
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(SecurityContext securityContext, CatalogSchemaName schema)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(schema, "schema is null");
-
-        checkCanAccessCatalog(securityContext, schema.getCatalogName());
-
-        systemAuthorizationCheck(control -> control.checkCanShowTablesMetadata(securityContext.toSystemSecurityContext(), schema));
-
-        catalogAuthorizationCheck(schema.getCatalogName(), securityContext, (control, context) -> control.checkCanShowTablesMetadata(context, schema.getSchemaName()));
     }
 
     @Override
@@ -803,6 +837,12 @@ public class AccessControlManager
 
         @Override
         public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+        {
+            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
+
+        @Override
+        public void checkCanExecuteQuery(SystemSecurityContext context)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

@@ -65,6 +65,11 @@ public class ReadOnlyAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCreateTable(tableName.toString());
@@ -86,11 +91,6 @@ public class ReadOnlyAccessControl
     public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCommentTable(tableName.toString());
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
-    {
     }
 
     @Override

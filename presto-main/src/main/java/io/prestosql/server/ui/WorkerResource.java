@@ -16,26 +16,39 @@ package io.prestosql.server.ui;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
+import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.TaskId;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.NodeState;
+import io.prestosql.security.AccessControl;
 import io.prestosql.server.ForWorkerInfo;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.security.AccessDeniedException;
 
 import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.prestosql.security.AccessControlUtil.checkCanViewQueryOwnedBy;
+import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
@@ -44,13 +57,17 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 @Path("/ui/api/worker")
 public class WorkerResource
 {
+    private final DispatchManager dispatchManager;
     private final InternalNodeManager nodeManager;
+    private final AccessControl accessControl;
     private final HttpClient httpClient;
 
     @Inject
-    public WorkerResource(InternalNodeManager nodeManager, @ForWorkerInfo HttpClient httpClient)
+    public WorkerResource(DispatchManager dispatchManager, InternalNodeManager nodeManager, AccessControl accessControl, @ForWorkerInfo HttpClient httpClient)
     {
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
@@ -70,9 +87,24 @@ public class WorkerResource
 
     @GET
     @Path("{nodeId}/task/{taskId}")
-    public Response getThreads(@PathParam("taskId") final TaskId task, @PathParam("nodeId") String nodeId)
+    public Response getThreads(
+            @PathParam("taskId") final TaskId task,
+            @PathParam("nodeId") String nodeId,
+            @Context HttpServletRequest servletRequest,
+            @Context HttpHeaders httpHeaders)
     {
-        return proxyJsonResponse(nodeId, "v1/task/" + task);
+        QueryId queryId = task.getQueryId();
+        Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
+        if (queryInfo.isPresent()) {
+            try {
+                checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl), queryInfo.get().getSession().getUser(), accessControl);
+                return proxyJsonResponse(nodeId, "v1/task/" + task);
+            }
+            catch (AccessDeniedException e) {
+                throw new ForbiddenException();
+            }
+        }
+        return Response.status(Status.GONE).build();
     }
 
     private Response proxyJsonResponse(String nodeId, String workerPath)

@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
@@ -67,6 +68,8 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -79,15 +82,18 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
+    private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
 
     private FileBasedSystemAccessControl(
             List<CatalogAccessControlRule> catalogRules,
+            Optional<List<QueryAccessRule>> queryAccessRules,
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
     {
         this.catalogRules = catalogRules;
+        this.queryAccessRules = queryAccessRules;
         this.impersonationRules = impersonationRules;
         this.principalUserMatchRules = principalUserMatchRules;
     }
@@ -152,7 +158,11 @@ public class FileBasedSystemAccessControl
                     Optional.of(Pattern.compile(".*")),
                     Optional.of(Pattern.compile("system"))));
 
-            return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getImpersonationRules(), rules.getPrincipalUserMatchRules());
+            return new FileBasedSystemAccessControl(
+                    catalogRulesBuilder.build(),
+                    rules.getQueryAccessRules(),
+                    rules.getImpersonationRules(),
+                    rules.getPrincipalUserMatchRules());
         }
     }
 
@@ -208,6 +218,64 @@ public class FileBasedSystemAccessControl
         }
 
         denySetUser(principal, userName);
+    }
+
+    @Override
+    public void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+        if (!queryAccessRules.isPresent()) {
+            return;
+        }
+        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.EXECUTE)) {
+            denyViewQuery();
+        }
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        if (!queryAccessRules.isPresent()) {
+            return;
+        }
+        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.VIEW)) {
+            denyViewQuery();
+        }
+    }
+
+    @Override
+    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        if (!queryAccessRules.isPresent()) {
+            return queryOwners;
+        }
+        Identity identity = context.getIdentity();
+        return queryOwners.stream()
+                .filter(owner -> canAccessQuery(identity, QueryAccessRule.AccessMode.VIEW))
+                .collect(toImmutableSet());
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        if (!queryAccessRules.isPresent()) {
+            return;
+        }
+        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.KILL)) {
+            denyViewQuery();
+        }
+    }
+
+    private boolean canAccessQuery(Identity identity, QueryAccessRule.AccessMode requiredAccess)
+    {
+        if (queryAccessRules.isPresent()) {
+            for (QueryAccessRule rule : queryAccessRules.get()) {
+                Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser());
+                if (accessMode.isPresent()) {
+                    return accessMode.get().contains(requiredAccess);
+                }
+            }
+        }
+        return false;
     }
 
     @Override
@@ -286,6 +354,14 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyShowCreateTable(table.toString());
+        }
+    }
+
+    @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
@@ -315,11 +391,6 @@ public class FileBasedSystemAccessControl
         if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
             denyCommentTable(table.toString());
         }
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
-    {
     }
 
     @Override

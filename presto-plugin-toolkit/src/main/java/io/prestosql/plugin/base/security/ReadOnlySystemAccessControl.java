@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.base.security;
 
-import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -63,6 +62,22 @@ public class ReadOnlySystemAccessControl
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
+    }
+
+    @Override
+    public void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+    }
+
+    @Override
+    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        return queryOwners;
     }
 
     @Override
@@ -121,11 +136,6 @@ public class ReadOnlySystemAccessControl
 
     @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
-    {
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 

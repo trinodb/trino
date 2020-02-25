@@ -17,12 +17,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
+import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
+import io.prestosql.spi.eventlistener.QueryFailureInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
@@ -37,13 +42,16 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.execution.TestQueues.createResourceGroupId;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestEventListener
@@ -69,6 +77,21 @@ public class TestEventListener
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", Integer.toString(SPLITS_PER_NODE)));
+        queryRunner.installPlugin(new Plugin()
+        {
+            @Override
+            public Iterable<ConnectorFactory> getConnectorFactories()
+            {
+                MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "test_table")))
+                        .withApplyProjection((session, handle, projections, assignments) -> {
+                            throw new RuntimeException("Throw from apply projection");
+                        })
+                        .build();
+                return ImmutableList.of(connectorFactory);
+            }
+        });
+        queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         queryRunner.getCoordinator().getResourceGroupManager().get()
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
@@ -94,8 +117,29 @@ public class TestEventListener
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession)
             throws Exception
     {
+        return runQueryAndWaitForEvents(sql, numEventsExpected, alternateSession, Optional.empty());
+    }
+
+    private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession, Optional<String> expectedExceptionRegEx)
+            throws Exception
+    {
         generatedEvents.initialize(numEventsExpected);
-        MaterializedResult result = queryRunner.execute(alternateSession, sql);
+        MaterializedResult result = null;
+        try {
+            result = queryRunner.execute(alternateSession, sql);
+        }
+        catch (RuntimeException exception) {
+            if (expectedExceptionRegEx.isPresent()) {
+                String regex = expectedExceptionRegEx.get();
+                if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+                    fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+                }
+            }
+            else {
+                throw exception;
+            }
+        }
+
         generatedEvents.waitForEvents(10);
 
         return result;
@@ -127,6 +171,33 @@ public class TestEventListener
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertEquals(splitCompletedEvents.get(0).getStatistics().getCompletedPositions(), 1);
+    }
+
+    @Test
+    public void testAnalysisFailure()
+            throws Exception
+    {
+        assertFailedQuery("EXPLAIN (TYPE IO) SELECT sum(bogus) FROM lineitem", "line 1:30: Column 'bogus' cannot be resolved");
+    }
+
+    @Test
+    public void testPlanningFailure()
+            throws Exception
+    {
+        assertFailedQuery("SELECT * FROM mock.default.tests_table", "Throw from apply projection");
+    }
+
+    private void assertFailedQuery(@Language("SQL") String sql, String expectedFailure)
+            throws Exception
+    {
+        runQueryAndWaitForEvents(sql, 2, session, Optional.of(expectedFailure));
+
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertEquals(sql, queryCompletedEvent.getMetadata().getQuery());
+
+        QueryFailureInfo failureInfo = queryCompletedEvent.getFailureInfo()
+                .orElseThrow(() -> new AssertionError("Expected query event to be failed"));
+        assertEquals(expectedFailure, failureInfo.getFailureMessage().orElse(null));
     }
 
     @Test

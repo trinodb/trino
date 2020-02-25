@@ -92,7 +92,7 @@ export class WorkerStatus extends React.Component {
         $('#nonheap-used-sparkline').sparkline(this.state.nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
 
         $('[data-toggle="tooltip"]').tooltip();
-        new Clipboard('.copy-button');
+        new window.ClipboardJS('.copy-button');
     }
 
     static renderPoolBar(name, pool) {
@@ -274,7 +274,7 @@ export class WorkerStatus extends React.Component {
                                             Heap Memory
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="internal-address">{formatDataSize(serverInfo.heapAvailable)}</span>
+                                            <span id="node-heap-available">{formatDataSize(serverInfo.heapAvailable)}</span>
                                         </td>
                                     </tr>
                                     <tr>
@@ -282,7 +282,7 @@ export class WorkerStatus extends React.Component {
                                             Processors
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="internal-address">{serverInfo.processors}</span>
+                                            <span id="node-processors">{serverInfo.processors}</span>
                                         </td>
                                     </tr>
                                     </tbody>

@@ -41,6 +41,27 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    {
+        return queryOwners;
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    {
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         return catalogs;
@@ -73,6 +94,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
@@ -89,11 +115,6 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(SecurityContext context, CatalogSchemaName schema)
     {
     }
 

@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.TransactionalMetadata;
@@ -62,13 +63,13 @@ public class DropStatsProcedure
             List.class);
 
     private final Supplier<TransactionalMetadata> hiveMetadataFactory;
-    private final HiveMetastore metastore;
+    private final HiveMetastoreClosure metastore;
 
     @Inject
     public DropStatsProcedure(Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override

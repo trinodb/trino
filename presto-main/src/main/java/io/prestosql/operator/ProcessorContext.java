@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.TaskId;
 import io.prestosql.memory.context.MemoryTrackingContext;
 
 import static java.util.Objects.requireNonNull;
@@ -26,6 +27,7 @@ public class ProcessorContext
     private final DriverYieldSignal driverYieldSignal;
     private final Lifespan lifespan;
     private final SpillContext spillContext;
+    private final TaskId taskId;
 
     public ProcessorContext(Session session, MemoryTrackingContext memoryTrackingContext, OperatorContext operatorContext)
     {
@@ -35,6 +37,7 @@ public class ProcessorContext
         this.driverYieldSignal = operatorContext.getDriverContext().getYieldSignal();
         this.lifespan = operatorContext.getDriverContext().getLifespan();
         this.spillContext = operatorContext.getSpillContext();
+        this.taskId = operatorContext.getDriverContext().getTaskId();
     }
 
     public Session getSession()
@@ -60,5 +63,10 @@ public class ProcessorContext
     public SpillContext getSpillContext()
     {
         return spillContext;
+    }
+
+    public TaskId getTaskId()
+    {
+        return taskId;
     }
 }

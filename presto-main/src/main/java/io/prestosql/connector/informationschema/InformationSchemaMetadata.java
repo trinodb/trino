@@ -306,7 +306,7 @@ public class InformationSchemaMetadata
 
     private boolean isColumnsEnumeratingTable(InformationSchemaTable table)
     {
-        return COLUMNS.equals(table);
+        return COLUMNS == table;
     }
 
     private Stream<QualifiedTablePrefix> listSchemaNames(Session session)

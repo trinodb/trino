@@ -42,7 +42,7 @@ public class ArrayDecoder
         }
         else if (data instanceof List) {
             BlockBuilder array = output.beginBlockEntry();
-            ((List) data).forEach(element -> elementDecoder.decode(hit, () -> element, array));
+            ((List<?>) data).forEach(element -> elementDecoder.decode(hit, () -> element, array));
             output.closeEntry();
         }
         else {

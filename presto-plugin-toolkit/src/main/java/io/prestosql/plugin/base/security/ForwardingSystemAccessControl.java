@@ -61,6 +61,30 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+        delegate().checkCanExecuteQuery(context);
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        delegate().checkCanViewQueryOwnedBy(context, queryOwner);
+    }
+
+    @Override
+    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        return delegate().filterViewQueryOwnedBy(context, queryOwners);
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        delegate().checkCanKillQueryOwnedBy(context, queryOwner);
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
         delegate().checkCanSetSystemSessionProperty(context, propertyName);
@@ -109,6 +133,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanShowCreateTable(context, table);
+    }
+
+    @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanCreateTable(context, table);
@@ -130,12 +160,6 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanSetTableComment(context, table);
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-        delegate().checkCanShowTablesMetadata(context, schema);
     }
 
     @Override

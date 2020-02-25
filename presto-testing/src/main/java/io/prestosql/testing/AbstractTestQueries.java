@@ -66,9 +66,10 @@ import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_QUERY;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.TestngUtils.toDataProvider;
@@ -4192,6 +4193,7 @@ public abstract class AbstractTestQueries
             assertEquals(rows.size(), 10);
 
             for (MaterializedRow row : rows) {
+                @SuppressWarnings("unchecked")
                 List<Integer> actual = (List<Integer>) row.getField(0);
 
                 // check if the result is a correct permutation
@@ -4680,6 +4682,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testAccessControl()
     {
+        assertAccessDenied("SELECT * FROM orders", "Cannot execute query", privilege("query", EXECUTE_QUERY));
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
         assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
@@ -4695,8 +4698,8 @@ public abstract class AbstractTestQueries
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
         assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name\\] in table .*.nation.*", privilege("name", SELECT_COLUMN));
-        assertAccessDenied("SHOW CREATE TABLE orders", "Cannot show columns of table .*.orders.*", privilege("orders", SHOW_COLUMNS));
-        assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_COLUMNS));
+        assertAccessDenied("SHOW CREATE TABLE orders", "Cannot show create table for .*.orders.*", privilege("orders", SHOW_CREATE_TABLE));
+        assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_CREATE_TABLE));
     }
 
     @Test

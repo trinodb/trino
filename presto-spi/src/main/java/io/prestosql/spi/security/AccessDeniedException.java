@@ -51,6 +51,36 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyExecuteQuery()
+    {
+        denyExecuteQuery(null);
+    }
+
+    public static void denyExecuteQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot execute query%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyViewQuery()
+    {
+        denyViewQuery(null);
+    }
+
+    public static void denyViewQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot view query%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyKillQuery()
+    {
+        denyKillQuery(null);
+    }
+
+    public static void denyKillQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot kill query%s", formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCatalogAccess(String catalogName)
     {
         denyCatalogAccess(catalogName, null);
@@ -101,6 +131,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowCreateTable(String tableName)
+    {
+        denyShowCreateTable(tableName, null);
+    }
+
+    public static void denyShowCreateTable(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show create table for %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateTable(String tableName)
     {
         denyCreateTable(tableName, null);
@@ -139,16 +179,6 @@ public class AccessDeniedException
     public static void denyCommentTable(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
-    }
-
-    public static void denyShowTablesMetadata(String schemaName)
-    {
-        denyShowTablesMetadata(schemaName, null);
-    }
-
-    public static void denyShowTablesMetadata(String schemaName, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyShowColumnsMetadata(String tableName)

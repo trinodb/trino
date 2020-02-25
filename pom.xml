@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>330-SNAPSHOT</version>
+    <version>331-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -1311,14 +1311,14 @@
             <plugin>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>8</version>
+                <version>9</version>
                 <extensions>true</extensions>
             </plugin>
 
             <plugin>
                 <groupId>ca.vanzyl.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
-                <version>1.0.4</version>
+                <version>1.0.7</version>
                 <extensions>true</extensions>
             </plugin>
 

@@ -14,6 +14,7 @@
 package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.security.AccessControlConfig;
@@ -47,8 +48,10 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
@@ -58,6 +61,8 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
@@ -69,8 +74,10 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_SCHEMA;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_QUERY;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.IMPERSONATE_USER;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_SCHEMA;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
@@ -79,6 +86,8 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static java.util.Objects.requireNonNull;
 
 public class TestingAccessControlManager
@@ -154,6 +163,51 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), "query", EXECUTE_QUERY)) {
+            denyExecuteQuery();
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanExecuteQuery(identity);
+        }
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), "query", VIEW_QUERY)) {
+            denyViewQuery();
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanViewQueryOwnedBy(identity, queryOwner);
+        }
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> owners)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), "query", VIEW_QUERY)) {
+            return ImmutableSet.of();
+        }
+        if (denyPrivileges.isEmpty()) {
+            return super.filterQueriesOwnedBy(identity, owners);
+        }
+        return owners;
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), "query", KILL_QUERY)) {
+            denyKillQuery();
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanKillQueryOwnedBy(identity, queryOwner);
+        }
+    }
+
+    @Override
     public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
@@ -183,6 +237,17 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameSchema(context, schemaName, newSchemaName);
+        }
+    }
+
+    @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SHOW_CREATE_TABLE)) {
+            denyShowCreateTable(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanShowCreateTable(context, tableName);
         }
     }
 
@@ -374,7 +439,12 @@ public class TestingAccessControlManager
 
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
     {
-        TestingPrivilege testPrivilege = privilege(userName, entityName, type);
+        return shouldDenyPrivilege(privilege(userName, entityName, type));
+    }
+
+    private boolean shouldDenyPrivilege(TestingPrivilege privilege)
+    {
+        TestingPrivilege testPrivilege = privilege;
         for (TestingPrivilege denyPrivilege : denyPrivileges) {
             if (denyPrivilege.matches(testPrivilege)) {
                 return true;
@@ -386,8 +456,9 @@ public class TestingAccessControlManager
     public enum TestingPrivilegeType
     {
         SET_USER, IMPERSONATE_USER,
+        EXECUTE_QUERY, VIEW_QUERY, KILL_QUERY,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
-        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, INSERT_TABLE, DELETE_TABLE, SHOW_COLUMNS,
+        SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, INSERT_TABLE, DELETE_TABLE, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
         SET_SESSION
@@ -424,7 +495,7 @@ public class TestingAccessControlManager
             }
             TestingPrivilege that = (TestingPrivilege) o;
             return Objects.equals(entityName, that.entityName) &&
-                    Objects.equals(type, that.type);
+                    type == that.type;
         }
 
         @Override

@@ -55,6 +55,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -111,6 +112,14 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyShowCreateTable(tableName.toString());
+        }
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!isSchemaOwner(context, tableName.getSchemaName())) {
@@ -124,11 +133,6 @@ public class FileBasedAccessControl
         if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyDropTable(tableName.toString());
         }
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
-    {
     }
 
     @Override

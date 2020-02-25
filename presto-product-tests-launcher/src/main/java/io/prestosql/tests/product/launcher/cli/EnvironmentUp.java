@@ -91,6 +91,7 @@ public final class EnvironmentUp
         private final boolean background;
         private final String environment;
 
+        @Inject
         public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");

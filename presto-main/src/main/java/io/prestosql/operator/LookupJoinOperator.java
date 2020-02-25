@@ -69,7 +69,7 @@ public class LookupJoinOperator
     private final JoinProcessor joinProcessor;
     private final JoinStatisticsCounter statisticsCounter;
 
-    public LookupJoinOperator(List<Type> probeTypes,
+    LookupJoinOperator(List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
             LookupSourceFactory lookupSourceFactory,

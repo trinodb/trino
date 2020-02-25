@@ -235,7 +235,8 @@ public class TestHivePageSink
                 false,
                 ImmutableMap.of(),
                 Optional.empty(),
-                false);
+                false,
+                Optional.empty());
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,

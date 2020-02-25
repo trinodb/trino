@@ -23,8 +23,6 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertThrows;
@@ -122,7 +120,7 @@ public class TestFileBasedAccessControl
             @Override
             public ConnectorIdentity getIdentity()
             {
-                return new ConnectorIdentity(name, Optional.empty(), Optional.empty());
+                return ConnectorIdentity.ofUser(name);
             }
         };
     }

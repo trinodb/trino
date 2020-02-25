@@ -94,6 +94,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
@@ -130,11 +135,6 @@ public class LegacyAccessControl
         if (!allowCommentTable) {
             denyCommentTable(tableName.toString());
         }
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
-    {
     }
 
     @Override

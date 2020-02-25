@@ -280,7 +280,7 @@ public class TestingPrestoServer
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
-            resourceGroupManager = Optional.of(injector.getInstance(InternalResourceGroupManager.class));
+            resourceGroupManager = Optional.of((InternalResourceGroupManager<?>) injector.getInstance(InternalResourceGroupManager.class));
             sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);

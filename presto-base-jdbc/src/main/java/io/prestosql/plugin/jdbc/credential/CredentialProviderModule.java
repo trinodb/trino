@@ -76,7 +76,7 @@ public class CredentialProviderModule
     {
         install(installModuleIf(
                 BaseJdbcAuthenticationConfig.class,
-                config -> name.equals(config.getCredentialProviderType()),
+                config -> name == config.getCredentialProviderType(),
                 module));
     }
 

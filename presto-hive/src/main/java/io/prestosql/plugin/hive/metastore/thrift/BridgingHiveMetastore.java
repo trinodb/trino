@@ -122,9 +122,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updatePartitionStatistics(identity, databaseName, tableName, partitionName, update);
+        delegate.updatePartitionStatistics(identity, toMetastoreApiTable(table), partitionName, update);
     }
 
     @Override

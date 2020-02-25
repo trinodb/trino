@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.model.Partition;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Storage;
@@ -112,7 +113,7 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertPartition()
     {
-        io.prestosql.plugin.hive.metastore.Partition prestoPartition = GlueToPrestoConverter.convertPartition(testPartition);
+        io.prestosql.plugin.hive.metastore.Partition prestoPartition = GlueToPrestoConverter.convertPartition(testPartition, ImmutableMap.of());
         assertEquals(prestoPartition.getDatabaseName(), testPartition.getDatabaseName());
         assertEquals(prestoPartition.getTableName(), testPartition.getTableName());
         assertColumnList(prestoPartition.getColumns(), testPartition.getStorageDescriptor().getColumns());
@@ -142,7 +143,7 @@ public class TestGlueToPrestoConverter
     public void testPartitionNullParameters()
     {
         testPartition.setParameters(null);
-        assertNotNull(GlueToPrestoConverter.convertPartition(testPartition).getParameters());
+        assertNotNull(GlueToPrestoConverter.convertPartition(testPartition, ImmutableMap.of()).getParameters());
     }
 
     private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)

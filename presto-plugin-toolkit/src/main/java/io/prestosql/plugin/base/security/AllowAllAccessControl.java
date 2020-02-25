@@ -54,6 +54,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
@@ -70,11 +75,6 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
     {
     }
 

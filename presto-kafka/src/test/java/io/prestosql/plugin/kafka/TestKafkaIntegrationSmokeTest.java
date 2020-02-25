@@ -21,8 +21,6 @@ import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
-import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
-
 public class TestKafkaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
@@ -33,7 +31,9 @@ public class TestKafkaIntegrationSmokeTest
             throws Exception
     {
         testingKafka = new TestingKafka();
-        return createKafkaQueryRunner(testingKafka, TpchTable.getTables());
+        return KafkaQueryRunner.builder(testingKafka)
+                .setTables(TpchTable.getTables())
+                .build();
     }
 
     @Override
@@ -57,6 +57,9 @@ public class TestKafkaIntegrationSmokeTest
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        testingKafka.close();
+        if (testingKafka != null) {
+            testingKafka.close();
+            testingKafka = null;
+        }
     }
 }

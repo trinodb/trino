@@ -106,7 +106,7 @@ public final class MapTransformValuesFunction
                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "apply lambda to each entry of the map and transform the value",
+                "Apply lambda to each entry of the map and transform the value",
                 SCALAR));
     }
 

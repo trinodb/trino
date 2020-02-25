@@ -87,6 +87,10 @@ public class GracefulShutdownHandler
         //wait for a grace period to start the shutdown sequence
         shutdownHandler.schedule(() -> {
             List<TaskInfo> activeTasks = getActiveTasks();
+
+            // wait for grace period for shutting down state to be observed by the coordinator
+            sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
+
             while (activeTasks.size() > 0) {
                 CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
@@ -110,9 +114,12 @@ public class GracefulShutdownHandler
 
                 activeTasks = getActiveTasks();
 
-                // wait for another grace period for all task states and shutting down state to be observed by the coordinator
+                // wait for another grace period for all task states to be observed by the coordinator
                 sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
             }
+
+            // wait for another grace period for all task states to be observed by the coordinator
+            sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
 
             Future<?> shutdownFuture = lifeCycleStopper.submit(() -> {
                 lifeCycleManager.stop();

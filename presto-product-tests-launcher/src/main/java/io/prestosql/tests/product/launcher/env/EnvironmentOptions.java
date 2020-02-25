@@ -24,7 +24,7 @@ public final class EnvironmentOptions
     public String hadoopBaseImage = System.getenv().getOrDefault("HADOOP_BASE_IMAGE", "prestodev/hdp2.6-hive");
 
     @Option(name = "--image-version", title = "version", description = "docker images version")
-    public String imagesVersion = System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", "25");
+    public String imagesVersion = System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", "27");
 
     @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
     public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");

@@ -47,6 +47,35 @@ public interface AccessControl
     void checkCanImpersonateUser(Identity identity, String userName);
 
     /**
+     * Checks if identity can execute a query.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteQuery(Identity identity);
+
+    /**
+     * Checks if identity can view a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanViewQueryOwnedBy(Identity identity, String queryOwner);
+
+    /**
+     * Filter the list of users to those the identity view query owned by the user.  The method
+     * will not be called with the current user in the set.
+     */
+    Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners);
+
+    /**
+     * Checks if identity can kill a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanKillQueryOwnedBy(Identity identity, String queryOwner);
+
+    /**
      * Filter the list of catalogs to those visible to the identity.
      */
     Set<String> filterCatalogs(Identity identity, Set<String> catalogs);
@@ -89,6 +118,13 @@ public interface AccessControl
     Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames);
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to create the specified table.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
@@ -114,17 +150,6 @@ public interface AccessControl
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName);
-
-    /**
-     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
-     * <p>
-     * NOTE: This method is only present to give users an error message when listing is not allowed.
-     * The {@link #filterTables} method must filter all results for unauthorized users,
-     * since there are multiple ways to list tables.
-     *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
-     */
-    void checkCanShowTablesMetadata(SecurityContext context, CatalogSchemaName schema);
 
     /**
      * Filter the list of tables and views to those visible to the identity.
