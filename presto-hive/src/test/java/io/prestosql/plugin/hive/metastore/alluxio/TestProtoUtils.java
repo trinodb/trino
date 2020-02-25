@@ -25,6 +25,7 @@ import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing;
+import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -49,13 +50,13 @@ public class TestProtoUtils
         assertEquals(Optional.empty(), ProtoUtils.fromProto(alluxioDb.build()).getLocation());
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testTableMissingLayout()
     {
         ProtoUtils.fromProto(TestingAlluxioMetastoreObjects.getTestingTableInfo().clearLayout().build());
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testTableNonHiveLayout()
     {
         alluxio.grpc.table.TableInfo.Builder alluxioTable = alluxio.grpc.table.TableInfo.newBuilder()
