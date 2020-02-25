@@ -101,11 +101,18 @@ bottom. If no rule matches, access is denied. Each rule is composed of the
 following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``allow`` (required): string indicating whether a user has access to the catalog.
   This value can be ``all``, ``read-only`` or ``none``, and defaults to ``none``.
   Setting this value to ``read-only`` has the same behavior as the ``read-only``
   system access control plugin.
+
+In order for a rule to apply the user name must match the regular expression
+specified in ``user`` attribute.
+
+For group names, a rule can be applied if at least one group name of this user
+matches the ``group`` regular expression.
 
 .. note::
 
@@ -116,9 +123,10 @@ following fields:
     to support backwards compatibility.  ``true`` maps to ``all``, and ``false`` maps to ``none``.
 
 For example, if you want to allow only the user ``admin`` to access the
-``mysql`` and the ``system`` catalog, allow all users to access the ``hive``
-catalog, allow the user ``alice`` read-only access to the ``postgresql`` catalog,
-and deny all other access, you can use the following rules:
+``mysql`` and the ``system`` catalog, allow users from the ``finance``
+and ``admin`` groups access to ``postgres`` catalog, allow all users to
+access the ``hive`` catalog, and deny all other access, you can use the
+following rules:
 
 .. code-block:: json
 
@@ -128,6 +136,11 @@ and deny all other access, you can use the following rules:
           "user": "admin",
           "catalog": "(mysql|system)",
           "allow": "all"
+        },
+        {
+          "group": "finance|human_resources",
+          "catalog": "postgres",
+          "allow": true
         },
         {
           "catalog": "hive",
@@ -144,6 +157,9 @@ and deny all other access, you can use the following rules:
         }
       ]
     }
+
+For group-based rules to match, users need to be assigned to groups by a
+:doc:`/develop/group-provider`.
 
 .. _query_rules:
 

@@ -157,6 +157,7 @@ public class FileBasedSystemAccessControl
             catalogRulesBuilder.add(new CatalogAccessControlRule(
                     ALL,
                     Optional.of(Pattern.compile(".*")),
+                    Optional.empty(),
                     Optional.of(Pattern.compile("system"))));
 
             return new FileBasedSystemAccessControl(
@@ -307,7 +308,7 @@ public class FileBasedSystemAccessControl
     private boolean canAccessCatalog(Identity identity, String catalogName, AccessMode requiredAccess)
     {
         for (CatalogAccessControlRule rule : catalogRules) {
-            Optional<AccessMode> accessMode = rule.match(identity.getUser(), catalogName);
+            Optional<AccessMode> accessMode = rule.match(identity.getUser(), identity.getGroups(), catalogName);
             if (accessMode.isPresent()) {
                 return accessMode.get().implies(requiredAccess);
             }

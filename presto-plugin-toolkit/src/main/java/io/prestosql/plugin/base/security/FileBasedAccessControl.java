@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
@@ -332,8 +333,9 @@ public class FileBasedAccessControl
 
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)
     {
+        ConnectorIdentity identity = context.getIdentity();
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {
-            Optional<Boolean> allowed = rule.match(context.getIdentity().getUser(), property);
+            Optional<Boolean> allowed = rule.match(identity.getUser(), identity.getGroups(), property);
             if (allowed.isPresent()) {
                 return allowed.get();
             }
@@ -347,8 +349,9 @@ public class FileBasedAccessControl
             return true;
         }
 
+        ConnectorIdentity identity = context.getIdentity();
         for (TableAccessControlRule rule : tableRules) {
-            Optional<Set<TablePrivilege>> tablePrivileges = rule.match(context.getIdentity().getUser(), tableName);
+            Optional<Set<TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), tableName);
             if (tablePrivileges.isPresent()) {
                 return tablePrivileges.get().containsAll(ImmutableSet.copyOf(requiredPrivileges));
             }
@@ -358,8 +361,9 @@ public class FileBasedAccessControl
 
     private boolean isSchemaOwner(ConnectorSecurityContext context, String schemaName)
     {
+        ConnectorIdentity identity = context.getIdentity();
         for (SchemaAccessControlRule rule : schemaRules) {
-            Optional<Boolean> owner = rule.match(context.getIdentity().getUser(), schemaName);
+            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schemaName);
             if (owner.isPresent()) {
                 return owner.get();
             }
