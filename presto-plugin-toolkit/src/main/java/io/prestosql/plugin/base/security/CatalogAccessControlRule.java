@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
@@ -30,22 +31,26 @@ public class CatalogAccessControlRule
 {
     private final AccessMode accessMode;
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> catalogRegex;
 
     @JsonCreator
     public CatalogAccessControlRule(
             @JsonProperty("allow") AccessMode accessMode,
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
         this.accessMode = requireNonNull(accessMode, "accessMode is null");
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.userRegex = requireNonNull(userRegex, "user is null");
+        this.groupRegex = requireNonNull(groupRegex, "group is null");
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 
-    public Optional<AccessMode> match(String user, String catalog)
+    public Optional<AccessMode> match(String user, Set<String> groups, String catalog)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
                 catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true)) {
             return Optional.of(accessMode);
         }
