@@ -550,13 +550,13 @@ public class MongoSession
 
             for (String key : ((Document) value).keySet()) {
                 Optional<TypeSignature> fieldType = guessFieldType(((Document) value).get(key));
-                if (!fieldType.isPresent()) {
-                    return Optional.empty();
+                if (fieldType.isPresent()) {
+                    parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
                 }
-
-                parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
             }
-            typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            if (!parameters.isEmpty()) {
+                typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            }
         }
 
         return Optional.ofNullable(typeSignature);

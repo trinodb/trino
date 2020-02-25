@@ -181,6 +181,19 @@ public class TestMongoIntegrationSmokeTest
     }
 
     @Test
+    public void testSkipUnknownTypes()
+    {
+        Document document1 = new Document("col", Document.parse("{\"key1\": \"value1\", \"key2\": null}"));
+        client.getDatabase("test").getCollection("tmp_guess_schema1").insertOne(document1);
+        assertQuery("SHOW COLUMNS FROM test.tmp_guess_schema1", "SELECT 'col', 'row(key1 varchar)', '', ''");
+        assertQuery("SELECT col.key1 FROM test.tmp_guess_schema1", "SELECT 'value1'");
+
+        Document document2 = new Document("col", new Document("key1", null));
+        client.getDatabase("test").getCollection("tmp_guess_schema2").insertOne(document2);
+        assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
+    }
+
+    @Test
     public void testMaps()
     {
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
