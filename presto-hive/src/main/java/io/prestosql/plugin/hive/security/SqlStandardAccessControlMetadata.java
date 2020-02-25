@@ -198,4 +198,40 @@ public class SqlStandardAccessControlMetadata
     {
         return roles.stream().anyMatch(principal -> principal.getName().equalsIgnoreCase(ADMIN_ROLE_NAME));
     }
+
+    @Override
+    public void dropSchemaPrivileges(ConnectorSession session, String schemaName)
+    {
+        // nothing needs to be done here because drop schema in metastore will drop its privileges
+    }
+
+    @Override
+    public void dropTablePrivileges(ConnectorSession session, SchemaTableName tableName)
+    {
+        // nothing needs to be done here because drop table in metastore will drop its privileges
+    }
+
+    @Override
+    public void dropColumnPrivileges(ConnectorSession session, SchemaTableName tableName, String column)
+    {
+        // nothing needs to be done here because drop column in metastore will drop its privileges
+    }
+
+    @Override
+    public void copySchemaPrivileges(ConnectorSession session, String fromSchemaName, String toSchemaName)
+    {
+        // nothing needs to be done here because schema rename in metastore will copy privileges
+    }
+
+    @Override
+    public void copyTablePrivileges(ConnectorSession session, SchemaTableName fromTableName, SchemaTableName toTablename)
+    {
+        // nothing needs to be done here because table rename in metastore will copy privileges
+    }
+
+    @Override
+    public void copyColumnPrivileges(ConnectorSession session, SchemaTableName tableName, String fromColumn, String toColumn)
+    {
+        // nothing needs to be done here because column rename in metastore will copy privileges
+    }
 }

@@ -122,4 +122,38 @@ public interface AccessControlMetadata
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support table privileges");
     }
+
+    default void dropSchemaPrivileges(ConnectorSession session, String schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schema privileges");
+    }
+
+    default void dropTablePrivileges(ConnectorSession session, SchemaTableName tableName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping column privileges");
+    }
+
+    default void dropColumnPrivileges(ConnectorSession session, SchemaTableName tableName, String column)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table privileges");
+    }
+
+    default void copySchemaPrivileges(ConnectorSession session, String fromSchemaName, String toSchemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support copying schema privileges");
+    }
+
+    default void copyTablePrivileges(ConnectorSession session, SchemaTableName fromTableName, SchemaTableName toTablename)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support copying column privileges");
+    }
+
+    default void copyColumnPrivileges(ConnectorSession session, SchemaTableName tableName, String fromColumn, String toColumn)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support copying column privileges");
+    }
+
+    default void rollback() {}
+
+    default void commit() {}
 }

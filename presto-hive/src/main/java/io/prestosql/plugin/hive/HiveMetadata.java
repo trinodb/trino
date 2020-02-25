@@ -744,6 +744,7 @@ public class HiveMetadata
                 .setOwnerName(session.getUser())
                 .build();
 
+        accessControlMetadata.dropSchemaPrivileges(session, schemaName);
         metastore.createDatabase(new HiveIdentity(session), database);
     }
 
@@ -756,12 +757,16 @@ public class HiveMetadata
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
         metastore.dropDatabase(new HiveIdentity(session), schemaName);
+        accessControlMetadata.dropSchemaPrivileges(session, schemaName);
     }
 
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
+        accessControlMetadata.dropSchemaPrivileges(session, target);
+        accessControlMetadata.copySchemaPrivileges(session, source, target);
         metastore.renameDatabase(new HiveIdentity(session), source, target);
+        accessControlMetadata.dropSchemaPrivileges(session, source);
     }
 
     @Override
@@ -822,6 +827,7 @@ public class HiveMetadata
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
         HiveBasicStatistics basicStatistics = table.getPartitionColumns().isEmpty() ? createZeroStatistics() : createEmptyStatistics();
+        accessControlMetadata.dropTablePrivileges(session, schemaTableName);
         metastore.createTable(
                 session,
                 table,
@@ -1049,6 +1055,7 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(session, handle);
 
+        accessControlMetadata.dropColumnPrivileges(session, handle.getSchemaTableName(), column.getName());
         metastore.addColumn(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
     }
 
@@ -1059,7 +1066,10 @@ public class HiveMetadata
         failIfAvroSchemaIsSet(session, hiveTableHandle);
         HiveColumnHandle sourceHandle = (HiveColumnHandle) source;
 
+        accessControlMetadata.dropColumnPrivileges(session, hiveTableHandle.getSchemaTableName(), target);
+        accessControlMetadata.copyColumnPrivileges(session, hiveTableHandle.getSchemaTableName(), sourceHandle.getName(), target);
         metastore.renameColumn(new HiveIdentity(session), hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
+        accessControlMetadata.dropColumnPrivileges(session, hiveTableHandle.getSchemaTableName(), sourceHandle.getName());
     }
 
     @Override
@@ -1070,6 +1080,7 @@ public class HiveMetadata
         HiveColumnHandle columnHandle = (HiveColumnHandle) column;
 
         metastore.dropColumn(new HiveIdentity(session), hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
+        accessControlMetadata.dropColumnPrivileges(session, hiveTableHandle.getSchemaTableName(), columnHandle.getName());
     }
 
     private void failIfAvroSchemaIsSet(ConnectorSession session, HiveTableHandle handle)
@@ -1085,7 +1096,10 @@ public class HiveMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        accessControlMetadata.dropTablePrivileges(session, newTableName);
+        accessControlMetadata.copyTablePrivileges(session, handle.getSchemaTableName(), newTableName);
         metastore.renameTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
+        accessControlMetadata.dropTablePrivileges(session, handle.getSchemaTableName());
     }
 
     @Override
@@ -1104,6 +1118,7 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
         metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+        accessControlMetadata.dropTablePrivileges(session, handle.getSchemaTableName());
     }
 
     @Override
@@ -1675,6 +1690,7 @@ public class HiveMetadata
         }
 
         try {
+            accessControlMetadata.dropTablePrivileges(session, viewName);
             metastore.createTable(session, table, principalPrivileges, Optional.empty(), false, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
         }
         catch (TableAlreadyExistsException e) {
@@ -1685,7 +1701,10 @@ public class HiveMetadata
     @Override
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
+        accessControlMetadata.dropTablePrivileges(session, target);
+        accessControlMetadata.copyTablePrivileges(session, source, target);
         metastore.renameTable(new HiveIdentity(session), source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
+        accessControlMetadata.dropTablePrivileges(session, source);
     }
 
     @Override
@@ -1697,6 +1716,7 @@ public class HiveMetadata
 
         try {
             metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName());
+            accessControlMetadata.dropTablePrivileges(session, viewName);
         }
         catch (TableNotFoundException e) {
             throw new ViewNotFoundException(e.getTableName());
@@ -2378,12 +2398,14 @@ public class HiveMetadata
     public void rollback()
     {
         metastore.rollback();
+        accessControlMetadata.rollback();
     }
 
     @Override
     public void commit()
     {
         metastore.commit();
+        accessControlMetadata.commit();
     }
 
     @Override

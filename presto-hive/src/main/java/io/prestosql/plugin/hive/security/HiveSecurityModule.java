@@ -18,6 +18,8 @@ import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.base.security.FileBasedAccessControlModule;
 import io.prestosql.plugin.base.security.ReadOnlySecurityModule;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigurationModule.installModules;
@@ -68,7 +70,47 @@ public class HiveSecurityModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(AccessControlMetadataFactory.class).toInstance((transactionHandle, metastore) -> new AccessControlMetadata() {});
+            binder.bind(AccessControlMetadataFactory.class).toInstance((transactionHandle, metastore) -> new StaticAccessControlMetadata());
+        }
+    }
+
+    private static class StaticAccessControlMetadata
+            implements AccessControlMetadata
+    {
+        @Override
+        public void dropSchemaPrivileges(ConnectorSession session, String schemaName)
+        {
+            // authorization rules are defined statically, can't be modified
+        }
+
+        @Override
+        public void dropTablePrivileges(ConnectorSession session, SchemaTableName tableName)
+        {
+            // authorization rules are defined statically, can't be modified
+        }
+
+        @Override
+        public void dropColumnPrivileges(ConnectorSession session, SchemaTableName tableName, String column)
+        {
+            // authorization rules are defined statically, can't be modified
+        }
+
+        @Override
+        public void copySchemaPrivileges(ConnectorSession session, String fromSchemaName, String toSchemaName)
+        {
+            // authorization rules are defined statically, can't be modified
+        }
+
+        @Override
+        public void copyTablePrivileges(ConnectorSession session, SchemaTableName fromTableName, SchemaTableName schemaTableName)
+        {
+            // authorization rules are defined statically, can't be modified
+        }
+
+        @Override
+        public void copyColumnPrivileges(ConnectorSession session, SchemaTableName tableName, String fromColumn, String toColumn)
+        {
+            // authorization rules are defined statically, can't be modified
         }
     }
 }
