@@ -189,8 +189,7 @@ public class AlluxioHiveMetastore
     @Override
     public void updatePartitionStatistics(
             HiveIdentity identity,
-            String databaseName,
-            String tableName,
+            Table table,
             String partitionName,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
