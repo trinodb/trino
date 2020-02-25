@@ -27,7 +27,12 @@ public class TestingMySqlServer
 {
     public TestingMySqlServer()
     {
-        super("mysql:8.0.12");
+        this("mysql:8.0.12");
+    }
+
+    public TestingMySqlServer(String dockerImageName)
+    {
+        super(dockerImageName);
         withDatabaseName("tpch");
         start();
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", getUsername()), "root", getPassword());
