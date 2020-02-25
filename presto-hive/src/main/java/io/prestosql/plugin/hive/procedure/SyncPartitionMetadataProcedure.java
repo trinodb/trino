@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveMetadata;
+import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.PartitionStatistics;
-import io.prestosql.plugin.hive.TransactionalMetadata;
+import io.prestosql.plugin.hive.TransactionalMetadataFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -44,7 +45,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -74,12 +74,12 @@ public class SyncPartitionMetadataProcedure
             String.class,
             String.class);
 
-    private final Supplier<TransactionalMetadata> hiveMetadataFactory;
+    private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
     public SyncPartitionMetadataProcedure(
-            Supplier<TransactionalMetadata> hiveMetadataFactory,
+            TransactionalMetadataFactory hiveMetadataFactory,
             HdfsEnvironment hdfsEnvironment)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
@@ -111,7 +111,7 @@ public class SyncPartitionMetadataProcedure
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
         HiveIdentity identity = new HiveIdentity(session);
-        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.get()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create(new HiveTransactionHandle())).getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
         Table table = metastore.getTable(identity, schemaName, tableName)
