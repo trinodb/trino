@@ -20,14 +20,26 @@ import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMySqlPlugin
 {
     @Test
     public void testCreateConnector()
     {
+        createMySqlPlugin("jdbc:mysql://test");
+
+        assertThatThrownBy(() -> createMySqlPlugin("test"))
+                .hasMessageContaining("Invalid JDBC URL for MySQL connector");
+
+        assertThatThrownBy(() -> createMySqlPlugin("jdbc:mysql://test/abc"))
+                .hasMessageContaining("Database (catalog) must not be specified in JDBC URL for MySQL connector");
+    }
+
+    private static void createMySqlPlugin(String url)
+    {
         Plugin plugin = new MySqlPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:mysql://test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", url), new TestingConnectorContext());
     }
 }
