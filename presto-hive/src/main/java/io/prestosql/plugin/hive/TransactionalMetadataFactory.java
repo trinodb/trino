@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.security;
+package io.prestosql.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
-public interface AccessControlMetadataFactory
+public interface TransactionalMetadataFactory
 {
-    AccessControlMetadata create(ConnectorTransactionHandle transactionHandle, SemiTransactionalHiveMetastore metastore);
+    TransactionalMetadata create(ConnectorTransactionHandle transactionHandle);
 }
