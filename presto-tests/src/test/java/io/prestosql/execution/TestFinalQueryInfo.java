@@ -13,8 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -28,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.time.ZoneId;
 import java.util.Locale;
-import java.util.Optional;
 
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -63,26 +60,16 @@ public class TestFinalQueryInfo
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
-            ClientSession clientSession = new ClientSession(
-                    queryRunner.getCoordinator().getBaseUrl(),
-                    "user",
-                    "source",
-                    Optional.empty(),
-                    ImmutableSet.of(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    ZoneId.of("America/Los_Angeles"),
-                    Locale.ENGLISH,
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    null,
-                    new Duration(2, MINUTES),
-                    true);
+            ClientSession clientSession = ClientSession.builder()
+                    .withServer(queryRunner.getCoordinator().getBaseUrl())
+                    .withUser("user")
+                    .withSource("source")
+                    .withTimeZone(ZoneId.of("America/Los_Angeles"))
+                    .withLocale(Locale.ENGLISH)
+                    .withoutTransactionId()
+                    .withClientRequestTimeout(new Duration(2, MINUTES))
+                    .withCompressionDisabled(true)
+                    .build();
 
             // start query
             StatementClient client = newStatementClient(httpClient, clientSession, sql);

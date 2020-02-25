@@ -704,26 +704,26 @@ public class PrestoConnection
         int millis = networkTimeoutMillis.get();
         Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
 
-        ClientSession session = new ClientSession(
-                httpUri,
-                user,
-                source,
-                Optional.ofNullable(clientInfo.get(TRACE_TOKEN)),
-                ImmutableSet.copyOf(clientTags),
-                clientInfo.get(CLIENT_INFO),
-                catalog.get(),
-                schema.get(),
-                path.get(),
-                timeZoneId.get(),
-                locale.get(),
-                ImmutableMap.of(),
-                ImmutableMap.copyOf(allProperties),
-                ImmutableMap.copyOf(preparedStatements),
-                ImmutableMap.copyOf(roles),
-                extraCredentials,
-                transactionId.get(),
-                timeout,
-                compressionDisabled);
+        ClientSession session = ClientSession.builder()
+                .withServer(httpUri)
+                .withUser(user)
+                .withSource(source)
+                .withTraceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
+                .withClientTags(ImmutableSet.copyOf(clientTags))
+                .withClientInfo(clientInfo.get(CLIENT_INFO))
+                .withCatalog(catalog.get())
+                .withSchema(schema.get())
+                .withPath(path.get())
+                .withTimeZone(timeZoneId.get())
+                .withLocale(locale.get())
+                .withProperties(ImmutableMap.copyOf(allProperties))
+                .withPreparedStatements(ImmutableMap.copyOf(preparedStatements))
+                .withRoles(ImmutableMap.copyOf(roles))
+                .withCredentials(extraCredentials)
+                .withTransactionId(transactionId.get())
+                .withClientRequestTimeout(timeout)
+                .withCompressionDisabled(compressionDisabled)
+                .build();
 
         return queryExecutor.startQuery(session, sql);
     }
