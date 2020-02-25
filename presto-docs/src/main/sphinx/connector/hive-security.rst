@@ -490,6 +490,8 @@ These rules govern who is considered an owner of a schema.
 
 * ``user`` (optional): regex to match against user name.
 
+* ``group`` (optional): regex to match against every user group the user belongs to.
+
 * ``schema`` (optional): regex to match against schema name.
 
 * ``owner`` (required): boolean indicating ownership.
@@ -500,6 +502,8 @@ Table Rules
 These rules govern the privileges granted on specific tables.
 
 * ``user`` (optional): regex to match against user name.
+
+* ``group`` (optional): regex to match against every user group the user belongs to.
 
 * ``schema`` (optional): regex to match against schema name.
 
@@ -515,6 +519,8 @@ These rules govern who may set session properties.
 
 * ``user`` (optional): regex to match against user name.
 
+* ``group`` (optional): regex to match against every user group the user belongs to.
+
 * ``property`` (optional): regex to match against session property name.
 
 * ``allowed`` (required): boolean indicating whether this session property may be set.
@@ -528,6 +534,11 @@ See below for an example.
         {
           "user": "admin",
           "schema": ".*",
+          "owner": true
+        },
+        {
+          "group": "finance|human_resources",
+          "schema": "employees",
           "owner": true
         },
         {
