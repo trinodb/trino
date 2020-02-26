@@ -153,7 +153,7 @@ public final class DateOperators
         try {
             return parseDate(trim(value).toStringUtf8());
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException | ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
         }
     }
