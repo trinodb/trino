@@ -112,6 +112,22 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testNameConflict()
+            throws IOException
+    {
+        String indexName = "name_conflict";
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("field", "value")
+                .put("Conflict", "conflict1")
+                .put("conflict", "conflict2")
+                .build());
+
+        assertQuery(
+                "SELECT * FROM name_conflict",
+                "VALUES ('value')");
+    }
+
+    @Test
     public void testArrayFields()
             throws IOException
     {
