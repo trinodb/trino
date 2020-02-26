@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 import org.apache.http.HttpHost;
@@ -81,14 +80,7 @@ public class TestElasticsearchIntegrationSmokeTest
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
-        MaterializedResult.Builder builder = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR);
-        for (MaterializedRow row : actualColumns.getMaterializedRows()) {
-            builder.row(row.getField(0), row.getField(1), "", "");
-        }
-        MaterializedResult actualResult = builder.build();
-        builder = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR);
-        MaterializedResult expectedColumns = builder
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
@@ -99,7 +91,8 @@ public class TestElasticsearchIntegrationSmokeTest
                 .row("shippriority", "bigint", "", "")
                 .row("totalprice", "real", "", "")
                 .build();
-        assertEquals(actualResult, expectedColumns, format("%s != %s", actualResult, expectedColumns));
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
