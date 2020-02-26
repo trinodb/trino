@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
@@ -33,9 +32,9 @@ import static org.mockito.Mockito.mock;
 @Test
 public class TestReadRowsHelper
 {
-    private ReadRowsRequest.Builder request;
     // it is not used, we just need the reference
     BigQueryStorageClient client = mock(BigQueryStorageClient.class);
+    private ReadRowsRequest.Builder request;
 
     @BeforeMethod
     public void resetRequest()
@@ -44,7 +43,6 @@ public class TestReadRowsHelper
                 StreamPosition.newBuilder().setStream(
                         Stream.newBuilder().setName("test")));
     }
-
 
     @Test
     void testNoFailures()
@@ -80,6 +78,14 @@ public class TestReadRowsHelper
         assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
     }
 
+    @Test
+    public void testProto()
+    {
+        assertThat(request.build().getReadPosition().getOffset()).isEqualTo(0L);
+        request.getReadPositionBuilder().setOffset(100);
+        assertThat(request.build().getReadPosition().getOffset()).isEqualTo(100L);
+    }
+
     private static final class MockReadRowsHelper
             extends ReadRowsHelper
     {
@@ -96,13 +102,5 @@ public class TestReadRowsHelper
         {
             return responses.next();
         }
-    }
-
-    @Test
-    public void testProto() {
-        assertThat(request.build().getReadPosition().getOffset()).isEqualTo(0L);
-        request.getReadPositionBuilder().setOffset(100);
-        assertThat(request.build().getReadPosition().getOffset()).isEqualTo(100L);
-
     }
 }

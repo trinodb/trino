@@ -53,7 +53,7 @@ public class BigQueryPageSourceProvider
     {
         log.debug("createPageSource(transaction=%s, session=%s, split=%s, table=%s, columns=%s)", transaction, session, split, table, columns);
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;
-        if(bigQuerySplit.representsEmptyProjection()) {
+        if (bigQuerySplit.representsEmptyProjection()) {
             return new BigQueryEmptyProjectionPageSource(bigQuerySplit.getEmptyRowsToGenerate());
         }
 
