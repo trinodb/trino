@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -51,13 +52,11 @@ public class TestMySqlIntegrationSmokeTest
         mysqlServer.close();
     }
 
+    @Test
     @Override
     public void testDescribeTable()
     {
-        // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
-
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(255)", "", "")
@@ -68,6 +67,7 @@ public class TestMySqlIntegrationSmokeTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar(255)", "", "")
                 .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
     }
 

@@ -21,6 +21,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.assertions.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -49,6 +50,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -90,16 +92,23 @@ public class TestCassandraIntegrationSmokeTest
         server.close();
     }
 
+    @Test
     @Override
-    protected boolean isDateTypeSupported()
+    public void testDescribeTable()
     {
-        return false;
-    }
-
-    @Override
-    protected boolean isParameterizedVarcharSupported()
-    {
-        return false;
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "varchar", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Test

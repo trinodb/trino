@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
-import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
-import static org.testng.Assert.assertEquals;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestAccumuloIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -33,28 +34,22 @@ public class TestAccumuloIntegrationSmokeTest
         return createAccumuloQueryRunner(ImmutableMap.of());
     }
 
+    @Test
     @Override
     public void testDescribeTable()
     {
-        // Override base class because table descriptions for Accumulo connector include comments
-        MaterializedResult actual = computeActual("DESC ORDERS").toTestTypes();
-        assertEquals(actual.getMaterializedRows().get(0).getField(0), "orderkey");
-        assertEquals(actual.getMaterializedRows().get(0).getField(1), "bigint");
-        assertEquals(actual.getMaterializedRows().get(1).getField(0), "custkey");
-        assertEquals(actual.getMaterializedRows().get(1).getField(1), "bigint");
-        assertEquals(actual.getMaterializedRows().get(2).getField(0), "orderstatus");
-        assertEquals(actual.getMaterializedRows().get(2).getField(1), "varchar(1)");
-        assertEquals(actual.getMaterializedRows().get(3).getField(0), "totalprice");
-        assertEquals(actual.getMaterializedRows().get(3).getField(1), "double");
-        assertEquals(actual.getMaterializedRows().get(4).getField(0), "orderdate");
-        assertEquals(actual.getMaterializedRows().get(4).getField(1), "date");
-        assertEquals(actual.getMaterializedRows().get(5).getField(0), "orderpriority");
-        assertEquals(actual.getMaterializedRows().get(5).getField(1), "varchar(15)");
-        assertEquals(actual.getMaterializedRows().get(6).getField(0), "clerk");
-        assertEquals(actual.getMaterializedRows().get(6).getField(1), "varchar(15)");
-        assertEquals(actual.getMaterializedRows().get(7).getField(0), "shippriority");
-        assertEquals(actual.getMaterializedRows().get(7).getField(1), "integer");
-        assertEquals(actual.getMaterializedRows().get(8).getField(0), "comment");
-        assertEquals(actual.getMaterializedRows().get(8).getField(1), "varchar(79)");
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "Accumulo row ID")
+                .row("custkey", "bigint", "", "Accumulo column custkey:custkey. Indexed: false")
+                .row("orderstatus", "varchar(1)", "", "Accumulo column orderstatus:orderstatus. Indexed: false")
+                .row("totalprice", "double", "", "Accumulo column totalprice:totalprice. Indexed: false")
+                .row("orderdate", "date", "", "Accumulo column orderdate:orderdate. Indexed: true")
+                .row("orderpriority", "varchar(15)", "", "Accumulo column orderpriority:orderpriority. Indexed: false")
+                .row("clerk", "varchar(15)", "", "Accumulo column clerk:clerk. Indexed: false")
+                .row("shippriority", "integer", "", "Accumulo column shippriority:shippriority. Indexed: false")
+                .row("comment", "varchar(79)", "", "Accumulo column comment:comment. Indexed: false")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        assertEquals(actualColumns, expectedColumns);
     }
 }

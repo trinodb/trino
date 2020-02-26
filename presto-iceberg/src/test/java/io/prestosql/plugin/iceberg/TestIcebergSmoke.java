@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.assertions.Assert;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -26,6 +27,8 @@ import java.util.function.BiConsumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -40,10 +43,23 @@ public class TestIcebergSmoke
         return createIcebergQueryRunner(ImmutableMap.of());
     }
 
+    @Test
     @Override
-    protected boolean isParameterizedVarcharSupported()
+    public void testDescribeTable()
     {
-        return false;
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
