@@ -14,11 +14,14 @@
 package io.prestosql.plugin.bigquery;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -34,7 +37,13 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
+import static io.prestosql.plugin.bigquery.BigQueryUtil.createSql;
+import static io.prestosql.plugin.bigquery.BigQueryUtil.formatted;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 
 public class BigQuerySplitManager
         implements ConnectorSplitManager
@@ -74,33 +83,62 @@ public class BigQuerySplitManager
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
         TableId tableId = bigQueryTableHandle.getTableId();
-        List<ColumnHandle> desiredColumns = bigQueryTableHandle.getDesiredColumns().orElse(ImmutableList.of());
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
         Optional<String> filter = Optional.empty();
-        ImmutableList<BigQuerySplit> splits = //desiredColumns.isEmpty() ?
-                //generateEmptyProjection(tableId, actualParallelism, filter) :
-                readFromBigQuery(tableId, desiredColumns, actualParallelism, filter);
+        List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
+                createEmptyProjection(tableId, actualParallelism, filter) :
+                readFromBigQuery(tableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
         return new FixedSplitSource(splits);
     }
 
-    private ImmutableList<BigQuerySplit> generateEmptyProjection(TableId tableId, int actualParallelism, Optional<String> filter)
+    private boolean emptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
     {
-        log.debug("generateEmptyProjection(tableId=%s, actualParallelism=%s, filter=%s)", tableId, actualParallelism, filter);
-        return null;
+        return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
 
-    private ImmutableList<BigQuerySplit> readFromBigQuery(TableId tableId, List<ColumnHandle> desiredColumns, int actualParallelism, Optional<String> filter)
+    private ImmutableList<BigQuerySplit> readFromBigQuery(TableId tableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
     {
-        log.debug("readFromBigQuery(tableId=%s, desiredColumns=%s, actualParallelism=%s, filter=[%s])", tableId, desiredColumns, actualParallelism, filter);
-        ImmutableList<String> desiredColumnsNames = desiredColumns.stream()
+        log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", tableId, projectedColumns, actualParallelism, filter);
+        List<ColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
+        ImmutableList<String> projectedColumnsNames = columns.stream()
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
         ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigquery, bigQueryStorageClientFactory)
-                .create(tableId, desiredColumnsNames, filter, actualParallelism);
+                .create(tableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
-                .map(stream -> new BigQuerySplit(stream.getName(), readSession.getAvroSchema().getSchema(), desiredColumns))
+                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSession.getAvroSchema().getSchema(), columns))
                 .collect(toImmutableList());
+    }
+
+    private List<BigQuerySplit> createEmptyProjection(TableId tableId, int actualParallelism, Optional<String> filter)
+    {
+        log.debug("createEmptyProjection(tableId=%s, actualParallelism=%s, filter=[%s])", tableId, actualParallelism, filter);
+        try {
+            long numberOfRows;
+            if (filter.isPresent()) {
+                // count the rows based on the filter
+                String sql = createSql(tableId, "COUNT(*)", new String[] {filter.get()});
+                TableResult result = bigquery.query(QueryJobConfiguration.of(sql));
+                numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
+            }
+            else {
+                // no filters, so we can take the value from the table info
+                numberOfRows = bigquery.getTable(tableId).getNumRows().longValue();
+            }
+
+            long rowsPerSplit = numberOfRows / actualParallelism;
+            long remainingRows = numberOfRows - (rowsPerSplit * actualParallelism); // need to be added to one fo the split due to integer division
+            List<BigQuerySplit> splits = range(0, actualParallelism)
+                    .mapToObj(ignored -> BigQuerySplit.emptyProjection(rowsPerSplit))
+                    .collect(toList());
+            splits.set(0, BigQuerySplit.emptyProjection(rowsPerSplit + remainingRows));
+            return splits;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to run COUNT(*) on the table [%s] with filter %s", formatted(tableId), filter), e);
+        }
     }
 }

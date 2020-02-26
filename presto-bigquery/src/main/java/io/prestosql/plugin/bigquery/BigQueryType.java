@@ -14,7 +14,6 @@
 package io.prestosql.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -75,7 +74,7 @@ public enum BigQueryType
         switch (this) {
             case RECORD:
                 // create the row
-                ImmutableMap<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
+                Map<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
                 checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
                 List<RowType.Field> fields = subTypes.entrySet().stream().map(BigQueryType::toRawTypeField).collect(toList());
                 return RowType.from(fields);
@@ -88,7 +87,7 @@ public enum BigQueryType
     {
         BigQueryType getBigQueryType();
 
-        ImmutableMap<String, BigQueryType.Adaptor> getBigQuerySubTypes();
+        Map<String, BigQueryType.Adaptor> getBigQuerySubTypes();
 
         Field.Mode getMode();
 

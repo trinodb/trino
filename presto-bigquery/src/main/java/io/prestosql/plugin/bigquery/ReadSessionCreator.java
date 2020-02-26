@@ -41,11 +41,11 @@ import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.prestosql.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
+import static io.prestosql.plugin.bigquery.BigQueryUtil.createSql;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.joining;
 
 // A helper class, also handles view materialization
 public class ReadSessionCreator
@@ -141,25 +141,6 @@ public class ReadSessionCreator
             throw new PrestoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
                     tableType, table.getTableId().getDataset(), table.getTableId().getTable()));
         }
-    }
-
-    String createSql(TableId table, ImmutableList<String> requiredColumns, String[] filters)
-    {
-        String tableName = format("%s.%s.%s", table.getProject(), table.getDataset(), table.getTable());
-        String columns = requiredColumns.isEmpty() ? "*" :
-                requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
-
-        String whereClause = createWhereClause(filters)
-                .map(clause -> "WHERE " + clause)
-                .orElse("");
-
-        return format("SELECT %s FROM `%s` %s", columns, tableName, whereClause);
-    }
-
-    // return empty if no filters are used
-    Optional<String> createWhereClause(String[] filters)
-    {
-        return Optional.empty();
     }
 
     static class DestinationTableBuilder

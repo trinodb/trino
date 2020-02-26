@@ -67,11 +67,11 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 
-public class BigQueryPageSource
+public class BigQueryResultPageSource
         implements ConnectorPageSource
 {
     static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
-    private static final Logger log = Logger.get(BigQueryPageSource.class);
+    private static final Logger log = Logger.get(BigQueryResultPageSource.class);
     private final BigQueryStorageClient bigQueryStorageClient;
     private final int maxReadRowsRetries;
     private final BigQuerySplit split;
@@ -83,7 +83,7 @@ public class BigQueryPageSource
     private Iterator<Storage.ReadRowsResponse> responses;
     private boolean closed;
 
-    public BigQueryPageSource(
+    public BigQueryResultPageSource(
             BigQueryStorageClientFactory bigQueryStorageClientFactory,
             int maxReadRowsRetries,
             BigQuerySplit split,

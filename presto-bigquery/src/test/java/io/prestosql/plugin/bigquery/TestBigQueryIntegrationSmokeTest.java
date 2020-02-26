@@ -14,10 +14,13 @@
 package io.prestosql.plugin.bigquery;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
+
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 @Test
 public class TestBigQueryIntegrationSmokeTest
@@ -46,5 +49,34 @@ public class TestBigQueryIntegrationSmokeTest
     protected boolean canDropSchema()
     {
         return false;
+    }
+
+    @Test
+    @Override
+    public void testDuplicatedRowCreateTable()
+    {
+        throw new SkipException("The BigQuery connector is read only");
+    }
+
+    @Override
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return false;
+    }
+
+    @Override
+    protected MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
+    {
+        return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "bigint", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
     }
 }

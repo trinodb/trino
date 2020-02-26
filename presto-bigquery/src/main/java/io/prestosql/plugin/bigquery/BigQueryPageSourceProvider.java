@@ -53,11 +53,16 @@ public class BigQueryPageSourceProvider
     {
         log.debug("createPageSource(transaction=%s, session=%s, split=%s, table=%s, columns=%s)", transaction, session, split, table, columns);
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;
+        if(bigQuerySplit.representsEmptyProjection()) {
+            return new BigQueryEmptyProjectionPageSource(bigQuerySplit.getEmptyRowsToGenerate());
+        }
+
+        // not empty projection
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
         ImmutableList<BigQueryColumnHandle> bigQueryColumnHandles = columns.stream()
                 .map(BigQueryColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return new BigQueryPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryTableHandle, bigQueryColumnHandles);
+        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryTableHandle, bigQueryColumnHandles);
     }
 }

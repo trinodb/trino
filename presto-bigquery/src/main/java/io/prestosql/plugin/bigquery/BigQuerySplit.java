@@ -29,19 +29,25 @@ import static java.util.Objects.requireNonNull;
 public class BigQuerySplit
         implements ConnectorSplit
 {
+    private static final int NO_ROWS_TO_GENERATE = -1;
+
     private final String streamName;
     private final String avroSchema;
     private final List<ColumnHandle> columns;
+    private final long emptyRowsToGenerate;
 
+    // do not use directly, it is public only for Jackson
     @JsonCreator
     public BigQuerySplit(
             @JsonProperty("streamName") String streamName,
             @JsonProperty("avroSchema") String avroSchema,
-            @JsonProperty("columns") List<ColumnHandle> columns)
+            @JsonProperty("columns") List<ColumnHandle> columns,
+            @JsonProperty("emptyRowsToGenerate") long emptyRowsToGenerate)
     {
         this.streamName = requireNonNull(streamName, "streamName cannot be null");
         this.avroSchema = requireNonNull(avroSchema, "avroSchema cannot be null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns cannot be null"));
+        this.emptyRowsToGenerate = emptyRowsToGenerate;
     }
 
     @JsonProperty
@@ -60,6 +66,12 @@ public class BigQuerySplit
     public List<ColumnHandle> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public long getEmptyRowsToGenerate()
+    {
+        return emptyRowsToGenerate;
     }
 
     @Override
@@ -92,13 +104,14 @@ public class BigQuerySplit
         BigQuerySplit that = (BigQuerySplit) o;
         return Objects.equals(streamName, that.streamName) &&
                 Objects.equals(avroSchema, that.avroSchema) &&
-                Objects.equals(columns, that.columns);
+                Objects.equals(columns, that.columns) &&
+                Objects.equals(emptyRowsToGenerate, that.emptyRowsToGenerate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(streamName, avroSchema, columns);
+        return Objects.hash(streamName, avroSchema, columns, emptyRowsToGenerate);
     }
 
     @Override
@@ -108,6 +121,22 @@ public class BigQuerySplit
                 .add("streamName", streamName)
                 .add("avroSchema", avroSchema)
                 .add("columns", columns)
+                .add("emptyRowsToGenerate", emptyRowsToGenerate)
                 .toString();
+    }
+
+    boolean representsEmptyProjection()
+    {
+        return emptyRowsToGenerate != NO_ROWS_TO_GENERATE;
+    }
+
+    static BigQuerySplit forStream(String streamName, String avroSchema, List<ColumnHandle> columns)
+    {
+        return new BigQuerySplit(streamName, avroSchema, columns, NO_ROWS_TO_GENERATE);
+    }
+
+    static BigQuerySplit emptyProjection(long numberOfRows)
+    {
+        return new BigQuerySplit("", "", ImmutableList.of(), numberOfRows);
     }
 }

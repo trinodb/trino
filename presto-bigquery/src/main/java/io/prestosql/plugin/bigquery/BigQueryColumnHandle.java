@@ -17,11 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.Field;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -68,7 +68,7 @@ public class BigQueryColumnHandle
     }
 
     @Override
-    public ImmutableMap<String, BigQueryType.Adaptor> getBigQuerySubTypes()
+    public Map<String, BigQueryType.Adaptor> getBigQuerySubTypes()
     {
         return subColumns.stream().collect(toImmutableMap(BigQueryColumnHandle::getName, column -> column));
     }

@@ -37,7 +37,7 @@ public class BigQueryTableHandle
     private final String tableName;
     private final String type;
     private final TupleDomain<ColumnHandle> constraint;
-    private final Optional<List<ColumnHandle>> desiredColumns;
+    private final Optional<List<ColumnHandle>> projectedColumns;
     private final OptionalLong limit;
 
     @JsonCreator
@@ -47,7 +47,7 @@ public class BigQueryTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("type") String type,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("desiredColumns") Optional<List<ColumnHandle>> desiredColumns,
+            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns,
             @JsonProperty("limit") OptionalLong limit)
     {
         this.projectId = requireNonNull(projectId, "projectId is null");
@@ -55,7 +55,7 @@ public class BigQueryTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.type = requireNonNull(type, "type is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
-        this.desiredColumns = requireNonNull(desiredColumns, "desiredColumns is null");
+        this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
         this.limit = requireNonNull(limit, "limit is null");
     }
 
@@ -97,9 +97,9 @@ public class BigQueryTableHandle
     }
 
     @JsonProperty
-    public Optional<List<ColumnHandle>> getDesiredColumns()
+    public Optional<List<ColumnHandle>> getProjectedColumns()
     {
-        return desiredColumns;
+        return projectedColumns;
     }
 
     @JsonProperty
@@ -123,14 +123,14 @@ public class BigQueryTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 Objects.equals(type, that.tableName) &&
                 Objects.equals(constraint, that.constraint) &&
-                Objects.equals(desiredColumns, that.desiredColumns) &&
+                Objects.equals(projectedColumns, that.projectedColumns) &&
                 Objects.equals(limit, that.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(projectId, schemaName, tableName, type, constraint, desiredColumns, limit);
+        return Objects.hash(projectId, schemaName, tableName, type, constraint, projectedColumns, limit);
     }
 
     @Override
@@ -142,7 +142,7 @@ public class BigQueryTableHandle
                 .add("tableName", tableName)
                 .add("type", type)
                 .add("constraint", constraint)
-                .add("desiredColumns", desiredColumns)
+                .add("projectedColumns", projectedColumns)
                 .add("limit", limit)
                 .toString();
     }
@@ -154,16 +154,16 @@ public class BigQueryTableHandle
 
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
     {
-        return new BigQueryTableHandle(projectId, schemaName, tableName, type, newConstraint, desiredColumns, limit);
+        return new BigQueryTableHandle(projectId, schemaName, tableName, type, newConstraint, projectedColumns, limit);
     }
 
-    BigQueryTableHandle withDesiredColumns(List<ColumnHandle> newDesiredColumns)
+    BigQueryTableHandle withProjectedColumns(List<ColumnHandle> newProjectedColumns)
     {
-        return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, Optional.of(newDesiredColumns), limit);
+        return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, Optional.of(newProjectedColumns), limit);
     }
 
     BigQueryTableHandle withLimit(long newLimit)
     {
-        return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, desiredColumns, OptionalLong.of(newLimit));
+        return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, projectedColumns, OptionalLong.of(newLimit));
     }
 }

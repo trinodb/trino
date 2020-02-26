@@ -212,18 +212,18 @@ public class BigQueryMetadata
                 session, handle, projections, assignments);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
 
-        if (bigQueryTableHandle.getDesiredColumns().isPresent()) {
+        if (bigQueryTableHandle.getProjectedColumns().isPresent()) {
             return Optional.empty();
         }
 
-        ImmutableList.Builder<ColumnHandle> desiredColumns = ImmutableList.builder();
+        ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
         ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
         assignments.forEach((name, column) -> {
-            desiredColumns.add(column);
+            projectedColumns.add(column);
             assignmentList.add(new Assignment(name, column, ((BigQueryColumnHandle) column).getPrestoType()));
         });
 
-        bigQueryTableHandle = bigQueryTableHandle.withDesiredColumns(desiredColumns.build());
+        bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(projectedColumns.build());
 
         return Optional.of(new ProjectionApplicationResult<>(bigQueryTableHandle, projections, assignmentList.build()));
     }

@@ -16,7 +16,6 @@ package io.prestosql.plugin.bigquery;
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsResponse;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.StreamPosition;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -39,7 +38,6 @@ public class ReadRowsHelper
 
     public Iterator<ReadRowsResponse> readRows()
     {
-        StreamPosition.Builder readPosition = request.getReadPositionBuilder();
         List<ReadRowsResponse> readRowResponses = new ArrayList<>();
         long readRowsCount = 0;
         int retries = 0;
@@ -53,7 +51,8 @@ public class ReadRowsHelper
             catch (RuntimeException e) {
                 // if relevant, retry the read, from the last read position
                 if (BigQueryUtil.isRetryable(e) && retries < maxReadRowsRetries) {
-                    serverResponses = fetchResponses(request.setReadPosition(readPosition.setOffset(readRowsCount)));
+                    request.getReadPositionBuilder().setOffset(readRowsCount);
+                    serverResponses = fetchResponses(request);
                     retries++;
                 }
                 else {
