@@ -1,0 +1,23 @@
+name: prestobase
+description: docker images for Open Source Presto release
+repository: git@github.com:lyft/presto.git
+slack: "#presto-dev-bot"
+team_email: presto-dev@lyft.com
+credentials: false
+image_type: library
+containers:
+  - name: spin
+    command: sleep infinity
+deploy:
+  - name: staging
+    legacy: false
+    orca:
+      - orca_location: ops
+        region: iad
+    automatic: false
+  - name: production
+    legacy: false
+    orca:
+      - orca_location: ops
+        region: iad
+languages: []
