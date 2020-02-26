@@ -844,7 +844,7 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT32()
             throws Exception
     {
-        for (int precision = 1; precision <= MAX_PRECISION_INT32; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT32; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Integer> intValues = intsBetween(-1_000, 1_000);
@@ -861,7 +861,7 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT64()
             throws Exception
     {
-        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
@@ -970,7 +970,7 @@ public abstract class AbstractTestParquetReader
     public void testParquetShortDecimalWriteToPrestoBigintBlock()
             throws Exception
     {
-        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
             ImmutableList.Builder<Long> expectedValues = new ImmutableList.Builder<>();
