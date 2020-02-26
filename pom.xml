@@ -1398,12 +1398,6 @@
         <profile>
             <id>errorprone-compiler-presto</id><!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
 
-            <!-- TODO simplify the following configuration when using JDK 9+ for compilation. See https://errorprone.info/docs/installation -->
-            <properties>
-                <javac.version>9+181-r4173-1</javac.version>
-            </properties>
-
-            <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
             <build>
                 <plugins>
                     <plugin>
@@ -1414,7 +1408,6 @@
                         <configuration combine.children="merge">
                             <fork>true</fork>
                             <compilerArgs>
-                                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
                                 <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/target/generated-(|test-)sources/.* -XepDisableAllChecks -Xep:MissingOverride:ERROR -Xep:ClassCanBeStatic:ERROR -Xep:ArrayToString:ERROR -Xep:GetClassOnClass:ERROR</arg>
