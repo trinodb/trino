@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -129,9 +130,13 @@ public class ElasticsearchMetadata
         result.add(BuiltinColumns.SOURCE.getMetadata());
         result.add(BuiltinColumns.SCORE.getMetadata());
 
+        Map<String, Long> counts = metadata.getSchema()
+                .getFields().stream()
+                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
+
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
             Type type = toPrestoType(field);
-            if (type == null) {
+            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
                 continue;
             }
 
