@@ -434,7 +434,7 @@ Task Properties
     but it causes increased heap space usage. Setting the value too high may cause a drop
     in performance due to a context switching. The number of active threads is available
     via the ``RunningSplits`` property of the
-    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
+    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JMX object.
 
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^
