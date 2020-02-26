@@ -1401,9 +1401,6 @@
             <!-- TODO simplify the following configuration when using JDK 9+ for compilation. See https://errorprone.info/docs/installation -->
             <properties>
                 <javac.version>9+181-r4173-1</javac.version>
-
-                <!-- with errorprone compiler, checkstyle is run on generated sources too and they may not match our checkstyle rules -->
-                <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
             </properties>
 
             <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
