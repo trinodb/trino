@@ -30,7 +30,6 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.RoleGrant;
-import io.prestosql.spi.security.ViewExpression;
 
 import javax.inject.Inject;
 
@@ -388,18 +387,6 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
-    }
-
-    @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
-    {
-        return Optional.empty();
     }
 
     private boolean isAdmin(ConnectorSecurityContext context)
