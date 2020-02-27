@@ -17,6 +17,7 @@ import com.google.api.gax.paging.Page;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.common.collect.ImmutableList;
@@ -101,16 +102,26 @@ public class BigQueryMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         log.debug("getTableHandle(session=%s, tableName=%s)", session, tableName);
-        Table table = bigQuery.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
+        Table table = getBigQueryTable(tableName);
         if (table == null) {
-            throw new TableNotFoundException(tableName);
+            log.debug("Table [%s.%s] was not found", tableName.getSchemaName(), tableName.getTableName());
+            return null;
         }
         return BigQueryTableHandle.from(table);
     }
 
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
+    // May return null
+    private Table getBigQueryTable(SchemaTableName tableName)
     {
-        ConnectorTableHandle table = getTableHandle(session, tableName);
+        return bigQuery.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
+    }
+
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        ConnectorTableHandle table = getTableHandle(session, schemaTableName);
+        if (table == null) {
+            throw new TableNotFoundException(schemaTableName);
+        }
         return getTableMetadata(session, table);
     }
 
@@ -120,9 +131,12 @@ public class BigQueryMetadata
         log.debug("getTableMetadata(session=%s, tableHandle=%s)", session, tableHandle);
         Table table = bigQuery.getTable(((BigQueryTableHandle) tableHandle).getTableId());
         SchemaTableName schemaTableName = new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable());
-        List<ColumnMetadata> columns = table.getDefinition().getSchema().getFields().stream()
-                .map(Conversions::toColumnMetadata)
-                .collect(toImmutableList());
+        Schema schema = table.getDefinition().getSchema();
+        List<ColumnMetadata> columns = schema == null ?
+                ImmutableList.of() :
+                schema.getFields().stream()
+                        .map(Conversions::toColumnMetadata)
+                        .collect(toImmutableList());
         return new ConnectorTableMetadata(schemaTableName, columns);
     }
 
@@ -131,8 +145,10 @@ public class BigQueryMetadata
     {
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
         Table table = bigQuery.getTable(((BigQueryTableHandle) tableHandle).getTableId());
-        return table.getDefinition().getSchema().getFields().stream()
-                .collect(toMap(Field::getName, Conversions::toColumnHandle));
+        Schema schema = table.getDefinition().getSchema();
+        return schema == null ?
+                ImmutableMap.of() :
+                schema.getFields().stream().collect(toMap(Field::getName, Conversions::toColumnHandle));
     }
 
     @Override
@@ -167,7 +183,11 @@ public class BigQueryMetadata
         if (!prefix.getTable().isPresent()) {
             return listTables(session, prefix.getSchema());
         }
-        return ImmutableList.of(prefix.toSchemaTableName());
+        SchemaTableName tableName = prefix.toSchemaTableName();
+        Table table = getBigQueryTable(tableName);
+        return table == null ?
+                ImmutableList.of() : // table does not exist
+                ImmutableList.of(tableName);
     }
 
     @Override
