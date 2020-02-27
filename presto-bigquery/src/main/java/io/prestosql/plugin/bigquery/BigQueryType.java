@@ -147,7 +147,7 @@ public enum BigQueryType
         }
     }
 
-    static interface Adaptor
+    interface Adaptor
     {
         BigQueryType getBigQueryType();
 

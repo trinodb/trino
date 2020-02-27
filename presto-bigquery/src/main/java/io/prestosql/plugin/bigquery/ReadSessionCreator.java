@@ -14,7 +14,6 @@
 package io.prestosql.plugin.bigquery;
 
 import com.google.cloud.BaseServiceException;
-import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
@@ -34,18 +33,14 @@ import io.airlift.log.Logger;
 import io.prestosql.spi.PrestoException;
 
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.prestosql.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
-import static io.prestosql.plugin.bigquery.BigQueryUtil.createSql;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
-import static java.util.UUID.randomUUID;
 
 // A helper class, also handles view materialization
 public class ReadSessionCreator
@@ -59,22 +54,22 @@ public class ReadSessionCreator
                     .build();
 
     private final ReadSessionCreatorConfig config;
-    private final BigQuery bigquery;
+    private final BigQueryClient bigQueryClient;
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
 
     public ReadSessionCreator(
             ReadSessionCreatorConfig config,
-            BigQuery bigquery,
+            BigQueryClient bigQueryClient,
             BigQueryStorageClientFactory bigQueryStorageClientFactory)
     {
         this.config = config;
-        this.bigquery = bigquery;
+        this.bigQueryClient = bigQueryClient;
         this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
     }
 
     public Storage.ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
     {
-        Table tableDetails = bigquery.getTable(table);
+        TableInfo tableDetails = bigQueryClient.getTable(table);
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
 
@@ -127,10 +122,10 @@ public class ReadSessionCreator
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            String querySql = createSql(table.getTableId(), requiredColumns, filters);
+            String querySql = bigQueryClient.createSql(table.getTableId(), requiredColumns, filters);
             log.debug("querySql is %s", querySql);
             try {
-                return destinationTableCache.get(querySql, new DestinationTableBuilder(bigquery, config, querySql, table.getTableId()));
+                return destinationTableCache.get(querySql, new DestinationTableBuilder(bigQueryClient, config, querySql, table.getTableId()));
             }
             catch (ExecutionException e) {
                 throw new PrestoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
@@ -146,14 +141,14 @@ public class ReadSessionCreator
     static class DestinationTableBuilder
             implements Callable<TableInfo>
     {
-        final BigQuery bigquery;
+        final BigQueryClient bigQueryClient;
         final ReadSessionCreatorConfig config;
         final String querySql;
         final TableId table;
 
-        DestinationTableBuilder(BigQuery bigquery, ReadSessionCreatorConfig config, String querySql, TableId table)
+        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String querySql, TableId table)
         {
-            this.bigquery = bigquery;
+            this.bigQueryClient = bigQueryClient;
             this.config = config;
             this.querySql = querySql;
             this.table = table;
@@ -167,7 +162,7 @@ public class ReadSessionCreator
 
         TableInfo createTableFromQuery()
         {
-            TableId destinationTable = createDestinationTable();
+            TableId destinationTable = bigQueryClient.createDestinationTable(table);
             log.debug("destinationTable is %s", destinationTable);
             JobInfo jobInfo = JobInfo.of(
                     QueryJobConfiguration
@@ -175,16 +170,16 @@ public class ReadSessionCreator
                             .setDestinationTable(destinationTable)
                             .build());
             log.debug("running query %s", jobInfo);
-            Job job = waitForJob(bigquery.create(jobInfo));
+            Job job = waitForJob(bigQueryClient.create(jobInfo));
             log.debug("job has finished. %s", job);
             if (job.getStatus().getError() != null) {
                 throw convertToBigQueryException(job.getStatus().getError());
             }
             // add expiration time to the table
-            Table createdTable = bigquery.getTable(destinationTable);
+            TableInfo createdTable = bigQueryClient.getTable(destinationTable);
             long expirationTime = createdTable.getCreationTime() +
                     TimeUnit.HOURS.toMillis(config.viewExpirationTimeInHours);
-            Table updatedTable = bigquery.update(createdTable.toBuilder()
+            Table updatedTable = bigQueryClient.update(createdTable.toBuilder()
                     .setExpirationTime(expirationTime)
                     .build());
             return updatedTable;
@@ -199,15 +194,6 @@ public class ReadSessionCreator
                 Thread.currentThread().interrupt();
                 throw new BigQueryException(BaseServiceException.UNKNOWN_CODE, format("Job %s has been interrupted", job.getJobId()), e);
             }
-        }
-
-        TableId createDestinationTable()
-        {
-            String project = config.viewMaterializationProject.orElse(table.getProject());
-            String dataset = config.viewMaterializationDataset.orElse(table.getDataset());
-            UUID uuid = randomUUID();
-            String name = format("_pbc_%s%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
-            return TableId.of(project, dataset, name);
         }
     }
 }

@@ -14,12 +14,12 @@
 package io.prestosql.plugin.bigquery;
 
 import com.google.api.gax.paging.Page;
-import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.TableInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,23 +57,25 @@ public class BigQueryMetadata
 {
     static final int NUMERIC_DATA_TYPE_PRECISION = 38;
     static final int NUMERIC_DATA_TYPE_SCALE = 9;
+    static final String INFORMATION_SCHEMA = "information_schema";
     private static final Logger log = Logger.get(BigQueryMetadata.class);
-    private BigQuery bigQuery;
+    private BigQueryClient bigQueryClient;
     private String projectId;
 
     @Inject
-    public BigQueryMetadata(BigQuery bigQuery, BigQueryConfig config)
+    public BigQueryMetadata(BigQueryClient bigQueryClient, BigQueryConfig config)
     {
-        this.bigQuery = bigQuery;
-        this.projectId = config.getProjectId().orElse(bigQuery.getOptions().getProjectId());
+        this.bigQueryClient = bigQueryClient;
+        this.projectId = config.getProjectId().orElse(bigQueryClient.getProjectId());
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         log.debug("listSchemaNames(session=%s)", session);
-        return Streams.stream(bigQuery.listDatasets(projectId).iterateAll())
+        return Streams.stream(bigQueryClient.listDatasets(projectId))
                 .map(dataset -> dataset.getDatasetId().getDataset())
+                .filter(schemaName -> !schemaName.equalsIgnoreCase(INFORMATION_SCHEMA))
                 .collect(toImmutableList());
     }
 
@@ -81,12 +83,15 @@ public class BigQueryMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         log.debug("listTables(session=%s, schemaName=%s)", session, schemaName);
+        if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
+            return ImmutableList.of();
+        }
         Set<String> schemaNames = schemaName.map(ImmutableSet::of)
                 .orElseGet(() -> ImmutableSet.copyOf(listSchemaNames(session)));
 
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String datasetId : schemaNames) {
-            for (Table table : bigQuery.listTables(DatasetId.of(projectId, datasetId)).iterateAll()) {
+            for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, datasetId))) {
                 tableNames.add(new SchemaTableName(datasetId, table.getTableId().getTable()));
             }
         }
@@ -102,18 +107,18 @@ public class BigQueryMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         log.debug("getTableHandle(session=%s, tableName=%s)", session, tableName);
-        Table table = getBigQueryTable(tableName);
-        if (table == null) {
+        TableInfo tableInfo = getBigQueryTable(tableName);
+        if (tableInfo == null) {
             log.debug("Table [%s.%s] was not found", tableName.getSchemaName(), tableName.getTableName());
             return null;
         }
-        return BigQueryTableHandle.from(table);
+        return BigQueryTableHandle.from(tableInfo);
     }
 
     // May return null
-    private Table getBigQueryTable(SchemaTableName tableName)
+    private TableInfo getBigQueryTable(SchemaTableName tableName)
     {
-        return bigQuery.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
+        return bigQueryClient.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
     }
 
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
@@ -129,7 +134,7 @@ public class BigQueryMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         log.debug("getTableMetadata(session=%s, tableHandle=%s)", session, tableHandle);
-        Table table = bigQuery.getTable(((BigQueryTableHandle) tableHandle).getTableId());
+        TableInfo table = bigQueryClient.getTable(((BigQueryTableHandle) tableHandle).getTableId());
         SchemaTableName schemaTableName = new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable());
         Schema schema = table.getDefinition().getSchema();
         List<ColumnMetadata> columns = schema == null ?
@@ -144,7 +149,7 @@ public class BigQueryMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
-        Table table = bigQuery.getTable(((BigQueryTableHandle) tableHandle).getTableId());
+        TableInfo table = bigQueryClient.getTable(((BigQueryTableHandle) tableHandle).getTableId());
         Schema schema = table.getDefinition().getSchema();
         return schema == null ?
                 ImmutableMap.of() :
@@ -184,8 +189,8 @@ public class BigQueryMetadata
             return listTables(session, prefix.getSchema());
         }
         SchemaTableName tableName = prefix.toSchemaTableName();
-        Table table = getBigQueryTable(tableName);
-        return table == null ?
+        TableInfo tableInfo = getBigQueryTable(tableName);
+        return tableInfo == null ?
                 ImmutableList.of() : // table does not exist
                 ImmutableList.of(tableName);
     }

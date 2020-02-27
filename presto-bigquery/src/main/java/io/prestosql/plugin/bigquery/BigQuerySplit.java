@@ -50,6 +50,16 @@ public class BigQuerySplit
         this.emptyRowsToGenerate = emptyRowsToGenerate;
     }
 
+    static BigQuerySplit forStream(String streamName, String avroSchema, List<ColumnHandle> columns)
+    {
+        return new BigQuerySplit(streamName, avroSchema, columns, NO_ROWS_TO_GENERATE);
+    }
+
+    static BigQuerySplit emptyProjection(long numberOfRows)
+    {
+        return new BigQuerySplit("", "", ImmutableList.of(), numberOfRows);
+    }
+
     @JsonProperty
     public String getStreamName()
     {
@@ -128,15 +138,5 @@ public class BigQuerySplit
     boolean representsEmptyProjection()
     {
         return emptyRowsToGenerate != NO_ROWS_TO_GENERATE;
-    }
-
-    static BigQuerySplit forStream(String streamName, String avroSchema, List<ColumnHandle> columns)
-    {
-        return new BigQuerySplit(streamName, avroSchema, columns, NO_ROWS_TO_GENERATE);
-    }
-
-    static BigQuerySplit emptyProjection(long numberOfRows)
-    {
-        return new BigQuerySplit("", "", ImmutableList.of(), numberOfRows);
     }
 }

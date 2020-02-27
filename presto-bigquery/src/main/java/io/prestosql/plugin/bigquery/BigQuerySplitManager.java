@@ -13,8 +13,7 @@
  */
 package io.prestosql.plugin.bigquery;
 
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.QueryJobConfiguration;
+import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
@@ -38,8 +37,6 @@ import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static io.prestosql.plugin.bigquery.BigQueryUtil.createSql;
-import static io.prestosql.plugin.bigquery.BigQueryUtil.formatted;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -50,7 +47,7 @@ public class BigQuerySplitManager
 {
     private static final Logger log = Logger.get(BigQuerySplitManager.class);
 
-    private final BigQuery bigquery;
+    private final BigQueryClient bigQueryClient;
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
     private final OptionalInt parallelism;
     private final ReadSessionCreatorConfig readSessionCreatorConfig;
@@ -59,13 +56,13 @@ public class BigQuerySplitManager
     @Inject
     public BigQuerySplitManager(
             BigQueryConfig config,
-            BigQuery bigquery,
+            BigQueryClient bigQueryClient,
             BigQueryStorageClientFactory bigQueryStorageClientFactory,
             NodeManager nodeManager)
     {
         requireNonNull(config, "config cannot be null");
 
-        this.bigquery = requireNonNull(bigquery, "bigquery cannot be null");
+        this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient cannot be null");
         this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory cannot be null");
         this.parallelism = config.getParallelism();
         this.readSessionCreatorConfig = config.createReadSessionCreatorConfig();
@@ -104,7 +101,7 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
-        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigquery, bigQueryStorageClientFactory)
+        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryStorageClientFactory)
                 .create(tableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
@@ -119,13 +116,13 @@ public class BigQuerySplitManager
             long numberOfRows;
             if (filter.isPresent()) {
                 // count the rows based on the filter
-                String sql = createSql(tableId, "COUNT(*)", new String[] {filter.get()});
-                TableResult result = bigquery.query(QueryJobConfiguration.of(sql));
+                String sql = bigQueryClient.createSql(tableId, "COUNT(*)", new String[] {filter.get()});
+                TableResult result = bigQueryClient.query(sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
             else {
                 // no filters, so we can take the value from the table info
-                numberOfRows = bigquery.getTable(tableId).getNumRows().longValue();
+                numberOfRows = bigQueryClient.getTable(tableId).getNumRows().longValue();
             }
 
             long rowsPerSplit = numberOfRows / actualParallelism;
@@ -136,9 +133,8 @@ public class BigQuerySplitManager
             splits.set(0, BigQuerySplit.emptyProjection(rowsPerSplit + remainingRows));
             return splits;
         }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to run COUNT(*) on the table [%s] with filter %s", formatted(tableId), filter), e);
+        catch (BigQueryException e) {
+            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to compute empty projection"), e);
         }
     }
 }

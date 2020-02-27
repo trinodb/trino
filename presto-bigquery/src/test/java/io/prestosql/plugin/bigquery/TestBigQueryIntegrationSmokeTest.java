@@ -16,8 +16,6 @@ package io.prestosql.plugin.bigquery;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -27,35 +25,10 @@ public class TestBigQueryIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        throw new SkipException("The BigQuery connector is read only");
-    }
-
-    @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         return BigQueryQueryRunner.createQueryRunner();
-    }
-
-    @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Test
-    @Override
-    public void testDuplicatedRowCreateTable()
-    {
-        throw new SkipException("The BigQuery connector is read only");
     }
 
     @Override
@@ -65,7 +38,7 @@ public class TestBigQueryIntegrationSmokeTest
     }
 
     @Override
-    protected MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
+    protected MaterializedResult getExpectedOrdersTableDescription()
     {
         return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")

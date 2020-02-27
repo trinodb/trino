@@ -18,5 +18,5 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 public enum BigQueryTransactionHandle
         implements ConnectorTransactionHandle
 {
-    INSTANCE;
+    INSTANCE
 }

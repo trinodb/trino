@@ -15,8 +15,8 @@ package io.prestosql.plugin.bigquery;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.TableInfo;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -59,10 +59,10 @@ public class BigQueryTableHandle
         this.limit = requireNonNull(limit, "limit is null");
     }
 
-    public static BigQueryTableHandle from(Table table)
+    public static BigQueryTableHandle from(TableInfo tableInfo)
     {
-        TableId tableId = table.getTableId();
-        String type = table.getDefinition().getType().toString();
+        TableId tableId = tableInfo.getTableId();
+        String type = tableInfo.getDefinition().getType().toString();
         return new BigQueryTableHandle(tableId.getProject(), tableId.getDataset(), tableId.getTable(), type, TupleDomain.none(), Optional.empty(), OptionalLong.empty());
     }
 

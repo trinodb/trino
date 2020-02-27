@@ -15,7 +15,6 @@ package io.prestosql.plugin.bigquery;
 
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
-import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -67,13 +66,13 @@ public class BigQueryConnectorModule
 
     @Provides
     @Singleton
-    public BigQuery provideBigQuery(BigQueryConfig config, HeaderProvider headerProvider, BigQueryCredentialsSupplier bigQueryCredentialsSupplier)
+    public BigQueryClient provideBigQueryClient(BigQueryConfig config, HeaderProvider headerProvider, BigQueryCredentialsSupplier bigQueryCredentialsSupplier)
     {
         BigQueryOptions.Builder options = BigQueryOptions.newBuilder()
                 .setHeaderProvider(headerProvider)
                 .setProjectId(config.getParentProject());
         // set credentials of provided
         bigQueryCredentialsSupplier.getCredentials().ifPresent(options::setCredentials);
-        return options.build().getService();
+        return new BigQueryClient(options.build().getService(), config);
     }
 }

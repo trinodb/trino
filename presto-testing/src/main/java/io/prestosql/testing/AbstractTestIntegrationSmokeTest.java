@@ -122,7 +122,14 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = getExpectedOrdersTableDescription();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        assertEquals(actualColumns, expectedColumns);
+    }
+
+    protected MaterializedResult getExpectedOrdersTableDescription()
+    {
+        return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -133,8 +140,6 @@ public abstract class AbstractTestIntegrationSmokeTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
