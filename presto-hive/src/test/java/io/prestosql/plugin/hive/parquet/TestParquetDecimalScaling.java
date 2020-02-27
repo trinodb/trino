@@ -230,6 +230,20 @@ public class TestParquetDecimalScaling
         dropTable(tableName);
     }
 
+    @Test
+    public void testWriteTableLocation()
+    {
+        String tableName = generateTableName("test_table", 0, 0);
+
+        createTable(tableName, 10, 2);
+
+        assertQuery(format("INSERT INTO %s (value) VALUES (10.01)", tableName));
+
+        System.out.println(format("Data location is: %s", computeActual(format("SELECT value, \"$path\" FROM %s", tableName)).getMaterializedRows()));
+
+        dropTable(tableName);
+    }
+
     @DataProvider
     public Object[][] testReadingRoundedDecimalsProvider()
     {
@@ -287,7 +301,7 @@ public class TestParquetDecimalScaling
 
     protected void createTable(String tableName, int precision, int scale)
     {
-        assertUpdate(format("CREATE TABLE %s (value decimal(%d, %d)) WITH (format = 'PARQUET')", tableName, precision, scale));
+        assertUpdate(format("CREATE TABLE tpch.%s (value decimal(%d, %d)) WITH (format = 'PARQUET')", tableName, precision, scale));
     }
 
     protected void dropTable(String tableName)
