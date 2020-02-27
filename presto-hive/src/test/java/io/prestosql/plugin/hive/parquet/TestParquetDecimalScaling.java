@@ -82,6 +82,8 @@ public class TestParquetDecimalScaling
     {
         basePath = getBasePath();
 
+        System.out.println(String.format("Created QueryRunner for path %s", basePath));
+
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(),
                 ImmutableMap.of(),
@@ -388,6 +390,8 @@ public class TestParquetDecimalScaling
 
     private static void writeParquetDecimalsRecord(Path output, List<ParquetDecimalInsert> inserts)
     {
+        System.out.println(format("Creating parquet file with values %s in path %s", inserts, output));
+
         List<String> fields = inserts.stream().map(ParquetDecimalInsert::schemaFieldDeclaration).collect(toImmutableList());
         MessageType schema = parseMessageType(format("message hive_record { %s; }", Joiner.on("; ").join(fields)));
         List<ObjectInspector> inspectors = inserts.stream().map(ParquetDecimalInsert::getParquetObjectInspector).collect(toImmutableList());
