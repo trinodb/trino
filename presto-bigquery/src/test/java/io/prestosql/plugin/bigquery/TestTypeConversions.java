@@ -25,12 +25,22 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+
+import static io.prestosql.plugin.bigquery.BigQueryType.toLocalDateTime;
+import static java.time.Month.APRIL;
+import static java.time.Month.FEBRUARY;
+import static java.time.Month.JANUARY;
+import static java.time.Month.JUNE;
+import static java.time.Month.MARCH;
+import static java.time.Month.MAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
@@ -57,7 +67,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, VarcharType.VARCHAR);
+        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
     }
 
     @Test
@@ -180,7 +190,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, VarcharType.VARCHAR);
+        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
     }
 
     @Test
@@ -277,5 +287,16 @@ public class TestTypeConversions
     private BigQueryColumnHandle createColumn(LegacySQLTypeName type)
     {
         return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), Field.Mode.NULLABLE, ImmutableList.of(), null);
+    }
+
+    @Test
+    public void testBigQueryDateTimeToJavaConversion()
+    {
+        assertThat(toLocalDateTime("2001-01-01T01:01:01.1")).isEqualTo(LocalDateTime.of(2001, JANUARY, 1, 1, 1, 1, 100_000_000));
+        assertThat(toLocalDateTime("2002-02-02T02:02:02.22")).isEqualTo(LocalDateTime.of(2002, FEBRUARY, 2, 2, 2, 2, 220_000_000));
+        assertThat(toLocalDateTime("2003-03-03T03:03:03.333")).isEqualTo(LocalDateTime.of(2003, MARCH, 3, 3, 3, 3, 333_000_000));
+        assertThat(toLocalDateTime("2004-04-04T04:04:04.4444")).isEqualTo(LocalDateTime.of(2004, APRIL, 4, 4, 4, 4, 444_400_000));
+        assertThat(toLocalDateTime("2005-05-05T05:05:05.55555")).isEqualTo(LocalDateTime.of(2005, MAY, 5, 5, 5, 5, 555_550_000));
+        assertThat(toLocalDateTime("2006-06-06T06:06:06.666666")).isEqualTo(LocalDateTime.of(2006, JUNE, 6, 6, 6, 6, 666_666_000));
     }
 }

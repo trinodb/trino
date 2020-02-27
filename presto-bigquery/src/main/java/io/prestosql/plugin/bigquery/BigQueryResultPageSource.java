@@ -59,11 +59,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
+import static io.prestosql.plugin.bigquery.BigQueryType.toPrestoTimestamp;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 
@@ -166,6 +168,9 @@ public class BigQueryResultPageSource
                 }
                 else if (type.equals(DATE)) {
                     type.writeLong(output, ((Number) value).intValue());
+                }
+                else if (type.equals(TIMESTAMP)) {
+                    type.writeLong(output, toPrestoTimestamp(((Utf8) value).toString()));
                 }
                 else if (type.equals(TIME_WITH_TIME_ZONE)) {
                     type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));

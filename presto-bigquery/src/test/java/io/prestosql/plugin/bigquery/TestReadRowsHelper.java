@@ -21,7 +21,6 @@ import com.google.cloud.bigquery.storage.v1beta1.Storage.StreamPosition;
 import com.google.common.collect.ImmutableList;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
@@ -34,15 +33,9 @@ public class TestReadRowsHelper
 {
     // it is not used, we just need the reference
     BigQueryStorageClient client = mock(BigQueryStorageClient.class);
-    private ReadRowsRequest.Builder request;
-
-    @BeforeMethod
-    public void resetRequest()
-    {
-        request = ReadRowsRequest.newBuilder().setReadPosition(
-                StreamPosition.newBuilder().setStream(
-                        Stream.newBuilder().setName("test")));
-    }
+    private ReadRowsRequest.Builder request = ReadRowsRequest.newBuilder().setReadPosition(
+            StreamPosition.newBuilder().setStream(
+                    Stream.newBuilder().setName("test")));
 
     @Test
     void testNoFailures()
@@ -76,14 +69,6 @@ public class TestReadRowsHelper
 
         assertThat(responses.size()).isEqualTo(2);
         assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
-    }
-
-    @Test
-    public void testProto()
-    {
-        assertThat(request.build().getReadPosition().getOffset()).isEqualTo(0L);
-        request.getReadPositionBuilder().setOffset(100);
-        assertThat(request.build().getReadPosition().getOffset()).isEqualTo(100L);
     }
 
     private static final class MockReadRowsHelper
