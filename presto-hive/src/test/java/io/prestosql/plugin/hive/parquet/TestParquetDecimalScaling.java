@@ -82,8 +82,6 @@ public class TestParquetDecimalScaling
     {
         basePath = getBasePath();
 
-        System.out.println(String.format("Created QueryRunner for path %s", basePath));
-
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(),
                 ImmutableMap.of(),
@@ -99,7 +97,7 @@ public class TestParquetDecimalScaling
     @Test(dataProvider = "testReadingMatchingPrecisionDataProvider")
     public void testReadingMatchingPrecision(int precision, int scale, boolean forceFixedLengthArray, List<String> values, List<String> expected)
     {
-        String tableName = generateTableName("matchingPrecision", precision, scale);
+        String tableName = generateTableName("matching_precision", precision, scale);
 
         createTable(tableName, precision, scale);
 
@@ -150,7 +148,7 @@ public class TestParquetDecimalScaling
     @Test(dataProvider = "testReadingRescaledDecimalsProvider")
     public void testReadingRescaledDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values, List<String> expected)
     {
-        String tableName = generateTableName("rescaledDecimals", precision, scale);
+        String tableName = generateTableName("rescaled_decimals", precision, scale);
 
         createTable(tableName, schemaPrecision, schemaScale);
 
@@ -217,7 +215,7 @@ public class TestParquetDecimalScaling
     @Test(dataProvider = "testReadingRoundedDecimalsProvider")
     public void testReadingRoundedDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values, List<String> expected)
     {
-        String tableName = generateTableName("roundedDecimals", precision, scale);
+        String tableName = generateTableName("rounded_decimals", precision, scale);
 
         createTable(tableName, schemaPrecision, schemaScale);
 
@@ -226,20 +224,6 @@ public class TestParquetDecimalScaling
                 ImmutableList.of(new ParquetDecimalInsert("value", forceFixedLengthArray, precision, scale, values)));
 
         assertRoundedValues(tableName, schemaScale, expected);
-
-        dropTable(tableName);
-    }
-
-    @Test
-    public void testWriteTableLocation()
-    {
-        String tableName = generateTableName("test_table", 0, 0);
-
-        createTable(tableName, 10, 2);
-
-        assertQuery(format("INSERT INTO %s (value) VALUES (10.01)", tableName));
-
-        System.out.println(format("Data location is: %s", computeActual(format("SELECT value, \"$path\" FROM %s", tableName)).getMaterializedRows()));
 
         dropTable(tableName);
     }
@@ -271,7 +255,7 @@ public class TestParquetDecimalScaling
     @Test(dataProvider = "testReadingNonRescalableDecimalsProvider")
     public void testReadingNonRescalableDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values)
     {
-        String tableName = generateTableName("nonRescalable", precision, scale);
+        String tableName = generateTableName("non_rescalable", precision, scale);
 
         createTable(tableName, schemaPrecision, schemaScale);
 
@@ -327,7 +311,7 @@ public class TestParquetDecimalScaling
 
     protected void assertRoundedValues(String tableName, int scale, List<String> expected)
     {
-        MaterializedResult materializedRows = computeActual(format("select value FROM %s", tableName));
+        MaterializedResult materializedRows = computeActual(format("SELECT value FROM %s", tableName));
 
         List<BigDecimal> actualValues = materializedRows.getMaterializedRows().stream()
                 .map(row -> row.getField(0))
@@ -404,8 +388,6 @@ public class TestParquetDecimalScaling
 
     private static void writeParquetDecimalsRecord(Path output, List<ParquetDecimalInsert> inserts)
     {
-        System.out.println(format("Creating parquet file with values %s in path %s", inserts, output));
-
         List<String> fields = inserts.stream().map(ParquetDecimalInsert::schemaFieldDeclaration).collect(toImmutableList());
         MessageType schema = parseMessageType(format("message hive_record { %s; }", Joiner.on("; ").join(fields)));
         List<ObjectInspector> inspectors = inserts.stream().map(ParquetDecimalInsert::getParquetObjectInspector).collect(toImmutableList());
