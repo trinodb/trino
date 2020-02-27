@@ -78,7 +78,7 @@ public class TestBigQueryConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("bigquery.credentials-file", "cfile")
-                 .build();
+                .build();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         BigQueryConfig config = configurationFactory.build(BigQueryConfig.class);

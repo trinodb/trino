@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.bigquery;
 
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsResponse;
