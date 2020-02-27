@@ -57,5 +57,8 @@ public class CertificateAuthenticator
         catch (UserMappingException e) {
             throw new AuthenticationException(e.getMessage());
         }
+        catch (RuntimeException e) {
+            throw new RuntimeException("Authentication error", e);
+        }
     }
 }

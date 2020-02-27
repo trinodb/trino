@@ -124,6 +124,7 @@
         <module>presto-plugin-toolkit</module>
         <module>presto-resource-group-managers</module>
         <module>presto-password-authenticators</module>
+        <module>presto-certificate-authenticators</module>
         <module>presto-session-property-managers</module>
         <module>presto-benchto-benchmarks</module>
         <module>presto-thrift-api</module>
