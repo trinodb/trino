@@ -278,7 +278,7 @@ public class ForcePreparedStatement
     public ParameterMetaData getParameterMetaData()
             throws SQLException
     {
-        return new ParameterMetadataImpl(parameters, soqlQuery);
+        return new ForceParameterMetadata(parameters, soqlQuery);
     }
 
     @Override

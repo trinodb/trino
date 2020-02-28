@@ -22,12 +22,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ParameterMetadataImpl
+public class ForceParameterMetadata
         implements ParameterMetaData
 {
     private List<Object> parameters = new ArrayList<>();
 
-    public ParameterMetadataImpl(List<Object> parameters, String query)
+    public ForceParameterMetadata(List<Object> parameters, String query)
     {
         super();
         this.parameters.addAll(parameters);
