@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.salesforce.driver.delegates;
 
+import java.util.Objects;
+
 public class ForceResultField
 {
     public static final String NESTED_RESULT_SET_FIELD_TYPE = "nestedResultSet";
@@ -65,49 +67,20 @@ public class ForceResultField
     @Override
     public int hashCode()
     {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((entityType == null) ? 0 : entityType.hashCode());
-        result = prime * result + ((name == null) ? 0 : name.hashCode());
-        result = prime * result + ((value == null) ? 0 : value.hashCode());
-        return result;
+        return Objects.hash(entityType, name, value);
     }
 
     @Override
     public boolean equals(Object obj)
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
+        if (obj.getClass() != ForceResultField.class) {
             return false;
         }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
+
         ForceResultField other = (ForceResultField) obj;
-        if (entityType == null) {
-            if (other.entityType != null) {
-                return false;
-            }
-        }
-        else if (!entityType.equals(other.entityType)) {
-            return false;
-        }
-        if (name == null) {
-            if (other.name != null) {
-                return false;
-            }
-        }
-        else if (!name.equals(other.name)) {
-            return false;
-        }
-        if (value == null) {
-            return other.value == null;
-        }
-        else {
-            return value.equals(other.value);
-        }
+        return Objects.equals(entityType, other. entityType) &&
+                Objects.equals(name, other.name) &&
+                Objects.equals(value, other.value);
     }
 
     public String getFieldType()
