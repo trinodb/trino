@@ -14,41 +14,34 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.mysql.jdbc.Driver;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.DecimalConfig;
-import io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider;
+import io.prestosql.plugin.jdbc.DecimalModule;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
-import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MySqlClientModule
-        extends AbstractConfigurationAwareModule
+        implements Module
 {
     @Override
-    protected void setup(Binder binder)
+    public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MySqlClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(BaseJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlJdbcConfig.class);
-        configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlConfig.class);
-        configBinder(binder).bindConfig(DecimalConfig.class);
-        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(DecimalSessionPropertiesProvider.class).in(Scopes.SINGLETON);
+        binder.install(new DecimalModule());
     }
 
     @Provides
