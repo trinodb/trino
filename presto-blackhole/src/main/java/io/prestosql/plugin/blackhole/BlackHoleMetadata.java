@@ -191,6 +191,7 @@ public class BlackHoleMetadata
     @Override
     public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession connectorSession, ConnectorTableMetadata tableMetadata)
     {
+        @SuppressWarnings("unchecked")
         List<String> distributeColumns = (List<String>) tableMetadata.getProperties().get(DISTRIBUTED_ON);
         if (distributeColumns.isEmpty()) {
             return Optional.empty();

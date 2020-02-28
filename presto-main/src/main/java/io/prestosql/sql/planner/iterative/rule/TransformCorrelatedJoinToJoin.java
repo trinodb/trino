@@ -63,7 +63,7 @@ public class TransformCorrelatedJoinToJoin
     @Override
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
-        checkArgument(correlatedJoinNode.getType().equals(INNER) || correlatedJoinNode.getType().equals(LEFT), "correlation in %s JOIN", correlatedJoinNode.getType().name());
+        checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "correlation in %s JOIN", correlatedJoinNode.getType().name());
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
         PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());

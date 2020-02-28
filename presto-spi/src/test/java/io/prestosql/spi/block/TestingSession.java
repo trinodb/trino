@@ -44,7 +44,7 @@ public final class TestingSession
         @Override
         public ConnectorIdentity getIdentity()
         {
-            return new ConnectorIdentity("user", Optional.empty(), Optional.empty());
+            return ConnectorIdentity.ofUser("user");
         }
 
         @Override

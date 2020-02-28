@@ -49,16 +49,11 @@ public class AccessControlModule
                         new LoggingInvocationHandler.ReflectiveParameterNamesProvider(),
                         logger::debug));
 
-        return new ForwardingAccessControl()
-        {
-            @Override
-            protected AccessControl getDelegate()
-            {
-                if (logger.isDebugEnabled()) {
-                    return loggingInvocationsAccessControl;
-                }
-                return accessControlManager;
+        return ForwardingAccessControl.of(() -> {
+            if (logger.isDebugEnabled()) {
+                return loggingInvocationsAccessControl;
             }
-        };
+            return accessControlManager;
+        });
     }
 }

@@ -87,7 +87,7 @@ public class TestUnion
         assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
 
         int numberOfpartialTopN = searchFrom(plan.getRoot())
-                .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep().equals(TopNNode.Step.PARTIAL))
+                .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep() == TopNNode.Step.PARTIAL)
                 .count();
         assertEquals(numberOfpartialTopN, 2, "There should be exactly two partial TopN nodes");
         assertPlanIsFullyDistributed(plan);
@@ -224,7 +224,7 @@ public class TestUnion
 
     private static boolean isRemoteGatheringExchange(PlanNode planNode)
     {
-        return isRemoteExchange(planNode) && ((ExchangeNode) planNode).getType().equals(GATHER);
+        return isRemoteExchange(planNode) && ((ExchangeNode) planNode).getType() == GATHER;
     }
 
     private static boolean isNotRemoteExchange(PlanNode planNode)
@@ -234,6 +234,6 @@ public class TestUnion
 
     private static boolean isRemoteExchange(PlanNode planNode)
     {
-        return (planNode instanceof ExchangeNode) && ((ExchangeNode) planNode).getScope().equals(REMOTE);
+        return (planNode instanceof ExchangeNode) && ((ExchangeNode) planNode).getScope() == REMOTE;
     }
 }

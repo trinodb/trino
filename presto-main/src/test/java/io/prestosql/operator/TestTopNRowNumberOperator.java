@@ -193,7 +193,7 @@ public class TestTopNRowNumberOperator
     public void testMemoryReservationYield()
     {
         Type type = BIGINT;
-        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+        List<Page> input = createPagesWithDistinctHashKeys(type, 1_000, 500);
 
         OperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
                 0,
@@ -228,6 +228,6 @@ public class TestTopNRowNumberOperator
                 count++;
             }
         }
-        assertEquals(count, 6_000 * 600);
+        assertEquals(count, 1_000 * 500);
     }
 }

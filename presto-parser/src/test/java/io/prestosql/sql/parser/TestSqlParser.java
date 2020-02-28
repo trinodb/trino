@@ -1585,15 +1585,21 @@ public class TestSqlParser
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
-        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.empty()));
-        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, true, Optional.empty()));
+        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, true, Optional.empty(), Optional.empty()));
 
-        assertStatement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of(CreateView.Security.DEFINER)));
-        assertStatement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of(CreateView.Security.INVOKER)));
+        assertStatement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER)));
+        assertStatement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER)));
 
-        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(QualifiedName.of("bar", "foo"), query, false, Optional.empty()));
-        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome view"), query, false, Optional.empty()));
-        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome schema", "awesome view"), query, false, Optional.empty()));
+        assertStatement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER)));
+        assertStatement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER)));
+
+        assertStatement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.empty()));
+        assertStatement("CREATE VIEW a COMMENT '' AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of(""), Optional.empty()));
+
+        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(QualifiedName.of("bar", "foo"), query, false, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome view"), query, false, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome schema", "awesome view"), query, false, Optional.empty(), Optional.empty()));
     }
 
     @Test

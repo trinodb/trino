@@ -13,14 +13,12 @@
  */
 package io.prestosql.plugin.kafka;
 
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-
-import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 
 @Test
 public class TestKafkaDistributed
@@ -33,12 +31,17 @@ public class TestKafkaDistributed
             throws Exception
     {
         testingKafka = new TestingKafka();
-        return createKafkaQueryRunner(testingKafka, TpchTable.getTables());
+        return KafkaQueryRunner.builder(testingKafka)
+                .setTables(TpchTable.getTables())
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        testingKafka.close();
+        if (testingKafka != null) {
+            testingKafka.close();
+            testingKafka = null;
+        }
     }
 }

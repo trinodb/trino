@@ -29,11 +29,13 @@ public class ConnectorIdentity
     private final Optional<SelectedRole> role;
     private final Map<String, String> extraCredentials;
 
+    @Deprecated
     public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role)
     {
         this(user, principal, role, emptyMap());
     }
 
+    @Deprecated
     public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
@@ -63,20 +65,6 @@ public class ConnectorIdentity
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        // TODO: remove equals completely after a few months
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        // TODO remove hashCode completely after a few months
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ConnectorIdentity{");
@@ -86,5 +74,61 @@ public class ConnectorIdentity
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append('}');
         return sb.toString();
+    }
+
+    public static ConnectorIdentity ofUser(String user)
+    {
+        return new Builder(user).build();
+    }
+
+    public static Builder forUser(String user)
+    {
+        return new Builder(user);
+    }
+
+    public static class Builder
+    {
+        private final String user;
+        private Optional<Principal> principal = Optional.empty();
+        private Optional<SelectedRole> role = Optional.empty();
+        private Map<String, String> extraCredentials = new HashMap<>();
+
+        private Builder(String user)
+        {
+            this.user = requireNonNull(user, "user is null");
+        }
+
+        public Builder withPrincipal(Principal principal)
+        {
+            return withPrincipal(Optional.of(requireNonNull(principal, "principal is null")));
+        }
+
+        public Builder withPrincipal(Optional<Principal> principal)
+        {
+            this.principal = requireNonNull(principal, "principal is null");
+            return this;
+        }
+
+        public Builder withRole(SelectedRole role)
+        {
+            return withRole(Optional.of(requireNonNull(role, "role is null")));
+        }
+
+        public Builder withRole(Optional<SelectedRole> role)
+        {
+            this.role = requireNonNull(role, "role is null");
+            return this;
+        }
+
+        public Builder withExtraCredentials(Map<String, String> extraCredentials)
+        {
+            this.extraCredentials = new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null"));
+            return this;
+        }
+
+        public ConnectorIdentity build()
+        {
+            return new ConnectorIdentity(user, principal, role, extraCredentials);
+        }
     }
 }

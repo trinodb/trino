@@ -34,6 +34,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -52,7 +53,12 @@ class QueryAssertions
 
     public QueryAssertions(Session session)
     {
-        runner = new LocalQueryRunner(session);
+        this(LocalQueryRunner.create(session));
+    }
+
+    public QueryAssertions(QueryRunner runner)
+    {
+        this.runner = requireNonNull(runner, "runner is null");
     }
 
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
@@ -161,5 +167,21 @@ class QueryAssertions
     public void close()
     {
         runner.close();
+    }
+
+    public QueryRunner getQueryRunner()
+    {
+        return runner;
+    }
+
+    protected void executeExclusively(Runnable executionBlock)
+    {
+        runner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            runner.getExclusiveLock().unlock();
+        }
     }
 }

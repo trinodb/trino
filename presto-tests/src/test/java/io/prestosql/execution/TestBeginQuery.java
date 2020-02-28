@@ -69,7 +69,7 @@ public class TestBeginQuery
                 .setCatalog("test")
                 .setSchema("default")
                 .build();
-        return new DistributedQueryRunner(session, 1);
+        return DistributedQueryRunner.builder(session).build();
     }
 
     @BeforeClass

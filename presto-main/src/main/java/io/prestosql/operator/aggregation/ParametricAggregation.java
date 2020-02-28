@@ -57,7 +57,8 @@ public class ParametricAggregation
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
-            ParametricImplementationsGroup<AggregationImplementation> implementations)
+            ParametricImplementationsGroup<AggregationImplementation> implementations,
+            boolean deprecated)
     {
         super(
                 new FunctionMetadata(
@@ -67,7 +68,8 @@ public class ParametricAggregation
                         details.isHidden(),
                         true,
                         details.getDescription().orElse(""),
-                        AGGREGATE),
+                        AGGREGATE,
+                        deprecated),
                 details.isDecomposable(),
                 details.isOrderSensitive());
         requireNonNull(details, "details is null");

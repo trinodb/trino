@@ -100,7 +100,7 @@ public class JoinOperatorInfo
     @Override
     public JoinOperatorInfo mergeWith(JoinOperatorInfo other)
     {
-        checkState(this.joinType.equals(other.joinType), "different join types");
+        checkState(this.joinType == other.joinType, "different join types");
         long[] logHistogramProbes = new long[HISTOGRAM_BUCKETS];
         long[] logHistogramOutput = new long[HISTOGRAM_BUCKETS];
         for (int i = 0; i < HISTOGRAM_BUCKETS; i++) {

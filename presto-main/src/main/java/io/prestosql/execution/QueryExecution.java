@@ -72,6 +72,8 @@ public interface QueryExecution
 
     void recordHeartbeat();
 
+    boolean shouldWaitForMinWorkers();
+
     /**
      * Add a listener for the final query info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should

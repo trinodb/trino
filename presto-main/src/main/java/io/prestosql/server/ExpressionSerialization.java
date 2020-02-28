@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import io.prestosql.sql.ExpressionFormatter;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
 
@@ -59,7 +60,7 @@ public final class ExpressionSerialization
         public Expression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
+            return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class), new ParsingOptions()));
         }
     }
 }

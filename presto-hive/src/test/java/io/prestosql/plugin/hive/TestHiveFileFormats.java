@@ -38,6 +38,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.testing.TestingConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -235,7 +236,7 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                // t_map_null_key_* must be disabled because Presto can not produce maps with null keys so the writer will throw
+                // t_map_null_key_* must be disabled because Presto cannot produce maps with null keys so the writer will throw
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toImmutableList());
 
@@ -285,7 +286,7 @@ public class TestHiveFileFormats
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
                 // RCBinary interprets empty VARCHAR as nulls
                 .filter(testColumn -> !testColumn.getName().equals("t_empty_varchar"))
-                // t_map_null_key_* must be disabled because Presto can not produce maps with null keys so the writer will throw
+                // t_map_null_key_* must be disabled because Presto cannot produce maps with null keys so the writer will throw
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
@@ -311,15 +312,18 @@ public class TestHiveFileFormats
     public void testOrcOptimizedWriter(int rowCount)
             throws Exception
     {
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+        HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig()
                         .setValidationPercentage(100.0),
                 new ParquetReaderConfig(),
-                new ParquetWriterConfig()).getSessionProperties());
+                new ParquetWriterConfig());
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
+                .build();
 
-        // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
+        // A Presto page cannot contain a map with null keys, so a page based writer cannot write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
                 .filter(testColumn -> !testColumn.getName().equals("t_map_null_key") && !testColumn.getName().equals("t_map_null_key_complex_value") && !testColumn.getName().equals("t_map_null_key_complex_key_value"))
                 .collect(toList());
@@ -371,6 +375,26 @@ public class TestHiveFileFormats
                 .withColumns(getTestColumnsSupportedByAvro())
                 .withRowsCount(rowCount)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testAvroFileInSymlinkTable(int rowCount)
+            throws Exception
+    {
+        File file = File.createTempFile("presto_test", AVRO.name());
+        //noinspection ResultOfMethodCallIgnored
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), AVRO, HiveCompressionCodec.NONE, getTestColumnsSupportedByAvro(), rowCount);
+            Properties splitProperties = new Properties();
+            splitProperties.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
+            splitProperties.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+            testCursorProvider(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), split, splitProperties, getTestColumnsSupportedByAvro(), SESSION, rowCount);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
     }
 
     private static List<TestColumn> getTestColumnsSupportedByAvro()
@@ -538,6 +562,17 @@ public class TestHiveFileFormats
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
+        testCursorProvider(cursorProvider, split, splitProperties, testColumns, session, rowCount);
+    }
+
+    private void testCursorProvider(
+            HiveRecordCursorProvider cursorProvider,
+            FileSplit split,
+            Properties splitProperties,
+            List<TestColumn> testColumns,
+            ConnectorSession session,
+            int rowCount)
+    {
         splitProperties.setProperty(
                 "columns",
                 testColumns.stream()
@@ -559,8 +594,8 @@ public class TestHiveFileFormats
         Configuration configuration = new Configuration(false);
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
-                ImmutableSet.of(cursorProvider),
                 ImmutableSet.of(),
+                ImmutableSet.of(cursorProvider),
                 configuration,
                 session,
                 split.getPath(),
@@ -577,7 +612,8 @@ public class TestHiveFileFormats
                 TYPE_MANAGER,
                 ImmutableMap.of(),
                 Optional.empty(),
-                false);
+                false,
+                Optional.empty());
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
 
@@ -617,8 +653,8 @@ public class TestHiveFileFormats
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
-                ImmutableSet.of(),
                 ImmutableSet.of(sourceFactory),
+                ImmutableSet.of(),
                 new Configuration(false),
                 session,
                 split.getPath(),
@@ -635,7 +671,8 @@ public class TestHiveFileFormats
                 TYPE_MANAGER,
                 ImmutableMap.of(),
                 Optional.empty(),
-                false);
+                false,
+                Optional.empty());
 
         assertTrue(pageSource.isPresent());
 

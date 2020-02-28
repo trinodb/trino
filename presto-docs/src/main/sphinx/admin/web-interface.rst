@@ -1,10 +1,11 @@
-=============
-Web Interface
-=============
+======
+Web UI
+======
 
-Presto provides a web interface for monitoring and managing queries.
-The web interface is accessible on the Presto coordinator via HTTP/HTTPS,
-using the corresponding port number specified in the coordinator :ref:`config_properties`.
+Presto provides a web-based user interface (UI) for monitoring a Presto cluster
+and managing queries. The web UI is accessible on the Presto coordinator via
+HTTP/HTTPS, using the corresponding port number specified in the coordinator
+:ref:`config_properties`.
 
 The main page has a list of queries along with information like unique query ID, query text,
 query state, percentage completed, username and source from which this query originated.

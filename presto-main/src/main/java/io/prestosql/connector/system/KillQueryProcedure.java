@@ -14,11 +14,14 @@
 package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.FullConnectorSession;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.dispatcher.DispatchQuery;
+import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 
@@ -30,6 +33,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -41,24 +45,28 @@ import static java.util.Objects.requireNonNull;
 
 public class KillQueryProcedure
 {
-    private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class, String.class);
+    private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class, String.class, ConnectorSession.class);
 
     private final Optional<DispatchManager> dispatchManager;
+    private final AccessControl accessControl;
 
     @Inject
-    public KillQueryProcedure(Optional<DispatchManager> dispatchManager)
+    public KillQueryProcedure(Optional<DispatchManager> dispatchManager, AccessControl accessControl)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @UsedByGeneratedCode
-    public void killQuery(String queryId, String message)
+    public void killQuery(String queryId, String message, ConnectorSession session)
     {
         QueryId query = parseQueryId(queryId);
 
         try {
             checkState(dispatchManager.isPresent(), "No dispatch manager is set. kill_query procedure should be executed on coordinator.");
             DispatchQuery dispatchQuery = dispatchManager.get().getQuery(query);
+
+            checkCanKillQueryOwnedBy(((FullConnectorSession) session).getSession().getIdentity(), dispatchQuery.getSession().getUser(), accessControl);
 
             // check before killing to provide the proper error message (this is racy)
             if (dispatchQuery.isDone()) {

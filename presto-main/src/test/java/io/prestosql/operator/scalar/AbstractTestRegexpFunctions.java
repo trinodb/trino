@@ -19,6 +19,8 @@ import io.airlift.slice.Slices;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.RegexLibrary;
@@ -32,6 +34,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static java.lang.String.format;
 
 public abstract class AbstractTestRegexpFunctions
         extends AbstractTestFunctions
@@ -260,5 +263,110 @@ public abstract class AbstractTestRegexpFunctions
         assertFunction("REGEXP_SPLIT('a,b,c,d', ',')", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "b", "c", "d"));
         assertFunction("REGEXP_SPLIT(',,a,,,b,c,d,,', ',')", new ArrayType(createVarcharType(13)), ImmutableList.of("", "", "a", "", "", "b", "c", "d", "", ""));
         assertFunction("REGEXP_SPLIT(',,,', ',')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "", "", ""));
+    }
+
+    @Test
+    public void testRegexpCount()
+    {
+        assertRegexpCount("a.b:c;d", "[\\.:;]", 3);
+        assertRegexpCount("a.b:c;d", "\\.", 1);
+        assertRegexpCount("a.b:c;d", ":", 1);
+        assertRegexpCount("a,b,c", ",", 2);
+        assertRegexpCount("a1b2c3d", "\\d", 3);
+        assertRegexpCount("a1b2346c3d", "\\d+", 3);
+        assertRegexpCount("abcd", "x", 0);
+        assertRegexpCount("Hello world bye", "\\b[a-z]([a-z]*)", 2);
+        assertRegexpCount("rat cat\nbat dog", "ra(.)|blah(.)(.)", 1);
+        assertRegexpCount("Baby X", "by ([A-Z].*)\\b[a-z]", 0);
+        assertRegexpCount("rat cat bat dog", ".at", 3);
+
+        assertRegexpCount("", "x", 0);
+        assertRegexpCount("", "", 1);
+
+        // Non-unicode string
+        assertRegexpCount("君子矜而不争，党而不群", "不", 2);
+
+        // empty pattern
+        assertRegexpCount("abcd", "", 5);
+
+        // sql in document
+        assertRegexpCount("1a 2b 14m", "\\s*[a-z]+\\s*", 3);
+    }
+
+    @Test
+    public void testRegexpPosition()
+    {
+        assertRegexpPosition("a.b:c;d", "[\\.:;]", 2);
+        assertRegexpPosition("a.b:c;d", "\\.", 2);
+        assertRegexpPosition("a.b:c;d", ":", 4);
+        assertRegexpPosition("a,b,c", ",", 2);
+        assertRegexpPosition("a1b2c3d", "\\d", 2);
+
+        // match from specified position
+        assertRegexpPosition("a,b,c", ",", 3, 4);
+        assertRegexpPosition("a1b2c3d", "\\d", 5, 6);
+
+        // match the n-th occurrence from from specified position
+        assertRegexpPosition("a1b2c3d4e", "\\d", 4, 2, 6);
+        assertRegexpPosition("a1b2c3d", "\\d", 4, 3, -1);
+
+        // empty pattern
+        assertRegexpPosition("a1b2c3d", "", 1);
+        assertRegexpPosition("a1b2c3d", "", 2, 2);
+        assertRegexpPosition("a1b2c3d", "", 2, 2, 3);
+        assertRegexpPosition("a1b2c3d", "", 2, 6, 7);
+        assertRegexpPosition("a1b2c3d", "", 2, 7, 8);
+        assertRegexpPosition("a1b2c3d", "", 2, 8, -1);
+
+        // Non-unicode string
+        assertRegexpPosition("行成于思str而毁123于随", "于", 3, 2, 13);
+        assertRegexpPosition("行成于思str而毁123于随", "", 3, 2, 4);
+        assertRegexpPosition("行成于思str而毁123于随", "", 3, 1, 3);
+
+        // empty source
+        assertRegexpPosition("", ", ", -1);
+        assertRegexpPosition("", ", ", 4, -1);
+        assertRegexpPosition("", ", ", 4, 2, -1);
+
+        // boundary test
+        assertRegexpPosition("a,b,c", ",", 2, 2);
+        assertRegexpPosition("a1b2c3d", "\\d", 4, 4);
+        assertRegexpPosition("有朋$%X自9远方来", "\\d", 7, 7);
+        assertRegexpPosition("有朋$%X自9远方9来", "\\d", 10, 1, 10);
+        assertRegexpPosition("有朋$%X自9远方9来", "\\d", 10, 2, -1);
+        assertRegexpPosition("a,b,c", ", ", 1000, -1);
+        assertRegexpPosition("a,b,c", ", ", 8, -1);
+        assertRegexpPosition("有朋$%X自9远方9来", "来", 999, -1);
+
+        assertInvalidFunction("REGEXP_POSITION('有朋$%X自9远方9来', '来', -1, 0)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_POSITION('有朋$%X自9远方9来', '来', 1, 0)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_POSITION('有朋$%X自9远方9来', '来', 1, -1)", INVALID_FUNCTION_ARGUMENT);
+
+        // sql in document
+        assertRegexpPosition("9102, say good bye", "\\s*[a-z]+\\s*", 6);
+        assertRegexpPosition("natasha, 9102, miss you", "\\s*[a-z]+\\s*", 10, 15);
+        assertRegexpPosition("natasha, 9102, miss you", "\\s", 10, 2, 20);
+    }
+
+    private void assertRegexpCount(String source, String pattern, long expectCount)
+    {
+        assertFunction(format("REGEXP_COUNT(\'%s\', \'%s\')", source, pattern), BigintType.BIGINT, expectCount);
+
+        assertFunction(format("CARDINALITY(REGEXP_EXTRACT_ALL(\'%s\', \'%s\'))", source, pattern), BigintType.BIGINT, expectCount);
+    }
+
+    private void assertRegexpPosition(String source, String pattern, int expectPosition)
+    {
+        assertFunction(format("REGEXP_POSITION(\'%s\', \'%s\')", source, pattern), IntegerType.INTEGER, expectPosition);
+    }
+
+    private void assertRegexpPosition(String source, String pattern, int start, int expectPosition)
+    {
+        assertFunction(format("REGEXP_POSITION(\'%s\', \'%s\', %d)", source, pattern, start), IntegerType.INTEGER, expectPosition);
+    }
+
+    private void assertRegexpPosition(String source, String pattern, int start, int occurrence, int expectPosition)
+    {
+        assertFunction(format("REGEXP_POSITION(\'%s\', \'%s\', %d, %d)", source, pattern, start, occurrence), IntegerType.INTEGER, expectPosition);
     }
 }

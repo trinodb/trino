@@ -16,6 +16,8 @@ package io.prestosql.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
@@ -30,9 +32,27 @@ public class TestRaptorDistributedQueries
     }
 
     @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Raptor connector does not support column default values");
+    }
+
+    @Override
     public void testCommentTable()
     {
         // Raptor connector currently does not support comment on table
         assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // No support for char type
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // schema creation is not supported
     }
 }

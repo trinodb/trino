@@ -20,6 +20,8 @@ import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -31,8 +33,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
@@ -51,19 +51,20 @@ public class TestFeaturesConfig
                 .setMemoryCostWeight(10)
                 .setNetworkCostWeight(15)
                 .setDistributedIndexJoinsEnabled(false)
-                .setJoinDistributionType(PARTITIONED)
-                .setJoinMaxBroadcastTableSize(null)
+                .setJoinMaxBroadcastTableSize(DataSize.of(100, MEGABYTE))
+                .setJoinDistributionType(JoinDistributionType.AUTOMATIC)
                 .setGroupedExecutionEnabled(false)
                 .setDynamicScheduleForGroupedExecutionEnabled(false)
                 .setConcurrentLifespansPerTask(0)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(true)
-                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
+                .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
                 .setMaxReorderedJoins(9)
                 .setRedistributeWrites(true)
+                .setUsePreferredWritePartitioning(false)
                 .setScaleWriters(false)
-                .setWriterMinSize(new DataSize(32, MEGABYTE))
+                .setWriterMinSize(DataSize.of(32, MEGABYTE))
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(true)
                 .setPushTableWriteThroughUnion(true)
@@ -96,7 +97,7 @@ public class TestFeaturesConfig
                 .setParseDecimalLiteralsAsDouble(false)
                 .setForceSingleNodeOutput(true)
                 .setPagesIndexEagerCompactionEnabled(false)
-                .setFilterAndProjectMinOutputPageSize(new DataSize(500, KILOBYTE))
+                .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
                 .setUseMarkDistinct(true)
                 .setPreferPartialAggregation(true)
@@ -111,7 +112,7 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(true)
                 .setEnableDynamicFiltering(false)
                 .setDynamicFilteringMaxPerDriverRowCount(100)
-                .setDynamicFilteringMaxPerDriverSize(new DataSize(10, KILOBYTE))
+                .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
                 .setIgnoreDownstreamPreferences(false));
     }
 
@@ -141,6 +142,7 @@ public class TestFeaturesConfig
                 .put("optimizer.join-reordering-strategy", "NONE")
                 .put("optimizer.max-reordered-joins", "5")
                 .put("redistribute-writes", "false")
+                .put("use-preferred-write-partitioning", "true")
                 .put("scale-writers", "true")
                 .put("writer-min-size", "42GB")
                 .put("optimizer.optimize-metadata-queries", "true")
@@ -199,7 +201,7 @@ public class TestFeaturesConfig
                 .setEnableForcedExchangeBelowGroupId(false)
                 .setDistributedIndexJoinsEnabled(true)
                 .setJoinDistributionType(BROADCAST)
-                .setJoinMaxBroadcastTableSize(new DataSize(42, GIGABYTE))
+                .setJoinMaxBroadcastTableSize(DataSize.of(42, GIGABYTE))
                 .setGroupedExecutionEnabled(true)
                 .setDynamicScheduleForGroupedExecutionEnabled(true)
                 .setConcurrentLifespansPerTask(1)
@@ -209,8 +211,9 @@ public class TestFeaturesConfig
                 .setJoinReorderingStrategy(NONE)
                 .setMaxReorderedJoins(5)
                 .setRedistributeWrites(false)
+                .setUsePreferredWritePartitioning(true)
                 .setScaleWriters(true)
-                .setWriterMinSize(new DataSize(42, GIGABYTE))
+                .setWriterMinSize(DataSize.of(42, GIGABYTE))
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeMixedDistinctAggregations(true)
@@ -236,7 +239,7 @@ public class TestFeaturesConfig
                 .setParseDecimalLiteralsAsDouble(true)
                 .setForceSingleNodeOutput(false)
                 .setPagesIndexEagerCompactionEnabled(true)
-                .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
+                .setFilterAndProjectMinOutputPageSize(DataSize.of(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
                 .setUseMarkDistinct(false)
                 .setPreferPartialAggregation(false)
@@ -252,7 +255,7 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(false)
                 .setEnableDynamicFiltering(true)
                 .setDynamicFilteringMaxPerDriverRowCount(256)
-                .setDynamicFilteringMaxPerDriverSize(new DataSize(64, KILOBYTE))
+                .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
                 .setIgnoreDownstreamPreferences(true);
         assertFullMapping(properties, expected);
     }

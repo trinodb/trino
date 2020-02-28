@@ -14,6 +14,7 @@
 package io.prestosql.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
@@ -21,9 +22,11 @@ import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQu
 public class TestRaptorIntegrationSmokeTestBucketed
         extends TestRaptorIntegrationSmokeTest
 {
-    public TestRaptorIntegrationSmokeTestBucketed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
+        return createRaptorQueryRunner(ImmutableMap.of(), true, true);
     }
 
     @Test

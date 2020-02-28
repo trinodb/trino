@@ -39,7 +39,6 @@ import org.apache.parquet.schema.OriginalType;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -112,8 +111,8 @@ public abstract class PrimitiveColumnReader
     {
         Optional<Type> type = createDecimalType(descriptor);
         if (type.isPresent()) {
-            DecimalType decimalType = (DecimalType) type.get();
-            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, decimalType.getPrecision(), decimalType.getScale()));
+            DecimalType parquetDecimalType = (DecimalType) type.get();
+            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, parquetDecimalType));
         }
         return Optional.empty();
     }
@@ -179,7 +178,7 @@ public abstract class PrimitiveColumnReader
 
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
-        processValues(valuesToRead, ignored -> {
+        processValues(valuesToRead, () -> {
             readValue(blockBuilder, type);
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
@@ -188,10 +187,10 @@ public abstract class PrimitiveColumnReader
 
     private void skipValues(int valuesToRead)
     {
-        processValues(valuesToRead, ignored -> skipValue());
+        processValues(valuesToRead, this::skipValue);
     }
 
-    private void processValues(int valuesToRead, Consumer<Void> valueConsumer)
+    private void processValues(int valuesToRead, Runnable valueReader)
     {
         if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
             definitionLevel = definitionReader.readLevel();
@@ -200,7 +199,7 @@ public abstract class PrimitiveColumnReader
         int valueCount = 0;
         for (int i = 0; i < valuesToRead; i++) {
             do {
-                valueConsumer.accept(null);
+                valueReader.run();
                 valueCount++;
                 if (valueCount == remainingValueCountInPage) {
                     updateValueCounts(valueCount);

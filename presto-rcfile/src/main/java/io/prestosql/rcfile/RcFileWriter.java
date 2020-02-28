@@ -55,10 +55,10 @@ public class RcFileWriter
     private static final Slice RCFILE_MAGIC = utf8Slice("RCF");
     private static final int CURRENT_VERSION = 1;
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
-    private static final DataSize DEFAULT_TARGET_MIN_ROW_GROUP_SIZE = new DataSize(4, MEGABYTE);
-    private static final DataSize DEFAULT_TARGET_MAX_ROW_GROUP_SIZE = new DataSize(8, MEGABYTE);
-    private static final DataSize MIN_BUFFER_SIZE = new DataSize(4, KILOBYTE);
-    private static final DataSize MAX_BUFFER_SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize DEFAULT_TARGET_MIN_ROW_GROUP_SIZE = DataSize.of(4, MEGABYTE);
+    private static final DataSize DEFAULT_TARGET_MAX_ROW_GROUP_SIZE = DataSize.of(8, MEGABYTE);
+    private static final DataSize MIN_BUFFER_SIZE = DataSize.of(4, KILOBYTE);
+    private static final DataSize MAX_BUFFER_SIZE = DataSize.of(1, MEGABYTE);
 
     static final String PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_RCFILE_WRITER_VERSION;

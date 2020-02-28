@@ -55,7 +55,7 @@ public final class TeradataStringFunctions
         }
     }
 
-    @Description("suffix starting at given index")
+    @Description("Suffix starting at given index")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -77,7 +77,7 @@ public final class TeradataStringFunctions
         }
     }
 
-    @Description("substring of given length starting at an index")
+    @Description("Substring of given length starting at an index")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")

@@ -16,7 +16,6 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.ExceededMemoryLimitException;
-import io.prestosql.operator.TopNOperator.TopNOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
@@ -31,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
@@ -189,7 +187,7 @@ public class TestTopNOperator
                 .row(1L)
                 .build();
 
-        DriverContext smallDiverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(1, BYTE))
+        DriverContext smallDiverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(1))
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
@@ -213,7 +211,7 @@ public class TestTopNOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrders)
     {
-        return new TopNOperatorFactory(
+        return TopNOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 types,

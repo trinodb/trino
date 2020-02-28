@@ -168,7 +168,10 @@ public class TestSqlCancel
         {
             requireNonNull(queryId, "queryId is null");
             URI cancelUri = uriBuilderFrom(uri).appendPath("/v1/query").appendPath(queryId).build();
-            Request request = prepareDelete().setUri(cancelUri).build();
+            Request request = prepareDelete()
+                    .setHeader("X-Presto-User", "anyUser")
+                    .setUri(cancelUri)
+                    .build();
             return httpClient.execute(request, new ResponseHandler<Response, RuntimeException>()
             {
                 @Override

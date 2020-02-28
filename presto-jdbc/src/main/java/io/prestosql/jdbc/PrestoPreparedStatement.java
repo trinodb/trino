@@ -15,6 +15,7 @@ package io.prestosql.jdbc;
 
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
+import org.joda.time.DateTimeZone;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -260,7 +261,22 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.TIMESTAMP);
         }
         else {
-            setParameter(parameterIndex, formatLiteral("TIMESTAMP", TIMESTAMP_FORMATTER.print(x.getTime())));
+            String formattedDateTime = TIMESTAMP_FORMATTER.print(x.getTime());
+            setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
+        }
+    }
+
+    @Override
+    public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
+            throws SQLException
+    {
+        checkOpen();
+        if (x == null || cal == null) {
+            setTimestamp(parameterIndex, x);
+        }
+        else {
+            String formattedDateTime = TIMESTAMP_FORMATTER.withZone(DateTimeZone.forTimeZone(cal.getTimeZone())).print(x.getTime());
+            setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
         }
     }
 
@@ -478,13 +494,6 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         throw new NotImplementedException("PreparedStatement", "setTime");
-    }
-
-    @Override
-    public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
-            throws SQLException
-    {
-        throw new NotImplementedException("PreparedStatement", "setTimestamp");
     }
 
     @Override

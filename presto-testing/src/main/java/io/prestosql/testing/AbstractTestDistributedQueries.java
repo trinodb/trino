@@ -27,6 +27,7 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -52,7 +53,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -303,7 +304,7 @@ public abstract class AbstractTestDistributedQueries
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
-    private void assertExplainAnalyze(@Language("SQL") String query)
+    protected void assertExplainAnalyze(@Language("SQL") String query)
     {
         String value = (String) computeActual(query).getOnlyValue();
 
@@ -480,6 +481,41 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testInsertWithCoercion()
+    {
+        assertUpdate("CREATE TABLE test_insert_with_coercion (" +
+                "tinyint_column TINYINT, " +
+                "integer_column INTEGER, " +
+                "decimal_column DECIMAL(5, 3), " +
+                "real_column REAL, " +
+                "char_column CHAR(3), " +
+                "bounded_varchar_column VARCHAR(3), " +
+                "unbounded_varchar_column VARCHAR, " +
+                "date_column DATE)");
+
+        assertUpdate("INSERT INTO test_insert_with_coercion (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 2e0, 3e0, 4e0)", 1);
+        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))", 1);
+        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (NULL, NULL, NULL)", 1);
+        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST(NULL AS varchar), CAST(NULL AS varchar), CAST(NULL AS varchar))", 1);
+        assertUpdate("INSERT INTO test_insert_with_coercion (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')", 1);
+
+        assertQuery(
+                "SELECT * FROM test_insert_with_coercion",
+                "VALUES " +
+                        "(1, 2, 3, 4, NULL, NULL, NULL, NULL), " +
+                        "(NULL, NULL, NULL, NULL, 'aa ', 'aa ', 'aa     ', NULL), " +
+                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), " +
+                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), " +
+                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, DATE '2019-11-18')");
+
+        assertQueryFails("INSERT INTO test_insert_with_coercion (integer_column) VALUES (3e9)", "Out of range for integer: 3.0E9");
+        assertQueryFails("INSERT INTO test_insert_with_coercion (char_column) VALUES ('abcd')", "Cannot truncate non-space characters on INSERT");
+        assertQueryFails("INSERT INTO test_insert_with_coercion (bounded_varchar_column) VALUES ('abcd')", "Cannot truncate non-space characters on INSERT");
+
+        assertUpdate("DROP TABLE test_insert_with_coercion");
+    }
+
+    @Test
     public void testInsertUnicode()
     {
         assertUpdate("DROP TABLE IF EXISTS test_insert_unicode");
@@ -517,10 +553,8 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE TABLE test_insert_array (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
 
         assertUpdate("INSERT INTO test_insert_array (a) VALUES (ARRAY[null])", 1);
-        assertUpdate("INSERT INTO test_insert_array (a) VALUES (ARRAY[1234])", 1);
-        assertQuery("SELECT a[1] FROM test_insert_array", "VALUES (null), (1234)");
-
-        assertQueryFails("INSERT INTO test_insert_array (b) VALUES (ARRAY[1.23E1])", "Insert query has mismatched column types: .*");
+        assertUpdate("INSERT INTO test_insert_array (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+        assertQuery("SELECT a[1], b[1] FROM test_insert_array", "VALUES (null, null), (12.3, 12)");
 
         assertUpdate("DROP TABLE test_insert_array");
     }
@@ -669,7 +703,14 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
 
+        assertUpdate("CREATE VIEW test_view_with_comment COMMENT 'orders' AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW test_view_with_comment COMMENT 'orders' AS " + query);
+
+        MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW test_view_with_comment");
+        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'orders'"));
+
         assertQuery("SELECT * FROM test_view", query);
+        assertQuery("SELECT * FROM test_view_with_comment", query);
 
         assertQuery(
                 "SELECT * FROM test_view a JOIN test_view b on a.orderkey = b.orderkey",
@@ -681,6 +722,7 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW test_view");
+        assertUpdate("DROP VIEW test_view_with_comment");
     }
 
     @Test
@@ -921,14 +963,29 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testTableSampleSystemBoundaryValues()
+    public void testTableSampleSystem()
     {
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
+        MaterializedResult randomSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (50)");
         MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
         assertContains(all, fullSample);
         assertEquals(emptySample.getMaterializedRows().size(), 0);
+        assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
+    }
+
+    @Test
+    public void testTableSampleWithFiltering()
+    {
+        MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (99) WHERE orderkey BETWEEN 0 AND 0");
+        MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (50) WHERE orderkey BETWEEN 0 AND 9999999999");
+        MaterializedResult all = computeActual("SELECT orderkey, orderdate FROM orders");
+
+        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
+        // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
+        assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
     }
 
     @Test
@@ -1044,8 +1101,8 @@ public abstract class AbstractTestDistributedQueries
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // change access denied exception to view
-        assertAccessDenied("SHOW CREATE VIEW test_nested_view_access", "Cannot show columns of .*test_nested_view_access.*", privilege("test_nested_view_access", SHOW_COLUMNS));
-        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_access", privilege("test_denied_access_view", SHOW_COLUMNS));
+        assertAccessDenied("SHOW CREATE VIEW test_nested_view_access", "Cannot show create table for .*test_nested_view_access.*", privilege("test_nested_view_access", SHOW_CREATE_TABLE));
+        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_access", privilege("test_denied_access_view", SHOW_CREATE_TABLE));
 
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
@@ -1086,4 +1143,30 @@ public abstract class AbstractTestDistributedQueries
                         "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
                 "VALUES (1, '0 00:00:01.000')");
     }
+
+    @Test
+    public void testCreateSchema()
+    {
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("test_schema_create");
+        assertUpdate("CREATE SCHEMA test_schema_create");
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains("test_schema_create");
+        assertQueryFails("CREATE SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' already exists");
+        assertUpdate("DROP SCHEMA test_schema_create");
+        assertQueryFails("DROP SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' does not exist");
+    }
+
+    @Test
+    public void testInsertForDefaultColumn()
+    {
+        try (TestTable testTable = createTableWithDefaultColumns()) {
+            assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (7, null, null, 8, 9)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
+
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
+        }
+    }
+
+    protected abstract TestTable createTableWithDefaultColumns();
 }

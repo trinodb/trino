@@ -84,6 +84,7 @@ public class PipelineContext
 
     private final CounterStat physicalInputDataSize = new CounterStat();
     private final CounterStat physicalInputPositions = new CounterStat();
+    private final AtomicLong physicalInputReadTime = new AtomicLong();
 
     private final CounterStat internalNetworkInputDataSize = new CounterStat();
     private final CounterStat internalNetworkInputPositions = new CounterStat();
@@ -213,6 +214,7 @@ public class PipelineContext
 
         physicalInputDataSize.update(driverStats.getPhysicalInputDataSize().toBytes());
         physicalInputPositions.update(driverStats.getPhysicalInputPositions());
+        physicalInputReadTime.getAndAdd(driverStats.getPhysicalInputReadTime().roundTo(NANOSECONDS));
 
         internalNetworkInputDataSize.update(driverStats.getInternalNetworkInputDataSize().toBytes());
         internalNetworkInputPositions.update(driverStats.getInternalNetworkInputPositions());
@@ -349,8 +351,8 @@ public class PipelineContext
 
         int totalDrivers = completedDrivers + driverContexts.size();
 
-        Distribution queuedTime = new Distribution(this.queuedTime);
-        Distribution elapsedTime = new Distribution(this.elapsedTime);
+        Distribution queuedTime = this.queuedTime.duplicate();
+        Distribution elapsedTime = this.elapsedTime.duplicate();
 
         long totalScheduledTime = this.totalScheduledTime.get();
         long totalCpuTime = this.totalCpuTime.get();
@@ -367,6 +369,7 @@ public class PipelineContext
 
         long processedInputDataSize = this.processedInputDataSize.getTotalCount();
         long processedInputPositions = this.processedInputPositions.getTotalCount();
+        long physicalInputReadTime = this.physicalInputReadTime.get();
 
         long outputDataSize = this.outputDataSize.getTotalCount();
         long outputPositions = this.outputPositions.getTotalCount();
@@ -395,6 +398,7 @@ public class PipelineContext
 
             physicalInputDataSize += driverStats.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += driverStats.getPhysicalInputPositions();
+            physicalInputReadTime += driverStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
 
             internalNetworkInputDataSize += driverStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += driverStats.getInternalNetworkInputPositions();
@@ -465,6 +469,7 @@ public class PipelineContext
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,

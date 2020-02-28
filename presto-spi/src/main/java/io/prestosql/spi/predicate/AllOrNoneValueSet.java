@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -84,10 +85,24 @@ public class AllOrNoneValueSet
     }
 
     @Override
+    public boolean isDiscreteSet()
+    {
+        return false;
+    }
+
+    @Override
+    public List<Object> getDiscreteSet()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean containsValue(Object value)
     {
-        if (!Primitives.wrap(type.getJavaType()).isInstance(value)) {
-            throw new IllegalArgumentException(format("Value class %s does not match required Type class %s", value.getClass().getName(), Primitives.wrap(type.getJavaType()).getClass().getName()));
+        requireNonNull(value, "value is null");
+        Class<?> expectedClass = Primitives.wrap(type.getJavaType());
+        if (!expectedClass.isInstance(value)) {
+            throw new IllegalArgumentException(format("Value class %s does not match required class %s", value.getClass().getName(), expectedClass.getName()));
         }
         return all;
     }

@@ -23,19 +23,6 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestIntegrationSmokeTest() {}
-
-    protected boolean isDateTypeSupported()
-    {
-        return true;
-    }
-
     protected boolean isParameterizedVarcharSupported()
     {
         return true;
@@ -135,8 +122,19 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
-        assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(1)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(79)", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -191,56 +189,5 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '_rders'", ordersTableWithColumns);
         assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_name LIKE '%'");
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
-    }
-
-    @Test
-    public void testDuplicatedRowCreateTable()
-    {
-        assertQueryFails("CREATE TABLE test (a integer, a integer)",
-                "line 1:31: Column name 'a' specified more than once");
-        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
-                "line 1:49: Column name 'orderkey' specified more than once");
-
-        assertQueryFails("CREATE TABLE test (a integer, A integer)",
-                "line 1:31: Column name 'A' specified more than once");
-        assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
-                "line 1:49: Column name 'orderkey' specified more than once");
-    }
-
-    private MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
-    {
-        String orderDateType;
-        if (dateSupported) {
-            orderDateType = "date";
-        }
-        else {
-            orderDateType = "varchar";
-        }
-        if (parametrizedVarchar) {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar(1)", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar(15)", "", "")
-                    .row("clerk", "varchar(15)", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar(79)", "", "")
-                    .build();
-        }
-        else {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar", "", "")
-                    .row("clerk", "varchar", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar", "", "")
-                    .build();
-        }
     }
 }

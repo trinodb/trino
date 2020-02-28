@@ -86,13 +86,13 @@ public class BufferedOutputStreamSliceOutput
     @Override
     public void reset()
     {
-        throw new UnsupportedOperationException("OutputStream can not be reset");
+        throw new UnsupportedOperationException("OutputStream cannot be reset");
     }
 
     @Override
     public void reset(int position)
     {
-        throw new UnsupportedOperationException("OutputStream can not be reset");
+        throw new UnsupportedOperationException("OutputStream cannot be reset");
     }
 
     @Override

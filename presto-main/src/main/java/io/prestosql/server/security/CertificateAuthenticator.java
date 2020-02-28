@@ -13,24 +13,49 @@
  */
 package io.prestosql.server.security;
 
+import io.prestosql.spi.security.Identity;
+
+import javax.inject.Inject;
+import javax.security.auth.x500.X500Principal;
 import javax.servlet.http.HttpServletRequest;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
+
+import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static java.util.Objects.requireNonNull;
 
 public class CertificateAuthenticator
         implements Authenticator
 {
     private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
 
+    private final UserMapping userMapping;
+
+    @Inject
+    public CertificateAuthenticator(CertificateConfig config)
+    {
+        requireNonNull(config, "config is null");
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
+    }
+
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         X509Certificate[] certs = (X509Certificate[]) request.getAttribute(X509_ATTRIBUTE);
         if ((certs == null) || (certs.length == 0)) {
             throw new AuthenticationException(null);
         }
-        return certs[0].getSubjectX500Principal();
+        X500Principal principal = certs[0].getSubjectX500Principal();
+        try {
+            String authenticatedUser = userMapping.mapUser(((Principal) principal).toString());
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(principal)
+                    .build();
+        }
+        catch (UserMappingException e) {
+            throw new AuthenticationException(e.getMessage());
+        }
     }
 }

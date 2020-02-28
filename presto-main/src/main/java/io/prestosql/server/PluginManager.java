@@ -242,7 +242,10 @@ public class PluginManager
         Artifact artifact = artifacts.get(0);
         Set<String> plugins = discoverPlugins(artifact, classLoader);
         if (!plugins.isEmpty()) {
-            writePluginServices(plugins, artifact.getFile());
+            File root = new File(artifact.getFile().getParentFile().getCanonicalFile(), "plugin-discovery");
+            writePluginServices(plugins, root);
+            log.debug("    %s", root);
+            classLoader = classLoader.withUrl(root.toURI().toURL());
         }
 
         return classLoader;

@@ -103,13 +103,16 @@ public class UnwrapCastInComparison
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> {
-            if (SystemSessionProperties.isUnwrapCasts(context.getSession())) {
-                return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeAnalyzer, context.getSession(), context.getSymbolAllocator().getTypes()), expression);
-            }
+        return (expression, context) -> unwrapCasts(context.getSession(), metadata, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+    }
 
-            return expression;
-        };
+    public static Expression unwrapCasts(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, Expression expression)
+    {
+        if (SystemSessionProperties.isUnwrapCasts(session)) {
+            return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeAnalyzer, session, types), expression);
+        }
+
+        return expression;
     }
 
     private static class Visitor

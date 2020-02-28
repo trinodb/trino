@@ -60,7 +60,7 @@ import static java.util.stream.Collectors.toList;
 @ThreadSafe
 public class QueryContext
 {
-    private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
+    private static final long GUARANTEED_MEMORY = DataSize.of(1, MEGABYTE).toBytes();
 
     private final QueryId queryId;
     private final GcMonitor gcMonitor;

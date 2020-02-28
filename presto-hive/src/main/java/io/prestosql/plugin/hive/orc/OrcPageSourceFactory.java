@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcDataSource;
@@ -24,6 +25,8 @@ import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
+import io.prestosql.plugin.hive.DeleteDeltaLocations;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -60,7 +63,11 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.INT;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -75,13 +82,24 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
+    // ACID format column names
+    public static final String ACID_COLUMN_OPERATION = "operation";
+    public static final String ACID_COLUMN_ORIGINAL_TRANSACTION = "originalTransaction";
+    public static final String ACID_COLUMN_BUCKET = "bucket";
+    public static final String ACID_COLUMN_ROW_ID = "rowId";
+    public static final String ACID_COLUMN_CURRENT_TRANSACTION = "currentTransaction";
+    public static final String ACID_COLUMN_ROW_STRUCT = "row";
+
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
@@ -114,7 +132,8 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
@@ -135,6 +154,7 @@ public class OrcPageSourceFactory
                 fileSize,
                 columns,
                 isUseOrcColumnNames(session),
+                isFullAcidTable(Maps.fromProperties(schema)),
                 effectivePredicate,
                 hiveStorageTimeZone,
                 orcReaderOptions
@@ -146,6 +166,7 @@ public class OrcPageSourceFactory
                         .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
                         .withNestedLazy(isOrcNestedLazy(session))
                         .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
+                deleteDeltaLocations,
                 stats));
     }
 
@@ -159,9 +180,11 @@ public class OrcPageSourceFactory
             long fileSize,
             List<HiveColumnHandle> columns,
             boolean useOrcColumnNames,
+            boolean isFullAcid,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             OrcReaderOptions options,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations,
             FileFormatDataSourceStats stats)
     {
         for (HiveColumnHandle column : columns) {
@@ -192,13 +215,26 @@ public class OrcPageSourceFactory
         try {
             OrcReader reader = new OrcReader(orcDataSource, options);
 
-            if (useOrcColumnNames) {
-                verifyFileHasColumnNames(reader.getColumnNames(), path);
+            List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
+            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
+            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
+            if (isFullAcid) {
+                verifyAcidSchema(reader, path);
+                Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
+                fileColumns = acidColumnsByName.get(ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
+
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
+                fileReadTypes.add(BIGINT);
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
+                fileReadTypes.add(INTEGER);
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+                fileReadTypes.add(BIGINT);
             }
 
-            List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
             Map<String, OrcColumn> fileColumnsByName = ImmutableMap.of();
-            if (useOrcColumnNames) {
+            if (useOrcColumnNames || isFullAcid) {
+                verifyFileHasColumnNames(fileColumns, path);
+
                 // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
                 fileColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
             }
@@ -207,12 +243,10 @@ public class OrcPageSourceFactory
                     .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
             Map<HiveColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
-            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size());
-            List<Type> fileReadTypes = new ArrayList<>(columns.size());
             List<ColumnAdaptation> columnAdaptations = new ArrayList<>(columns.size());
             for (HiveColumnHandle column : columns) {
                 OrcColumn orcColumn = null;
-                if (useOrcColumnNames) {
+                if (useOrcColumnNames || isFullAcid) {
                     orcColumn = fileColumnsByName.get(column.getName().toLowerCase(ENGLISH));
                 }
                 else if (column.getHiveColumnIndex() < fileColumns.size()) {
@@ -247,10 +281,20 @@ public class OrcPageSourceFactory
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSource.getId(), exception));
 
+            Optional<OrcDeletedRows> deletedRows = deleteDeltaLocations.map(locations ->
+                    new OrcDeletedRows(
+                            path.getName(),
+                            new OrcDeleteDeltaPageSourceFactory(options, sessionUser, configuration, hdfsEnvironment, stats),
+                            sessionUser,
+                            configuration,
+                            hdfsEnvironment,
+                            locations));
+
             return new OrcPageSource(
                     recordReader,
                     columnAdaptations,
                     orcDataSource,
+                    deletedRows,
                     systemMemoryUsage,
                     stats);
         }
@@ -276,12 +320,37 @@ public class OrcPageSourceFactory
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
-    private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
+    private static void verifyFileHasColumnNames(List<OrcColumn> columns, Path path)
     {
-        if (!physicalColumnNames.isEmpty() && physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
+        if (!columns.isEmpty() && columns.stream().map(OrcColumn::getColumnName).allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
             throw new PrestoException(
                     HIVE_FILE_MISSING_COLUMN_NAMES,
                     "ORC file does not contain column names in the footer: " + path);
+        }
+    }
+
+    static void verifyAcidSchema(OrcReader orcReader, Path path)
+    {
+        OrcColumn rootColumn = orcReader.getRootColumn();
+        if (rootColumn.getNestedColumns().size() != 6) {
+            throw new PrestoException(HIVE_BAD_DATA, "ORC ACID file should have 6 columns: " + path);
+        }
+        verifyAcidColumn(orcReader, 0, ACID_COLUMN_OPERATION, INT, path);
+        verifyAcidColumn(orcReader, 1, ACID_COLUMN_ORIGINAL_TRANSACTION, LONG, path);
+        verifyAcidColumn(orcReader, 2, ACID_COLUMN_BUCKET, INT, path);
+        verifyAcidColumn(orcReader, 3, ACID_COLUMN_ROW_ID, LONG, path);
+        verifyAcidColumn(orcReader, 4, ACID_COLUMN_CURRENT_TRANSACTION, LONG, path);
+        verifyAcidColumn(orcReader, 5, ACID_COLUMN_ROW_STRUCT, STRUCT, path);
+    }
+
+    private static void verifyAcidColumn(OrcReader orcReader, int columnIndex, String columnName, OrcTypeKind columnType, Path path)
+    {
+        OrcColumn column = orcReader.getRootColumn().getNestedColumns().get(columnIndex);
+        if (!column.getColumnName().toLowerCase(ENGLISH).equals(columnName.toLowerCase(ENGLISH))) {
+            throw new PrestoException(HIVE_BAD_DATA, format("ORC ACID file column %s should be named %s: %s", columnIndex, columnName, path));
+        }
+        if (column.getColumnType() != columnType) {
+            throw new PrestoException(HIVE_BAD_DATA, format("ORC ACID file %s column should be type %s: %s", columnName, columnType, path));
         }
     }
 }

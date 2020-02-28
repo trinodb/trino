@@ -45,10 +45,9 @@ import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-@Test
 public class TestJdbcRecordSetProvider
 {
-    private static final JdbcIdentity IDENTITY = new JdbcIdentity("user", ImmutableMap.of());
+    private static final JdbcIdentity IDENTITY = JdbcIdentity.from(SESSION);
 
     private TestingDatabase database;
     private JdbcClient jdbcClient;

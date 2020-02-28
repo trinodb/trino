@@ -26,14 +26,6 @@ import static io.prestosql.tests.QueryTemplate.queryTemplate;
 public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestOrderByQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestOrderByQueries() {}
-
     @Test
     public void testOrderBy()
     {

@@ -31,8 +31,8 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
+import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
 import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
@@ -57,7 +57,7 @@ public class GrantRolesTask
                 .collect(toImmutableSet());
         boolean withAdminOption = statement.isWithAdminOption();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        String catalog = createCatalogName(session, statement);
+        String catalog = getSessionCatalog(metadata, session, statement);
 
         Set<String> availableRoles = metadata.listRoles(session, catalog);
         Set<String> specifiedRoles = new LinkedHashSet<>();

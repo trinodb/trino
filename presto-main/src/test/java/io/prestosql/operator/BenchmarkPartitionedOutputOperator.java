@@ -55,7 +55,6 @@ import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
@@ -95,7 +94,7 @@ public class BenchmarkPartitionedOutputOperator
         private static final int PAGE_COUNT = 5000;
         private static final int PARTITION_COUNT = 512;
         private static final int ENTRIES_PER_PAGE = 256;
-        private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
+        private static final DataSize MAX_MEMORY = DataSize.of(1, GIGABYTE);
         private static final RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
         private static final List<Type> TYPES = ImmutableList.of(BIGINT, rowType, rowType, rowType);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
@@ -123,7 +122,7 @@ public class BenchmarkPartitionedOutputOperator
             }
             PartitionedOutputBuffer buffer = createPartitionedBuffer(
                     buffers.withNoMoreBufferIds(),
-                    new DataSize(Long.MAX_VALUE, BYTE)); // don't let output buffer block
+                    DataSize.ofBytes(Long.MAX_VALUE)); // don't let output buffer block
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
                     partitionFunction,
                     ImmutableList.of(0),
@@ -131,7 +130,7 @@ public class BenchmarkPartitionedOutputOperator
                     false,
                     OptionalInt.empty(),
                     buffer,
-                    new DataSize(1, GIGABYTE));
+                    DataSize.of(1, GIGABYTE));
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), TYPES, Function.identity(), serdeFactory)
                     .createOperator(createDriverContext());
@@ -172,6 +171,7 @@ public class BenchmarkPartitionedOutputOperator
         // copied & modifed from TestRowBlock
         private List<Object>[] generateTestRows(List<Type> fieldTypes, int numRows)
         {
+            @SuppressWarnings("unchecked")
             List<Object>[] testRows = new List[numRows];
             for (int i = 0; i < numRows; i++) {
                 List<Object> testRow = new ArrayList<>(fieldTypes.size());

@@ -121,14 +121,12 @@ public class Row
         if (fields.isEmpty()) {
             return "()";
         }
-        else {
-            StringBuilder builder = new StringBuilder("(");
-            for (Field f : fields) {
-                builder.append(f).append(",");
-            }
-            builder.deleteCharAt(builder.length() - 1);
-            return builder.append(')').toString();
+        StringBuilder builder = new StringBuilder("(");
+        for (Field f : fields) {
+            builder.append(f).append(",");
         }
+        builder.deleteCharAt(builder.length() - 1);
+        return builder.append(')').toString();
     }
 
     /**
@@ -173,7 +171,7 @@ public class Row
         if (str == null || str.isEmpty()) {
             return null;
         }
-        else if (Types.isArrayType(type)) {
+        if (Types.isArrayType(type)) {
             Type elementType = Types.getElementType(type);
             ImmutableList.Builder<Object> listBuilder = ImmutableList.builder();
             for (String element : Splitter.on(',').split(str)) {
@@ -181,7 +179,7 @@ public class Row
             }
             return AccumuloRowSerializer.getBlockFromArray(elementType, listBuilder.build());
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             Type keyType = Types.getKeyType(type);
             Type valueType = Types.getValueType(type);
             ImmutableMap.Builder<Object, Object> mapBuilder = ImmutableMap.builder();
@@ -194,44 +192,42 @@ public class Row
             }
             return AccumuloRowSerializer.getBlockFromMap(type, mapBuilder.build());
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return Long.parseLong(str);
         }
-        else if (type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return Boolean.parseBoolean(str);
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return new Date(DATE_PARSER.parseDateTime(str).getMillis());
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return Double.parseDouble(str);
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return Integer.parseInt(str);
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return Float.parseFloat(str);
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return Short.parseShort(str);
         }
-        else if (type.equals(TIME)) {
+        if (type.equals(TIME)) {
             return new Time(TIME_PARSER.parseDateTime(str).getMillis());
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             return new Timestamp(TIMESTAMP_PARSER.parseDateTime(str).getMillis());
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return Byte.valueOf(str);
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return str.getBytes(UTF_8);
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return str;
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
 }

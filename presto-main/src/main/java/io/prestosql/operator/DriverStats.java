@@ -29,7 +29,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Set;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -87,9 +86,9 @@ public class DriverStats
         this.queuedTime = new Duration(0, MILLISECONDS);
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
-        this.userMemoryReservation = new DataSize(0, BYTE);
-        this.revocableMemoryReservation = new DataSize(0, BYTE);
-        this.systemMemoryReservation = new DataSize(0, BYTE);
+        this.userMemoryReservation = DataSize.ofBytes(0);
+        this.revocableMemoryReservation = DataSize.ofBytes(0);
+        this.systemMemoryReservation = DataSize.ofBytes(0);
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
@@ -97,25 +96,25 @@ public class DriverStats
         this.fullyBlocked = false;
         this.blockedReasons = ImmutableSet.of();
 
-        this.physicalInputDataSize = new DataSize(0, BYTE);
+        this.physicalInputDataSize = DataSize.ofBytes(0);
         this.physicalInputPositions = 0;
         this.physicalInputReadTime = new Duration(0, MILLISECONDS);
 
-        this.internalNetworkInputDataSize = new DataSize(0, BYTE);
+        this.internalNetworkInputDataSize = DataSize.ofBytes(0);
         this.internalNetworkInputPositions = 0;
         this.internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
 
-        this.rawInputDataSize = new DataSize(0, BYTE);
+        this.rawInputDataSize = DataSize.ofBytes(0);
         this.rawInputPositions = 0;
         this.rawInputReadTime = new Duration(0, MILLISECONDS);
 
-        this.processedInputDataSize = new DataSize(0, BYTE);
+        this.processedInputDataSize = DataSize.ofBytes(0);
         this.processedInputPositions = 0;
 
-        this.outputDataSize = new DataSize(0, BYTE);
+        this.outputDataSize = DataSize.ofBytes(0);
         this.outputPositions = 0;
 
-        this.physicalWrittenDataSize = new DataSize(0, BYTE);
+        this.physicalWrittenDataSize = DataSize.ofBytes(0);
 
         this.operatorStats = ImmutableList.of();
     }

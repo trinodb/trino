@@ -136,6 +136,13 @@ public class BenchmarkInequalityJoin
                 .execute("SELECT count(*) FROM t1 JOIN t2 on (t1.bucket = t2.bucket) AND t1.val1 + 1 < t2.val2 AND t2.val2 < t1.val1 + 5 ");
     }
 
+    @Benchmark
+    public List<Page> benchmarkBetweenPredicateJoin(Context context)
+    {
+        return context.getQueryRunner()
+                .execute("SELECT count(*) FROM t1 JOIN t2 on (t1.bucket = t2.bucket) AND t2.val2 BETWEEN t1.val1 + 1 AND t1.val1 + 5");
+    }
+
     public static void main(String[] args)
             throws RunnerException
     {

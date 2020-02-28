@@ -128,7 +128,7 @@ public class Backoff
 
         if (firstFailureTime == 0) {
             firstFailureTime = now;
-            // can not fail on first failure
+            // cannot fail on first failure
             return false;
         }
 

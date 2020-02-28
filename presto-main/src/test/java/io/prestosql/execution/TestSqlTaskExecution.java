@@ -112,6 +112,7 @@ public class TestSqlTaskExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
     private static final CatalogName CONNECTOR_ID = new CatalogName("test");
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
+    public static final TaskId TASK_ID = new TaskId("query", 0, 0);
 
     @DataProvider
     public static Object[][] executionStrategies()
@@ -129,7 +130,7 @@ public class TestSqlTaskExecution
         taskExecutor.start();
 
         try {
-            TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("task-id"), taskNotificationExecutor);
+            TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
             PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
@@ -297,7 +298,7 @@ public class TestSqlTaskExecution
         taskExecutor.start();
 
         try {
-            TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("task-id"), taskNotificationExecutor);
+            TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
             PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
@@ -593,26 +594,26 @@ public class TestSqlTaskExecution
     {
         QueryContext queryContext = new QueryContext(
                 new QueryId("queryid"),
-                new DataSize(1, MEGABYTE),
-                new DataSize(2, MEGABYTE),
-                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
+                DataSize.of(1, MEGABYTE),
+                DataSize.of(2, MEGABYTE),
+                new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
-                new DataSize(1, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
+                DataSize.of(1, MEGABYTE),
+                new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
         return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, OptionalInt.empty());
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
     {
         return new PartitionedOutputBuffer(
-                "task-id",
+                TASK_ID.toString(),
                 new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
-                new DataSize(1, MEGABYTE),
+                DataSize.of(1, MEGABYTE),
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 taskNotificationExecutor);
     }
@@ -655,7 +656,7 @@ public class TestSqlTaskExecution
             surplusPositions -= positions;
             while (surplusPositions < 0) {
                 assertFalse(bufferComplete, "bufferComplete is set before enough positions are consumed");
-                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
+                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
                 for (SerializedPage serializedPage : results.getSerializedPages()) {
                     surplusPositions += serializedPage.getPositionCount();
@@ -670,7 +671,7 @@ public class TestSqlTaskExecution
             assertEquals(surplusPositions, 0);
             long nanoUntil = System.nanoTime() + timeout.toMillis() * 1_000_000;
             while (!bufferComplete) {
-                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
+                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
                 for (SerializedPage serializedPage : results.getSerializedPages()) {
                     assertEquals(serializedPage.getPositionCount(), 0);
@@ -881,7 +882,7 @@ public class TestSqlTaskExecution
             @Override
             public void addInput(Page page)
             {
-                throw new UnsupportedOperationException(getClass().getName() + " can not take input");
+                throw new UnsupportedOperationException(getClass().getName() + " cannot take input");
             }
 
             @Override

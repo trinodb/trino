@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.util.List;
 import java.util.Optional;
@@ -76,6 +77,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanShowCreateTable(context, tableName);
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanCreateTable(context, tableName);
@@ -97,12 +104,6 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanSetTableComment(context, tableName);
-    }
-
-    @Override
-    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
-    {
-        delegate().checkCanShowTablesMetadata(context, schemaName);
     }
 
     @Override
@@ -247,5 +248,17 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         delegate().checkCanShowRoleGrants(context, catalogName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return delegate().getRowFilter(context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    {
+        return delegate().getColumnMask(context, tableName, columnName);
     }
 }

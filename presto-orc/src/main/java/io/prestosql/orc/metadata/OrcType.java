@@ -14,6 +14,7 @@
 package io.prestosql.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
@@ -26,6 +27,7 @@ import io.prestosql.spi.type.VarcharType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -80,28 +82,29 @@ public class OrcType
     private final Optional<Integer> length;
     private final Optional<Integer> precision;
     private final Optional<Integer> scale;
+    private final Map<String, String> attributes;
 
     private OrcType(OrcTypeKind orcTypeKind)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
     private OrcType(OrcTypeKind orcTypeKind, int length)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.of(length), Optional.empty(), Optional.empty());
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.of(length), Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
     private OrcType(OrcTypeKind orcTypeKind, int precision, int scale)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(precision), Optional.of(scale));
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(precision), Optional.of(scale), ImmutableMap.of());
     }
 
     private OrcType(OrcTypeKind orcTypeKind, List<OrcColumnId> fieldTypeIndexes, List<String> fieldNames)
     {
-        this(orcTypeKind, fieldTypeIndexes, fieldNames, Optional.empty(), Optional.empty(), Optional.empty());
+        this(orcTypeKind, fieldTypeIndexes, fieldNames, Optional.empty(), Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
-    public OrcType(OrcTypeKind orcTypeKind, List<OrcColumnId> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale)
+    public OrcType(OrcTypeKind orcTypeKind, List<OrcColumnId> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale, Map<String, String> attributes)
     {
         this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
         this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
@@ -114,7 +117,8 @@ public class OrcType
         }
         this.length = requireNonNull(length, "length is null");
         this.precision = requireNonNull(precision, "precision is null");
-        this.scale = requireNonNull(scale, "scale can not be null");
+        this.scale = requireNonNull(scale, "scale cannot be null");
+        this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
     }
 
     public OrcTypeKind getOrcTypeKind()
@@ -160,6 +164,11 @@ public class OrcType
     public Optional<Integer> getScale()
     {
         return scale;
+    }
+
+    public Map<String, String> getAttributes()
+    {
+        return attributes;
     }
 
     @Override

@@ -78,7 +78,7 @@ public class DynamicFilterMatcher
 
         boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
             ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-            Expression staticFilter = combineConjuncts(metadata, extractDynamicFilters(metadata, filterNode.getPredicate()).getStaticConjuncts());
+            Expression staticFilter = combineConjuncts(metadata, extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());
             return verifier.process(staticFilter, filter);
         }).orElse(true);
 
@@ -94,7 +94,7 @@ public class DynamicFilterMatcher
             return true;
         }
 
-        Map<String, Symbol> idToProbeSymbolMap = extractDynamicFilters(metadata, filterNode.getPredicate())
+        Map<String, Symbol> idToProbeSymbolMap = extractDynamicFilters(filterNode.getPredicate())
                 .getDynamicConjuncts().stream()
                 .collect(toImmutableMap(DynamicFilters.Descriptor::getId, filter -> Symbol.from(filter.getInput())));
         Map<String, Symbol> idToBuildSymbolMap = joinNode.getDynamicFilters();

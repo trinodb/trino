@@ -10,6 +10,9 @@ Ensure to also consult our reference to the :doc:`supported SQL data
 types</language>` and other general characteristics and a :doc:`full SQL
 statement and syntax reference</sql>` are available.
 
+If you are looking for more information about a specific function or operator,
+:doc:`see our complete list</functions/list>`.
+
 .. toctree::
     :maxdepth: 2
 
@@ -38,3 +41,4 @@ statement and syntax reference</sql>` are available.
     functions/color
     functions/session
     functions/teradata
+    functions/list

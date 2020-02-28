@@ -27,8 +27,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
+import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
 import static io.prestosql.spi.StandardErrorCode.ROLE_ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
@@ -48,7 +48,7 @@ public class CreateRoleTask
     public ListenableFuture<?> execute(CreateRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        String catalog = createCatalogName(session, statement);
+        String catalog = getSessionCatalog(metadata, session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.toSecurityContext(), role, grantor, catalog);

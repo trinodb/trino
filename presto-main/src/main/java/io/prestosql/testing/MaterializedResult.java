@@ -309,7 +309,7 @@ public class MaterializedResult
             type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
         }
         else if (type instanceof ArrayType) {
-            List<Object> list = (List<Object>) value;
+            List<?> list = (List<?>) value;
             Type elementType = ((ArrayType) type).getElementType();
             BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
             for (Object element : list) {
@@ -318,18 +318,18 @@ public class MaterializedResult
             blockBuilder.closeEntry();
         }
         else if (type instanceof MapType) {
-            Map<Object, Object> map = (Map<Object, Object>) value;
+            Map<?, ?> map = (Map<?, ?>) value;
             Type keyType = ((MapType) type).getKeyType();
             Type valueType = ((MapType) type).getValueType();
             BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Entry<Object, Object> entry : map.entrySet()) {
+            for (Entry<?, ?> entry : map.entrySet()) {
                 writeValue(keyType, mapBlockBuilder, entry.getKey());
                 writeValue(valueType, mapBlockBuilder, entry.getValue());
             }
             blockBuilder.closeEntry();
         }
         else if (type instanceof RowType) {
-            List<Object> row = (List<Object>) value;
+            List<?> row = (List<?>) value;
             List<Type> fieldTypes = type.getTypeParameters();
             BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
             for (int field = 0; field < row.size(); field++) {
