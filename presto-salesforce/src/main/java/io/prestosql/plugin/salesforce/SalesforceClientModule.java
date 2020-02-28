@@ -62,17 +62,9 @@ public class SalesforceClientModule
     {
         Properties properties = new Properties();
 
-        if (credentialConfig.getConnectionUser().isPresent()) {
-            properties.setProperty("user", credentialConfig.getConnectionUser().get());
-        }
-
-        if (credentialConfig.getConnectionPassword().isPresent()) {
-            properties.setProperty("password", credentialConfig.getConnectionPassword().get());
-        }
-
-        if (salesforceConfig.getSecurityToken().isPresent()) {
-            properties.setProperty("securityToken", salesforceConfig.getSecurityToken().get());
-        }
+        salesforceConfig.getSecurityToken().ifPresent(
+                token -> properties.setProperty("securityToken", token)
+        );
 
         return new DriverConnectionFactory(new ForceDriver(), baseConfig.getConnectionUrl(), properties, credentialProvider);
     }
