@@ -179,11 +179,3 @@ What is the Pricing for the Storage API?
 See the `BigQuery pricing documentation
 <https://cloud.google.com/bigquery/pricing#storage-api>`_.
 
-Calling count(*) takes a long time
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-When calling ``SELECT count(*) FROM table``, Presto loads all the data from the
-table and then counts the records. Unfortunately we cannot push this down to
-the BigQuery side. The best workaround is to run the count on the smallest field
-in the table (ideally a ``BOOLEAN`` or ``BIGINT``) like this: ``SELECT
-count(some_field) FROM table``. This approach will load less data then running
-``count(*)`` in the usual manner.
