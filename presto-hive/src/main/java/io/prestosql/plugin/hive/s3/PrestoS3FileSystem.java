@@ -107,8 +107,6 @@ import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
-import static com.amazonaws.services.s3.model.StorageClass.IntelligentTiering;
-import static com.amazonaws.services.s3.model.StorageClass.Standard;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -1264,16 +1262,7 @@ public class PrestoS3FileSystem
                             break;
                     }
                 }
-                switch (s3StorageClass) {
-                    case Standard:
-                        request.withStorageClass(Standard);
-                        break;
-                    case IntelligentTiering:
-                        request.withStorageClass(IntelligentTiering);
-                        break;
-                    default:
-                        throw new IllegalArgumentException(format("The specified storage class %s is not supported", s3StorageClass));
-                }
+                request.withStorageClass(s3StorageClass);
 
                 request.withCannedAcl(aclType);
 
