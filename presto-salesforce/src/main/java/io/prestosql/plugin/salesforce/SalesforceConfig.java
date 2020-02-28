@@ -21,6 +21,7 @@ import java.util.Optional;
 public class SalesforceConfig
 {
     private String securityToken;
+    private Integer fetchSize;
 
     @Config("salesforce.security-token")
     @ConfigSecuritySensitive
@@ -30,8 +31,20 @@ public class SalesforceConfig
         return this;
     }
 
+    @Config("salesforce.fetch-size")
+    public SalesforceConfig setFetchSize(Integer fetchSize)
+    {
+        this.fetchSize = fetchSize;
+        return this;
+    }
+
     public Optional<String> getSecurityToken()
     {
         return Optional.ofNullable(securityToken);
+    }
+
+    public Optional<Integer> getFetchSize()
+    {
+        return Optional.ofNullable(fetchSize);
     }
 }

@@ -54,10 +54,14 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 public class SalesforceClient
         extends BaseJdbcClient
 {
+    private final SalesforceConfig salesforceConfig;
+
     @Inject
     public SalesforceClient(BaseJdbcConfig baseConfig, SalesforceConfig salesforceConfig, ConnectionFactory connectionFactory)
     {
         super(baseConfig, "", connectionFactory);
+
+        this.salesforceConfig = salesforceConfig;
     }
 
     @Override
@@ -66,7 +70,11 @@ public class SalesforceClient
     {
         connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(2000);
+
+        statement.setFetchSize(
+                salesforceConfig.getFetchSize().orElse(2000)
+        );
+
         return statement;
     }
 
@@ -141,7 +149,7 @@ public class SalesforceClient
     private static BlockReadFunction multiPicklistReadFunction(Type type)
     {
         return (resultSet, columnIndex) -> {
-            BlockBuilder builder = createUnboundedVarcharType().createBlockBuilder(null, 10);
+            BlockBuilder builder = createUnboundedVarcharType().createBlockBuilder(null, 1);
 
             for (String value : resultSet.getString(columnIndex).split(";")) {
                 type.writeSlice(builder, utf8Slice(value));
