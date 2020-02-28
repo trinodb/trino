@@ -156,6 +156,36 @@ public class TestSqlParserErrorHandling
                 "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '/', 'AT', 'THEN', '||'");
     }
 
+    @Test
+    public void testPossibleExponentialBacktracking2()
+    {
+        testStatement("SELECT id FROM t WHERE\n" +
+                        "(f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "GROUP BY id",
+                "line 24:1: mismatched input 'GROUP'. Expecting: ')', ',', '.', 'FILTER', 'IGNORE', 'OVER', 'RESPECT', '['");
+    }
+
     @Test(dataProvider = "statements")
     public void testStatement(String sql, String error)
     {
