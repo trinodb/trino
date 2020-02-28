@@ -15,11 +15,14 @@ package io.prestosql.plugin.salesforce.driver.statement;
 
 public class FieldDef
 {
-    private String name;
-    private String type;
+    private final String name;
+    private final String type;
 
     public FieldDef(String name, String type)
     {
+        requireNonNull(name);
+        requireNonNull(type);
+
         this.name = name;
         this.type = type;
     }
