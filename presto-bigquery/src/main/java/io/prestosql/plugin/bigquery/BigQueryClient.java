@@ -21,19 +21,24 @@ import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.StreamSupport;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
@@ -90,10 +95,14 @@ class BigQueryClient
         return () -> Iterators.transform(datasets, this::addDataSetMappingIfNeeded);
     }
 
-    Iterable<Table> listTables(DatasetId datasetId)
+    Iterable<Table> listTables(DatasetId datasetId, TableDefinition.Type... types)
     {
+        Set<TableDefinition.Type> allowedTypes = ImmutableSet.copyOf(types);
         DatasetId bigQueryDatasetId = datasetIds.getOrDefault(datasetId, datasetId);
-        return bigQuery.listTables(bigQueryDatasetId).iterateAll();
+        Iterable<Table> allTables = bigQuery.listTables(bigQueryDatasetId).iterateAll();
+        return StreamSupport.stream(allTables.spliterator(), false)
+                .filter(table -> allowedTypes.contains(table.getDefinition().getType()))
+                .collect(toImmutableList());
     }
 
     private Dataset addDataSetMappingIfNeeded(Dataset dataset)

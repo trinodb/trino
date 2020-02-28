@@ -18,6 +18,7 @@ import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +49,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
+import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -83,6 +86,18 @@ public class BigQueryMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         log.debug("listTables(session=%s, schemaName=%s)", session, schemaName);
+        return listTablesWithTypes(session, schemaName, TABLE);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        log.debug("listViews(session=%s, schemaName=%s)", session, schemaName);
+        return listTablesWithTypes(session, schemaName, VIEW);
+    }
+
+    private List<SchemaTableName> listTablesWithTypes(ConnectorSession session, Optional<String> schemaName, TableDefinition.Type... types)
+    {
         if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
             return ImmutableList.of();
         }
@@ -91,7 +106,7 @@ public class BigQueryMetadata
 
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String datasetId : schemaNames) {
-            for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, datasetId))) {
+            for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, datasetId), types)) {
                 tableNames.add(new SchemaTableName(datasetId, table.getTableId().getTable()));
             }
         }
