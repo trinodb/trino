@@ -15,7 +15,7 @@ package io.prestosql.plugin.phoenix;
 
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.util.Types;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
@@ -86,7 +86,7 @@ public class PhoenixConnectorFactory
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             PhoenixTableProperties tableProperties = injector.getInstance(PhoenixTableProperties.class);
             PhoenixColumnProperties columnProperties = injector.getInstance(PhoenixColumnProperties.class);
-            Set<SessionPropertiesProvider> sessionPropertiesProviders = (Set<SessionPropertiesProvider>) injector.getInstance(Key.get(Types.setOf(SessionPropertiesProvider.class)));
+            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
 
             return new PhoenixConnector(
                     lifeCycleManager,
