@@ -159,7 +159,7 @@ BigQuery       Presto                       Notes
 ``BOOLEAN``    ``BOOLEAN``
 ``BYTES``      ``VARBINARY``
 ``DATE``       ``DATE``
-``DATETIME``   ``VARCHAR``                  In "yyyy-MM-dd'T'HH:mm:ss.SSSSS" format
+``DATETIME``   ``TIMESTAMP``
 ``FLOAT``      ``DOUBLE``
 ``GEOGRAPHY``  ``VARCHAR``                  In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
