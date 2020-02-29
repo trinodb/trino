@@ -30,7 +30,7 @@ public class TestExecutingStatementResourceConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExecutingStatementResourceConfig.class)
-                .setServerTargetResultSize(new DataSize(1, MEGABYTE)));
+                .setServerTargetResultSize(DataSize.of(1, MEGABYTE)));
     }
 
     @Test
@@ -41,7 +41,7 @@ public class TestExecutingStatementResourceConfig
                 .build();
 
         ExecutingStatementResourceConfig expected = new ExecutingStatementResourceConfig()
-                .setServerTargetResultSize(new DataSize(4, MEGABYTE));
+                .setServerTargetResultSize(DataSize.of(4, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

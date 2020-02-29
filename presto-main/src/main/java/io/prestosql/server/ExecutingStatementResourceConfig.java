@@ -21,7 +21,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class ExecutingStatementResourceConfig
 {
-    private DataSize serverTargetResultSize = new DataSize(1, MEGABYTE);
+    private DataSize serverTargetResultSize = DataSize.of(1, MEGABYTE);
 
     public DataSize getServerTargetResultSize()
     {
