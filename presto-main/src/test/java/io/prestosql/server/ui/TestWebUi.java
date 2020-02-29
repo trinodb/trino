@@ -127,7 +127,7 @@ public class TestWebUi
     {
         assertRedirect(client, getUiLocation(baseUri), getLoginHtmlLocation(baseUri));
 
-        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, "/ui/login.html", "/ui/query.html?abc123"));
+        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, "/ui/login.html", "/ui/query.html?abc123"), false);
 
         assertResponseCode(client, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
 
@@ -303,15 +303,15 @@ public class TestWebUi
     private void testNoPasswordAuthenticator(URI baseUri)
             throws Exception
     {
-        assertRedirect(client, getUiLocation(baseUri), getDisabledLocation(baseUri));
+        assertRedirect(client, getUiLocation(baseUri), getDisabledLocation(baseUri), false);
 
-        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getDisabledLocation(baseUri));
+        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getDisabledLocation(baseUri), false);
 
         assertResponseCode(client, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
 
-        assertRedirect(client, getLoginLocation(baseUri), getDisabledLocation(baseUri));
+        assertRedirect(client, getLoginLocation(baseUri), getDisabledLocation(baseUri), false);
 
-        assertRedirect(client, getLogoutLocation(baseUri), getDisabledLocation(baseUri));
+        assertRedirect(client, getLogoutLocation(baseUri), getDisabledLocation(baseUri), false);
 
         assertOk(client, getValidAssetsLocation(baseUri));
 
@@ -344,13 +344,115 @@ public class TestWebUi
         if (testProxy) {
             request = new Request.Builder()
                     .url(url)
-                    .header(X_FORWARDED_PROTO, "https")
+                    .header(X_FORWARDED_PROTO, "test")
                     .header(X_FORWARDED_HOST, "my-load-balancer.local")
-                    .header(X_FORWARDED_PORT, "443")
+                    .header(X_FORWARDED_PORT, "123")
                     .build();
             try (Response response = client.newCall(request).execute()) {
                 assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(response.header(LOCATION), "https://my-load-balancer.local:443/" + redirectLocation.replaceFirst("^([^/]*/){3}", ""));
+                assertEquals(
+                        response.header(LOCATION),
+                        uriBuilderFrom(URI.create(redirectLocation))
+                                .scheme("test")
+                                .host("my-load-balancer.local")
+                                .port(123)
+                                .toString());
+            }
+
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_PROTO, "test")
+                    .header(X_FORWARDED_HOST, "my-load-balancer.local:123")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(
+                        response.header(LOCATION),
+                        uriBuilderFrom(URI.create(redirectLocation))
+                                .scheme("test")
+                                .host("my-load-balancer.local")
+                                .port(123)
+                                .toString());
+            }
+
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_PROTO, "test")
+                    .header(X_FORWARDED_PORT, "123")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(
+                        response.header(LOCATION),
+                        uriBuilderFrom(URI.create(redirectLocation))
+                                .scheme("test")
+                                .port(123)
+                                .toString());
+            }
+
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_PROTO, "test")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(
+                        response.header(LOCATION),
+                        uriBuilderFrom(URI.create(redirectLocation))
+                                .scheme("test")
+                                .toString());
+            }
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_HOST, "my-load-balancer.local")
+                    .header(X_FORWARDED_PORT, "123")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(
+                        response.header(LOCATION),
+                        uriBuilderFrom(URI.create(redirectLocation))
+                                .host("my-load-balancer.local")
+                                .port(123)
+                                .toString());
+            }
+
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_HOST, "my-load-balancer.local:123")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(
+                        response.header(LOCATION),
+                        uriBuilderFrom(URI.create(redirectLocation))
+                                .host("my-load-balancer.local")
+                                .port(123)
+                                .toString());
+            }
+
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_HOST, "my-load-balancer.local")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(
+                        response.header(LOCATION),
+                        uriBuilderFrom(URI.create(redirectLocation))
+                                .host("my-load-balancer.local")
+                                .defaultPort()
+                                .toString());
+            }
+
+            // X-Forwarded-Port not recognized as valid forwarding
+            request = new Request.Builder()
+                    .url(url)
+                    .header(X_FORWARDED_PORT, "123")
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_SEE_OTHER);
+                assertEquals(response.header(LOCATION), redirectLocation);
             }
         }
     }
