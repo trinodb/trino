@@ -65,6 +65,7 @@ public class LdapAuthenticator
     private final Optional<String> userBaseDistinguishedName;
     private final Optional<String> bindDistinguishedName;
     private final Optional<String> bindPassword;
+    private final Optional<Boolean> ignoreReferrals;
     private final Map<String, String> basicEnvironment;
     private final LoadingCache<Credentials, Principal> authenticationCache;
 
@@ -77,6 +78,7 @@ public class LdapAuthenticator
         this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
         this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
         this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
+        this.ignoreReferrals = Optional.ofNullable(ldapConfig.isIgnoreReferralsEnabled());
 
         if (groupAuthorizationSearchPattern.isPresent()) {
             checkState(userBaseDistinguishedName.isPresent(), "Base distinguished name (DN) for user is null");
@@ -252,12 +254,16 @@ public class LdapAuthenticator
 
     private Map<String, String> createEnvironment(String userDistinguishedName, String password)
     {
+        String ldapReferral = "follow";
+        if (ignoreReferrals.isPresent() && ignoreReferrals.get()) {
+            ldapReferral = "ignore";
+        }
         return ImmutableMap.<String, String>builder()
                 .putAll(basicEnvironment)
                 .put(SECURITY_AUTHENTICATION, "simple")
                 .put(SECURITY_PRINCIPAL, userDistinguishedName)
                 .put(SECURITY_CREDENTIALS, password)
-                .put(REFERRAL, "follow")
+                .put(REFERRAL, ldapReferral)
                 .build();
     }
 
