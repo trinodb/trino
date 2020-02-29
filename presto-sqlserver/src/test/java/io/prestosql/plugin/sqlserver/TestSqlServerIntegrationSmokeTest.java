@@ -27,7 +27,7 @@ import static org.testng.Assert.assertTrue;
 public class TestSqlServerIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private TestingSqlServer sqlServer;
+    protected TestingSqlServer sqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()

@@ -36,7 +36,7 @@ import static org.testng.Assert.assertTrue;
 public class TestPostgreSqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private TestingPostgreSqlServer postgreSqlServer;
+    protected TestingPostgreSqlServer postgreSqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
