@@ -32,10 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -344,6 +344,7 @@ public class TestMemoryMetadata
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                Optional.empty(),
                 Optional.empty(),
                 true);
     }

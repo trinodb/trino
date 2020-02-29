@@ -71,7 +71,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Computes the effective predicate at the top of the specified PlanNode
  * <p>
- * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
+ * Note: non-deterministic predicates cannot be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor
 {
@@ -382,7 +382,8 @@ public class EffectivePredicateExtractor
             return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.build()).simplify());
         }
 
-        private Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Collection<Symbol> outputSymbols, Predicate<Symbol>... nullSymbolScopes)
+        @SafeVarargs
+        private final Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Collection<Symbol> outputSymbols, Predicate<Symbol>... nullSymbolScopes)
         {
             // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
             return conjuncts.stream()

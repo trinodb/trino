@@ -54,7 +54,7 @@ public class TestTpchLocalStats
                 .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true")
                 .build();
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(defaultSession);
         queryRunner.createCatalog(
                 "tpch",
                 new TpchConnectorFactory(1),

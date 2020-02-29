@@ -16,6 +16,8 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 
@@ -33,6 +35,12 @@ public class TestIcebergDistributed
     protected boolean supportsViews()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Iceberg connector does not support column default values");
     }
 
     @Override
@@ -64,5 +72,11 @@ public class TestIcebergDistributed
     public void testRenameTable()
     {
         assertQueryFails("ALTER TABLE orders RENAME TO rename_orders", "Rename not supported for Iceberg tables");
+    }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // Iceberg does not support parameterized varchar
     }
 }

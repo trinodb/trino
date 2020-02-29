@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.hive.HiveType;
@@ -22,6 +23,7 @@ import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -48,13 +50,18 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Lists.newArrayList;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
+import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBuckets;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
@@ -166,6 +173,86 @@ public class TestHiveBucketing
                 -1120812524);
     }
 
+    @Test
+    public void testBucketFilterFromDiscreteSets()
+    {
+        // multiple bucketing columns and multiple values for each bucketing column
+        assertBucketsEqual(
+                ImmutableList.of("int", "tinyint"),
+                ImmutableList.of(
+                        ImmutableList.of(1, 10),
+                        ImmutableList.of((byte) 5, (byte) 6)),
+                8,
+                Optional.of(ImmutableSet.of(3, 4, 5)),
+                Optional.of(ImmutableSet.of(0, 1, 5, 6)));
+
+        assertBucketsEqual(
+                ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
+                ImmutableList.of(
+                        ImmutableList.of(12.34F, 56.78F),
+                        ImmutableList.of(ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableList.of((short) 1, (short) 2, (short) 3)),
+                        ImmutableList.of(ImmutableMap.of("key1", 123L), ImmutableMap.of("key2", 456L))),
+                32,
+                Optional.of(ImmutableSet.of(3, 9, 11, 17, 21, 23, 29, 31)),
+                Optional.of(ImmutableSet.of(0, 8, 10, 20, 30)));
+
+        assertBucketsEqual(
+                ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint"),
+                ImmutableList.of(
+                        newArrayList(null, 12.3),
+                        newArrayList(null, ImmutableList.of((short) 1, (short) 2, (short) 3)),
+                        newArrayList(null, false),
+                        newArrayList(null, ImmutableMap.of("key", 123L)),
+                        newArrayList(null, (byte) 120)),
+                32,
+                Optional.of(ImmutableSet.of(0, 1, 3, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31)),
+                Optional.of(ImmutableSet.of(0, 2, 10, 11, 19, 21, 24, 29)));
+
+        // too many buckets to be enumerated compared to bucket count
+        List<Integer> intValues = new ArrayList<>(100);
+        for (int i = 0; i < 100; i++) {
+            intValues.add(i);
+        }
+        List<Byte> tinyIntValues = new ArrayList<>(100);
+        for (byte i = 0; i < 100; i++) {
+            tinyIntValues.add(i);
+        }
+        assertBucketsEqual(
+                ImmutableList.of("int", "tinyint"),
+                ImmutableList.of(
+                        ImmutableList.copyOf(intValues),
+                        ImmutableList.copyOf(tinyIntValues)),
+                32,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static void assertBucketsEqual(List<String> hiveTypeStrings, List<List<Object>> hiveValues, int bucketCount, Optional<Set<Integer>> expectedBucketsV1, Optional<Set<Integer>> expectedBucketsV2)
+    {
+        List<HiveType> hiveTypes = hiveTypeStrings.stream()
+                .map(HiveType::valueOf)
+                .collect(toImmutableList());
+        List<TypeInfo> hiveTypeInfos = hiveTypes.stream()
+                .map(HiveType::getTypeInfo)
+                .collect(toImmutableList());
+        List<Type> prestoTypes = hiveTypes.stream()
+                .map(type -> type.getType(TYPE_MANAGER))
+                .collect(toImmutableList());
+
+        ImmutableList.Builder<List<NullableValue>> values = ImmutableList.builder();
+        for (int i = 0; i < hiveValues.size(); i++) {
+            List<Object> valueList = hiveValues.get(i);
+            Type prestoType = prestoTypes.get(i);
+            values.add(valueList.stream()
+                    .map(value -> new NullableValue(prestoType, toNativeContainerValue(prestoType, value)))
+                    .collect(toImmutableList()));
+        }
+
+        assertEquals(getHiveBuckets(BUCKETING_V1, bucketCount, hiveTypeInfos, values.build()), expectedBucketsV1);
+
+        assertEquals(getHiveBuckets(BUCKETING_V2, bucketCount, hiveTypeInfos, values.build()), expectedBucketsV2);
+    }
+
     private static void assertBucketEquals(String hiveTypeString, Object hiveValue, int expectedHashCodeV1, int expectedHashCodeV2)
     {
         assertBucketEquals(hiveTypeString, hiveValue, BUCKETING_V1, expectedHashCodeV1);
@@ -235,8 +322,8 @@ public class TestHiveBucketing
             nativeContainerValues[i] = toNativeContainerValue(type, hiveValue);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        int result1 = HiveBucketing.getBucketHashCode(bucketingVersion, hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
-        int result2 = HiveBucketing.getBucketHashCode(bucketingVersion, hiveTypeInfos, nativeContainerValues);
+        int result1 = bucketingVersion.getBucketHashCode(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
+        int result2 = bucketingVersion.getBucketHashCode(hiveTypeInfos, nativeContainerValues);
         assertEquals(result1, result2, "overloads of getBucketHashCode produced different result");
         return result1;
     }

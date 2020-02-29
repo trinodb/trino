@@ -111,6 +111,7 @@ public final class PartitionedLookupSourceFactory
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
         this.hashChannelTypes = ImmutableList.copyOf(hashChannelTypes);
         checkArgument(partitionCount > 0);
+        //noinspection unchecked
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
         spilledLookupSource = new SpilledLookupSource(outputTypes.size());

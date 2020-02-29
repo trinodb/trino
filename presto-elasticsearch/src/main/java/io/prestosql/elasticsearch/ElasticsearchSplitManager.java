@@ -45,7 +45,7 @@ public class ElasticsearchSplitManager
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 
         List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
-                .map(shard -> new ElasticsearchSplit(shard.getId(), shard.getAddress()))
+                .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), shard.getAddress()))
                 .collect(toImmutableList());
 
         return new FixedSplitSource(splits);

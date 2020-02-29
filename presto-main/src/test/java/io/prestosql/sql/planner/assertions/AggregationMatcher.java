@@ -104,6 +104,10 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
+        if (!preGroupedSymbols.isEmpty() && !aggregationNode.isStreamable()) {
+            return NO_MATCH;
+        }
+
         return match();
     }
 

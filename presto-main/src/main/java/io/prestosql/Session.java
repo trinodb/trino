@@ -329,7 +329,7 @@ public final class Session
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
                 accessControl.checkCanSetRole(new SecurityContext(transactionId, identity), role.getRole().get(), catalogName);

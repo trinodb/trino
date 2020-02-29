@@ -52,7 +52,7 @@ public final class UuidOperators
 {
     private UuidOperators() {}
 
-    @Description("generates a random UUID")
+    @Description("Generates a random UUID")
     @ScalarFunction(deterministic = false)
     @SqlType(StandardTypes.UUID)
     public static Slice uuid()

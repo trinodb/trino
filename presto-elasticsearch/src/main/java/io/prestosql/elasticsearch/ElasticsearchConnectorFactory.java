@@ -16,12 +16,15 @@ package io.prestosql.elasticsearch;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.type.TypeManager;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -51,6 +54,9 @@ public class ElasticsearchConnectorFactory
         requireNonNull(config, "config is null");
 
         Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new MBeanServerModule(),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.elasticsearch", "presto.plugin.elasticsearch"),
                 new JsonModule(),
                 new ElasticsearchConnectorModule(),
                 binder -> {

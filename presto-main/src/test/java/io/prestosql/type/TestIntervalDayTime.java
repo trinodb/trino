@@ -17,6 +17,7 @@ import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -131,6 +132,9 @@ public class TestIntervalDayTime
         assertFunction("2 * INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 24 * 60 * 60 * 1000));
         assertFunction("INTERVAL '1' DAY * 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (2.5 * 24 * 60 * 60 * 1000)));
         assertFunction("2.5 * INTERVAL '1' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (2.5 * 24 * 60 * 60 * 1000)));
+
+        assertInvalidFunction("INTERVAL '6' SECOND * nan()", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("nan() * INTERVAL '6' DAY", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -141,6 +145,11 @@ public class TestIntervalDayTime
 
         assertFunction("INTERVAL '3' DAY / 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (1.5 * 24 * 60 * 60 * 1000)));
         assertFunction("INTERVAL '4' DAY / 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (1.6 * 24 * 60 * 60 * 1000)));
+
+        assertInvalidFunction("INTERVAL '6' SECOND / nan()", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("INTERVAL '6' DAY / nan()", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("INTERVAL '6' SECOND / 0E0", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("INTERVAL '6' DAY / 0", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

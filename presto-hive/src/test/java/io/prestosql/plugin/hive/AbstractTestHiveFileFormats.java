@@ -535,7 +535,7 @@ public abstract class AbstractTestHiveFileFormats
                         .map(TestColumn::getType)
                         .collect(Collectors.joining(",")));
 
-        Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+        Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                 new Path(filePath),
                 testColumns.stream()
                         .map(TestColumn::getName)
@@ -545,7 +545,7 @@ public abstract class AbstractTestHiveFileFormats
                 jobConf,
                 session);
 
-        HiveFileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
+        FileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
         hiveFileWriter.appendRows(page);
         hiveFileWriter.commit();
 

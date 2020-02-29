@@ -60,27 +60,29 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private final TypeManager typeManager;
     private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
-    private final Set<HiveRecordCursorProvider> cursorProviders;
-    private final TypeManager typeManager;
-
     private final Set<HivePageSourceFactory> pageSourceFactories;
+    private final Set<HiveRecordCursorProvider> cursorProviders;
 
     @Inject
     public HivePageSourceProvider(
+            TypeManager typeManager,
             HiveConfig hiveConfig,
             HdfsEnvironment hdfsEnvironment,
-            Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
-            TypeManager typeManager)
+            Set<HiveRecordCursorProvider> cursorProviders,
+            GenericHiveRecordCursorProvider genericCursorProvider)
     {
-        requireNonNull(hiveConfig, "hiveConfig is null");
-        this.hiveStorageTimeZone = hiveConfig.getDateTimeZone();
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
-        this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.hiveStorageTimeZone = requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone();
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
+        this.cursorProviders = ImmutableSet.<HiveRecordCursorProvider>builder()
+                .addAll(requireNonNull(cursorProviders, "cursorProviders is null"))
+                .add(genericCursorProvider) // generic should be last, as a fallback option
+                .build();
     }
 
     @Override
@@ -104,8 +106,8 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
-                cursorProviders,
                 pageSourceFactories,
+                cursorProviders,
                 configuration,
                 session,
                 path,
@@ -122,7 +124,8 @@ public class HivePageSourceProvider
                 typeManager,
                 hiveSplit.getColumnCoercions(),
                 hiveSplit.getBucketConversion(),
-                hiveSplit.isS3SelectPushdownEnabled());
+                hiveSplit.isS3SelectPushdownEnabled(),
+                hiveSplit.getDeleteDeltaLocations());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -130,8 +133,8 @@ public class HivePageSourceProvider
     }
 
     public static Optional<ConnectorPageSource> createHivePageSource(
-            Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
+            Set<HiveRecordCursorProvider> cursorProviders,
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -148,7 +151,8 @@ public class HivePageSourceProvider
             TypeManager typeManager,
             Map<Integer, HiveType> columnCoercions,
             Optional<BucketConversion> bucketConversion,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new FixedPageSource(ImmutableList.of()));
@@ -193,7 +197,8 @@ public class HivePageSourceProvider
                     schema,
                     toColumnHandles(regularAndInterimColumnMappings, true, typeManager),
                     effectivePredicate,
-                    hiveStorageTimeZone);
+                    hiveStorageTimeZone,
+                    deleteDeltaLocations);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
@@ -225,6 +230,8 @@ public class HivePageSourceProvider
 
             if (cursor.isPresent()) {
                 RecordCursor delegate = cursor.get();
+
+                checkArgument(!deleteDeltaLocations.isPresent(), "Delete delta is not supported");
 
                 if (bucketAdaptation.isPresent()) {
                     delegate = new HiveBucketAdapterRecordCursor(

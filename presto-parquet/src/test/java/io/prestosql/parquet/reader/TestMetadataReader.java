@@ -32,7 +32,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -98,8 +97,7 @@ public class TestMetadataReader
         assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), varbinary))
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
                     // Stats ignored because we did not provide original type and provided min/max for BINARY
-                    assertFalse(columnStatistics.isNumNullsSet());
-                    assertEquals(columnStatistics.getNumNulls(), -1);
+                    assertEquals(columnStatistics.getNumNulls(), 13);
                     assertNull(columnStatistics.getMin());
                     assertNull(columnStatistics.getMax());
                     assertNull(columnStatistics.getMinBytes());
@@ -166,39 +164,39 @@ public class TestMetadataReader
     {
         return new Object[][] {
                 // [aa, bé]
-                {NO_CREATED_BY, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
+                {NO_CREATED_BY, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "aa".getBytes(UTF_8), "c".getBytes(UTF_8)},
                 {PARQUET_MR_1_10, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "aa".getBytes(UTF_8), "c".getBytes(UTF_8)}, // however, 1.10 won't fill old min/max
 
                 // [abc\u007fé, bcd\u007fé]; \u007f is retained in min value, but removed from max
-                {NO_CREATED_BY, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), -1, null, null},
+                {NO_CREATED_BY, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, "abc\u007f".getBytes(UTF_8), "bce".getBytes(UTF_8)},
                 // however, 1.10 won't fill old min/max
                 {PARQUET_MR_1_10, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, "abc\u007f".getBytes(UTF_8), "bce".getBytes(UTF_8)},
 
                 // [é, a] or [a, é]
-                {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), -1, null, null},
+                {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, new byte[0], "b".getBytes(UTF_8)},
-                {PARQUET_MR_1_10, 13, "a".getBytes(UTF_8), "é".getBytes(UTF_8), -1, null, null}, // however, 1.10 won't fill old min/max
+                {PARQUET_MR_1_10, 13, "a".getBytes(UTF_8), "é".getBytes(UTF_8), 13, null, null}, // however, 1.10 won't fill old min/max
 
                 // [é, ê]; both, before PARQUET-1025 and after than, Parquet writer would order them this way
-                {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR_1_10, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), -1, null, null}, // however, 1.10 won't fill old min/max
+                {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_10, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null}, // however, 1.10 won't fill old min/max
 
                 // [aé, aé]
-                {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), -1, null, null},
+                {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8)},
                 {PARQUET_MR_1_10, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8)}, // however, 1.10 won't fill old min/max
 
                 // [aé, bé]
-                {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
-                {PARQUET_MR, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
+                {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "a".getBytes(UTF_8), "c".getBytes(UTF_8)},
                 {PARQUET_MR_1_10, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "a".getBytes(UTF_8), "c".getBytes(UTF_8)}, // however, 1.10 won't fill old min/max
         };

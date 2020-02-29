@@ -15,12 +15,12 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.airlift.tpch.Customer;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.ColumnNaming;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.tpch.Customer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -86,7 +86,7 @@ public class BenchmarkPlanner
                     .setSystemProperty("iterative_optimizer_enabled", iterativeOptimizerEnabled)
                     .build();
 
-            queryRunner = new LocalQueryRunner(session);
+            queryRunner = LocalQueryRunner.create(session);
             queryRunner.createCatalog(tpch, new TpchConnectorFactory(4), ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
 
             queries = IntStream.rangeClosed(1, 22)

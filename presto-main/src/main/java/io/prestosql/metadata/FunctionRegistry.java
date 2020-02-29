@@ -613,7 +613,7 @@ public class FunctionRegistry
     {
         for (SqlFunction function : functions) {
             FunctionMetadata functionMetadata = function.getFunctionMetadata();
-            checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name can not contain '|' character: %s", functionMetadata.getSignature());
+            checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name cannot contain '|' character: %s", functionMetadata.getSignature());
             for (FunctionMetadata existingFunction : this.functions.list()) {
                 checkArgument(!functionMetadata.getFunctionId().equals(existingFunction.getFunctionId()), "Function already registered: %s", functionMetadata.getFunctionId());
                 checkArgument(!functionMetadata.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", functionMetadata.getSignature());

@@ -30,3 +30,4 @@ The following can be helpful for diagnosing garbage collection (GC) issues:
     -XX:+PrintAdaptiveSizePolicy
     -XX:+PrintSafepointStatistics
     -XX:PrintSafepointStatisticsCount=1
+    -Xlog:gc*,safepoint::time,level,tags,tid

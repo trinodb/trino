@@ -171,7 +171,7 @@ public class SpnegoHandler
                 result.requestMutualAuth(true);
                 result.requestConf(true);
                 result.requestInteg(true);
-                result.requestCredDeleg(false);
+                result.requestCredDeleg(true);
                 return result;
             });
 

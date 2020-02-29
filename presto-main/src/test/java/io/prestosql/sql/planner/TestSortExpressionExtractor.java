@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionTestUtils;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
@@ -80,11 +81,19 @@ public class TestSortExpressionExtractor
         assertGetSortExpression("b1 > p1 AND b1 <= p1 AND b2 > p1", "b1", "b1 > p1", "b1 <= p1");
 
         assertGetSortExpression("b1 > p1 AND b1 <= p1 AND b2 > p1 AND b2 < p1 + 10 AND b2 > p2", "b2", "b2 > p1", "b2 < p1 + 10", "b2 > p2");
+
+        assertGetSortExpression("p1 BETWEEN b1 AND b2", "b1", "p1 >= b1");
+
+        assertGetSortExpression("p1 BETWEEN p2 AND b1", "b1", "p1 <= b1");
+
+        assertGetSortExpression("b1 BETWEEN p1 AND p2", "b1", "b1 >= p1");
+
+        assertGetSortExpression("b1 > p1 AND p1 BETWEEN b1 AND b2", "b1", "b1 > p1", "p1 >= b1");
     }
 
     private Expression expression(String sql)
     {
-        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)));
+        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, new ParsingOptions())));
     }
 
     private void assertNoSortExpression(String expression)

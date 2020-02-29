@@ -121,7 +121,7 @@ public interface Metadata
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
-     * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
+     * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid
      */
@@ -189,7 +189,7 @@ public interface Metadata
     /**
      * Drops the specified table
      *
-     * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
+     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
      */
     void dropTable(Session session, TableHandle tableHandle);
 
@@ -236,7 +236,12 @@ public interface Metadata
     /**
      * Begin insert query
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns);
+
+    /**
+     * @return whether connector handles missing columns during insert
+     */
+    boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle);
 
     /**
      * Finish insert query
@@ -330,6 +335,8 @@ public interface Metadata
     Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
 
     Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
+
+    default void validateScan(Session session, TableHandle table) {}
 
     //
     // Roles and Grants

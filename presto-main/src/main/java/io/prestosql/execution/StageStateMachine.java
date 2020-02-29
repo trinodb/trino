@@ -271,6 +271,7 @@ public class StageStateMachine
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
@@ -307,6 +308,7 @@ public class StageStateMachine
 
             physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += taskStats.getPhysicalInputPositions();
+            physicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
 
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
@@ -332,6 +334,7 @@ public class StageStateMachine
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
@@ -390,6 +393,7 @@ public class StageStateMachine
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
@@ -452,6 +456,7 @@ public class StageStateMachine
 
             physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += taskStats.getPhysicalInputPositions();
+            physicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
 
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
@@ -512,6 +517,7 @@ public class StageStateMachine
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                succinctDuration(physicalInputReadTime, NANOSECONDS),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,

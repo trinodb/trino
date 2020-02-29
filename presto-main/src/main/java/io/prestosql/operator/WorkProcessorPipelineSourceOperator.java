@@ -42,7 +42,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
@@ -304,7 +303,7 @@ public class WorkProcessorPipelineSourceOperator
                         succinctBytes(context.outputDataSize.get()),
                         context.outputPositions.get(),
 
-                        new DataSize(0, BYTE),
+                        DataSize.ofBytes(0),
 
                         new Duration(context.blockedWallNanos.get(), NANOSECONDS),
 
@@ -320,7 +319,7 @@ public class WorkProcessorPipelineSourceOperator
                         succinctBytes(context.peakSystemMemoryReservation.get()),
                         succinctBytes(context.peakRevocableMemoryReservation.get()),
                         succinctBytes(context.peakTotalMemoryReservation.get()),
-                        new DataSize(0, BYTE),
+                        DataSize.ofBytes(0),
                         operatorContext.isWaitingForMemory().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                         getOperatorInfo(context)))
                 .collect(toImmutableList());

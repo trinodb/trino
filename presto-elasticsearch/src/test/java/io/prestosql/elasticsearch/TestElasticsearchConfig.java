@@ -48,6 +48,7 @@ public class TestElasticsearchConfig
                 .setTrustStorePath(null)
                 .setTruststorePassword(null)
                 .setVerifyHostnames(true)
+                .setIgnorePublishAddress(false)
                 .setSecurity(null));
     }
 
@@ -70,6 +71,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.truststore-path", "/tmp/truststore")
                 .put("elasticsearch.tls.truststore-password", "truststore-password")
                 .put("elasticsearch.tls.verify-hostnames", "false")
+                .put("elasticsearch.ignore-publish-address", "true")
                 .put("elasticsearch.security", "AWS")
                 .build();
 
@@ -89,6 +91,7 @@ public class TestElasticsearchConfig
                 .setTrustStorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
+                .setIgnorePublishAddress(true)
                 .setSecurity(AWS);
 
         assertFullMapping(properties, expected);

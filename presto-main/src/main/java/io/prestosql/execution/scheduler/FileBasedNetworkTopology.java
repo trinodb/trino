@@ -126,7 +126,7 @@ public final class FileBasedNetworkTopology
             if (segments.stream().anyMatch(String::isEmpty)) {
                 throw invalidFile(lineNumber, "location must not contain an empty segment");
             }
-            // NOTE: segment can not contain whitespace because the host and location splitter would
+            // NOTE: segment cannot contain whitespace because the host and location splitter would
             // have created multiple parts in that case
 
             topology.put(parts.get(0), new NetworkLocation(segments));

@@ -21,6 +21,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSink;
 
 import java.util.Collection;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
@@ -52,7 +53,7 @@ class BlackHolePageSink
     private CompletableFuture<Collection<Slice>> scheduleAppend()
     {
         if (pageProcessingDelayMillis > 0) {
-            return toCompletableFuture(executorService.schedule(() -> ImmutableList.of(), pageProcessingDelayMillis, MILLISECONDS));
+            return toCompletableFuture(executorService.schedule((Callable<Collection<Slice>>) ImmutableList::of, pageProcessingDelayMillis, MILLISECONDS));
         }
         return NON_BLOCKED;
     }

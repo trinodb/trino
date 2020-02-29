@@ -71,6 +71,14 @@ public class TestConnectorViewDefinition
     }
 
     @Test
+    public void testViewComment()
+    {
+        ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"comment\": \"hello\"}");
+        assertBaseView(view);
+        assertEquals(view.getComment(), Optional.of("hello"));
+    }
+
+    @Test
     public void testViewSecurityDefiner()
     {
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"owner\": \"abc\", \"runAsInvoker\": false}");
@@ -98,6 +106,7 @@ public class TestConnectorViewDefinition
                 ImmutableList.of(
                         new ViewColumn("abc", BIGINT.getTypeId()),
                         new ViewColumn("xyz", new ArrayType(createVarcharType(32)).getTypeId())),
+                Optional.of("comment"),
                 Optional.of("test_owner"),
                 false));
     }

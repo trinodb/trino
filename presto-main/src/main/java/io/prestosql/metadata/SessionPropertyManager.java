@@ -117,8 +117,11 @@ public final class SessionPropertyManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(propertyName, "propertyName is null");
         Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(catalogName);
-        if (properties == null || properties.isEmpty()) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown connector " + catalogName);
+        if (properties == null) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown catalog: " + catalogName);
+        }
+        if (properties.isEmpty()) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "No session properties found for catalog: " + catalogName);
         }
 
         return Optional.ofNullable(properties.get(propertyName));
@@ -244,7 +247,7 @@ public final class SessionPropertyManager
     public static String serializeSessionProperty(Type type, Object value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property can not be null");
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
         }
         if (BooleanType.BOOLEAN.equals(type)) {
             return value.toString();
@@ -270,7 +273,7 @@ public final class SessionPropertyManager
     private static Object deserializeSessionProperty(Type type, String value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property can not be null");
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
         }
         if (VarcharType.VARCHAR.equals(type)) {
             return value;

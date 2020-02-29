@@ -885,7 +885,7 @@ public class HashGenerationOptimizer
         {
             requireNonNull(fields, "fields is null");
             this.fields = ImmutableList.copyOf(fields);
-            checkArgument(!this.fields.isEmpty(), "fields can not be empty");
+            checkArgument(!this.fields.isEmpty(), "fields cannot be empty");
         }
 
         public List<Symbol> getFields()

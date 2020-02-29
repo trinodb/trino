@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.tpch.TpchMetadata;
 import io.prestosql.plugin.tpch.TpchRecordSetProvider;
 import io.prestosql.plugin.tpch.TpchTableHandle;
@@ -31,6 +30,7 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

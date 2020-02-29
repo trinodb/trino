@@ -36,27 +36,88 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 
 public interface SystemAccessControl
 {
     /**
-     * Check if the principal is allowed to be the specified user.
+     * Check if the identity is allowed impersonate the specified user.
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Optional<Principal> principal, String userName);
+    default void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+    {
+        denyImpersonateUser(context.getIdentity().getUser(), userName);
+    }
+
+    /**
+     * Check if the principal is allowed to be the specified user.
+     *
+     * @throws AccessDeniedException if not allowed
+     * @deprecated use user mapping and {@link #checkCanImpersonateUser} instead
+     */
+    @Deprecated
+    default void checkCanSetUser(Optional<Principal> principal, String userName)
+    {
+        denySetUser(principal, userName);
+    }
+
+    /**
+     * Checks if identity can execute a query.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+        denyExecuteQuery();
+    }
+
+    /**
+     * Checks if identity can view a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        denyViewQuery();
+    }
+
+    /**
+     * Filter the list of users to those the identity view query owned by the user.  The method
+     * will not be called with the current user in the set.
+     */
+    default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        return Collections.emptySet();
+    }
+
+    /**
+     * Checks if identity can kill a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        denyKillQuery();
+    }
 
     /**
      * Check if identity is allowed to set the specified system property.
@@ -136,6 +197,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        denyShowCreateTable(table.toString());
+    }
+
+    /**
      * Check if identity is allowed to create the specified table in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -173,20 +244,6 @@ public interface SystemAccessControl
     default void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCommentTable(table.toString());
-    }
-
-    /**
-     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
-     * <p>
-     * NOTE: This method is only present to give users an error message when listing is not allowed.
-     * The {@link #filterTables} method must filter all results for unauthorized users,
-     * since there are multiple ways to list tables.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    default void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-        denyShowTablesMetadata(schema.toString());
     }
 
     /**
@@ -357,5 +414,30 @@ public interface SystemAccessControl
     default void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
         denyShowRoles(catalogName);
+    }
+
+    /**
+     * Get a row filter associated with the given table and identity.
+     *
+     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the filter, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Get a column mask associated with the given table, column and identity.
+     *
+     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * must be written in terms of columns in the table.
+     *
+     * @return the mask, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName)
+    {
+        return Optional.empty();
     }
 }

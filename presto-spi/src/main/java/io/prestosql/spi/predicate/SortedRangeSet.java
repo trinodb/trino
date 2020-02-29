@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -156,6 +157,28 @@ public final class SortedRangeSet
     }
 
     @Override
+    public boolean isDiscreteSet()
+    {
+        for (Range range : lowIndexedRanges.values()) {
+            if (!range.isSingleValue()) {
+                return false;
+            }
+        }
+        return !isNone();
+    }
+
+    @Override
+    public List<Object> getDiscreteSet()
+    {
+        if (!isDiscreteSet()) {
+            throw new IllegalStateException("SortedRangeSet is not a discrete set");
+        }
+        return unmodifiableList(lowIndexedRanges.values().stream()
+                .map(Range::getSingleValue)
+                .collect(Collectors.toList()));
+    }
+
+    @Override
     public boolean containsValue(Object value)
     {
         return includesMarker(Marker.exactly(type, value));
@@ -173,7 +196,7 @@ public final class SortedRangeSet
     public Range getSpan()
     {
         if (lowIndexedRanges.isEmpty()) {
-            throw new IllegalStateException("Can not get span if no ranges exist");
+            throw new IllegalStateException("Cannot get span if no ranges exist");
         }
         return lowIndexedRanges.firstEntry().getValue().span(lowIndexedRanges.lastEntry().getValue());
     }

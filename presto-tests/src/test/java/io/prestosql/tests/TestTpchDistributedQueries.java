@@ -26,6 +26,7 @@ import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import io.prestosql.type.TypeDeserializer;
 import org.intellij.lang.annotations.Language;
@@ -43,9 +44,11 @@ import static org.testng.Assert.assertTrue;
 public class TestTpchDistributedQueries
         extends AbstractTestQueries
 {
-    public TestTpchDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
     }
 
     @Test

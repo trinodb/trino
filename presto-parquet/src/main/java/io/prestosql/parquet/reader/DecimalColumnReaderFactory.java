@@ -20,14 +20,13 @@ public final class DecimalColumnReaderFactory
 {
     private DecimalColumnReaderFactory() {}
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, int precision, int scale)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
     {
-        DecimalType decimalType = DecimalType.createDecimalType(precision, scale);
-        if (decimalType.isShort()) {
-            return new ShortDecimalColumnReader(descriptor);
+        if (parquetDecimalType.isShort()) {
+            return new ShortDecimalColumnReader(descriptor, parquetDecimalType);
         }
         else {
-            return new LongDecimalColumnReader(descriptor);
+            return new LongDecimalColumnReader(descriptor, parquetDecimalType);
         }
     }
 }

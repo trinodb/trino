@@ -13,6 +13,7 @@
  */
 package io.prestosql.server.security;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.spi.security.PasswordAuthenticator;
@@ -53,6 +54,11 @@ public class PasswordAuthenticatorManager
                 "Password authenticator '%s' is already registered", factory.getName());
     }
 
+    public boolean isLoaded()
+    {
+        return authenticator.get() != null;
+    }
+
     public void loadPasswordAuthenticator()
             throws Exception
     {
@@ -79,7 +85,15 @@ public class PasswordAuthenticatorManager
 
     public PasswordAuthenticator getAuthenticator()
     {
-        checkState(authenticator.get() != null, "authenticator was not loaded");
+        checkState(isLoaded(), "authenticator was not loaded");
         return authenticator.get();
+    }
+
+    @VisibleForTesting
+    public void setAuthenticator(PasswordAuthenticator authenticator)
+    {
+        if (!this.authenticator.compareAndSet(null, authenticator)) {
+            throw new IllegalStateException("authenticator already loaded");
+        }
     }
 }

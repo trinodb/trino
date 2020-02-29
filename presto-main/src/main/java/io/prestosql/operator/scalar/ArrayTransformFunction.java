@@ -92,7 +92,7 @@ public final class ArrayTransformFunction
                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "apply lambda to each element of the array",
+                "Apply lambda to each element of the array",
                 SCALAR));
     }
 

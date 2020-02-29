@@ -104,8 +104,8 @@ public class HashAggregationOperator
                     expectedGroups,
                     maxPartialMemory,
                     false,
-                    new DataSize(0, MEGABYTE),
-                    new DataSize(0, MEGABYTE),
+                    DataSize.of(0, MEGABYTE),
+                    DataSize.of(0, MEGABYTE),
                     (types, spillContext, memoryContext) -> {
                         throw new UnsupportedOperationException();
                     },

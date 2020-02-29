@@ -43,7 +43,8 @@ public class ParametricScalar
     public ParametricScalar(
             Signature signature,
             ScalarHeader details,
-            ParametricImplementationsGroup<ParametricScalarImplementation> implementations)
+            ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
+            boolean deprecated)
     {
         super(new FunctionMetadata(
                 signature,
@@ -52,7 +53,8 @@ public class ParametricScalar
                 details.isHidden(),
                 details.isDeterministic(),
                 details.getDescription().orElse(""),
-                SCALAR));
+                SCALAR,
+                deprecated));
         this.details = requireNonNull(details);
         this.implementations = requireNonNull(implementations);
     }

@@ -37,14 +37,14 @@ public class IcebergTableProperties
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
-    public IcebergTableProperties()
+    public IcebergTableProperties(IcebergConfig icebergConfig)
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         FILE_FORMAT_PROPERTY,
                         "File format for the table",
                         FileFormat.class,
-                        FileFormat.PARQUET,
+                        icebergConfig.getFileFormat(),
                         false))
                 .add(new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,

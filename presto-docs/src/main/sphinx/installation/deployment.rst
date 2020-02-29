@@ -43,15 +43,18 @@ Presto is first installed. The following is a minimal ``etc/node.properties``:
 The above properties are described below:
 
 * ``node.environment``:
-  The name of the environment. All Presto nodes in a cluster must
-  have the same environment name.
+  The name of the environment. All Presto nodes in a cluster must have the same
+  environment name. The name must start with an alphanumeric character and
+  only contain alphanumeric, ``-``, or ``_`` characters.
 
 * ``node.id``:
   The unique identifier for this installation of Presto. This must be
   unique for every node. This identifier should remain consistent across
   reboots or upgrades of Presto. If running multiple installations of
   Presto on a single machine (i.e. multiple nodes on the same machine),
-  each installation must have a unique identifier.
+  each installation must have a unique identifier. The identifier must start
+  with an alphanumeric character and only contain alphanumeric, ``-``, or ``_``
+  characters.
 
 * ``node.data-dir``:
   The location (filesystem path) of the data directory. Presto stores
@@ -247,7 +250,7 @@ Presto can be started as a daemon by running the following:
     bin/launcher start
 
 Alternatively, it can be run in the foreground, with the logs and other
-output written to stdout/stderr. Bboth streams should be captured
+output written to stdout/stderr. Both streams should be captured
 if using a supervision system like daemontools:
 
 .. code-block:: none
@@ -255,10 +258,47 @@ if using a supervision system like daemontools:
     bin/launcher run
 
 Run the launcher with ``--help`` to see the supported commands and
-command line options. In particular, the ``--verbose`` option is
-very useful for debugging the installation.
+command line options:
 
-After launching, you can find the log files in ``var/log``:
+.. code-block:: none
+
+    bin/launcher --help
+    Usage: launcher [options] command
+
+    Commands: run, start, stop, restart, kill, status
+
+    Options:
+    -h, --help               show this help message and exit
+    -v, --verbose            Run verbosely
+    --etc-dir=DIR            Defaults to INSTALL_PATH/etc
+    --launcher-config=FILE   Defaults to INSTALL_PATH/bin/launcher.properties
+    --node-config=FILE       Defaults to ETC_DIR/node.properties
+    --jvm-config=FILE        Defaults to ETC_DIR/jvm.config
+    --config=FILE            Defaults to ETC_DIR/config.properties
+    --log-levels-file=FILE   Defaults to ETC_DIR/log.properties
+    --data-dir=DIR           Defaults to INSTALL_PATH
+    --pid-file=FILE          Defaults to DATA_DIR/var/run/launcher.pid
+    --launcher-log-file=FILE Defaults to DATA_DIR/var/log/launcher.log (only in
+                             daemon mode)
+    --server-log-file=FILE   Defaults to DATA_DIR/var/log/server.log (only in
+                             daemon mode)
+    -D NAME=VALUE            Set a Java system property
+
+In particular, the ``--verbose`` option is very useful for debugging the
+installation and any problems starting Presto.
+
+As you can see, the launcher script configures default values for the
+configuration directory ``etc``, configuration files, the data directory ``var``
+and log files in the data directory.
+
+You can use these options to adjust your Presto usage to any requirements, such
+as using a directory outside the installation directory, specific mount points
+or locations and even using other file names. For example, the Presto RPM
+package adjusts the used directories to better follow the Linux Filesystem
+Hierarchy Standard.
+
+After starting Presto, you can find log files in the ``log`` directory inside
+the data directory ``var``:
 
 * ``launcher.log``:
   This log is created by the launcher and is connected to the stdout

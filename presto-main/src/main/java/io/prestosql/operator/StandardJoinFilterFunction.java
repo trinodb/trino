@@ -34,7 +34,7 @@ public class StandardJoinFilterFunction
 
     public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, LongArrayList addresses, List<Page> pages)
     {
-        this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null");
+        this.filterFunction = requireNonNull(filterFunction, "filterFunction cannot be null");
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
     }

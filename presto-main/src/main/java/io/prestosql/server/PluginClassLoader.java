@@ -64,6 +64,12 @@ class PluginClassLoader
         return new PluginClassLoader(ImmutableList.copyOf(getURLs()), spiClassLoader, spiPackages, spiResources);
     }
 
+    public PluginClassLoader withUrl(URL url)
+    {
+        List<URL> urls = ImmutableList.<URL>builder().add(getURLs()).add(url).build();
+        return new PluginClassLoader(urls, spiClassLoader, spiPackages, spiResources);
+    }
+
     @Override
     protected Class<?> loadClass(String name, boolean resolve)
             throws ClassNotFoundException

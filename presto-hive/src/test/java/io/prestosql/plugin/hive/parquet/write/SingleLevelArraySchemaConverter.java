@@ -69,7 +69,7 @@ public final class SingleLevelArraySchemaConverter
     private static Type convertType(String name, TypeInfo typeInfo,
             Repetition repetition)
     {
-        if (typeInfo.getCategory().equals(Category.PRIMITIVE)) {
+        if (typeInfo.getCategory() == Category.PRIMITIVE) {
             if (typeInfo.equals(TypeInfoFactory.stringTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.BINARY, repetition).as(OriginalType.UTF8)
                         .named(name);
@@ -140,16 +140,16 @@ public final class SingleLevelArraySchemaConverter
                 throw new IllegalArgumentException("Unknown type: " + typeInfo);
             }
         }
-        else if (typeInfo.getCategory().equals(Category.LIST)) {
+        else if (typeInfo.getCategory() == Category.LIST) {
             return convertArrayType(name, (ListTypeInfo) typeInfo, repetition);
         }
-        else if (typeInfo.getCategory().equals(Category.STRUCT)) {
+        else if (typeInfo.getCategory() == Category.STRUCT) {
             return convertStructType(name, (StructTypeInfo) typeInfo, repetition);
         }
-        else if (typeInfo.getCategory().equals(Category.MAP)) {
+        else if (typeInfo.getCategory() == Category.MAP) {
             return convertMapType(name, (MapTypeInfo) typeInfo, repetition);
         }
-        else if (typeInfo.getCategory().equals(Category.UNION)) {
+        else if (typeInfo.getCategory() == Category.UNION) {
             throw new UnsupportedOperationException("Union type not implemented");
         }
         else {

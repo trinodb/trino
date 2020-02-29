@@ -50,9 +50,9 @@ public class TestShowQueries
                 "VALUES " +
                         "(cast('split' AS VARCHAR(24)), cast('array(varchar(x))' AS VARCHAR(28)), cast('varchar(x), varchar(y)' AS VARCHAR(62)), cast('scalar' AS VARCHAR(9)), true, cast('' AS VARCHAR(131)))," +
                         "('split', 'array(varchar(x))', 'varchar(x), varchar(y), bigint', 'scalar', true, '')," +
-                        "('split_part', 'varchar(x)', 'varchar(x), varchar(y), bigint', 'scalar', true, 'splits a string by a delimiter and returns the specified field (counting from one)')," +
-                        "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'creates a map using entryDelimiter and keyValueDelimiter')," +
-                        "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'creates a multimap by splitting a string into key/value pairs')");
+                        "('split_part', 'varchar(x)', 'varchar(x), varchar(y), bigint', 'scalar', true, 'Splits a string by a delimiter and returns the specified field (counting from one)')," +
+                        "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
+                        "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
     }
 
     @Test
@@ -60,8 +60,8 @@ public class TestShowQueries
     {
         assertions.assertQuery("SHOW FUNCTIONS LIKE 'split$_to$_%' ESCAPE '$'",
                 "VALUES " +
-                        "(cast('split_to_map' AS VARCHAR(24)), cast('map(varchar,varchar)' AS VARCHAR(28)), cast('varchar, varchar, varchar' AS VARCHAR(62)), cast('scalar' AS VARCHAR(9)), true, cast('creates a map using entryDelimiter and keyValueDelimiter' AS VARCHAR(131)))," +
-                        "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'creates a multimap by splitting a string into key/value pairs')");
+                        "(cast('split_to_map' AS VARCHAR(24)), cast('map(varchar,varchar)' AS VARCHAR(28)), cast('varchar, varchar, varchar' AS VARCHAR(62)), cast('scalar' AS VARCHAR(9)), true, cast('Creates a map using entryDelimiter and keyValueDelimiter' AS VARCHAR(131)))," +
+                        "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestShowQueries
     {
         assertions.assertQuery(
                 "SHOW SESSION LIKE '%page_row_c%'",
-                "VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(21)), cast('256' as VARCHAR(21)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(118)))");
+                "VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(118)))");
     }
 
     @Test
@@ -79,6 +79,16 @@ public class TestShowQueries
         assertions.assertFails("SHOW SESSION LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
         assertions.assertQuery(
                 "SHOW SESSION LIKE '%page$_row$_c%' ESCAPE '$'",
-                "VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(21)), cast('256' as VARCHAR(21)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(118)))");
+                "VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(118)))");
+    }
+
+    @Test
+    public void testListingEmptyCatalogs()
+    {
+        assertions.executeExclusively(() -> {
+            assertions.getQueryRunner().getAccessControl().denyCatalogs(catalog -> false);
+            assertions.assertQueryReturnsEmptyResult("SHOW CATALOGS");
+            assertions.getQueryRunner().getAccessControl().reset();
+        });
     }
 }

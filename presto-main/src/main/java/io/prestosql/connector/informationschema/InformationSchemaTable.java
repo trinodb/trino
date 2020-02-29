@@ -15,116 +15,87 @@ package io.prestosql.connector.informationschema;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.prestosql.spi.PrestoException;
+import io.prestosql.metadata.MetadataUtil.TableMetadataBuilder;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public enum InformationSchemaTable
 {
-    COLUMNS("columns"),
-    TABLES("tables"),
-    VIEWS("views"),
-    SCHEMATA("schemata"),
-    TABLE_PRIVILEGES("table_privileges"),
-    ROLES("roles"),
-    APPLICABLE_ROLES("applicable_roles"),
-    ENABLED_ROLES("enabled_roles");
+    COLUMNS(table("columns")
+            .column("table_catalog", createUnboundedVarcharType())
+            .column("table_schema", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("column_name", createUnboundedVarcharType())
+            .column("ordinal_position", BIGINT)
+            .column("column_default", createUnboundedVarcharType())
+            .column("is_nullable", createUnboundedVarcharType())
+            .column("data_type", createUnboundedVarcharType())
+            .hiddenColumn("comment", createUnboundedVarcharType()) // non-standard
+            .hiddenColumn("extra_info", createUnboundedVarcharType()) // non-standard
+            .hiddenColumn("column_comment", createUnboundedVarcharType()) // MySQL compatible
+            .build()),
+    TABLES(table("tables")
+            .column("table_catalog", createUnboundedVarcharType())
+            .column("table_schema", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("table_type", createUnboundedVarcharType())
+            .hiddenColumn("table_comment", createUnboundedVarcharType()) // MySQL compatible
+            .build()),
+    VIEWS(table("views")
+            .column("table_catalog", createUnboundedVarcharType())
+            .column("table_schema", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("view_definition", createUnboundedVarcharType())
+            .build()),
+    SCHEMATA(table("schemata")
+            .column("catalog_name", createUnboundedVarcharType())
+            .column("schema_name", createUnboundedVarcharType())
+            .build()),
+    TABLE_PRIVILEGES(table("table_privileges")
+            .column("grantor", createUnboundedVarcharType())
+            .column("grantor_type", createUnboundedVarcharType())
+            .column("grantee", createUnboundedVarcharType())
+            .column("grantee_type", createUnboundedVarcharType())
+            .column("table_catalog", createUnboundedVarcharType())
+            .column("table_schema", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("privilege_type", createUnboundedVarcharType())
+            .column("is_grantable", createUnboundedVarcharType())
+            .column("with_hierarchy", createUnboundedVarcharType())
+            .build()),
+    ROLES(table("roles")
+            .column("role_name", createUnboundedVarcharType())
+            .build()),
+    APPLICABLE_ROLES(table("applicable_roles")
+            .column("grantee", createUnboundedVarcharType())
+            .column("grantee_type", createUnboundedVarcharType())
+            .column("role_name", createUnboundedVarcharType())
+            .column("is_grantable", createUnboundedVarcharType())
+            .build()),
+    ENABLED_ROLES(table("enabled_roles")
+            .column("role_name", createUnboundedVarcharType())
+            .build());
 
     public static final String INFORMATION_SCHEMA = "information_schema";
 
-    private final SchemaTableName schemaTableName;
     private final ConnectorTableMetadata tableMetadata;
 
-    InformationSchemaTable(String tableName)
+    InformationSchemaTable(ConnectorTableMetadata tableMetadata)
     {
-        schemaTableName = new SchemaTableName(INFORMATION_SCHEMA, tableName);
-        if (tableName.equals("columns")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("column_name", createUnboundedVarcharType())
-                    .column("ordinal_position", BIGINT)
-                    .column("column_default", createUnboundedVarcharType())
-                    .column("is_nullable", createUnboundedVarcharType())
-                    .column("data_type", createUnboundedVarcharType())
-                    .column("comment", createUnboundedVarcharType())
-                    .column("extra_info", createUnboundedVarcharType())
-                    .hiddenColumn("column_comment", createUnboundedVarcharType()) // MySQL compatible
-                    .build();
-            return;
-        }
-        if (tableName.equals("tables")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("table_type", createUnboundedVarcharType())
-                    .hiddenColumn("table_comment", createUnboundedVarcharType()) // MySQL compatible
-                    .build();
-            return;
-        }
-        if (tableName.equals("views")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("view_definition", createUnboundedVarcharType())
-                    .build();
-            return;
-        }
-        if (tableName.equals("schemata")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("catalog_name", createUnboundedVarcharType())
-                    .column("schema_name", createUnboundedVarcharType())
-                    .build();
-            return;
-        }
-        if (tableName.equals("table_privileges")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("grantor", createUnboundedVarcharType())
-                    .column("grantor_type", createUnboundedVarcharType())
-                    .column("grantee", createUnboundedVarcharType())
-                    .column("grantee_type", createUnboundedVarcharType())
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("privilege_type", createUnboundedVarcharType())
-                    .column("is_grantable", createUnboundedVarcharType())
-                    .column("with_hierarchy", createUnboundedVarcharType())
-                    .build();
-            return;
-        }
-        if (tableName.equals("roles")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("role_name", createUnboundedVarcharType())
-                    .build();
-            return;
-        }
-        if (tableName.equals("applicable_roles")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("grantee", createUnboundedVarcharType())
-                    .column("grantee_type", createUnboundedVarcharType())
-                    .column("role_name", createUnboundedVarcharType())
-                    .column("is_grantable", createUnboundedVarcharType())
-                    .build();
-            return;
-        }
-        if (tableName.equals("enabled_roles")) {
-            tableMetadata = tableMetadataBuilder(schemaTableName)
-                    .column("role_name", createUnboundedVarcharType())
-                    .build();
-            return;
-        }
-        throw new PrestoException(INVALID_ARGUMENTS, "Invalid table name");
+        this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
+    }
+
+    private static TableMetadataBuilder table(String tableName)
+    {
+        return tableMetadataBuilder(new SchemaTableName(INFORMATION_SCHEMA, tableName));
     }
 
     public static Optional<InformationSchemaTable> of(SchemaTableName schemaTableName)
@@ -133,7 +104,7 @@ public enum InformationSchemaTable
             return Optional.empty();
         }
         try {
-            return Optional.of(InformationSchemaTable.valueOf(schemaTableName.getTableName().toUpperCase(ENGLISH)));
+            return Optional.of(valueOf(schemaTableName.getTableName().toUpperCase(ENGLISH)));
         }
         catch (IllegalArgumentException e) {
             return Optional.empty();
@@ -147,13 +118,13 @@ public enum InformationSchemaTable
 
     public SchemaTableName getSchemaTableName()
     {
-        return schemaTableName;
+        return tableMetadata.getTable();
     }
 
     @JsonCreator
     public InformationSchemaTable fromStringValue(String value)
     {
-        return InformationSchemaTable.valueOf(value);
+        return valueOf(value);
     }
 
     @JsonValue

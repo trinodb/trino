@@ -38,11 +38,11 @@ public final class TableStatistics
 
     public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
     {
-        this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
+        this.rowCount = requireNonNull(rowCount, "rowCount cannot be null");
         if (!rowCount.isUnknown() && rowCount.getValue() < 0) {
             throw new IllegalArgumentException(format("rowCount must be greater than or equal to 0: %s", rowCount.getValue()));
         }
-        this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
+        this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics cannot be null"));
     }
 
     public Estimate getRowCount()
@@ -96,14 +96,14 @@ public final class TableStatistics
 
         public Builder setRowCount(Estimate rowCount)
         {
-            this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
+            this.rowCount = requireNonNull(rowCount, "rowCount cannot be null");
             return this;
         }
 
         public Builder setColumnStatistics(ColumnHandle columnHandle, ColumnStatistics columnStatistics)
         {
-            requireNonNull(columnHandle, "columnHandle can not be null");
-            requireNonNull(columnStatistics, "columnStatistics can not be null");
+            requireNonNull(columnHandle, "columnHandle cannot be null");
+            requireNonNull(columnStatistics, "columnStatistics cannot be null");
             this.columnStatisticsMap.put(columnHandle, columnStatistics);
             return this;
         }

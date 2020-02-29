@@ -32,7 +32,6 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -82,7 +81,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.SortedMap;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -94,7 +92,6 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.SC
 import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
-import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -186,8 +183,6 @@ final class ShowQueriesRewrite
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
-            accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), schema);
-
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
                 throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
             }
@@ -231,10 +226,6 @@ final class ShowQueriesRewrite
 
                 catalogName = qualifiedTableName.getCatalogName();
 
-                accessControl.checkCanShowTablesMetadata(
-                        session.toSecurityContext(),
-                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
-
                 predicate = Optional.of(combineConjuncts(
                         metadata,
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
@@ -243,11 +234,6 @@ final class ShowQueriesRewrite
             else {
                 if (catalogName == null) {
                     throw semanticException(MISSING_CATALOG_NAME, showGrants, "Catalog must be specified when session catalog is not set");
-                }
-
-                Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
-                for (String schema : allowedSchemas) {
-                    accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), new CatalogSchemaName(catalogName, schema));
                 }
             }
 
@@ -343,14 +329,17 @@ final class ShowQueriesRewrite
         {
             List<Expression> rows = listCatalogs(session, metadata, accessControl).keySet().stream()
                     .map(name -> row(new StringLiteral(name)))
-                    .collect(toList());
+                    .collect(toImmutableList());
 
             Optional<Expression> predicate = Optional.empty();
-            Optional<String> likePattern = node.getLikePattern();
-            if (likePattern.isPresent()) {
+            if (rows.isEmpty()) {
+                rows = ImmutableList.of(new StringLiteral(""));
+                predicate = Optional.of(BooleanLiteral.FALSE_LITERAL);
+            }
+            else if (node.getLikePattern().isPresent()) {
                 predicate = Optional.of(new LikePredicate(
-                        identifier("Catalog"),
-                        new StringLiteral(likePattern.get()),
+                        identifier("catalog"),
+                        new StringLiteral(node.getLikePattern().get()),
                         node.getEscape().map(StringLiteral::new)));
             }
 
@@ -441,9 +430,9 @@ final class ShowQueriesRewrite
                 Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
                 Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
 
-                accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(catalogName.getValue(), new SchemaTableName(schemaName.getValue(), tableName.getValue())));
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
-                String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, Optional.empty())).trim();
+                String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, viewDefinition.get().getComment(), Optional.empty())).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -457,7 +446,7 @@ final class ShowQueriesRewrite
                     throw semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName);
                 }
 
-                accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(tableHandle.get().getCatalogName().getCatalogName(), objectName.asSchemaTableName()));
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());

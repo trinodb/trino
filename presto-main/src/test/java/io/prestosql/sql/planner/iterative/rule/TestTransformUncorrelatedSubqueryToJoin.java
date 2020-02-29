@@ -14,25 +14,168 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.ExpressionMatcher;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.tree.ComparisonExpression;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedSubqueryToJoin
         extends BaseRuleTest
 {
     @Test
-    public void test()
+    public void testRewriteInnerCorrelatedJoin()
     {
-        tester()
-                .assertThat(new TransformUncorrelatedSubqueryToJoin())
-                .on(p -> p.correlatedJoin(emptyList(), p.values(), p.values()))
-                .matches(join(JoinNode.Type.INNER, emptyList(), values(), values()));
+        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.correlatedJoin(
+                            emptyList(),
+                            p.values(a),
+                            INNER,
+                            new ComparisonExpression(
+                                    GREATER_THAN,
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
+                            p.values(b));
+                })
+                .matches(
+                        join(
+                                JoinNode.Type.INNER,
+                                ImmutableList.of(),
+                                Optional.of("b > a"),
+                                values("a"),
+                                values("b")));
+    }
+
+    @Test
+    public void testRewriteLeftCorrelatedJoin()
+    {
+        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.correlatedJoin(
+                            emptyList(),
+                            p.values(a),
+                            LEFT,
+                            new ComparisonExpression(
+                                    GREATER_THAN,
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
+                            p.values(b));
+                })
+                .matches(
+                        join(
+                                JoinNode.Type.LEFT,
+                                ImmutableList.of(),
+                                Optional.of("b > a"),
+                                values("a"),
+                                values("b")));
+    }
+
+    @Test
+    public void testRewriteRightCorrelatedJoin()
+    {
+        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.correlatedJoin(
+                            emptyList(),
+                            p.values(a),
+                            RIGHT,
+                            TRUE_LITERAL,
+                            p.values(b));
+                })
+                .matches(
+                        join(
+                                JoinNode.Type.INNER,
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                values("a"),
+                                values("b")));
+
+        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.correlatedJoin(
+                            emptyList(),
+                            p.values(a),
+                            RIGHT,
+                            new ComparisonExpression(
+                                    GREATER_THAN,
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
+                            p.values(b));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of(
+                                        "a", new ExpressionMatcher("if(b > a, a, null)"),
+                                        "b", new ExpressionMatcher("b")),
+                                join(
+                                        JoinNode.Type.INNER,
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        values("a"),
+                                        values("b"))));
+    }
+
+    @Test
+    public void testRewriteFullCorrelatedJoin()
+    {
+        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.correlatedJoin(
+                            emptyList(),
+                            p.values(a),
+                            FULL,
+                            TRUE_LITERAL,
+                            p.values(b));
+                })
+                .matches(
+                        join(
+                                JoinNode.Type.LEFT,
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                values("a"),
+                                values("b")));
+
+        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.correlatedJoin(
+                            emptyList(),
+                            p.values(a),
+                            FULL,
+                            new ComparisonExpression(
+                                    GREATER_THAN,
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
+                            p.values(b));
+                })
+                .doesNotFire();
     }
 
     @Test
