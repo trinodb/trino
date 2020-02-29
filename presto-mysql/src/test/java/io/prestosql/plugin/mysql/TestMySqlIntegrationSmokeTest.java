@@ -36,7 +36,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private TestingMySqlServer mysqlServer;
+    protected TestingMySqlServer mysqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
