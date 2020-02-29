@@ -223,7 +223,6 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
