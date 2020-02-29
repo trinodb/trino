@@ -56,6 +56,6 @@ public class TestSliceDictionaryColumnWriter
 
     private static int megabytes(int size)
     {
-        return toIntExact(new DataSize(size, MEGABYTE).toBytes());
+        return toIntExact(DataSize.of(size, MEGABYTE).toBytes());
     }
 }

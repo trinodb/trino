@@ -30,7 +30,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
@@ -282,7 +281,7 @@ public class TextRenderer
             return "-\u221E";
         }
 
-        return DataSize.succinctDataSize(value, BYTE).toString();
+        return DataSize.succinctBytes(Math.round(value)).toString();
     }
 
     static String formatDouble(double value)

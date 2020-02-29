@@ -31,16 +31,16 @@ public class KafkaConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final KafkaMetadata metadata;
-    private final KafkaSplitManager splitManager;
-    private final KafkaRecordSetProvider recordSetProvider;
+    private final ConnectorMetadata metadata;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorRecordSetProvider recordSetProvider;
 
     @Inject
     public KafkaConnector(
             LifeCycleManager lifeCycleManager,
-            KafkaMetadata metadata,
-            KafkaSplitManager splitManager,
-            KafkaRecordSetProvider recordSetProvider)
+            ConnectorMetadata metadata,
+            ConnectorSplitManager splitManager,
+            ConnectorRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");

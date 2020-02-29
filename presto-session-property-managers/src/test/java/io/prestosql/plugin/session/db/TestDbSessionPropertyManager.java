@@ -14,7 +14,6 @@
 package io.prestosql.plugin.session.db;
 
 import com.google.common.collect.ImmutableSet;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.plugin.session.AbstractTestSessionPropertyManager;
 import io.prestosql.plugin.session.SessionMatchSpec;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -42,21 +41,20 @@ public class TestDbSessionPropertyManager
     private DbSessionPropertyManager manager;
     private RefreshingDbSpecsProvider specsProvider;
 
-    private TestingMySqlServer testingMySqlServer;
-    private static final String MYSQL_TEST_USER = "testuser";
-    private static final String MYSQL_TEST_PASSWORD = "testpassword";
-    private static final String MYSQL_TEST_DATABASE = "test_database";
+    private TestingMySqlContainer mysqlContainer;
 
     private static final ResourceGroupId TEST_RG = new ResourceGroupId("rg1");
 
     @BeforeClass
     public void setup()
-            throws Exception
     {
-        testingMySqlServer = new TestingMySqlServer(MYSQL_TEST_USER, MYSQL_TEST_PASSWORD, MYSQL_TEST_DATABASE);
+        mysqlContainer = new TestingMySqlContainer();
+        mysqlContainer.start();
 
         config = new DbSessionPropertyManagerConfig()
-                .setConfigDbUrl(testingMySqlServer.getJdbcUrl(MYSQL_TEST_DATABASE));
+                .setConfigDbUrl(mysqlContainer.getJdbcUrl())
+                .setUsername(mysqlContainer.getUsername())
+                .setPassword(mysqlContainer.getPassword());
 
         SessionPropertiesDaoProvider daoProvider = new SessionPropertiesDaoProvider(config);
         dao = daoProvider.get();
@@ -81,7 +79,7 @@ public class TestDbSessionPropertyManager
     public void destroy()
     {
         specsProvider.destroy();
-        testingMySqlServer.close();
+        mysqlContainer.close();
     }
 
     @Override

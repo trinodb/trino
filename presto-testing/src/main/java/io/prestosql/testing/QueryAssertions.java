@@ -19,13 +19,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
-import io.airlift.tpch.TpchTable;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.testing.QueryRunner.MaterializedResultWithPlan;
+import io.prestosql.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;

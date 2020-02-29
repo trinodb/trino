@@ -2,6 +2,8 @@
 Mathematical Functions and Operators
 ====================================
 
+.. _mathematical_operators:
+
 Mathematical Operators
 ----------------------
 

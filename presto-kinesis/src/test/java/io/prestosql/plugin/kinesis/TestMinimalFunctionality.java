@@ -100,7 +100,6 @@ public class TestMinimalFunctionality
     public void spinUp(String accessKey, String secretKey)
             throws Exception
     {
-        System.setProperty("com.amazonaws.sdk.disableCbor", "true"); // TODO remove; see comment in KinesisConnectorFactory constructor
         streamName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
         embeddedKinesisStream.createStream(2, streamName);

@@ -93,7 +93,7 @@ public class TestHttpPageBufferClient
     {
         Page expectedPage = new Page(100);
 
-        DataSize expectedMaxSize = new DataSize(11, Unit.MEGABYTE);
+        DataSize expectedMaxSize = DataSize.of(11, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(expectedMaxSize);
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
@@ -187,7 +187,7 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -227,7 +227,7 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -246,7 +246,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
+        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404");
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         // send invalid content type response and verify response was ignored
@@ -295,7 +295,7 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -349,7 +349,7 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
                 location,

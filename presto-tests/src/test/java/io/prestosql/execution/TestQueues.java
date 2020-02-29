@@ -229,7 +229,7 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(java.time.Duration.ofMinutes(4)),
                             Optional.empty(),
-                            Optional.of(new DataSize(400, MEGABYTE).toBytes()))),
+                            Optional.of(DataSize.of(400, MEGABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "small"));
 
@@ -238,7 +238,7 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(java.time.Duration.ofMinutes(4)),
                             Optional.empty(),
-                            Optional.of(new DataSize(600, MEGABYTE).toBytes()))),
+                            Optional.of(DataSize.of(600, MEGABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
 
@@ -256,7 +256,7 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(java.time.Duration.ofSeconds(1)),
                             Optional.of(java.time.Duration.ofSeconds(1)),
-                            Optional.of(new DataSize(6, TERABYTE).toBytes()))),
+                            Optional.of(DataSize.of(6, TERABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "huge_memory"));
 
@@ -265,7 +265,7 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(java.time.Duration.ofHours(100)),
                             Optional.empty(),
-                            Optional.of(new DataSize(4, TERABYTE).toBytes()))),
+                            Optional.of(DataSize.of(4, TERABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
         }

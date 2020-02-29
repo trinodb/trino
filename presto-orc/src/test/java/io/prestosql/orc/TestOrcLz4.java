@@ -33,7 +33,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOrcLz4
 {
-    private static final DataSize SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize SIZE = DataSize.of(1, MEGABYTE);
 
     @Test
     public void testReadLz4()

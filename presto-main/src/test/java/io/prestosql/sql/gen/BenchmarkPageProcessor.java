@@ -15,8 +15,6 @@ package io.prestosql.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.tpch.LineItem;
-import io.airlift.tpch.LineItemGenerator;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
@@ -27,6 +25,8 @@ import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.SpecialForm.Form;
+import io.prestosql.tpch.LineItem;
+import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;

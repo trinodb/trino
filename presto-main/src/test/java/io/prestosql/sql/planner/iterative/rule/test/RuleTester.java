@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule.test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 public class RuleTester
         implements Closeable
@@ -50,22 +51,12 @@ public class RuleTester
     private final AccessControl accessControl;
     private final TypeAnalyzer typeAnalyzer;
 
-    public RuleTester()
+    public static RuleTester defaultRuleTester()
     {
-        this(emptyList());
+        return defaultRuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.empty());
     }
 
-    public RuleTester(List<Plugin> plugins)
-    {
-        this(plugins, ImmutableMap.of());
-    }
-
-    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties)
-    {
-        this(plugins, sessionProperties, Optional.empty());
-    }
-
-    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats)
+    public static RuleTester defaultRuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
@@ -76,16 +67,26 @@ public class RuleTester
             sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
         }
 
-        session = sessionBuilder.build();
+        Session session = sessionBuilder.build();
 
-        queryRunner = nodeCountForStats
-                .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
-                .orElseGet(() -> new LocalQueryRunner(session));
+        LocalQueryRunner queryRunner = nodeCountForStats
+                .map(nodeCount -> LocalQueryRunner.builder(session)
+                    .withNodeCountForStats(nodeCount)
+                    .build())
+                .orElseGet(() -> LocalQueryRunner.create(session));
+
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
         plugins.stream().forEach(queryRunner::installPlugin);
 
+        return new RuleTester(queryRunner);
+    }
+
+    public RuleTester(LocalQueryRunner queryRunner)
+    {
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
         this.transactionManager = queryRunner.getTransactionManager();
         this.splitManager = queryRunner.getSplitManager();
@@ -133,5 +134,10 @@ public class RuleTester
     public CatalogName getCurrentConnectorId()
     {
         return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
+    }
+
+    public LocalQueryRunner getQueryRunner()
+    {
+        return queryRunner;
     }
 }

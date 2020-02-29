@@ -62,7 +62,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLEAR_SESSION;

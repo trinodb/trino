@@ -16,6 +16,7 @@ package io.prestosql.plugin.jmx;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
@@ -42,9 +43,11 @@ public class TestJmxQueries
             .add("java.util.logging:type=Logging")
             .build();
 
-    public TestJmxQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(JmxQueryRunner::createJmxQueryRunner);
+        return JmxQueryRunner.createJmxQueryRunner();
     }
 
     @Test

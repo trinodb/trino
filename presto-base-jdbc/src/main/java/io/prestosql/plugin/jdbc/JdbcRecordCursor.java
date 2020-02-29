@@ -41,6 +41,7 @@ public class JdbcRecordCursor
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
     private final JdbcColumnHandle[] columnHandles;
+    private final ReadFunction[] readFunctions;
     private final BooleanReadFunction[] booleanReadFunctions;
     private final DoubleReadFunction[] doubleReadFunctions;
     private final LongReadFunction[] longReadFunctions;
@@ -59,6 +60,7 @@ public class JdbcRecordCursor
 
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
+        readFunctions = new ReadFunction[columnHandles.size()];
         booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
         doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
         longReadFunctions = new LongReadFunction[columnHandles.size()];
@@ -73,6 +75,7 @@ public class JdbcRecordCursor
                         .orElseThrow(() -> new VerifyException("Unsupported column type"));
                 Class<?> javaType = columnMapping.getType().getJavaType();
                 ReadFunction readFunction = columnMapping.getReadFunction();
+                readFunctions[i] = readFunction;
 
                 if (javaType == boolean.class) {
                     booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
@@ -203,12 +206,7 @@ public class JdbcRecordCursor
         checkArgument(field < columnHandles.length, "Invalid field index");
 
         try {
-            // JDBC is kind of dumb: we need to read the field and then ask
-            // if it was null, which means we are wasting effort here.
-            // We could save the result of the field access if it matters.
-            resultSet.getObject(field + 1);
-
-            return resultSet.wasNull();
+            return readFunctions[field].isNull(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);

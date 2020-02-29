@@ -123,7 +123,7 @@ public class ParametricScalarImplementation
         ParametricScalarImplementationChoice defaultChoice = choices.get(0);
         boolean expression = defaultChoice.getArgumentProperties().stream()
                 .noneMatch(argumentProperty -> argumentProperty.getArgumentType() == VALUE_TYPE && argumentProperty.getNullConvention() == BLOCK_AND_POSITION);
-        checkArgument(expression, "default choice can not use the BLOCK_AND_POSITION calling convention: %s", signature);
+        checkArgument(expression, "default choice cannot use the BLOCK_AND_POSITION calling convention: %s", signature);
 
         this.nullable = defaultChoice.isNullable();
         checkArgument(choices.stream().allMatch(choice -> choice.isNullable() == nullable), "all choices must have the same nullable flag: %s", signature);
@@ -368,7 +368,7 @@ public class ParametricScalarImplementation
 
             int numberOfBlockPositionArguments = 0;
             for (ArgumentProperty argumentProperty : argumentProperties) {
-                if (argumentProperty.getArgumentType() == VALUE_TYPE && argumentProperty.getNullConvention().equals(BLOCK_AND_POSITION)) {
+                if (argumentProperty.getArgumentType() == VALUE_TYPE && argumentProperty.getNullConvention() == BLOCK_AND_POSITION) {
                     numberOfBlockPositionArguments++;
                 }
             }

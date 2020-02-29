@@ -31,6 +31,16 @@ public class AccessDeniedException
         super(PERMISSION_DENIED, "Access Denied: " + message);
     }
 
+    public static void denyImpersonateUser(String originalUser, String newUser)
+    {
+        denyImpersonateUser(originalUser, newUser, null);
+    }
+
+    public static void denyImpersonateUser(String originalUser, String newUser, String extraInfo)
+    {
+        throw new AccessDeniedException(format("User %s cannot impersonate user %s%s", originalUser, newUser, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName, null);
@@ -39,6 +49,36 @@ public class AccessDeniedException
     public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
     {
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyExecuteQuery()
+    {
+        denyExecuteQuery(null);
+    }
+
+    public static void denyExecuteQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot execute query%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyViewQuery()
+    {
+        denyViewQuery(null);
+    }
+
+    public static void denyViewQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot view query%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyKillQuery()
+    {
+        denyKillQuery(null);
+    }
+
+    public static void denyKillQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot kill query%s", formatExtraInfo(extraInfo)));
     }
 
     public static void denyCatalogAccess(String catalogName)
@@ -91,6 +131,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowCreateTable(String tableName)
+    {
+        denyShowCreateTable(tableName, null);
+    }
+
+    public static void denyShowCreateTable(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show create table for %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateTable(String tableName)
     {
         denyCreateTable(tableName, null);
@@ -129,16 +179,6 @@ public class AccessDeniedException
     public static void denyCommentTable(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
-    }
-
-    public static void denyShowTablesMetadata(String schemaName)
-    {
-        denyShowTablesMetadata(schemaName, null);
-    }
-
-    public static void denyShowTablesMetadata(String schemaName, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyShowColumnsMetadata(String tableName)

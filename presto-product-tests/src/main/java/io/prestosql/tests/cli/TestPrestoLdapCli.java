@@ -185,7 +185,7 @@ public class TestPrestoLdapCli
         ldapUserName = "invalid_user";
         launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
         assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Invalid credentials"));
+                assertThat(line).contains("Access Denied"));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -195,7 +195,7 @@ public class TestPrestoLdapCli
         ldapUserName = "";
         launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
         assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Malformed decoded credentials"));
+                assertThat(line).contains("Malformed credentials: user is empty"));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

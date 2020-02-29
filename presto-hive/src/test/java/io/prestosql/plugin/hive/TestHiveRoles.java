@@ -21,6 +21,7 @@ import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
@@ -40,9 +41,11 @@ import static org.testng.Assert.assertEquals;
 public class TestHiveRoles
         extends AbstractTestQueryFramework
 {
-    protected TestHiveRoles()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(HiveQueryRunner::createQueryRunner);
+        return HiveQueryRunner.createQueryRunner();
     }
 
     @AfterMethod(alwaysRun = true)

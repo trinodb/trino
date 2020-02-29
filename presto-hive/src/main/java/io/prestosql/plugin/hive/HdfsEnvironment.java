@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.hadoop.HadoopFileSystemCache;
 import io.prestosql.hadoop.HadoopNative;
 import io.prestosql.plugin.hive.authentication.GenericExceptionAction;
 import io.prestosql.plugin.hive.authentication.HdfsAuthentication;
@@ -35,7 +34,6 @@ public class HdfsEnvironment
 {
     static {
         HadoopNative.requireHadoopNative();
-        HadoopFileSystemCache.initialize();
     }
 
     private final HdfsConfiguration hdfsConfiguration;

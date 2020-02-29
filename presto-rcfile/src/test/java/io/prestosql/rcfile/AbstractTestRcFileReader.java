@@ -238,7 +238,7 @@ public abstract class AbstractTestRcFileReader
     public void testEmptyBinarySequence()
             throws Exception
     {
-        // Binary serde can not serialize an empty binary sequence
+        // Binary serde cannot serialize an empty binary sequence
         tester.testRoundTrip(VARBINARY, nCopies(3_000, new SqlVarbinary(new byte[0])), BINARY);
     }
 

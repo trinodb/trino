@@ -111,6 +111,7 @@ public class SemiTransactionalHiveMetastore
     private final HiveMetastoreClosure delegate;
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor renameExecutor;
+    private final Executor dropExecutor;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
     private final ScheduledExecutorService heartbeatExecutor;
@@ -141,6 +142,7 @@ public class SemiTransactionalHiveMetastore
             HdfsEnvironment hdfsEnvironment,
             HiveMetastoreClosure delegate,
             Executor renameExecutor,
+            Executor dropExecutor,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             Optional<Duration> hiveTransactionHeartbeatInterval,
@@ -149,6 +151,7 @@ public class SemiTransactionalHiveMetastore
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
+        this.dropExecutor = requireNonNull(dropExecutor, "dropExecutor is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.heartbeatExecutor = heartbeatService;
@@ -547,7 +550,7 @@ public class SemiTransactionalHiveMetastore
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format(
-                        "Error deleting from unpartitioned table %s. These items can not be deleted: %s",
+                        "Error deleting from unpartitioned table %s. These items cannot be deleted: %s",
                         schemaTableName,
                         recursiveDeleteResult.getNotDeletedEligibleItems()));
             }
@@ -610,6 +613,7 @@ public class SemiTransactionalHiveMetastore
                 case ADD:
                     throw new PrestoException(TRANSACTION_CONFLICT, format("Another transaction created partition %s in table %s.%s", partitionValues, databaseName, tableName));
                 case DROP:
+                case DROP_PRESERVE_DATA:
                     // do nothing
                     break;
                 case ALTER:
@@ -698,6 +702,7 @@ public class SemiTransactionalHiveMetastore
             case INSERT_EXISTING:
                 return Optional.of(partitionAction.getData().getAugmentedPartitionForInTransactionRead());
             case DROP:
+            case DROP_PRESERVE_DATA:
                 return Optional.empty();
             default:
                 throw new IllegalStateException("Unknown action type");
@@ -726,6 +731,7 @@ public class SemiTransactionalHiveMetastore
         }
         switch (oldPartitionAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 if (!oldPartitionAction.getHdfsContext().getIdentity().getUser().equals(session.getUser())) {
                     throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same partition with different user in the same transaction is not supported");
                 }
@@ -742,7 +748,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues)
+    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
     {
         setShared();
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
@@ -750,11 +756,17 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
             HiveIdentity identity = new HiveIdentity(session);
-            partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, identity));
+            if (deleteData) {
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, identity));
+            }
+            else {
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP_PRESERVE_DATA, null, hdfsContext, identity));
+            }
             return;
         }
         switch (oldPartitionAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
             case ADD:
             case ALTER:
@@ -808,6 +820,7 @@ public class SemiTransactionalHiveMetastore
 
         switch (oldPartitionAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new PartitionNotFoundException(schemaTableName, partitionValues);
             case ADD:
             case ALTER:
@@ -924,7 +937,7 @@ public class SemiTransactionalHiveMetastore
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
             Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.get(schemaTableName);
             if (partitionActionsOfTable != null && !partitionActionsOfTable.isEmpty()) {
-                throw new PrestoException(NOT_SUPPORTED, "Can not insert into a table with a partition that has been modified in the same transaction when Presto is configured to skip temporary directories.");
+                throw new PrestoException(NOT_SUPPORTED, "Cannot insert into a table with a partition that has been modified in the same transaction when Presto is configured to skip temporary directories.");
             }
         }
         HdfsContext hdfsContext = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
@@ -1089,7 +1102,10 @@ public class SemiTransactionalHiveMetastore
                     Action<PartitionAndMore> action = partitionEntry.getValue();
                     switch (action.getType()) {
                         case DROP:
-                            committer.prepareDropPartition(action.getIdentity(), schemaTableName, partitionValues);
+                            committer.prepareDropPartition(action.getIdentity(), schemaTableName, partitionValues, true);
+                            break;
+                        case DROP_PRESERVE_DATA:
+                            committer.prepareDropPartition(action.getIdentity(), schemaTableName, partitionValues, false);
                             break;
                         case ALTER:
                             committer.prepareAlterPartition(action.getHdfsContext(), action.getIdentity(), action.getData());
@@ -1335,11 +1351,11 @@ public class SemiTransactionalHiveMetastore
                     true));
         }
 
-        private void prepareDropPartition(HiveIdentity identity, SchemaTableName schemaTableName, List<String> partitionValues)
+        private void prepareDropPartition(HiveIdentity identity, SchemaTableName schemaTableName, List<String> partitionValues, boolean deleteData)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
                     format("drop partition %s.%s %s", schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues),
-                    () -> delegate.dropPartition(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, true)));
+                    () -> delegate.dropPartition(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, deleteData)));
         }
 
         private void prepareAlterPartition(HdfsContext hdfsContext, HiveIdentity identity, PartitionAndMore partitionAndMore)
@@ -1652,23 +1668,35 @@ public class SemiTransactionalHiveMetastore
         {
             List<String> failedIrreversibleOperationDescriptions = new ArrayList<>();
             List<Throwable> suppressedExceptions = new ArrayList<>();
-            boolean anySucceeded = false;
+            AtomicBoolean anySucceeded = new AtomicBoolean(false);
+
+            ImmutableList.Builder<CompletableFuture<?>> dropFutures = ImmutableList.builder();
             for (IrreversibleMetastoreOperation irreversibleMetastoreOperation : metastoreDeleteOperations) {
-                try {
-                    irreversibleMetastoreOperation.run();
-                    anySucceeded = true;
-                }
-                catch (Throwable t) {
-                    failedIrreversibleOperationDescriptions.add(irreversibleMetastoreOperation.getDescription());
-                    // A limit is needed to avoid having a huge exception object. 5 was chosen arbitrarily.
-                    if (suppressedExceptions.size() < 5) {
-                        suppressedExceptions.add(t);
+                dropFutures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        irreversibleMetastoreOperation.run();
+                        anySucceeded.set(true);
                     }
-                }
+                    catch (Throwable t) {
+                        synchronized (failedIrreversibleOperationDescriptions) {
+                            failedIrreversibleOperationDescriptions.add(irreversibleMetastoreOperation.getDescription());
+                            // A limit is needed to avoid having a huge exception object. 5 was chosen arbitrarily.
+                            synchronized (suppressedExceptions) {
+                                if (suppressedExceptions.size() < 5) {
+                                    suppressedExceptions.add(t);
+                                }
+                            }
+                        }
+                    }
+                }, dropExecutor));
+            }
+
+            for (CompletableFuture<?> dropFuture : dropFutures.build()) {
+                MoreFutures.getFutureValue(dropFuture, PrestoException.class);
             }
             if (!suppressedExceptions.isEmpty()) {
                 StringBuilder message = new StringBuilder();
-                if (deleteOnly && !anySucceeded) {
+                if (deleteOnly && !anySucceeded.get()) {
                     message.append("The following metastore delete operations failed: ");
                 }
                 else {
@@ -1751,7 +1779,7 @@ public class SemiTransactionalHiveMetastore
                     // delete any file that starts or ends with the query ID
                     for (Path path : pathsToClean) {
                         // TODO: It is a known deficiency that some empty directory does not get cleaned up in S3.
-                        // We can not delete any of the directories here since we do not know who created them.
+                        // We cannot delete any of the directories here since we do not know who created them.
                         recursiveDeleteFilesAndLog(
                                 declaredIntentionToWrite.getHdfsContext(),
                                 path,
@@ -1905,14 +1933,14 @@ public class SemiTransactionalHiveMetastore
                 deleteEmptyDirectories);
         if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
             logCleanupFailure(
-                    "Error deleting directory %s for %s. Some eligible items can not be deleted: %s.",
+                    "Error deleting directory %s for %s. Some eligible items cannot be deleted: %s.",
                     directory.toString(),
                     reason,
                     recursiveDeleteResult.getNotDeletedEligibleItems());
         }
         else if (deleteEmptyDirectories && !recursiveDeleteResult.isDirectoryNoLongerExists()) {
             logCleanupFailure(
-                    "Error deleting directory %s for %s. Can not delete the directory.",
+                    "Error deleting directory %s for %s. Cannot delete the directory.",
                     directory.toString(),
                     reason);
         }
@@ -2114,6 +2142,7 @@ public class SemiTransactionalHiveMetastore
     private enum ActionType
     {
         DROP,
+        DROP_PRESERVE_DATA,
         ADD,
         ALTER,
         INSERT_EXISTING
@@ -2136,7 +2165,7 @@ public class SemiTransactionalHiveMetastore
         public Action(ActionType type, T data, HdfsContext hdfsContext, HiveIdentity identity)
         {
             this.type = requireNonNull(type, "type is null");
-            if (type == ActionType.DROP) {
+            if (type == ActionType.DROP || type == ActionType.DROP_PRESERVE_DATA) {
                 checkArgument(data == null, "data is not null");
             }
             else {
@@ -2208,7 +2237,7 @@ public class SemiTransactionalHiveMetastore
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
 
-            checkArgument(!table.getStorage().getLocation().isEmpty() || !currentLocation.isPresent(), "currentLocation can not be supplied for table without location");
+            checkArgument(!table.getStorage().getLocation().isEmpty() || !currentLocation.isPresent(), "currentLocation cannot be supplied for table without location");
             checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
 

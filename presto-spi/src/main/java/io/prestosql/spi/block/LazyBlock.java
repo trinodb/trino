@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 
 import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
 import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +42,7 @@ public class LazyBlock
     public LazyBlock(int positionCount, LazyBlockLoader loader)
     {
         this.positionCount = positionCount;
-        this.lazyData = new LazyData(loader);
+        this.lazyData = new LazyData(positionCount, loader);
     }
 
     @Override
@@ -329,6 +330,7 @@ public class LazyBlock
 
     private static class LazyData
     {
+        private final int positionsCount;
         @Nullable
         private LazyBlockLoader loader;
         @Nullable
@@ -336,8 +338,9 @@ public class LazyBlock
         @Nullable
         private List<Consumer<Block>> listeners;
 
-        public LazyData(LazyBlockLoader loader)
+        public LazyData(int positionsCount, LazyBlockLoader loader)
         {
+            this.positionsCount = positionsCount;
             this.loader = requireNonNull(loader, "loader is null");
         }
 
@@ -376,6 +379,9 @@ public class LazyBlock
             }
 
             block = requireNonNull(loader.load(), "loader returned null");
+            if (block.getPositionCount() != positionsCount) {
+                throw new IllegalStateException(format("Loaded block positions count (%s) doesn't match lazy block positions count (%s)", block.getPositionCount(), positionsCount));
+            }
 
             if (recursive) {
                 block = block.getLoadedBlock();

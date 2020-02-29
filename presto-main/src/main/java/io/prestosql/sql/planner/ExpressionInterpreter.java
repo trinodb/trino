@@ -139,7 +139,6 @@ import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -180,9 +179,7 @@ public class ExpressionInterpreter
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!new TypeCoercion(metadata::getType).canCoerce(actualType, expectedType)) {
-            throw semanticException(TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
-                    actualType.getDisplayName(),
-                    expectedType.getDisplayName()));
+            throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
         }
 
         Map<NodeRef<Expression>, Type> coercions = ImmutableMap.<NodeRef<Expression>, Type>builder()
@@ -923,7 +920,7 @@ public class ExpressionInterpreter
             // do not optimize non-deterministic functions
             if (optimize && (!functionMetadata.isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
-                    isDynamicFilter(metadata, node) ||
+                    isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
                 verify(!node.isDistinct(), "window does not support distinct");
                 verify(!node.getOrderBy().isPresent(), "window does not support order by");

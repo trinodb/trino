@@ -32,9 +32,9 @@ public class TestParquetReaderConfig
     {
         assertRecordedDefaults(recordDefaults(ParquetReaderConfig.class)
                 .setFailOnCorruptedStatistics(true)
-                .setMaxReadBlockSize(new DataSize(16, MEGABYTE))
-                .setMaxMergeDistance(new DataSize(1, MEGABYTE))
-                .setMaxBufferSize(new DataSize(8, MEGABYTE)));
+                .setMaxReadBlockSize(DataSize.of(16, MEGABYTE))
+                .setMaxMergeDistance(DataSize.of(1, MEGABYTE))
+                .setMaxBufferSize(DataSize.of(8, MEGABYTE)));
     }
 
     @Test
@@ -49,9 +49,9 @@ public class TestParquetReaderConfig
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
                 .setFailOnCorruptedStatistics(false)
-                .setMaxReadBlockSize(new DataSize(66, KILOBYTE))
-                .setMaxBufferSize(new DataSize(1431, KILOBYTE))
-                .setMaxMergeDistance(new DataSize(342, KILOBYTE));
+                .setMaxReadBlockSize(DataSize.of(66, KILOBYTE))
+                .setMaxBufferSize(DataSize.of(1431, KILOBYTE))
+                .setMaxMergeDistance(DataSize.of(342, KILOBYTE));
 
         assertFullMapping(properties, expected);
     }

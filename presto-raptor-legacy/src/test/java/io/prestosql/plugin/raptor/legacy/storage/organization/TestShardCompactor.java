@@ -74,10 +74,10 @@ public class TestShardCompactor
     private static final int MAX_SHARD_ROWS = 1000;
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
-            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
-            .withMaxBufferSize(new DataSize(1, MEGABYTE))
-            .withStreamBufferSize(new DataSize(1, MEGABYTE))
-            .withTinyStripeThreshold(new DataSize(1, MEGABYTE));
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
 
     private OrcStorageManager storageManager;
     private ShardCompactor compactor;

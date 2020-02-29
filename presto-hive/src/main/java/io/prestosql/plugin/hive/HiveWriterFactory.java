@@ -437,9 +437,9 @@ public class HiveWriterFactory
 
         Path path = new Path(writeInfo.getWritePath(), fileNameWithExtension);
 
-        HiveFileWriter hiveFileWriter = null;
+        FileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
-            Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+            Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                     path,
                     dataColumns.stream()
                             .map(DataColumn::getName)
@@ -473,9 +473,9 @@ public class HiveWriterFactory
         Consumer<HiveWriter> onCommit = hiveWriter -> {
             Optional<Long> size;
             try {
-                size = Optional.of(hdfsEnvironment.getFileSystem(session.getUser(), path, conf).getFileStatus(path).getLen());
+                size = Optional.of(hiveWriter.getWrittenBytes());
             }
-            catch (IOException | RuntimeException e) {
+            catch (RuntimeException e) {
                 // Do not fail the query if file system is not available
                 size = Optional.empty();
             }

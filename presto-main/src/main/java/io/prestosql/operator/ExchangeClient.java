@@ -200,7 +200,7 @@ public class ExchangeClient
     @Nullable
     public SerializedPage pollPage()
     {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot get next page while holding a lock on this");
 
         throwIfFailed();
 
@@ -214,7 +214,7 @@ public class ExchangeClient
 
     private SerializedPage postProcessPage(SerializedPage page)
     {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot get next page while holding a lock on this");
 
         if (page == null) {
             return null;

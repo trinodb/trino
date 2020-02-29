@@ -21,8 +21,8 @@ import javax.validation.constraints.NotNull;
 
 public class NodeSpillConfig
 {
-    private DataSize maxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
-    private DataSize queryMaxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
+    private DataSize maxSpillPerNode = DataSize.of(100, DataSize.Unit.GIGABYTE);
+    private DataSize queryMaxSpillPerNode = DataSize.of(100, DataSize.Unit.GIGABYTE);
 
     private boolean spillCompressionEnabled;
     private boolean spillEncryptionEnabled;

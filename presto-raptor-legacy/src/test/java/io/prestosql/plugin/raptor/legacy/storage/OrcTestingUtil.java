@@ -39,11 +39,11 @@ final class OrcTestingUtil
     private OrcTestingUtil() {}
 
     private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
-            .withMaxReadBlockSize(new DataSize(1, MEGABYTE))
-            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
-            .withMaxBufferSize(new DataSize(1, MEGABYTE))
-            .withStreamBufferSize(new DataSize(1, MEGABYTE))
-            .withTinyStripeThreshold(new DataSize(1, MEGABYTE));
+            .withMaxReadBlockSize(DataSize.of(1, MEGABYTE))
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
 
     public static OrcDataSource fileOrcDataSource(File file)
             throws FileNotFoundException

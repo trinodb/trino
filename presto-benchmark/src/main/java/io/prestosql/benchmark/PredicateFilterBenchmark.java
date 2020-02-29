@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -57,12 +56,12 @@ public class PredicateFilterBenchmark
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata(), new PageFunctionCompiler(localQueryRunner.getMetadata(), 0));
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory filterAndProjectOperator = FilterAndProjectOperator.createOperatorFactory(
                 1,
                 new PlanNodeId("test"),
                 pageProcessor,
                 ImmutableList.of(DOUBLE),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);

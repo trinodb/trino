@@ -31,6 +31,8 @@ import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.PageSourceProvider;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -40,7 +42,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -129,6 +130,7 @@ public class TableScanWorkProcessorOperator
         long processedBytes;
         long processedPositions;
 
+        @Nullable
         ConnectorPageSource source;
 
         SplitToPages(
@@ -176,10 +178,10 @@ public class TableScanWorkProcessorOperator
         DataSize getPhysicalInputDataSize()
         {
             if (source == null) {
-                return new DataSize(0, BYTE);
+                return DataSize.ofBytes(0);
             }
 
-            return new DataSize(source.getCompletedBytes(), BYTE);
+            return DataSize.ofBytes(source.getCompletedBytes());
         }
 
         long getPhysicalInputPositions()
@@ -189,7 +191,7 @@ public class TableScanWorkProcessorOperator
 
         DataSize getInputDataSize()
         {
-            return new DataSize(processedBytes, BYTE);
+            return DataSize.ofBytes(processedBytes);
         }
 
         long getInputPositions()
@@ -258,7 +260,6 @@ public class TableScanWorkProcessorOperator
                 }
             }
 
-            // TODO: report operator stats
             return ProcessState.ofResult(page);
         }
     }

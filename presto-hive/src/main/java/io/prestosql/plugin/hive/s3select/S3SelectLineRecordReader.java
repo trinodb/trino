@@ -14,16 +14,21 @@
 package io.prestosql.plugin.hive.s3select;
 
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CompressionType;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.compress.BZip2Codec;
+import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
+import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.util.LineReader;
 
@@ -40,6 +45,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
@@ -107,6 +113,21 @@ public abstract class S3SelectLineRecordReader
     }
 
     public abstract SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path);
+
+    protected CompressionType getCompressionType(Path path)
+    {
+        CompressionCodec codec = compressionCodecFactory.getCodec(path);
+        if (codec == null) {
+            return CompressionType.NONE;
+        }
+        if (codec instanceof GzipCodec) {
+            return CompressionType.GZIP;
+        }
+        if (codec instanceof BZip2Codec) {
+            return CompressionType.BZIP2;
+        }
+        throw new PrestoException(NOT_SUPPORTED, "Compression extension not supported for S3 Select: " + path);
+    }
 
     private int readLine(Text value)
             throws IOException

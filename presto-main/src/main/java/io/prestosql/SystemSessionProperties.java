@@ -69,6 +69,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
+    public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
@@ -125,6 +126,8 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
+    public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
+    public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -201,6 +204,11 @@ public final class SystemSessionProperties
                         REDISTRIBUTE_WRITES,
                         "Force parallel distributed writes",
                         featuresConfig.isRedistributeWrites(),
+                        false),
+                booleanProperty(
+                        USE_PREFERRED_WRITE_PARTITIONING,
+                        "Use preferred write partitioning",
+                        featuresConfig.isUsePreferredWritePartitioning(),
                         false),
                 booleanProperty(
                         SCALE_WRITERS,
@@ -552,6 +560,16 @@ public final class SystemSessionProperties
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         featuresConfig.isIgnoreDownstreamPreferences(),
+                        false),
+                integerProperty(
+                        REQUIRED_WORKERS_COUNT,
+                        "Minimum number of active workers that must be available before the query will start",
+                        queryManagerConfig.getRequiredWorkers(),
+                        false),
+                durationProperty(
+                        REQUIRED_WORKERS_MAX_WAIT_TIME,
+                        "Maximum time to wait for minimum number of workers before the query is failed",
+                        queryManagerConfig.getRequiredWorkersMaxWait(),
                         false));
     }
 
@@ -575,9 +593,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
-    public static Optional<DataSize> getJoinMaxBroadcastTableSize(Session session)
+    public static DataSize getJoinMaxBroadcastTableSize(Session session)
     {
-        return Optional.ofNullable(session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class));
+        return session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
@@ -613,6 +631,11 @@ public final class SystemSessionProperties
     public static boolean isRedistributeWrites(Session session)
     {
         return session.getSystemProperty(REDISTRIBUTE_WRITES, Boolean.class);
+    }
+
+    public static boolean isUsePreferredWritePartitioning(Session session)
+    {
+        return session.getSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, Boolean.class);
     }
 
     public static boolean isScaleWriters(Session session)
@@ -1007,5 +1030,15 @@ public final class SystemSessionProperties
                 hidden,
                 value -> Duration.valueOf((String) value),
                 Duration::toString);
+    }
+
+    public static int getRequiredWorkers(Session session)
+    {
+        return session.getSystemProperty(REQUIRED_WORKERS_COUNT, Integer.class);
+    }
+
+    public static Duration getRequiredWorkersMaxWait(Session session)
+    {
+        return session.getSystemProperty(REQUIRED_WORKERS_MAX_WAIT_TIME, Duration.class);
     }
 }

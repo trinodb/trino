@@ -138,7 +138,7 @@ public class OrcStorageManager
 
     private static final long MAX_ROWS = 1_000_000_000;
     // TODO: do not limit the max size of blocks to read for now; enable the limit when the Hive connector is ready
-    private static final DataSize HUGE_MAX_READ_BLOCK_SIZE = new DataSize(1, PETABYTE);
+    private static final DataSize HUGE_MAX_READ_BLOCK_SIZE = DataSize.of(1, PETABYTE);
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private final String nodeId;

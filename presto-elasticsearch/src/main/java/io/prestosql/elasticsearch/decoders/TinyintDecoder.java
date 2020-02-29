@@ -42,7 +42,7 @@ public class TinyintDecoder
             TINYINT.writeLong(output, decoded);
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a numeric value for SMALLINT field");
+            throw new PrestoException(TYPE_MISMATCH, "Expected a numeric value for TINYINT field");
         }
     }
 }

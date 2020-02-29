@@ -1,0 +1,27 @@
+{
+    "catalogs": [
+        {
+            "allow": true
+        }
+    ],
+    "impersonation": [
+        {
+            "originalUser": "alice",
+            "newUser": "bob",
+            "allow": false
+        },
+        {
+            "originalUser": "bob",
+            "newUser": "alice",
+            "allow": false
+        },
+        {
+            "originalUser": "alice|bob",
+            "newUser": ".*"
+        },
+        {
+            "originalUser": ".*",
+            "newUser": "test"
+        }
+    ]
+}

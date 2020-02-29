@@ -27,10 +27,13 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
+import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
+import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.util.HiveUtil.getCompressionCodec;
@@ -54,7 +57,6 @@ public final class S3SelectPushdown
 {
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");
     private static final Set<String> SUPPORTED_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
-    private static final Set<String> SUPPORTED_INPUT_FORMATS = ImmutableSet.of(TextInputFormat.class.getName());
 
     /*
      * Double and Real Types lose precision. Thus, they are not pushed down to S3. Please use Decimal Type if push down is desired.
@@ -85,7 +87,21 @@ public final class S3SelectPushdown
     private static boolean isInputFormatSupported(Properties schema)
     {
         String inputFormat = getInputFormatName(schema);
-        return SUPPORTED_INPUT_FORMATS.contains(inputFormat);
+
+        if (TextInputFormat.class.getName().equals(inputFormat)) {
+            if (!Objects.equals(schema.getProperty(SKIP_HEADER_COUNT_KEY, "0"), "0")) {
+                // S3 Select supports skipping one line of headers, but it was returning incorrect results for presto-hive-hadoop2/conf/files/test_table_with_header.csv.gz
+                // TODO https://github.com/prestosql/presto/issues/2349
+                return false;
+            }
+            if (!Objects.equals(schema.getProperty(SKIP_FOOTER_COUNT_KEY, "0"), "0")) {
+                // S3 Select does not support skipping footers
+                return false;
+            }
+            return true;
+        }
+
+        return false;
     }
 
     public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, Path path)
@@ -93,7 +109,7 @@ public final class S3SelectPushdown
         if (inputFormat instanceof TextInputFormat) {
             return getCompressionCodec((TextInputFormat) inputFormat, path)
                     .map(codec -> (codec instanceof GzipCodec) || (codec instanceof BZip2Codec))
-                    .orElse(true);
+                    .orElse(false); // TODO (https://github.com/prestosql/presto/issues/2475) fix S3 Select when file not compressed
         }
 
         return false;

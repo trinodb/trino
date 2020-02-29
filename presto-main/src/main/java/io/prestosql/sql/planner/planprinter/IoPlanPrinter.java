@@ -571,7 +571,7 @@ public class IoPlanPrinter
             }
             FormattedMarker o = (FormattedMarker) obj;
             return Objects.equals(value, o.value) &&
-                    Objects.equals(bound, o.bound);
+                    bound == o.bound;
         }
 
         @Override

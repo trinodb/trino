@@ -33,7 +33,7 @@ public class TestDistributedQueriesIndexed
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
         queryRunner.createCatalog("tpch_indexed", "tpch_indexed");

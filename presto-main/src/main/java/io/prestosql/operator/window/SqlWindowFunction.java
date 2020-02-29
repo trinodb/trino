@@ -31,7 +31,7 @@ public class SqlWindowFunction
     private final WindowFunctionSupplier supplier;
     private final FunctionMetadata functionMetadata;
 
-    public SqlWindowFunction(WindowFunctionSupplier supplier)
+    public SqlWindowFunction(WindowFunctionSupplier supplier, boolean deprecated)
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
         Signature signature = supplier.getSignature();
@@ -42,7 +42,8 @@ public class SqlWindowFunction
                 false,
                 true,
                 nullToEmpty(supplier.getDescription()),
-                WINDOW);
+                WINDOW,
+                deprecated);
     }
 
     @Override

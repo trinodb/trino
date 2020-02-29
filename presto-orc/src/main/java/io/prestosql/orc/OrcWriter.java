@@ -126,6 +126,7 @@ public final class OrcWriter
             OrcDataSink orcDataSink,
             List<String> columnNames,
             List<Type> types,
+            ColumnMetadata<OrcType> orcTypes,
             CompressionKind compression,
             OrcWriterOptions options,
             boolean writeLegacyVersion,
@@ -163,7 +164,7 @@ public final class OrcWriter
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(columnNames, "columnNames is null");
-        this.orcTypes = OrcType.createRootOrcType(columnNames, types);
+        this.orcTypes = requireNonNull(orcTypes, "orcTypes is null");
         recordValidation(validation -> validation.setColumnNames(columnNames));
 
         // create column writers

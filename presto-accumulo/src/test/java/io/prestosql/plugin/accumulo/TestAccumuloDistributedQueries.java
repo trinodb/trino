@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
@@ -43,6 +45,18 @@ public class TestAccumuloDistributedQueries
             throws Exception
     {
         return createAccumuloQueryRunner(ImmutableMap.of());
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Accumulo connector does not support column default values");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // schema creation is not supported
     }
 
     @Override
@@ -136,16 +150,21 @@ public class TestAccumuloDistributedQueries
         assertUpdate("DROP TABLE test_insert");
     }
 
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // Override because of non-canonical varchar mapping
+    }
+
     @Override // Overridden because we currently do not support arrays with null elements
     public void testInsertArray()
     {
         assertUpdate("CREATE TABLE test_insert_array (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
 
         // assertUpdate("INSERT INTO test_insert_array (a) VALUES (ARRAY[null])", 1); TODO support ARRAY with null elements
-        assertUpdate("INSERT INTO test_insert_array (a) VALUES (ARRAY[1234])", 1);
-        assertQuery("SELECT a[1] FROM test_insert_array", "VALUES (1234)");
 
-        assertQueryFails("INSERT INTO test_insert_array (b) VALUES (ARRAY[1.23E1])", "Insert query has mismatched column types: .*");
+        assertUpdate("INSERT INTO test_insert_array (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+        assertQuery("SELECT a[1], b[1] FROM test_insert_array", "VALUES (12.3, 12)");
 
         assertUpdate("DROP TABLE test_insert_array");
     }

@@ -52,6 +52,7 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 
@@ -66,7 +67,7 @@ public class TestDetermineSemiJoinDistributionType
     @BeforeClass
     public void setUp()
     {
-        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
+        tester = defaultRuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
     }
 
     @AfterClass(alwaysRun = true)

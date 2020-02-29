@@ -140,7 +140,7 @@ public class CassandraPartitionManager
                     ranges -> {
                         ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
                         for (Range range : ranges.getOrderedRanges()) {
-                            // if the range is not a single value, we can not perform partition pruning
+                            // if the range is not a single value, we cannot perform partition pruning
                             if (!range.isSingleValue()) {
                                 return ImmutableSet.of();
                             }

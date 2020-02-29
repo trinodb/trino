@@ -170,6 +170,9 @@ public class DispatchManager
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
 
+            // check query execute permissions
+            accessControl.checkCanExecuteQuery(sessionContext.getIdentity());
+
             // prepare query
             preparedQuery = queryPreparer.prepareQuery(session, query);
 
@@ -318,7 +321,7 @@ public class DispatchManager
         @Override
         public boolean cancel(boolean mayInterruptIfRunning)
         {
-            // query submission can not be canceled
+            // query submission cannot be canceled
             return false;
         }
     }
