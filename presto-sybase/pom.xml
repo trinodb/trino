@@ -32,16 +32,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
         </dependency>
@@ -49,7 +39,10 @@
         <dependency>
       			<groupId>jconn4</groupId>
       			<artifactId>jconn4</artifactId>
-        </dependency>
+<version>16.0</version>
+<scope>system</scope>
+	<systemPath>${basedir}/jconn4-16.jar</systemPath>        
+</dependency>
 
         <dependency>
             <groupId>javax.inject</groupId>
