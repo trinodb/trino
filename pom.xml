@@ -774,12 +774,6 @@
                 <version>7.0.0.jre8</version>
             </dependency>
 
-          		<dependency>
-          			<groupId>jconn4</groupId>
-          			<artifactId>jconn4</artifactId>
-          			<version>7.00</version>
-          		</dependency>
-
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi</artifactId>
