@@ -562,7 +562,12 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        TupleDomain<IcebergColumnHandle> newDomain = convertTupleDomainTypes(constraint.getSummary().transform(IcebergColumnHandle.class::cast));
+        // TODO: Remove TupleDomain#simplify once Iceberg supports IN expression
+        TupleDomain<IcebergColumnHandle> newDomain = convertTupleDomainTypes(
+                constraint.getSummary()
+                        .transform(IcebergColumnHandle.class::cast)
+                        .simplify())
+                .intersect(table.getPredicate());
 
         if (newDomain.equals(table.getPredicate())) {
             return Optional.empty();
@@ -573,7 +578,7 @@ public class IcebergMetadata
                         table.getTableName(),
                         table.getTableType(),
                         table.getSnapshotId(),
-                        table.getPredicate().intersect(newDomain)),
+                        newDomain),
                 constraint.getSummary()));
     }
 }
