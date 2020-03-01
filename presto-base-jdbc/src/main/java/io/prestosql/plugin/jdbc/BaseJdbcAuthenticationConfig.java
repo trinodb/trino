@@ -16,8 +16,9 @@ package io.prestosql.plugin.jdbc;
 import io.airlift.configuration.Config;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderType;
 
-import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static java.util.Objects.requireNonNull;
@@ -28,10 +29,9 @@ public class BaseJdbcAuthenticationConfig
     private String passwordCredentialName;
     private CredentialProviderType credentialProviderType = INLINE;
 
-    @Nullable
-    public String getUserCredentialName()
+    public Optional<String> getUserCredentialName()
     {
-        return userCredentialName;
+        return Optional.ofNullable(userCredentialName);
     }
 
     @Config("user-credential-name")
@@ -41,10 +41,9 @@ public class BaseJdbcAuthenticationConfig
         return this;
     }
 
-    @Nullable
-    public String getPasswordCredentialName()
+    public Optional<String> getPasswordCredentialName()
     {
-        return passwordCredentialName;
+        return Optional.ofNullable(passwordCredentialName);
     }
 
     @Config("password-credential-name")

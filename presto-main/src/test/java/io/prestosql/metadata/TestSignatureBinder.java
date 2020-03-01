@@ -1158,7 +1158,7 @@ public class TestSignatureBinder
         assertThat("decimal(p,s)", boundVariables, "decimal(1,2)");
         assertThat("array(decimal(p,s))", boundVariables, "array(decimal(1,2))");
 
-        assertBindVariablesFails("T1(bigint)", boundVariables, "Unbounded parameters can not have parameters");
+        assertBindVariablesFails("T1(bigint)", boundVariables, "Unbounded parameters cannot have parameters");
     }
 
     private static void assertBindVariablesFails(String typeSignature, BoundVariables boundVariables, String reason)

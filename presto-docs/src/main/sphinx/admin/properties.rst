@@ -18,7 +18,7 @@ General Properties
 
     * **Type:** ``string``
     * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
-    * **Default value:** ``PARTITIONED``
+    * **Default value:** ``AUTOMATIC``
 
     The type of distributed join to use.  When set to ``PARTITIONED``, Presto
     uses hash distributed joins.  When set to ``BROADCAST``, it broadcasts the
@@ -115,6 +115,52 @@ Memory Management Properties
 
     This is the amount of memory set aside as headroom/buffer in the JVM heap
     for allocations that are not tracked by Presto.
+
+
+Query Management Properties
+---------------------------
+
+``query.max-execution-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``100 days``
+    * **Session property:** ``query_max_execution_time``
+
+    The maxiumum allowed time for a query to be actively executing on the
+    cluster, before it is terminated. Compared to the run time below, execution
+    time does not include analysis, query planning or wait times in a queue.
+
+``query.max-run-time``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``100 days``
+    * **Session property:** ``query_max_run_time``
+
+    The maxiumum allowed time for a query to be processed on the cluster, before
+    it is terminated. The time includes time for analysis and planning, but also
+    time spend in a queue waiting, so essentially this is the time allowed for a
+    query to exist since creation.
+
+``query.max-history``
+^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``integer``
+    * **Default value:** ``100``
+
+    The maximum number of queries to keep in the query history to provide
+    statistics and other information. If this amount is reached, queries are
+    removed based on age.
+
+``query.min-expire-age``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``15 min``
+
+    The minimal age of a query in the history before it is expired. An expired
+    query is removed from the query history buffer and no longer available in
+    the :doc:`/admin/web-interface`.
 
 .. _tuning-spilling:
 
@@ -388,7 +434,7 @@ Task Properties
     but it causes increased heap space usage. Setting the value too high may cause a drop
     in performance due to a context switching. The number of active threads is available
     via the ``RunningSplits`` property of the
-    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
+    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JMX object.
 
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^
@@ -613,7 +659,7 @@ Optimizer Properties
 
     * **Type:** ``string``
     * **Allowed values:** ``AUTOMATIC``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
-    * **Default value:** ``ELIMINATE_CROSS_JOINS``
+    * **Default value:** ``AUTOMATIC``
 
     The join reordering strategy to use.  ``NONE`` maintains the order the tables are listed in the
     query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins, where possible, and
@@ -681,3 +727,78 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     to hit the limit on matches for subsequent rows as well, you want to use the
     correct algorithm from the beginning so as not to waste time and resources.
     The more rows you are processing, the larger this value should be.
+
+
+Logging Properties
+------------------
+
+``log.path``
+^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/server.log``
+
+    The path to the log file used by Presto. The path is relative to the data
+    directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``log.max-history``
+^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``30``
+
+    The maximum number of general application log files to use, before log
+    rotation replaces old content.
+
+``log.max-size``
+^^^^^^^^^^^^^^^^
+    * **Type:** ``data size``
+    * **Default value:** ``100MB``
+
+    The maximum file size for the general application log file.
+
+``http-server.log.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable logging for the HTTP server.
+
+``http-server.log.compression.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable compression of the log files of the HTTP server.
+
+``http-server.log.path``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/http-request.log``
+
+    The path to the log file used by the HTTP server. The path is relative to
+    the data directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``http-server.log.max-history``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``15``
+
+    The maxiumum number of log files for the HTTP server to use, before
+    log rotation replaces old content.
+
+``http-server.log.max-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``unlimited``
+
+    The maximum file size for the log file of the HTTP server.
+
+

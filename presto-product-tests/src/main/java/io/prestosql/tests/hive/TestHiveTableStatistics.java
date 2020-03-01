@@ -23,9 +23,11 @@ import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestosql.tempto.fulfillment.table.hive.InlineDataSource;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Objects;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
@@ -1361,6 +1363,53 @@ public class TestHiveTableStatistics
         finally {
             query(format("DROP TABLE IF EXISTS %s", tableName));
         }
+    }
+
+    @Test(dataProvider = "testComputeFloatingPointStatisticsDataProvider")
+    public void testComputeFloatingPointStatistics(String dataType)
+    {
+        String tableName = "test_compute_floating_point_statistics";
+        query("DROP TABLE IF EXISTS " + tableName);
+        try {
+            query(format("CREATE TABLE %1$s(c_basic %2$s, c_minmax %2$s, c_inf %2$s, c_ninf %2$s, c_nan %2$s, c_nzero %2$s)", tableName, dataType));
+            query("ANALYZE " + tableName); // TODO remove after https://github.com/prestosql/presto/issues/2469
+
+            query(format(
+                    "INSERT INTO %1$s(c_basic, c_minmax, c_inf, c_ninf, c_nan, c_nzero) VALUES " +
+                            "  (%2$s '42.3', %2$s '576234.567',  %2$s 'Infinity', %2$s '-Infinity', %2$s 'NaN', %2$s '-0')," +
+                            "  (%2$s '42.3', %2$s '-1234567.89', %2$s '-15', %2$s '45', %2$s '12345', %2$s '-47'), " +
+                            "  (NULL, NULL, NULL, NULL, NULL, NULL)",
+                    tableName,
+                    dataType));
+
+            List<Row> expectedStatistics = ImmutableList.of(
+                    row("c_basic", null, 1., 0.33333333333, null, "42.3", "42.3"),
+                    Objects.equals(dataType, "double")
+                            ? row("c_minmax", null, 2., 0.33333333333, null, "-1234567.89", "576234.567")
+                            : row("c_minmax", null, 2., 0.33333333333, null, "-1234567.9", "576234.56"),
+                    row("c_inf", null, 2., 0.33333333333, null, null, null), // -15, +inf
+                    row("c_ninf", null, 2., 0.33333333333, null, null, null), // -inf, 45
+                    row("c_nan", null, 2., 0.33333333333, null, null, null), // 12345., NaN
+                    row("c_nzero", null, 2., 0.33333333333, null, "-47.0", "0.0"),
+                    row(null, null, null, null, 3., null, null));
+
+            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+
+            query("ANALYZE " + tableName);
+            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+        }
+        finally {
+            query("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] testComputeFloatingPointStatisticsDataProvider()
+    {
+        return new Object[][] {
+                {"real"},
+                {"double"},
+        };
     }
 
     private static void assertComputeTableStatisticsOnCreateTable(String sourceTableName, List<Row> expectedStatistics)

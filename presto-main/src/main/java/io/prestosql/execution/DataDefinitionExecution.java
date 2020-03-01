@@ -45,7 +45,6 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -108,13 +107,13 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public DataSize getUserMemoryReservation()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     @Override
     public DataSize getTotalMemoryReservation()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     @Override
@@ -239,6 +238,12 @@ public class DataDefinitionExecution<T extends Statement>
     public void recordHeartbeat()
     {
         stateMachine.recordHeartbeat();
+    }
+
+    @Override
+    public boolean shouldWaitForMinWorkers()
+    {
+        return false;
     }
 
     @Override

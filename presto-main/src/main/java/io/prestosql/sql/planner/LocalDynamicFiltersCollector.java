@@ -13,10 +13,17 @@
  */
 package io.prestosql.sql.planner;
 
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 @ThreadSafe
 class LocalDynamicFiltersCollector
@@ -26,20 +33,20 @@ class LocalDynamicFiltersCollector
      * (e.g. in case of co-located joins).
      */
     @GuardedBy("this")
-    private TupleDomain<Symbol> predicate;
+    private Map<Symbol, Domain> dynamicFilterDomainsResult = new HashMap<>();
 
-    public LocalDynamicFiltersCollector()
+    public synchronized TupleDomain<Symbol> getDynamicFilter(Set<Symbol> probeSymbols)
     {
-        this.predicate = TupleDomain.all();
+        Map<Symbol, Domain> probeSymbolDomains = dynamicFilterDomainsResult.entrySet().stream()
+                .filter(entry -> probeSymbols.contains(entry.getKey()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        return TupleDomain.withColumnDomains(probeSymbolDomains);
     }
 
-    public synchronized TupleDomain<Symbol> getPredicate()
+    public synchronized void addDynamicFilter(Map<Symbol, Domain> dynamicFilterDomains)
     {
-        return predicate;
-    }
-
-    public synchronized void intersect(TupleDomain<Symbol> predicate)
-    {
-        this.predicate = this.predicate.intersect(predicate);
+        for (Map.Entry<Symbol, Domain> entry : dynamicFilterDomains.entrySet()) {
+            dynamicFilterDomainsResult.merge(entry.getKey(), entry.getValue(), Domain::intersect);
+        }
     }
 }

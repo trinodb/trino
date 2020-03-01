@@ -33,9 +33,7 @@ public class TestInternalCommunicationConfig
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
                 .setTrustStorePath(null)
-                .setTrustStorePassword(null)
-                .setKerberosEnabled(false)
-                .setKerberosUseCanonicalHostname(true));
+                .setTrustStorePassword(null));
     }
 
     @Test
@@ -48,8 +46,6 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.https.keystore.key", "key-key")
                 .put("internal-communication.https.truststore.path", "trust-path")
                 .put("internal-communication.https.truststore.key", "trust-key")
-                .put("internal-communication.kerberos.enabled", "true")
-                .put("internal-communication.kerberos.use-canonical-hostname", "false")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -58,9 +54,7 @@ public class TestInternalCommunicationConfig
                 .setKeyStorePath("key-path")
                 .setKeyStorePassword("key-key")
                 .setTrustStorePath("trust-path")
-                .setTrustStorePassword("trust-key")
-                .setKerberosEnabled(true)
-                .setKerberosUseCanonicalHostname(false);
+                .setTrustStorePassword("trust-key");
 
         assertFullMapping(properties, expected);
     }

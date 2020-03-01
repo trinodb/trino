@@ -210,12 +210,6 @@ public class DictionaryBlock
 
     private void calculateCompactSize()
     {
-        DictionaryBlock unnested = unnest();
-        if (unnested != this) {
-            this.sizeInBytes = unnested.getSizeInBytes();
-            return;
-        }
-
         int uniqueIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
         for (int i = 0; i < positionCount; i++) {
@@ -225,7 +219,23 @@ public class DictionaryBlock
                 used[position] = true;
             }
         }
-        this.sizeInBytes = dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) positionCount);
+
+        long dictionaryBlockSize;
+        if (uniqueIds == dictionary.getPositionCount()) {
+            // dictionary is compact, all positions were used
+            dictionaryBlockSize = dictionary.getSizeInBytes();
+        }
+        else {
+            dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used);
+        }
+
+        if (dictionary instanceof DictionaryBlock) {
+            // dictionary is nested, compaction would unnest it and nested ids
+            // array shouldn't be accounted for
+            dictionaryBlockSize -= (Integer.BYTES * (long) uniqueIds);
+        }
+
+        this.sizeInBytes = dictionaryBlockSize + (Integer.BYTES * (long) positionCount);
         this.uniqueIds = uniqueIds;
     }
 

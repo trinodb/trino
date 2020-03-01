@@ -101,6 +101,11 @@ public class InformationSchemaPageSource
         table = tableHandle.getTable();
         prefixIterator = Suppliers.memoize(() -> {
             Set<QualifiedTablePrefix> prefixes = tableHandle.getPrefixes();
+            if (!tableHandle.getLimit().isPresent()) {
+                // no limit is used, therefore it doesn't make sense to split information schema query into smaller ones
+                return prefixes.iterator();
+            }
+
             if (isTablesEnumeratingTable(table)) {
                 if (prefixes.equals(defaultPrefixes(catalogName))) {
                     prefixes = metadata.listSchemaNames(session, catalogName).stream()

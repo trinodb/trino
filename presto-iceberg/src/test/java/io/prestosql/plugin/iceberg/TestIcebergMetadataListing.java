@@ -21,10 +21,10 @@ import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.TestingHivePlugin;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -43,7 +43,7 @@ import static org.testng.Assert.assertEquals;
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
-    private static HiveMetastore metastore;
+    private HiveMetastore metastore;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()

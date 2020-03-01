@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.prestosql.ExceededMemoryLimitException;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import io.prestosql.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
@@ -39,7 +38,6 @@ import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -127,7 +125,7 @@ public class TestHashSemiJoinOperator
                 .addSequencePage(10, 30, 0)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -191,7 +189,7 @@ public class TestHashSemiJoinOperator
                 .addSequencePage(10, 30, 0)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -284,7 +282,7 @@ public class TestHashSemiJoinOperator
                 .addSequencePage(4, 1)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -342,7 +340,7 @@ public class TestHashSemiJoinOperator
                 .row(2L)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -401,7 +399,7 @@ public class TestHashSemiJoinOperator
                 .row(2L)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -423,7 +421,7 @@ public class TestHashSemiJoinOperator
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of.*")
     public void testMemoryLimit(boolean hashEnabled)
     {
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(100))
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 

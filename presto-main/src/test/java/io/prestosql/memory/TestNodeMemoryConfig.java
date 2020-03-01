@@ -22,7 +22,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
@@ -32,9 +31,9 @@ public class TestNodeMemoryConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
-                .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
-                .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.1)))
+                .setMaxQueryTotalMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
+                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
                 .setReservedPoolDisabled(true));
     }
 
@@ -49,9 +48,9 @@ public class TestNodeMemoryConfig
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
-                .setHeapHeadroom(new DataSize(1, GIGABYTE))
+                .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(DataSize.of(3, GIGABYTE))
+                .setHeapHeadroom(DataSize.of(1, GIGABYTE))
                 .setReservedPoolDisabled(false);
 
         assertFullMapping(properties, expected);

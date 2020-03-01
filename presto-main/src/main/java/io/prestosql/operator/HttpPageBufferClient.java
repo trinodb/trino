@@ -322,8 +322,11 @@ public final class HttpPageBufferClient
                         }
 
                         if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            // TODO: update error message
-                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(uri)));
+                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                                    REMOTE_TASK_MISMATCH_ERROR,
+                                    fromUri(uri),
+                                    taskInstanceId,
+                                    result.getTaskInstanceId()));
                         }
 
                         if (result.getToken() == token) {
@@ -463,7 +466,7 @@ public final class HttpPageBufferClient
 
     private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
     {
-        // Can not delegate to other callback while holding a lock on this
+        // Cannot delegate to other callback while holding a lock on this
         checkNotHoldsLock(this);
 
         requestsFailed.incrementAndGet();
@@ -572,7 +575,7 @@ public final class HttpPageBufferClient
                     catch (RuntimeException | IOException e) {
                         // Ignored. Just return whatever message we were able to decode
                     }
-                    throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s:%n%s", response.getStatusCode(), response.getStatusMessage(), body.toString()));
+                    throw new PageTransportErrorException(format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body.toString()));
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200

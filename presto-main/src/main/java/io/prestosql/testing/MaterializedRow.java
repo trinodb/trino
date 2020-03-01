@@ -36,7 +36,7 @@ import static java.util.stream.Collectors.toList;
 public class MaterializedRow
 {
     private final int precision;
-    private final List<Object> values;
+    private final List<?> values;
 
     public MaterializedRow(int precision, Object... values)
     {
@@ -48,7 +48,7 @@ public class MaterializedRow
         checkArgument(precision > 0, "Need at least one digit of precision");
         this.precision = precision;
 
-        this.values = (List<Object>) processValue(precision, values);
+        this.values = (List<?>) processValue(precision, values);
     }
 
     private static Object processValue(int precision, Object value)
@@ -66,7 +66,7 @@ public class MaterializedRow
         }
         if (value instanceof Map) {
             Map<Object, Object> map = new HashMap<>();
-            for (Entry<Object, Object> entry : ((Map<Object, Object>) value).entrySet()) {
+            for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
                 map.put(processValue(precision, entry.getKey()), processValue(precision, entry.getValue()));
             }
             return map;
@@ -112,7 +112,7 @@ public class MaterializedRow
         }
         if (value instanceof Map) {
             Map<Object, Object> map = new HashMap<>();
-            for (Entry<Object, Object> entry : ((Map<Object, Object>) value).entrySet()) {
+            for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
                 map.put(processField(entry.getKey()), processField(entry.getValue()));
             }
             return map;

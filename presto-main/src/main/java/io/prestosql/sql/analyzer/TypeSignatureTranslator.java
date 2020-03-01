@@ -21,7 +21,6 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.DataType;
 import io.prestosql.sql.tree.DataTypeParameter;
 import io.prestosql.sql.tree.DateTimeDataType;
@@ -31,13 +30,17 @@ import io.prestosql.sql.tree.IntervalDayTimeDataType;
 import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.RowDataType;
 import io.prestosql.sql.tree.TypeParameter;
+import org.assertj.core.util.VisibleForTesting;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.prestosql.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -45,6 +48,7 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
 import static io.prestosql.spi.type.TypeSignatureParameter.namedTypeParameter;
 import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
+import static io.prestosql.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -52,14 +56,11 @@ import static java.lang.String.format;
 
 public class TypeSignatureTranslator
 {
-    private static final SqlParser PARSER = new SqlParser();
-
     private TypeSignatureTranslator() {}
 
     public static DataType toSqlType(Type type)
     {
-        // TODO: convert Type -> TypeSignature and translate to DataType by walking the tree
-        return PARSER.createType(type.getDisplayName());
+        return toDataType(type.getTypeSignature());
     }
 
     public static TypeSignature toTypeSignature(DataType type)
@@ -161,5 +162,57 @@ public class TypeSignatureTranslator
         }
 
         return identifier.getValue().toLowerCase(Locale.ENGLISH); // TODO: make this toUpperCase to match standard SQL semantics
+    }
+
+    @VisibleForTesting
+    static DataType toDataType(TypeSignature typeSignature)
+    {
+        switch (typeSignature.getBase()) {
+            case INTERVAL_YEAR_TO_MONTH:
+                return new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.YEAR, IntervalDayTimeDataType.Field.MONTH);
+            case INTERVAL_DAY_TO_SECOND:
+                return new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.DAY, IntervalDayTimeDataType.Field.SECOND);
+            case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
+                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, true, Optional.empty());
+            case StandardTypes.TIMESTAMP:
+                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, false, Optional.empty());
+            case StandardTypes.TIME_WITH_TIME_ZONE:
+                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, true, Optional.empty());
+            case StandardTypes.TIME:
+                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, false, Optional.empty());
+            case StandardTypes.ROW:
+                return new RowDataType(
+                        Optional.empty(),
+                        typeSignature.getParameters().stream()
+                                .map(parameter -> new RowDataType.Field(
+                                        Optional.empty(),
+                                        parameter.getNamedTypeSignature().getFieldName().map(fieldName -> new Identifier(fieldName.getName(), false)),
+                                        toDataType(parameter.getNamedTypeSignature().getTypeSignature())))
+                                .collect(toImmutableList()));
+            case StandardTypes.VARCHAR:
+                return new GenericDataType(
+                        Optional.empty(),
+                        new Identifier(typeSignature.getBase(), false),
+                        typeSignature.getParameters().stream()
+                                .filter(parameter -> parameter.getLongLiteral() != UNBOUNDED_LENGTH)
+                                .map(parameter -> new NumericParameter(Optional.empty(), String.valueOf(parameter)))
+                                .collect(toImmutableList()));
+            default:
+                return new GenericDataType(
+                        Optional.empty(),
+                        new Identifier(typeSignature.getBase(), false),
+                        typeSignature.getParameters().stream()
+                                .map(parameter -> {
+                                    switch (parameter.getKind()) {
+                                        case LONG:
+                                            return new NumericParameter(Optional.empty(), String.valueOf(parameter.getLongLiteral()));
+                                        case TYPE:
+                                            return new TypeParameter(toDataType(parameter.getTypeSignature()));
+                                        default:
+                                            throw new UnsupportedOperationException("Unsupported parameter kind");
+                                    }
+                                })
+                                .collect(toImmutableList()));
+        }
     }
 }

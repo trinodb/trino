@@ -35,7 +35,12 @@ public class DateTimeDataType
 
     public DateTimeDataType(NodeLocation location, Type type, boolean withTimeZone, Optional<String> precision)
     {
-        super(Optional.of(location));
+        this(Optional.of(location), type, withTimeZone, precision);
+    }
+
+    public DateTimeDataType(Optional<NodeLocation> location, Type type, boolean withTimeZone, Optional<String> precision)
+    {
+        super(location);
         this.type = requireNonNull(type, "type is null");
         this.withTimeZone = withTimeZone;
         this.precision = requireNonNull(precision, "precision is null");

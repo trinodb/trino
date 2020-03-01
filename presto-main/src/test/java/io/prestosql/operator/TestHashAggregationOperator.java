@@ -191,7 +191,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -248,7 +248,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 groupIdChannel,
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -280,7 +280,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 300, 0)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.MEGABYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(10, Unit.MEGABYTE))
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
@@ -296,7 +296,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -324,7 +324,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(10))
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
@@ -342,7 +342,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
                 false);
 
@@ -378,7 +378,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -404,7 +404,7 @@ public class TestHashAggregationOperator
                 Optional.of(1),
                 Optional.empty(),
                 1,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
                 false);
 
@@ -441,7 +441,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(3, MEGABYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(3, MEGABYTE))
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
@@ -456,7 +456,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
                 false);
 
@@ -490,7 +490,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
                 false);
 
@@ -521,7 +521,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(1, KILOBYTE)),
+                Optional.of(DataSize.of(1, KILOBYTE)),
                 joinCompiler,
                 true);
 
@@ -603,9 +603,9 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 1,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 true,
-                new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
+                DataSize.ofBytes(smallPagesSpillThresholdSize),
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 joinCompiler,
@@ -659,7 +659,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 true,
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),
@@ -704,7 +704,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
                 useSystemMemory);
 

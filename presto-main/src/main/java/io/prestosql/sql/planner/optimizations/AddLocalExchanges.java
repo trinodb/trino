@@ -90,6 +90,7 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
 
 public class AddLocalExchanges
@@ -212,7 +213,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTopN(TopNNode node, StreamPreferredProperties parentPreferences)
         {
-            if (node.getStep().equals(TopNNode.Step.PARTIAL)) {
+            if (node.getStep() == TopNNode.Step.PARTIAL) {
                 return planAndEnforceChildren(
                         node,
                         parentPreferences.withoutPreference().withDefaultParallelism(session),
@@ -482,9 +483,24 @@ public class AddLocalExchanges
         {
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
+            // TODO: add support for arbitrary partitioning in local exchanges
             if (getTaskWriterCount(session) > 1) {
-                requiredProperties = fixedParallelism();
-                preferredProperties = fixedParallelism();
+                boolean hasFixedHashDistribution = node.getPartitioningScheme()
+                        .map(scheme -> scheme.getPartitioning().getHandle())
+                        .filter(isEqual(FIXED_HASH_DISTRIBUTION))
+                        .isPresent();
+                if (!node.getPartitioningScheme().isPresent()) {
+                    requiredProperties = fixedParallelism();
+                    preferredProperties = fixedParallelism();
+                }
+                else if (hasFixedHashDistribution) {
+                    requiredProperties = exactlyPartitionedOn(node.getPartitioningScheme().get().getPartitioning().getColumns());
+                    preferredProperties = requiredProperties;
+                }
+                else {
+                    requiredProperties = singleStream();
+                    preferredProperties = defaultParallelism(session);
+                }
             }
             else {
                 requiredProperties = singleStream();
@@ -500,7 +516,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitExchange(ExchangeNode node, StreamPreferredProperties parentPreferences)
         {
-            checkArgument(node.getScope() != LOCAL, "AddLocalExchanges can not process a plan containing a local exchange");
+            checkArgument(node.getScope() != LOCAL, "AddLocalExchanges cannot process a plan containing a local exchange");
             // this node changes the input organization completely, so we do not pass through parent preferences
             if (node.getOrderingScheme().isPresent()) {
                 return planAndEnforceChildren(

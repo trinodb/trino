@@ -20,6 +20,7 @@ import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -35,9 +36,10 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public class TestLocalQueries
         extends AbstractTestQueries
 {
-    public TestLocalQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        return createLocalQueryRunner();
     }
 
     public static LocalQueryRunner createLocalQueryRunner()
@@ -49,7 +51,9 @@ public class TestLocalQueries
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES));
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
+                .withDefaultSessionProperties(ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES))
+                .build();
 
         // add the tpch catalog
         // local queries run directly against the generator

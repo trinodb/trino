@@ -106,6 +106,7 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.server.protocol.ExecutingStatementResource;
 import io.prestosql.server.remotetask.RemoteTaskStats;
+import io.prestosql.server.ui.WorkerResource;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.security.SelectedRole;
@@ -164,7 +165,6 @@ import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.prestosql.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
@@ -183,8 +183,7 @@ public class CoordinatorModule
     @Override
     protected void setup(Binder binder)
     {
-        httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
-        httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
+        install(new WebUiModule());
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
@@ -202,9 +201,6 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
-
-        // resource for serving static content
-        jaxrsBinder(binder).bind(WebUiResource.class);
 
         // failure detector
         binder.install(new FailureDetectorModule());
@@ -255,6 +251,7 @@ public class CoordinatorModule
 
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
 
         // statistics calculator
         binder.install(new StatsCalculatorModule());
@@ -264,9 +261,6 @@ public class CoordinatorModule
         binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostComparator.class).in(Scopes.SINGLETON);
-
-        // cluster statistics
-        jaxrsBinder(binder).bind(ClusterStatsResource.class);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
@@ -434,11 +428,11 @@ public class CoordinatorModule
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
     }
 
-    private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)
+    private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
         install(installModuleIf(
                 MemoryManagerConfig.class,
-                config -> name.equals(config.getLowMemoryKillerPolicy()),
+                config -> policy == config.getLowMemoryKillerPolicy(),
                 binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
     }
 

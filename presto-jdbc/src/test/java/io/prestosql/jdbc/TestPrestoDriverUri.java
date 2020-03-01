@@ -19,6 +19,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
@@ -233,6 +234,16 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + extraCredentials);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(EXTRA_CREDENTIALS.getKey()), extraCredentials);
+    }
+
+    @Test
+    public void testUriWithClientTags()
+            throws SQLException
+    {
+        String clientTags = "c1,c2";
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?clientTags=" + clientTags);
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(CLIENT_TAGS.getKey()), clientTags);
     }
 
     private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)

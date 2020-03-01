@@ -50,7 +50,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,13 +59,13 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 
 public class PartitionTable
@@ -227,6 +226,10 @@ public class PartitionTable
 
             // add column level metrics
             for (int i = 0; i < columnMetricTypes.size(); i++) {
+                if (!partition.hasValidColumnMetrics()) {
+                    row.add(null);
+                    continue;
+                }
                 Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
                 Type.PrimitiveType type = idToTypeMapping.get(fieldId);
                 Object min = convert(partition.getMinValues().get(fieldId), type);
@@ -267,6 +270,9 @@ public class PartitionTable
 
     private Map<Integer, Object> toMap(Map<Integer, ByteBuffer> idToMetricMap)
     {
+        if (idToMetricMap == null) {
+            return null;
+        }
         ImmutableMap.Builder<Integer, Object> map = ImmutableMap.builder();
         idToMetricMap.forEach((id, value) -> {
             Type.PrimitiveType type = idToTypeMapping.get(id);
@@ -311,6 +317,7 @@ public class PartitionTable
         private final Map<Integer, Object> maxValues;
         private final Map<Integer, Long> nullCounts;
         private final Set<Integer> corruptedStats;
+        private boolean hasValidColumnMetrics;
 
         public Partition(
                 StructLike values,
@@ -324,14 +331,23 @@ public class PartitionTable
             this.recordCount = recordCount;
             this.fileCount = 1;
             this.size = size;
-            this.minValues = new HashMap<>(requireNonNull(minValues, "minValues is null"));
-            this.maxValues = new HashMap<>(requireNonNull(maxValues, "maxValues is null"));
-            // we are assuming if minValues is not present, max will be not be present either.
-            this.corruptedStats = nonPartitionPrimitiveColumns.stream()
-                    .map(Types.NestedField::fieldId)
-                    .filter(id -> !minValues.containsKey(id) && (!nullCounts.containsKey(id) || nullCounts.get(id) != recordCount))
-                    .collect(toCollection(HashSet::new));
-            this.nullCounts = new HashMap<>(nullCounts);
+            if (minValues == null || maxValues == null || nullCounts == null) {
+                this.minValues = null;
+                this.maxValues = null;
+                this.nullCounts = null;
+                corruptedStats = null;
+            }
+            else {
+                this.minValues = new HashMap<>(minValues);
+                this.maxValues = new HashMap<>(maxValues);
+                // we are assuming if minValues is not present, max will be not be present either.
+                this.corruptedStats = nonPartitionPrimitiveColumns.stream()
+                        .map(Types.NestedField::fieldId)
+                        .filter(id -> !minValues.containsKey(id) && (!nullCounts.containsKey(id) || nullCounts.get(id) != recordCount))
+                        .collect(toImmutableSet());
+                this.nullCounts = new HashMap<>(nullCounts);
+                hasValidColumnMetrics = true;
+            }
         }
 
         public StructLike getValues()
@@ -369,6 +385,11 @@ public class PartitionTable
             return nullCounts;
         }
 
+        public boolean hasValidColumnMetrics()
+        {
+            return hasValidColumnMetrics;
+        }
+
         public void incrementRecordCount(long count)
         {
             this.recordCount += count;
@@ -403,6 +424,13 @@ public class PartitionTable
 
         private void updateStats(Map<Integer, Object> current, Map<Integer, Object> newStat, Map<Integer, Long> nullCounts, long recordCount, Predicate<Integer> predicate)
         {
+            if (!hasValidColumnMetrics) {
+                return;
+            }
+            if (newStat == null || nullCounts == null) {
+                hasValidColumnMetrics = false;
+                return;
+            }
             for (Types.NestedField column : nonPartitionPrimitiveColumns) {
                 int id = column.fieldId();
 
@@ -433,6 +461,13 @@ public class PartitionTable
 
         public void updateNullCount(Map<Integer, Long> nullCounts)
         {
+            if (!hasValidColumnMetrics) {
+                return;
+            }
+            if (nullCounts == null) {
+                hasValidColumnMetrics = false;
+                return;
+            }
             nullCounts.forEach((key, counts) ->
                     this.nullCounts.merge(key, counts, Long::sum));
         }

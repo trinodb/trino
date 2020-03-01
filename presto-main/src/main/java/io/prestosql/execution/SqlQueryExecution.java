@@ -66,11 +66,14 @@ import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.Explain;
+import io.prestosql.sql.tree.Query;
+import io.prestosql.sql.tree.Statement;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,7 +84,6 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -255,7 +257,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return DataSize.ofBytes(0);
         }
         return succinctBytes(scheduler.getUserMemoryReservation());
     }
@@ -272,7 +274,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return DataSize.ofBytes(0);
         }
         return succinctBytes(scheduler.getTotalMemoryReservation());
     }
@@ -597,6 +599,24 @@ public class SqlQueryExecution
         }
 
         return queryInfo;
+    }
+
+    @Override
+    public boolean shouldWaitForMinWorkers()
+    {
+        return shouldWaitForMinWorkers(analysis.getStatement());
+    }
+
+    private boolean shouldWaitForMinWorkers(Statement statement)
+    {
+        if (statement instanceof Query) {
+            // Allow set session statements and queries on internal system connectors to run without waiting
+            Collection<TableHandle> tables = analysis.getTables();
+            return !tables.stream()
+                    .map(TableHandle::getCatalogName)
+                    .allMatch(CatalogName::isInternalSystemConnector);
+        }
+        return true;
     }
 
     private static class PlanRoot

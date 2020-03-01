@@ -18,8 +18,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
@@ -29,26 +29,15 @@ public class Identity
     private final Optional<Principal> principal;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
+    private final Optional<Runnable> onDestroy;
 
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal)
-    {
-        this(user, principal, emptyMap());
-    }
-
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles)
-    {
-        this(user, principal, roles, emptyMap());
-    }
-
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
+    private Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials, Optional<Runnable> onDestroy)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.roles = unmodifiableMap(new HashMap<>(requireNonNull(roles, "roles is null")));
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
+        this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
     }
 
     public String getUser()
@@ -73,13 +62,24 @@ public class Identity
 
     public ConnectorIdentity toConnectorIdentity()
     {
-        return new ConnectorIdentity(user, principal, Optional.empty(), extraCredentials);
+        return ConnectorIdentity.forUser(user)
+                .withPrincipal(principal)
+                .withExtraCredentials(extraCredentials)
+                .build();
     }
 
     public ConnectorIdentity toConnectorIdentity(String catalog)
     {
-        requireNonNull(catalog, "catalog is null");
-        return new ConnectorIdentity(user, principal, Optional.ofNullable(roles.get(catalog)), extraCredentials);
+        return ConnectorIdentity.forUser(user)
+                .withPrincipal(principal)
+                .withRole(Optional.ofNullable(roles.get(catalog)))
+                .withExtraCredentials(extraCredentials)
+                .build();
+    }
+
+    public void destroy()
+    {
+        onDestroy.ifPresent(Runnable::run);
     }
 
     @Override
@@ -133,19 +133,26 @@ public class Identity
 
     public static class Builder
     {
-        private final String user;
+        private String user;
         private Optional<Principal> principal = Optional.empty();
         private Map<String, SelectedRole> roles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
+        private Optional<Runnable> onDestroy = Optional.empty();
 
         public Builder(String user)
         {
             this.user = requireNonNull(user, "user is null");
         }
 
+        public Builder withUser(String user)
+        {
+            this.user = requireNonNull(user, "user is null");
+            return this;
+        }
+
         public Builder withPrincipal(Principal principal)
         {
-            return withPrincipal(Optional.of(principal));
+            return withPrincipal(Optional.of(requireNonNull(principal, "principal is null")));
         }
 
         public Builder withPrincipal(Optional<Principal> principal)
@@ -170,15 +177,56 @@ public class Identity
             return this;
         }
 
+        public Builder withAdditionalRoles(Map<String, SelectedRole> roles)
+        {
+            this.roles.putAll(requireNonNull(roles, "roles is null"));
+            return this;
+        }
+
         public Builder withExtraCredentials(Map<String, String> extraCredentials)
         {
             this.extraCredentials = new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null"));
             return this;
         }
 
+        public Builder withAdditionalExtraCredentials(Map<String, String> extraCredentials)
+        {
+            this.extraCredentials.putAll(requireNonNull(extraCredentials, "extraCredentials is null"));
+            return this;
+        }
+
+        public void withOnDestroy(Runnable onDestroy)
+        {
+            requireNonNull(onDestroy, "onDestroy is null");
+            if (this.onDestroy.isPresent()) {
+                throw new IllegalStateException("Destroy callback already set");
+            }
+            this.onDestroy = Optional.of(new InvokeOnceRunnable(onDestroy));
+        }
+
         public Identity build()
         {
-            return new Identity(user, principal, roles, extraCredentials);
+            return new Identity(user, principal, roles, extraCredentials, onDestroy);
+        }
+    }
+
+    private static final class InvokeOnceRunnable
+            implements Runnable
+    {
+        private final Runnable delegate;
+        private final AtomicBoolean invoked = new AtomicBoolean();
+
+        public InvokeOnceRunnable(Runnable delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void run()
+        {
+            if (invoked.compareAndSet(false, true)) {
+                delegate.run();
+            }
         }
     }
 }

@@ -67,7 +67,7 @@ public class ScalarStatsCalculator
     @Inject
     public ScalarStatsCalculator(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata can not be null");
+        this.metadata = requireNonNull(metadata, "metadata cannot be null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 

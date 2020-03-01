@@ -155,7 +155,7 @@ public class FileHiveMetastore
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(catalogDirectory, "baseDirectory is null"));
-        this.hdfsContext = new HdfsContext(new ConnectorIdentity(metastoreUser, Optional.empty(), Optional.empty()));
+        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(metastoreUser));
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }
@@ -170,7 +170,7 @@ public class FileHiveMetastore
         requireNonNull(database, "database is null");
 
         if (database.getLocation().isPresent()) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Database can not be created with a location set");
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Database cannot be created with a location set");
         }
 
         verifyDatabaseNotExists(database.getDatabaseName());
@@ -267,7 +267,7 @@ public class FileHiveMetastore
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
                 }
                 if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table.getParameters())) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "External table location can not be inside the system metadata directory");
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "External table location cannot be inside the system metadata directory");
                 }
             }
             catch (IOException e) {
@@ -373,16 +373,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        Table table = getRequiredTable(databaseName, tableName);
         PartitionStatistics originalStatistics = getPartitionStatistics(table, extractPartitionValues(partitionName));
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
         List<String> partitionValues = extractPartitionValues(partitionName);
         Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
         PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
 
         PartitionMetadata updatedMetadata = partitionMetadata
                 .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
@@ -675,7 +674,7 @@ public class FileHiveMetastore
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External partition location does not exist");
                 }
                 if (isChildDirectory(catalogDirectory, externalLocation)) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "External partition location can not be inside the system metadata directory");
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "External partition location cannot be inside the system metadata directory");
                 }
             }
             catch (IOException e) {
@@ -683,7 +682,7 @@ public class FileHiveMetastore
             }
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "Partitions can not be added to " + table.getTableType());
+            throw new PrestoException(NOT_SUPPORTED, "Partitions cannot be added to " + table.getTableType());
         }
     }
 
@@ -883,9 +882,20 @@ public class FileHiveMetastore
 
         List<String> partitionNames = partitions.stream()
                 .map(partitionValues -> makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
+                .filter(partitionName -> isValidPartition(table, partitionName))
                 .collect(toList());
 
         return Optional.of(ImmutableList.copyOf(partitionNames));
+    }
+
+    private boolean isValidPartition(Table table, String partitionName)
+    {
+        try {
+            return metadataFileSystem.exists(new Path(getPartitionMetadataDirectory(table, partitionName), PRESTO_SCHEMA_FILE_NAME));
+        }
+        catch (IOException e) {
+            return false;
+        }
     }
 
     private List<ArrayDeque<String>> listPartitions(Path director, List<Column> partitionColumns)

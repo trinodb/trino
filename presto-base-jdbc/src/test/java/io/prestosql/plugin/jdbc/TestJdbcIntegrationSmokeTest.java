@@ -14,19 +14,19 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Properties;
 
-import static io.prestosql.plugin.jdbc.BaseJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
@@ -48,7 +48,7 @@ public class TestJdbcIntegrationSmokeTest
     {
         try (TestTable table = new TestTable(
                 getSqlExecutor(),
-                "tpch.test_failure_on_unknown_type",
+                "tpch.test_failure_on_unknown_type_as_ignored",
                 "(int_column int, geometry_column GEOMETRY)",
                 ImmutableList.of(
                         "1, NULL",
@@ -58,7 +58,7 @@ public class TestJdbcIntegrationSmokeTest
             assertQuery(ignoreUnsupportedType, "SELECT * FROM " + table.getName(), "VALUES 1, 2");
             assertQuery(
                     ignoreUnsupportedType,
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE '%_unknown_%'",
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'test_failure_on_unknown_type_as_ignored%'",
                     "VALUES ('int_column', 'integer')");
             assertQuery(
                     ignoreUnsupportedType,
@@ -75,7 +75,7 @@ public class TestJdbcIntegrationSmokeTest
     {
         try (TestTable table = new TestTable(
                 getSqlExecutor(),
-                "tpch.test_failure_on_unknown_type",
+                "tpch.test_failure_on_unknown_type_as_varchar",
                 "(int_column int, geometry_column GEOMETRY)",
                 ImmutableList.of(
                         "1, NULL",
@@ -96,7 +96,7 @@ public class TestJdbcIntegrationSmokeTest
 
             assertQuery(
                     convertToVarcharUnsupportedTypes,
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE '%_unknown_%'",
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'test_failure_on_unknown_type_as_varchar%'",
                     "VALUES ('int_column', 'integer'), ('geometry_column', 'varchar')");
             assertQuery(
                     convertToVarcharUnsupportedTypes,

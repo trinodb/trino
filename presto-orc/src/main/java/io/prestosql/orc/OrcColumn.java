@@ -14,10 +14,12 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,6 +32,7 @@ public final class OrcColumn
     private final String columnName;
     private final OrcDataSourceId orcDataSourceId;
     private final List<OrcColumn> nestedColumns;
+    private final Map<String, String> attributes;
 
     public OrcColumn(
             String path,
@@ -37,7 +40,8 @@ public final class OrcColumn
             String columnName,
             OrcTypeKind columnType,
             OrcDataSourceId orcDataSourceId,
-            List<OrcColumn> nestedColumns)
+            List<OrcColumn> nestedColumns,
+            Map<String, String> attributes)
     {
         this.path = requireNonNull(path, "path is null");
         this.columnId = requireNonNull(columnId, "columnId is null");
@@ -45,6 +49,7 @@ public final class OrcColumn
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.nestedColumns = ImmutableList.copyOf(requireNonNull(nestedColumns, "nestedColumns is null"));
+        this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
     }
 
     public String getPath()
@@ -75,6 +80,11 @@ public final class OrcColumn
     public List<OrcColumn> getNestedColumns()
     {
         return nestedColumns;
+    }
+
+    public Map<String, String> getAttributes()
+    {
+        return attributes;
     }
 
     @Override

@@ -25,14 +25,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestAggregations
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestAggregations(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestAggregations() {}
-
     @Test
     public void testCountBoolean()
     {
@@ -95,6 +87,32 @@ public abstract class AbstractTestAggregations
                         "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
                         "GROUP BY y",
                 "VALUES 1");
+    }
+
+    /**
+     * This case tests that Aggregation isn't incorrectly pushed down into the inner source of JoinNode
+     * in the case when it uses symbols from the outer source of JoinNode.
+     */
+    @Test
+    public void testAggregationUsingOuterTableSymbols()
+    {
+        assertQuery(
+                "SELECT max_by(n.nationkey, r.regionkey) FROM (SELECT DISTINCT regionkey FROM region) r LEFT JOIN nation n ON n.regionkey = r.regionkey GROUP BY r.regionkey",
+                "VALUES 16, 20, 21, 23, 24");
+    }
+
+    /**
+     * In this case, Aggregation count(*) can be pushed down into the inner source of JoinNode.
+     */
+    @Test
+    public void testCountAllOverJoin()
+    {
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT DISTINCT a, b FROM (VALUES (1, 1), (1, 2)) l(a, b)) l " +
+                        "LEFT JOIN (SELECT 1 a) r ON l.a = r.a " +
+                        "GROUP BY l.a, l.b",
+                "VALUES 1, 1");
     }
 
     @Test
@@ -858,9 +876,11 @@ public abstract class AbstractTestAggregations
         MaterializedResult actual = computeActual("SELECT a FROM (VALUES (ARRAY[nan(), 2e0, 3e0]), (ARRAY[nan(), 2e0, 3e0])) t(a) GROUP BY a");
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
         assertEquals(actualRows.size(), 1);
-        assertTrue(Double.isNaN(((List<Double>) actualRows.get(0).getField(0)).get(0)));
-        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(1), 2.0);
-        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(2), 3.0);
+        @SuppressWarnings("unchecked")
+        List<Double> value = (List<Double>) actualRows.get(0).getField(0);
+        assertTrue(Double.isNaN(value.get(0)));
+        assertEquals(value.get(1), 2.0);
+        assertEquals(value.get(2), 3.0);
     }
 
     @Test

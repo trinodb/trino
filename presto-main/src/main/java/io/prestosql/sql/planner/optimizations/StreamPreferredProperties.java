@@ -62,7 +62,7 @@ public class StreamPreferredProperties
         this.exactColumnOrder = exactColumnOrder;
         this.orderSensitive = orderSensitive;
 
-        checkArgument(!orderSensitive || !partitioningColumns.isPresent(), "An order sensitive context can not prefer partitioning");
+        checkArgument(!orderSensitive || !partitioningColumns.isPresent(), "An order sensitive context cannot prefer partitioning");
     }
 
     public static StreamPreferredProperties any()

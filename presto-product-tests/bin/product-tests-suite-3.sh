@@ -2,22 +2,22 @@
 
 set -xeuo pipefail
 
-exit_code=0
+suite_exit_code=0
 
-presto-product-tests/bin/run_on_docker.sh \
-    multinode-tls \
-    -g smoke,cli,group-by,join,tls \
-    || exit_code=1
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment multinode-tls \
+    -- -g smoke,cli,group-by,join,tls \
+    || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    multinode-tls-kerberos \
-    -g cli,group-by,join,tls \
-    || exit_code=1
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment multinode-tls-kerberos \
+    -- -g cli,group-by,join,tls \
+    || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kerberos-hdfs-impersonation-with-wire-encryption \
-    -g storage_formats,cli,hdfs_impersonation,authorization \
-    || exit_code=1
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-kerberos-hdfs-impersonation-with-wire-encryption \
+    -- -g storage_formats,cli,hdfs_impersonation,authorization \
+    || suite_exit_code=1
 
-echo "$0: exiting with ${exit_code}"
-exit "${exit_code}"
+echo "$0: exiting with ${suite_exit_code}"
+exit "${suite_exit_code}"

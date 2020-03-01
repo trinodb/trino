@@ -1466,7 +1466,7 @@ public class TestExpressionInterpreter
         for (Entry<Symbol, Type> entry : SYMBOL_TYPES.allTypes().entrySet()) {
             aliases.put(entry.getKey().getName(), new SymbolReference(entry.getKey().getName()));
         }
-        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
+        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions()));
         assertExpressionEquals((Expression) actualOptimized, rewrittenExpected, aliases.build());
     }
 
@@ -1549,10 +1549,10 @@ public class TestExpressionInterpreter
     }
 
     private static class FailedFunctionRewriter
-            extends ExpressionRewriter<Object>
+            extends ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteFunctionCall(FunctionCall node, Object context, ExpressionTreeRewriter<Object> treeRewriter)
+        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             if (getFunctionName(node).equals(QualifiedName.of("fail"))) {
                 return new FunctionCallBuilder(METADATA)

@@ -333,6 +333,33 @@ public class TestSubqueries
     }
 
     @Test
+    public void testUncorrelatedSubquery()
+    {
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) INNER JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b", "SELECT 1, 2");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (VALUES 1, 3, null) t(a) INNER JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a * 8 < b");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) INNER JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (VALUES 1, 3, null) t(a) INNER JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON a < b");
+
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) LEFT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b", "VALUES (1, 2), (3, null), (null, null)");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) LEFT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a * 8 < b", "VALUES (1, CAST(null AS INTEGER)), (3, null), (null, null)");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) LEFT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) LEFT JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON a < b", "VALUES (1, CAST(null AS INTEGER)), (3, null), (null, null)");
+
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b", "VALUES (1, 2), (null, null), (null, 2), (null, null)");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a * 8 < b", "VALUES (CAST(null AS INTEGER), 2), (null, null), (null, 2), (null, null)");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (VALUES 1, 3, null) t(a) RIGHT JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON a < b");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE", "VALUES (1, 2), (1, null), (null, 2), (null, null)");
+
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE", "VALUES (1, 2), (1, null), (null, 2), (null, null)");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON TRUE", "VALUES (1, CAST(null AS INTEGER)), (null, null)");
+        assertions.assertFails(
+                "SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b",
+                ".* FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
+    }
+
+    @Test
     public void testLateralWithUnnest()
     {
         assertions.assertFails(
@@ -346,6 +373,32 @@ public class TestSubqueries
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 1, 2) t2(b) WHERE (SELECT b) = 2",
                 "VALUES 2");
+    }
+
+    @Test
+    public void testRemoveUnreferencedScalarSubqueryOrInput()
+    {
+        // scalar unreferenced input, empty subquery, nonempty correlation
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE a = 2) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE a = 2) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+
+        // scalar unreferenced input, empty subquery, empty correlation
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) RIGHT JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) FULL JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+
+        // scalar unreferenced subquery, at least scalar input
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) INNER JOIN LATERAL (VALUES a) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) LEFT JOIN LATERAL (VALUES a) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) RIGHT JOIN LATERAL (VALUES 3) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) FULL JOIN LATERAL (VALUES 3) t2(b) ON true", "VALUES 1, 2");
+
+        // scalar unreferenced subquery, empty input
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) INNER JOIN LATERAL (VALUES a) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) LEFT JOIN LATERAL (VALUES a) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) RIGHT JOIN LATERAL (VALUES 2) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) FULL JOIN LATERAL (VALUES 2) t2(b) ON true");
     }
 
     @Test

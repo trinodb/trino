@@ -248,7 +248,7 @@ public class TestReorderWindows
                                         .specification(windowA)
                                         .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
                                 project(
-                                        filter(RECEIPTDATE_ALIAS + " IS NOT NULL",
+                                        filter("NOT (" + RECEIPTDATE_ALIAS + " IS NULL)",
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowApp)
                                                                 .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),

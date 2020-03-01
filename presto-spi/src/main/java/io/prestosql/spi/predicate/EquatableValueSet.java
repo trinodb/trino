@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -33,6 +34,7 @@ import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -148,6 +150,23 @@ public class EquatableValueSet
             throw new IllegalStateException("EquatableValueSet does not have just a single value");
         }
         return entries.iterator().next().getValue();
+    }
+
+    @Override
+    public boolean isDiscreteSet()
+    {
+        return whiteList && !entries.isEmpty();
+    }
+
+    @Override
+    public List<Object> getDiscreteSet()
+    {
+        if (!isDiscreteSet()) {
+            throw new IllegalStateException("EquatableValueSet is not a discrete set");
+        }
+        return unmodifiableList(entries.stream()
+                .map(ValueEntry::getValue)
+                .collect(Collectors.toList()));
     }
 
     @Override

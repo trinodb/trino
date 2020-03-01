@@ -116,7 +116,7 @@ public class NodeTaskMap
             PartitionedSplitCountTracker partitionedSplitCountTracker = new PartitionedSplitCountTracker(tracker::setPartitionedSplitCount);
 
             // when partitionedSplitCountTracker is garbage collected, run the cleanup method on the tracker
-            // Note: tracker can not have a reference to partitionedSplitCountTracker
+            // Note: tracker cannot have a reference to partitionedSplitCountTracker
             finalizerService.addFinalizer(partitionedSplitCountTracker, tracker::cleanup);
 
             return partitionedSplitCountTracker;

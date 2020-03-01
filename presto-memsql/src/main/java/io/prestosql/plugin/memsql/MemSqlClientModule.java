@@ -14,11 +14,10 @@
 package io.prestosql.plugin.memsql;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
@@ -27,35 +26,18 @@ import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import org.mariadb.jdbc.Driver;
 
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
 import java.util.Properties;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MemSqlClientModule
-        extends AbstractConfigurationAwareModule
+        implements Module
 {
     @Override
-    protected void setup(Binder binder)
+    public void configure(Binder binder)
     {
-        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
-                .to(MemSqlClient.class).in(Scopes.SINGLETON);
-        ensureCatalogIsEmpty(buildConfigObject(BaseJdbcConfig.class).getConnectionUrl());
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MemSqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(MemSqlConfig.class);
-    }
-
-    private static void ensureCatalogIsEmpty(String connectionUrl)
-    {
-        try {
-            Driver driver = new Driver();
-            DriverPropertyInfo[] urlProperties = driver.getPropertyInfo(connectionUrl, null);
-            checkArgument(urlProperties != null, "Invalid JDBC URL for MemSQL connector: '%s'", connectionUrl);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Provides

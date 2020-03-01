@@ -37,8 +37,11 @@ import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
+import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -79,7 +82,10 @@ public class TestQueryStateInfoResource
         // queries are started in the background, so they may not all be immediately visible
         while (true) {
             List<BasicQueryInfo> queryInfos = client.execute(
-                    prepareGet().setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/query").build()).build(),
+                    prepareGet()
+                            .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/query").build())
+                            .setHeader(PRESTO_USER, "unknown")
+                            .build(),
                     createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
             if ((queryInfos.size() == 2) && queryInfos.stream().allMatch(info -> info.getState() == RUNNING)) {
                 break;
@@ -97,7 +103,10 @@ public class TestQueryStateInfoResource
     public void testGetAllQueryStateInfos()
     {
         List<QueryStateInfo> infos = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState")).build(),
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState"))
+                        .setHeader(PRESTO_USER, "unknown")
+                        .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
         assertEquals(infos.size(), 2);
@@ -107,7 +116,10 @@ public class TestQueryStateInfoResource
     public void testGetQueryStateInfosForUser()
     {
         List<QueryStateInfo> infos = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState?user=user2")).build(),
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?user=user2"))
+                        .setHeader(PRESTO_USER, "unknown")
+                        .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
         assertEquals(infos.size(), 1);
@@ -117,7 +129,10 @@ public class TestQueryStateInfoResource
     public void testGetQueryStateInfosForUserNoResult()
     {
         List<QueryStateInfo> infos = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState?user=user3")).build(),
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?user=user3"))
+                        .setHeader(PRESTO_USER, "unknown")
+                        .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
         assertTrue(infos.isEmpty());
@@ -127,13 +142,68 @@ public class TestQueryStateInfoResource
     public void testGetQueryStateInfo()
     {
         QueryStateInfo info = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState/" + queryResults.getId())).build(),
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState/" + queryResults.getId()))
+                        .setHeader(PRESTO_USER, "unknown")
+                        .build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
 
         assertNotNull(info);
     }
 
-    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = ".*404: Not Found")
+    @Test
+    public void testGetAllQueryStateInfosDenied()
+    {
+        List<QueryStateInfo> infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState"))
+                        .setHeader(PRESTO_USER, "any-other-user")
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 2);
+
+        testGetAllQueryStateInfosDenied("user1", 1);
+        testGetAllQueryStateInfosDenied("any-other-user", 0);
+    }
+
+    private void testGetAllQueryStateInfosDenied(String executionUser, int expectedCount)
+    {
+        server.getAccessControl().deny(privilege(executionUser, "query", VIEW_QUERY));
+        try {
+            List<QueryStateInfo> infos = client.execute(
+                    prepareGet()
+                            .setUri(server.resolve("/v1/queryState"))
+                            .setHeader(PRESTO_USER, executionUser)
+                            .build(),
+                    createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+
+            assertEquals(infos.size(), expectedCount);
+        }
+        finally {
+            server.getAccessControl().reset();
+        }
+    }
+
+    @Test
+    public void testGetQueryStateInfoDenied()
+    {
+        server.getAccessControl().deny(privilege("query", VIEW_QUERY));
+        try {
+            assertThatThrownBy(() -> client.execute(
+                    prepareGet()
+                            .setUri(server.resolve("/v1/queryState/" + queryResults.getId()))
+                            .setHeader(PRESTO_USER, "unknown")
+                            .build(),
+                    createJsonResponseHandler(jsonCodec(QueryStateInfo.class))))
+                    .isInstanceOf(UnexpectedResponseException.class)
+                    .matches(throwable -> ((UnexpectedResponseException) throwable).getStatusCode() == 403);
+        }
+        finally {
+            server.getAccessControl().reset();
+        }
+    }
+
+    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = "Expected response code .*, but was 404")
     public void testGetQueryStateInfoNo()
     {
         client.execute(

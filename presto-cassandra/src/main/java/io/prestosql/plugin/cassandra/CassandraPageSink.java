@@ -41,6 +41,9 @@ import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.primitives.Shorts.checkedCast;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -92,14 +95,14 @@ public class CassandraPageSink
             this.toCassandraDate = value -> LocalDate.fromDaysSinceEpoch(toIntExact(value));
         }
 
-        Insert insert = insertInto(schemaName, tableName);
+        Insert insert = insertInto(validSchemaName(schemaName), validTableName(tableName));
         if (generateUUID) {
             insert.value("id", bindMarker());
         }
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             checkArgument(columnName != null, "columnName is null at position: %s", i);
-            insert.value(columnName, bindMarker());
+            insert.value(validColumnName(columnName), bindMarker());
         }
         this.insert = cassandraSession.prepare(insert);
     }

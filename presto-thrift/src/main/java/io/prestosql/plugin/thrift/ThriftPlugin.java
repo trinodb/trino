@@ -18,12 +18,8 @@ import com.google.inject.Module;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-import java.util.List;
-import java.util.ServiceLoader;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftPlugin
@@ -34,12 +30,7 @@ public class ThriftPlugin
 
     public ThriftPlugin()
     {
-        this(getPluginInfo());
-    }
-
-    private ThriftPlugin(ThriftPluginInfo info)
-    {
-        this(info.getName(), info.getModule());
+        this("presto-thrift", new ThriftClientModule());
     }
 
     public ThriftPlugin(String name, Module module)
@@ -53,13 +44,5 @@ public class ThriftPlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new ThriftConnectorFactory(name, module));
-    }
-
-    private static ThriftPluginInfo getPluginInfo()
-    {
-        ClassLoader classLoader = ThriftPlugin.class.getClassLoader();
-        ServiceLoader<ThriftPluginInfo> loader = ServiceLoader.load(ThriftPluginInfo.class, classLoader);
-        List<ThriftPluginInfo> list = ImmutableList.copyOf(loader);
-        return list.isEmpty() ? new ThriftPluginInfo() : getOnlyElement(list);
     }
 }

@@ -15,7 +15,6 @@ package io.prestosql.execution.scheduler;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -39,6 +38,7 @@ import java.util.function.Supplier;
 
 import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.prestosql.execution.scheduler.NodeScheduler.getAllNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
@@ -93,7 +93,7 @@ public class TopologyAwareNodeSelector
     @Override
     public List<InternalNode> allNodes()
     {
-        return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
+        return getAllNodes(nodeMap.get().get(), includeCoordinator);
     }
 
     @Override

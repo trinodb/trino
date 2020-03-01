@@ -16,7 +16,6 @@ package io.prestosql.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -25,6 +24,7 @@ import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.io.File;

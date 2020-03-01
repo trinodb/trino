@@ -90,7 +90,7 @@ public class HashBuilderOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            requireNonNull(sortChannel, "sortChannel can not be null");
+            requireNonNull(sortChannel, "sortChannel cannot be null");
             requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
             checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
             this.lookupSourceFactoryManager = requireNonNull(lookupSourceFactoryManager, "lookupSourceFactoryManager is null");
@@ -142,7 +142,7 @@ public class HashBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            throw new UnsupportedOperationException("Parallel hash build can not be duplicated");
+            throw new UnsupportedOperationException("Parallel hash build cannot be duplicated");
         }
 
         private int getAndIncrementPartitionIndex(Lifespan lifespan)
@@ -398,7 +398,7 @@ public class HashBuilderOperator
             return immediateFuture(null);
         }
 
-        throw new IllegalStateException(format("State %s can not have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
+        throw new IllegalStateException(format("State %s cannot have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
     }
 
     private ListenableFuture<?> spillIndex()

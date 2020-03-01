@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 public class RcFilePageSource
         implements ConnectorPageSource
 {
-    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
+    private static final long GUESSED_MEMORY_USAGE = DataSize.of(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private static final int NULL_ENTRY_SIZE = 0;
     private final RcFileReader rcFileReader;

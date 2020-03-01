@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
 import java.util.Collection;
+import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 
@@ -96,6 +97,10 @@ public interface ValueSet
     boolean isSingleValue();
 
     Object getSingleValue();
+
+    boolean isDiscreteSet();
+
+    List<Object> getDiscreteSet();
 
     boolean containsValue(Object value);
 

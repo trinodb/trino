@@ -26,6 +26,8 @@ import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
+import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
+import io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider;
 import io.prestosql.plugin.jdbc.credential.ConfigFileBasedCredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialConfig;
 import io.prestosql.plugin.jdbc.credential.ExtraCredentialProvider;
@@ -49,6 +51,8 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -73,6 +77,10 @@ public class PhoenixClientModule
         binder.bind(ConnectorRecordSetProvider.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
+        bindSessionPropertiesProvider(binder, TypeHandlingJdbcPropertiesProvider.class);
+
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
@@ -111,17 +119,12 @@ public class PhoenixClientModule
                 new LoggingInvocationHandler.ReflectiveParameterNamesProvider(),
                 logger::debug));
 
-        return new ForwardingJdbcClient()
-        {
-            @Override
-            protected JdbcClient getDelegate()
-            {
-                if (logger.isDebugEnabled()) {
-                    return loggingInvocationsJdbcClient;
-                }
-                return statisticsAwareJdbcClient;
+        return ForwardingJdbcClient.of(() -> {
+            if (logger.isDebugEnabled()) {
+                return loggingInvocationsJdbcClient;
             }
-        };
+            return statisticsAwareJdbcClient;
+        });
     }
 
     @Provides

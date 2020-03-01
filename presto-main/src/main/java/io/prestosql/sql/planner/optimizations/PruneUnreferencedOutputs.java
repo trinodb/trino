@@ -357,7 +357,6 @@ public class PruneUnreferencedOutputs
                 if (context.get().contains(symbol)) {
                     Aggregation aggregation = entry.getValue();
                     expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation));
-                    aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(symbol, aggregation);
                 }
             }

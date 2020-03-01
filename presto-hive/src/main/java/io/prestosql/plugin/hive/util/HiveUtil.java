@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
+import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveType;
@@ -35,6 +36,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.ArrayType;
@@ -45,6 +47,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -55,11 +58,13 @@ import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -122,7 +127,9 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.prestosql.plugin.hive.HiveQlTranslation.translateHiveQlToPrestoSql;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
@@ -310,8 +317,11 @@ public final class HiveUtil
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
-                // symlink targets are always TextInputFormat
+                // Symlink targets are assumed to be TEXTFILE unless serde indicates otherwise.
                 inputFormatClass = TextInputFormat.class;
+                if (isDeserializerClass(schema, AvroSerDe.class)) {
+                    inputFormatClass = AvroContainerInputFormat.class;
+                }
             }
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
@@ -663,6 +673,22 @@ public final class HiveUtil
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
         byte[] bytes = Base64.getDecoder().decode(data);
         return VIEW_CODEC.fromJson(bytes);
+    }
+
+    public static ConnectorViewDefinition buildHiveViewConnectorDefinition(HiveCatalogName catalogName, Table view)
+    {
+        String viewText = view.getViewExpandedText()
+                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view expanded text: " + view.getSchemaTableName()));
+        return new ConnectorViewDefinition(
+                translateHiveQlToPrestoSql(viewText),
+                Optional.of(catalogName.toString()),
+                Optional.ofNullable(view.getDatabaseName()),
+                view.getDataColumns().stream()
+                        .map(column -> new ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
+                        .collect(toImmutableList()),
+                Optional.ofNullable(view.getParameters().get(TABLE_COMMENT)),
+                Optional.of(view.getOwner()),
+                false); // don't run as invoker
     }
 
     public static Optional<DecimalType> getDecimalType(HiveType hiveType)

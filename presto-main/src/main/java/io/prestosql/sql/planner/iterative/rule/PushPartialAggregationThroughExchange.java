@@ -87,7 +87,7 @@ public class PushPartialAggregationThroughExchange
 
         boolean decomposable = aggregationNode.isDecomposable(metadata);
 
-        if (aggregationNode.getStep().equals(SINGLE) &&
+        if (aggregationNode.getStep() == SINGLE &&
                 aggregationNode.hasEmptyGroupingSet() &&
                 aggregationNode.hasNonEmptyGroupingSet() &&
                 exchangeNode.getType() == REPARTITION) {

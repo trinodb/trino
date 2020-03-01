@@ -20,6 +20,7 @@ import io.prestosql.benchmark.BenchmarkSuite;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.testing.LocalQueryRunner;
@@ -59,7 +60,7 @@ public final class HiveBenchmarkQueryRunner
                 .setSchema("tpch")
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.create(session);
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

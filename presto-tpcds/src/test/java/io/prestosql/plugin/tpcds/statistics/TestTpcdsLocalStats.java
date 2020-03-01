@@ -45,7 +45,7 @@ public class TestTpcdsLocalStats
                 .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true")
                 .build();
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(defaultSession);
         queryRunner.createCatalog("tpcds", new TpcdsConnectorFactory(), emptyMap());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }

@@ -26,6 +26,7 @@ import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.prestosql.spi.security.BasicPrincipal;
+import io.prestosql.spi.security.Identity;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
@@ -35,7 +36,6 @@ import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Key;
-import java.security.Principal;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -45,6 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -59,11 +60,13 @@ public class JsonWebTokenAuthenticator
 
     private final JwtParser jwtParser;
     private final Function<JwsHeader<?>, Key> keyLoader;
+    private final UserMapping userMapping;
 
     @Inject
     public JsonWebTokenAuthenticator(JsonWebTokenConfig config)
     {
         requireNonNull(config, "config is null");
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         if (config.getKeyFile().contains(KEY_ID_VARIABLE)) {
             keyLoader = new DynamicKeyLoader(config.getKeyFile());
@@ -75,7 +78,7 @@ public class JsonWebTokenAuthenticator
         JwtParser jwtParser = Jwts.parser()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
-                    // interface uses raw types and this can not be fixed here
+                    // interface uses raw types and this cannot be fixed here
                     @SuppressWarnings("rawtypes")
                     @Override
                     public Key resolveSigningKey(JwsHeader header, Claims claims)
@@ -101,7 +104,7 @@ public class JsonWebTokenAuthenticator
     }
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         String header = nullToEmpty(request.getHeader(AUTHORIZATION));
@@ -118,9 +121,12 @@ public class JsonWebTokenAuthenticator
         try {
             Jws<Claims> claimsJws = jwtParser.parseClaimsJws(token);
             String subject = claimsJws.getBody().getSubject();
-            return new BasicPrincipal(subject);
+            String authenticatedUser = userMapping.mapUser(subject);
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(new BasicPrincipal(subject))
+                    .build();
         }
-        catch (JwtException e) {
+        catch (JwtException | UserMappingException e) {
             throw needAuthentication(e.getMessage());
         }
         catch (RuntimeException e) {

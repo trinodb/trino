@@ -103,7 +103,7 @@ public class FrameBound
             return false;
         }
         FrameBound o = (FrameBound) obj;
-        return Objects.equals(type, o.type) &&
+        return type == o.type &&
                 Objects.equals(value, o.value);
     }
 
