@@ -16,10 +16,8 @@ package io.prestosql.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
-import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -27,19 +25,6 @@ import java.util.List;
 
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
-import static io.prestosql.plugin.hive.util.HiveUtil.bigintPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.booleanPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.charPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.datePartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.doublePartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.floatPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.integerPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.longDecimalPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.shortDecimalPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.smallintPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.timestampPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.tinyintPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -56,7 +41,6 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HiveRecordCursor
@@ -100,60 +84,56 @@ public class HiveRecordCursor
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
             if (columnMapping.getKind() == PREFILLED) {
-                String columnValue = columnMapping.getPrefilledValue();
-                byte[] bytes = columnValue.getBytes(UTF_8);
-
-                String name = columnMapping.getHiveColumnHandle().getName();
+                Object prefilledValue = columnMapping.getPrefilledValue();
                 Type type = columnMapping.getHiveColumnHandle().getType();
-                types[columnIndex] = type;
 
-                if (HiveUtil.isHiveNull(bytes)) {
+                if (prefilledValue == null) {
                     nulls[columnIndex] = true;
                 }
                 else if (BOOLEAN.equals(type)) {
-                    booleans[columnIndex] = booleanPartitionKey(columnValue, name);
+                    booleans[columnIndex] = (Boolean) prefilledValue;
                 }
                 else if (TINYINT.equals(type)) {
-                    longs[columnIndex] = tinyintPartitionKey(columnValue, name);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (SMALLINT.equals(type)) {
-                    longs[columnIndex] = smallintPartitionKey(columnValue, name);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (INTEGER.equals(type)) {
-                    longs[columnIndex] = integerPartitionKey(columnValue, name);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (BIGINT.equals(type)) {
-                    longs[columnIndex] = bigintPartitionKey(columnValue, name);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (REAL.equals(type)) {
-                    longs[columnIndex] = floatPartitionKey(columnValue, name);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (DOUBLE.equals(type)) {
-                    doubles[columnIndex] = doublePartitionKey(columnValue, name);
+                    doubles[columnIndex] = (Double) prefilledValue;
                 }
                 else if (isVarcharType(type)) {
-                    slices[columnIndex] = varcharPartitionKey(columnValue, name, type);
+                    slices[columnIndex] = (Slice) prefilledValue;
                 }
                 else if (isCharType(type)) {
-                    slices[columnIndex] = charPartitionKey(columnValue, name, type);
+                    slices[columnIndex] = (Slice) prefilledValue;
                 }
                 else if (DATE.equals(type)) {
-                    longs[columnIndex] = datePartitionKey(columnValue, name);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (TIMESTAMP.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, false);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, true);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (isShortDecimal(type)) {
-                    longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
+                    longs[columnIndex] = (Long) prefilledValue;
                 }
                 else if (isLongDecimal(type)) {
-                    slices[columnIndex] = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
+                    slices[columnIndex] = (Slice) prefilledValue;
                 }
                 else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), columnMapping.getHiveColumnHandle().getName()));
                 }
             }
         }
