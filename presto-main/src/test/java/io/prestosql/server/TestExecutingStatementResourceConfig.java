@@ -37,7 +37,7 @@ public class TestExecutingStatementResourceConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.target-result-size.default", "4MB")
+                .put("query.target-result-size", "4MB")
                 .build();
 
         ExecutingStatementResourceConfig expected = new ExecutingStatementResourceConfig()

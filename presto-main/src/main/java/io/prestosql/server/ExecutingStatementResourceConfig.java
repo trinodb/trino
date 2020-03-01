@@ -28,7 +28,7 @@ public class ExecutingStatementResourceConfig
         return serverTargetResultSize;
     }
 
-    @Config("query.target-result-size.default")
+    @Config("query.target-result-size")
     @ConfigDescription("Chunk size for query results in JSON responses sent to client")
     public ExecutingStatementResourceConfig setServerTargetResultSize(DataSize targetResultSize)
     {
