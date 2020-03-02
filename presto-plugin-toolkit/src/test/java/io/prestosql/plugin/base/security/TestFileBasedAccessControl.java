@@ -13,18 +13,22 @@
  */
 package io.prestosql.plugin.base.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.type.VarcharType;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedAccessControl
@@ -59,7 +63,15 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSelectFromColumns(user("alice"), new SchemaTableName("test", "test"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(user("alice"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(user("alice"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanShowColumns(user("alice"), new SchemaTableName("bobschema", "bobtable"));
+        assertEquals(
+                accessControl.filterColumns(user("alice"), new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
+                ImmutableList.of(column("a")));
         accessControl.checkCanSelectFromColumns(user("bob"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanShowColumns(user("bob"), new SchemaTableName("bobschema", "bobtable"));
+        assertEquals(
+                accessControl.filterColumns(user("bob"), new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
+                ImmutableList.of(column("a")));
         accessControl.checkCanInsertIntoTable(user("bob"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDeleteFromTable(user("bob"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanSelectFromColumns(user("joe"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
@@ -79,6 +91,17 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(user("joe"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanRenameView(user("bob"), new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(user("alice"), new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("bobschema", "newalicetable")));
+    }
+
+    @Test
+    public void testNoTableRules()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("no-access.json");
+        assertDenied(() -> accessControl.checkCanShowColumns(user("bob"), new SchemaTableName("bobschema", "bobtable")));
+        accessControl.checkCanShowTables(user("bob"), "bobschema");
+        assertEquals(
+                accessControl.filterColumns(user("bob"), new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
+                ImmutableList.of());
     }
 
     @Test
@@ -136,5 +159,10 @@ public class TestFileBasedAccessControl
     private static void assertDenied(ThrowingRunnable runnable)
     {
         assertThrows(AccessDeniedException.class, runnable);
+    }
+
+    private static ColumnMetadata column(String columnName)
+    {
+        return new ColumnMetadata(columnName, VarcharType.VARCHAR);
     }
 }
