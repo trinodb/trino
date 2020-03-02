@@ -212,10 +212,10 @@ public class LdapAuthenticator
 
             String userDistinguishedName = search.next().getNameInNamespace();
             while (search.hasMore()) {
-                if (!userDistinguishedName.equals(search.next().getNameInNamespace())) {
-                    String message = format("Multiple group membership results for user [%s] with different distinguished names", user);
-                    log.debug(message);
-                    throw new AccessDeniedException(message);
+                String nextUserDistinguishedName = search.next().getNameInNamespace();
+                if (!userDistinguishedName.equals(nextUserDistinguishedName)) {
+                    log.debug("Multiple group membership results for user [%s] with different distinguished names: [%s], [%s]", user, userDistinguishedName, nextUserDistinguishedName);
+                    throw new AccessDeniedException(format("Multiple group membership results for user [%s] with different distinguished names", user));
                 }
             }
 
