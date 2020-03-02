@@ -91,7 +91,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorSecurityContext context, SchemaTableName table)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName table)
     {
     }
 

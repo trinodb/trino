@@ -66,7 +66,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
@@ -422,13 +422,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SecurityContext context, CatalogSchemaTableName table)
+    public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), table.getSchemaTableName().getTableName(), SHOW_COLUMNS)) {
-            denyShowColumnsMetadata(table.getSchemaTableName().toString());
+            denyShowColumns(table.getSchemaTableName().toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanShowColumnsMetadata(context, table);
+            super.checkCanShowColumns(context, table);
         }
     }
 

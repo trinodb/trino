@@ -48,7 +48,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
@@ -278,9 +278,9 @@ public interface SystemAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowColumnsMetadata(SystemSecurityContext context, CatalogSchemaTableName table)
+    default void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        denyShowColumnsMetadata(table.toString());
+        denyShowColumns(table.toString());
     }
 
     /**

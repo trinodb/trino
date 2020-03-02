@@ -59,7 +59,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
@@ -174,9 +174,9 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SecurityContext context, CatalogSchemaTableName table)
+    public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table)
     {
-        denyShowColumnsMetadata(table.toString());
+        denyShowColumns(table.toString());
     }
 
     @Override

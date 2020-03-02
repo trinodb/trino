@@ -140,10 +140,10 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanShowColumnsMetadata(context, tableName);
+            delegate.checkCanShowColumns(context, tableName);
         }
     }
 

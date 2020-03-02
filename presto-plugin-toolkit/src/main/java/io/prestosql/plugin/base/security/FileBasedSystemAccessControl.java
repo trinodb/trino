@@ -410,7 +410,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SystemSecurityContext context, CatalogSchemaTableName table)
+    public void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 

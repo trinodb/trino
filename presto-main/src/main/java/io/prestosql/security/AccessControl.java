@@ -178,7 +178,7 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowColumnsMetadata(SecurityContext context, CatalogSchemaTableName table);
+    void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table);
 
     /**
      * Filter the list of columns to those visible to the identity.
