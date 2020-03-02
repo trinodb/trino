@@ -130,7 +130,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SecurityContext context, CatalogSchemaTableName tableName)
+    public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName tableName)
     {
     }
 

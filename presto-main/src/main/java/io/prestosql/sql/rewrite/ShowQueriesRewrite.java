@@ -374,7 +374,7 @@ final class ShowQueriesRewrite
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
-            accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
+            accessControl.checkCanShowColumns(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
 
             return simpleQuery(
                     selectList(

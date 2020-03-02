@@ -176,9 +176,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    public void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
-        delegate().checkCanShowColumnsMetadata(context, tableName);
+        delegate().checkCanShowColumns(context, tableName);
     }
 
     @Override

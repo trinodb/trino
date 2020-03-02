@@ -27,7 +27,7 @@ import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveMetadata.getSourceTableNameFromSystemTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTableAwareAccessControl
@@ -47,20 +47,20 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
         if (sourceTableName.isPresent()) {
             try {
-                checkCanShowColumnsMetadata(context, sourceTableName.get());
+                checkCanShowColumns(context, sourceTableName.get());
                 return;
             }
             catch (AccessDeniedException e) {
-                denyShowColumnsMetadata(tableName.toString());
+                denyShowColumns(tableName.toString());
             }
         }
 
-        delegate.checkCanShowColumnsMetadata(context, tableName);
+        delegate.checkCanShowColumns(context, tableName);
     }
 
     @Override

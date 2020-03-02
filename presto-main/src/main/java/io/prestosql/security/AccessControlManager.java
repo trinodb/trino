@@ -421,16 +421,16 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SecurityContext securityContext, CatalogSchemaTableName table)
+    public void checkCanShowColumns(SecurityContext securityContext, CatalogSchemaTableName table)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(table, "table is null");
 
         checkCanAccessCatalog(securityContext, table.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanShowColumnsMetadata(securityContext.toSystemSecurityContext(), table));
+        systemAuthorizationCheck(control -> control.checkCanShowColumns(securityContext.toSystemSecurityContext(), table));
 
-        catalogAuthorizationCheck(table.getCatalogName(), securityContext, (control, context) -> control.checkCanShowColumnsMetadata(context, table.getSchemaTableName()));
+        catalogAuthorizationCheck(table.getCatalogName(), securityContext, (control, context) -> control.checkCanShowColumns(context, table.getSchemaTableName()));
     }
 
     @Override
