@@ -148,7 +148,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorSecurityContext identity, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext identity, SchemaTableName tableName)
     {
     }
 

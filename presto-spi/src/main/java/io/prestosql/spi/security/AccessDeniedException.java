@@ -191,7 +191,7 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show tables of schema %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyShowColumnsMetadata(String tableName)
+    public static void denyShowColumns(String tableName)
     {
         throw new AccessDeniedException(format("Cannot show columns of table %s", tableName));
     }

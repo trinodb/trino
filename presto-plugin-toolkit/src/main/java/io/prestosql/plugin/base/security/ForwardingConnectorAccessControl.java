@@ -119,9 +119,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanShowColumnsMetadata(context, tableName);
+        delegate().checkCanShowColumns(context, tableName);
     }
 
     @Override
