@@ -10,29 +10,25 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Binder;
-import com.google.inject.Inject;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
+import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
+import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
+import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
+import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.jdbc.AuthToLocalModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.KerberosConfig;
-import io.prestosql.plugin.jdbc.KerberosConnectionFactory;
-import io.prestosql.plugin.jdbc.PassThroughConnectionFactory;
+import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.PrestoException;
 import oracle.jdbc.driver.OracleDriver;
 import oracle.net.ano.AnoServices;
 
-import javax.inject.Qualifier;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -40,12 +36,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KE
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.jdbc.GuiceUtils.installModuleIfOrElse;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Objects.requireNonNull;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_RESTRICT_GETTABLES;
@@ -65,114 +56,119 @@ public class OracleAuthenticationModule
     {
         install(installModuleIf(
                 OracleConfig.class,
+                OracleConfig::isImpersonationEnabled,
+                new ImpersonationModule(),
+                new NoImpersonationModule()));
+
+        install(installModuleIf(
+                OracleConfig.class,
                 config -> config.getAuthenticationType() == OracleAuthenticationType.USER_PASSWORD,
-                userPasswordModule()));
+                new UserPasswordModule()));
 
         install(installModuleIf(
                 OracleConfig.class,
                 config -> config.getAuthenticationType() == KERBEROS,
-                kerberosModule()));
+                new KerberosModule()));
 
         install(installModuleIf(
                 OracleConfig.class,
                 config -> config.getAuthenticationType() == PASS_THROUGH,
-                passThroughModule()));
-
-        install(installModuleIfOrElse(
-                OracleConfig.class,
-                OracleConfig::isImpersonationEnabled,
-                impersonationModule(catalogName),
-                noImpersonationModule()));
+                new PassThroughModule()));
     }
 
-    private Module userPasswordModule()
+    private class ImpersonationModule
+            implements Module
     {
-        return new Module()
+        @Override
+        public void configure(Binder binder)
         {
-            @Override
-            public void configure(Binder binder)
-            {
-                install(new CredentialProviderModule());
-                configBinder(binder).bindConfig(OracleConnectionPoolingConfig.class);
-            }
+            binder.install(new AuthToLocalModule(catalogName));
+        }
 
-            @Inject
-            @Provides
-            @Singleton
-            @ForAuthentication
-            private ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, CredentialProvider credentialProvider)
-            {
-                if (oracleConfig.isConnectionPoolingEnabled()) {
-                    return new OraclePoolingConnectionFactory(
-                            catalogName,
-                            config,
-                            getProperties(oracleConfig),
-                            Optional.of(credentialProvider),
-                            poolingConfig);
-                }
-                return new DriverConnectionFactory(
-                        new OracleDriver(),
-                        config.getConnectionUrl(),
+        @Provides
+        @Singleton
+        @ForBaseJdbc
+        public ConnectionFactory getConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
+        {
+            return new OracleImpersonatingConnectionFactory(connectionFactory, authToLocal);
+        }
+    }
+
+    private class UserPasswordModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            configBinder(binder).bindConfig(OracleConnectionPoolingConfig.class);
+        }
+
+        @Provides
+        @Singleton
+        @ForAuthentication
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, CredentialProvider credentialProvider)
+        {
+            if (oracleConfig.isConnectionPoolingEnabled()) {
+                return new OraclePoolingConnectionFactory(
+                        catalogName,
+                        config,
                         getProperties(oracleConfig),
-                        credentialProvider);
+                        Optional.of(credentialProvider),
+                        poolingConfig);
             }
-        };
+            return new DriverConnectionFactory(
+                    new OracleDriver(),
+                    config.getConnectionUrl(),
+                    getProperties(oracleConfig),
+                    credentialProvider);
+        }
     }
 
-    private Module kerberosModule()
+    private class KerberosModule
+            implements Module
     {
-        return new Module()
+        @Override
+        public void configure(Binder binder)
         {
-            @Override
-            public void configure(Binder binder)
-            {
-                configBinder(binder).bindConfig(KerberosConfig.class);
-                configBinder(binder).bindConfig(OracleConnectionPoolingConfig.class);
-            }
+            configBinder(binder).bindConfig(KerberosConfig.class);
+            configBinder(binder).bindConfig(OracleConnectionPoolingConfig.class);
+        }
 
-            @Inject
-            @Provides
-            @Singleton
-            @ForAuthentication
-            private ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, KerberosConfig kerberosConfig)
-            {
-                if (oracleConfig.isConnectionPoolingEnabled()) {
-                    return new KerberosConnectionFactory(
-                            new OraclePoolingConnectionFactory(
-                                    catalogName,
-                                    baseJdbcConfig,
-                                    getKerberosProperties(oracleConfig),
-                                    Optional.empty(),
-                                    poolingConfig),
-                            kerberosConfig);
-                }
-                return new KerberosConnectionFactory(baseJdbcConfig, kerberosConfig, getKerberosProperties(oracleConfig));
+        @Provides
+        @Singleton
+        @ForAuthentication
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, KerberosConfig kerberosConfig)
+        {
+            if (oracleConfig.isConnectionPoolingEnabled()) {
+                ConnectionFactory connectionFactory = new OraclePoolingConnectionFactory(
+                        catalogName,
+                        baseJdbcConfig,
+                        getKerberosProperties(oracleConfig),
+                        Optional.empty(),
+                        poolingConfig);
+                return new KerberosConnectionFactory(connectionFactory, kerberosConfig);
             }
-        };
+            return new KerberosConnectionFactory(baseJdbcConfig, kerberosConfig, getKerberosProperties(oracleConfig));
+        }
     }
 
-    private Module passThroughModule()
+    private static class PassThroughModule
+            implements Module
     {
-        return new Module()
-        {
-            @Override
-            public void configure(Binder binder)
-            {
-            }
+        @Override
+        public void configure(Binder binder) {}
 
-            @Inject
-            @Provides
-            @Singleton
-            @ForAuthentication
-            private ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig)
-            {
-                if (oracleConfig.isConnectionPoolingEnabled()) {
-                    throw new PrestoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with pass-through authentication");
-                }
-                // TODO we should be passing different properties depending on actual Credential that is passed through (not Kerberos always)
-                return new PassThroughConnectionFactory(baseJdbcConfig, getKerberosProperties(oracleConfig));
+        @Provides
+        @Singleton
+        @ForAuthentication
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig)
+        {
+            if (oracleConfig.isConnectionPoolingEnabled()) {
+                throw new PrestoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with pass-through authentication");
             }
-        };
+            throw new UnsupportedOperationException("Pass through authentication not yet implemented");
+//            return new PassThroughConnectionFactory(baseJdbcConfig, getKerberosProperties(oracleConfig));
+        }
     }
 
     private static Properties getKerberosProperties(OracleConfig oracleConfig)
@@ -190,25 +186,5 @@ public class OracleAuthenticationModule
             properties.setProperty(CONNECTION_PROPERTY_RESTRICT_GETTABLES, "true");
         }
         return properties;
-    }
-
-    @Retention(RUNTIME)
-    @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
-    public @interface ForAuthentication
-    {
-    }
-
-    private Module impersonationModule(String catalogName)
-    {
-        return binder -> {
-            install(new AuthToLocalModule(catalogName));
-            binder.bind(ConnectionFactory.class).to(OracleImpersonatingConnectionFactory.class);
-        };
-    }
-
-    private Module noImpersonationModule()
-    {
-        return binder -> binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, ForAuthentication.class));
     }
 }

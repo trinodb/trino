@@ -11,26 +11,28 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.function.Function;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.USER;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestOracleSynonymsTest
         extends AbstractTestQueryFramework
 {
-    public TestOracleSynonymsTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(
+        return createOracleQueryRunner(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
@@ -39,7 +41,7 @@ public class TestOracleSynonymsTest
                         .put("oracle.synonyms.enabled", "true")
                         .build(),
                 Function.identity(),
-                ImmutableList.of(TpchTable.ORDERS)));
+                ImmutableList.of(TpchTable.ORDERS));
     }
 
     @Test
@@ -60,7 +62,7 @@ public class TestOracleSynonymsTest
         // See OracleClient#getColumns for more details.
         executeInOracle("CREATE TABLE ordersx AS SELECT 'a' some_additional_column FROM dual");
         assertQuery(
-                format("SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND table_schema = '%s'", USER),
+                format("SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND table_schema = '%s'", TestingOracleServer.USER),
                 "VALUES 'orderkey', 'custkey', 'orderstatus', 'totalprice', 'orderdate', 'orderpriority', 'clerk', 'shippriority', 'comment'");
         executeInOracle("DROP TABLE ordersx");
     }

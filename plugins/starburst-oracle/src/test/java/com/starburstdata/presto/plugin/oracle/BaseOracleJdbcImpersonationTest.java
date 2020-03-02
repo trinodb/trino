@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -19,23 +20,29 @@ import java.util.function.Function;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 
 @Test
-public class BaseOracleJdbcImpersonationTest
+public abstract class BaseOracleJdbcImpersonationTest
         extends BaseOracleImpersonationTest
 {
-    public BaseOracleJdbcImpersonationTest(Map<String, String> additionalProperties)
+    private final ImmutableMap<String, String> properties;
+
+    protected BaseOracleJdbcImpersonationTest(Map<String, String> additionalProperties)
     {
-        super(() -> createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", TestingOracleServer.USER)
-                        .put("connection-password", TestingOracleServer.PASSWORD)
-                        .put("allow-drop-table", "true")
-                        .put("oracle.impersonation.enabled", "true")
-                        .put("oracle.synonyms.enabled", "true")
-                        .putAll(additionalProperties)
-                        .build(),
-                Function.identity(),
-                ImmutableList.of()));
+        properties = ImmutableMap.<String, String>builder()
+                .put("connection-url", TestingOracleServer.getJdbcUrl())
+                .put("connection-user", TestingOracleServer.USER)
+                .put("connection-password", TestingOracleServer.PASSWORD)
+                .put("allow-drop-table", "true")
+                .put("oracle.impersonation.enabled", "true")
+                .put("oracle.synonyms.enabled", "true")
+                .putAll(additionalProperties)
+                .build();
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createOracleQueryRunner(properties, Function.identity(), ImmutableList.of());
     }
 
     @Override

@@ -11,8 +11,9 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -28,9 +29,11 @@ import static java.lang.String.format;
 public class TestOracleTableStatistics
         extends AbstractTestQueryFramework
 {
-    public TestOracleTableStatistics()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(
+        return createOracleQueryRunner(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
@@ -39,7 +42,7 @@ public class TestOracleTableStatistics
                         .put("case-insensitive-name-matching", "true")
                         .build(),
                 Function.identity(),
-                ImmutableList.of(TpchTable.ORDERS)));
+                ImmutableList.of(TpchTable.ORDERS));
     }
 
     @Test

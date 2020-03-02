@@ -10,30 +10,34 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.function.Function;
 
+import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOracleDistributedQueries
         extends AbstractTestQueries
 {
-    private static final Iterable<TpchTable<?>> TPCH_TABLES = TpchTable.getTables();
-
-    public TestOracleDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(
+        return createOracleQueryRunner(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
@@ -43,7 +47,16 @@ public class TestOracleDistributedQueries
                         .put("allow-drop-table", "true")
                         .build(),
                 Function.identity(),
-                TPCH_TABLES));
+                TpchTable.getTables());
+    }
+
+    @Override
+    public void testLargeIn()
+    {
+        // TODO: remove when https://github.com/prestosql/presto/issues/3191 is fixed
+        assertThatThrownBy(super::testLargeIn)
+                .matches(t -> getCausalChain(t).stream()
+                        .anyMatch(e -> nullToEmpty(e.getMessage()).contains("Compiler failed")));
     }
 
     @Override

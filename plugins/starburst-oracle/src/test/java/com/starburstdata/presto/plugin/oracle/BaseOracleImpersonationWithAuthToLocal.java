@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.ALICE_USER;
@@ -24,11 +24,6 @@ import static java.util.Locale.ENGLISH;
 public abstract class BaseOracleImpersonationWithAuthToLocal
         extends AbstractTestQueryFramework
 {
-    protected BaseOracleImpersonationWithAuthToLocal(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected abstract String getProxyUser();
 
     @Test
@@ -50,7 +45,7 @@ public abstract class BaseOracleImpersonationWithAuthToLocal
         assertQueryFails(
                 createSession(CHARLIE_USER + "/hr@company.com"),
                 "SELECT * FROM user_context",
-                ".*Table oracle.presto_test_user.user_context does not exist");
+                ".*Table 'oracle.presto_test_user.user_context' does not exist");
         assertQueryFails(
                 createSession(UNKNOWN_USER + "/x@company.com"),
                 "SELECT * FROM user_context",

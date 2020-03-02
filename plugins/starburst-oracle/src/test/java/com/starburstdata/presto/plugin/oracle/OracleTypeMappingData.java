@@ -9,8 +9,8 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.tests.datatype.DataType;
-import io.prestosql.tests.datatype.DataTypeTest;
+import io.prestosql.testing.datatype.DataType;
+import io.prestosql.testing.datatype.DataTypeTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.tests.datatype.DataType.dataType;
+import static io.prestosql.testing.datatype.DataType.dataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
@@ -76,7 +76,7 @@ public final class OracleTypeMappingData
     {
         doubleType = makeNullable(doubleType);
         return DataTypeTest.create()
-                .addRoundTrip(doubleType, 1e100d)
+                .addRoundTrip(doubleType, 1.0e100d)
                 .addRoundTrip(doubleType, Double.NaN)
                 .addRoundTrip(doubleType, Double.POSITIVE_INFINITY)
                 .addRoundTrip(doubleType, Double.NEGATIVE_INFINITY)

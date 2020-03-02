@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import io.prestosql.Session;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.ALICE_USER;
@@ -19,7 +19,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.CHARLIE_U
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.UNKNOWN_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
-import static io.prestosql.tests.sql.TestTable.randomTableSuffix;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -27,11 +27,6 @@ import static java.util.Locale.ENGLISH;
 public abstract class BaseOracleImpersonationTest
         extends AbstractTestQueryFramework
 {
-    protected BaseOracleImpersonationTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected abstract String getProxyUser();
 
     @Test
@@ -49,7 +44,7 @@ public abstract class BaseOracleImpersonationTest
         assertQueryFails(
                 createSession(CHARLIE_USER),
                 "SELECT * FROM user_context",
-                ".*Table oracle.* not exist");
+                ".*Table 'oracle.*' does not exist");
         assertQueryFails(
                 createSession(UNKNOWN_USER),
                 "SELECT * FROM user_context",
@@ -67,7 +62,7 @@ public abstract class BaseOracleImpersonationTest
             assertQueryFails(
                     aliceSession,
                     "SELECT * FROM " + tableName,
-                    ".*Table oracle.* does not exist");
+                    ".*Table 'oracle.*' does not exist");
 
             executeInOracle(format("GRANT SELECT ON %s TO alice", tableName));
 
@@ -92,7 +87,7 @@ public abstract class BaseOracleImpersonationTest
             assertQueryFails(
                     aliceSession,
                     "SELECT * FROM " + viewName,
-                    ".*Table oracle.* does not exist");
+                    ".*Table 'oracle.*' does not exist");
 
             executeInOracle(format("GRANT SELECT ON %s TO alice", viewName));
 
@@ -117,7 +112,7 @@ public abstract class BaseOracleImpersonationTest
             assertQueryFails(
                     aliceSession,
                     "SELECT * FROM " + synonymName,
-                    ".*Table oracle.* does not exist");
+                    ".*Table 'oracle.*' does not exist");
 
             executeInOracle(format("GRANT SELECT ON %s TO alice", synonymName));
 

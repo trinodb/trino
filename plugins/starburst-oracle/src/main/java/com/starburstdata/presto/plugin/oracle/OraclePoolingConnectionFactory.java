@@ -15,6 +15,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.spi.PrestoException;
+import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolException;
 import oracle.ucp.admin.UniversalConnectionPoolManager;
 import oracle.ucp.admin.UniversalConnectionPoolManagerImpl;
@@ -27,6 +28,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static java.util.Locale.ENGLISH;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class OraclePoolingConnectionFactory
@@ -45,8 +48,8 @@ public class OraclePoolingConnectionFactory
             dataSource = PoolDataSourceFactory.getPoolDataSource();
             // generate a unique pool name so that we avoid clashes when tests instantiate a connector
             // for the same catalog more than once (e.g. when running multiple nodes)
-            dataSource.setConnectionPoolName(catalogName + "_" + hashCode());
-            dataSource.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
+            dataSource.setConnectionPoolName(catalogName + "_" + randomUuidValue());
+            dataSource.setConnectionFactoryClassName(OracleDataSource.class.getName());
             dataSource.setURL(config.getConnectionUrl());
             dataSource.setConnectionProperties(properties);
             dataSource.setMaxPoolSize(poolingConfig.getMaxPoolSize());
@@ -81,7 +84,7 @@ public class OraclePoolingConnectionFactory
         }
     }
 
-    private void attempt(ConfigOperation operation)
+    private static void attempt(ConfigOperation operation)
     {
         try {
             operation.apply();
@@ -91,7 +94,7 @@ public class OraclePoolingConnectionFactory
         }
     }
 
-    private RuntimeException fail(Exception e)
+    private static RuntimeException fail(Exception e)
     {
         return new PrestoException(JDBC_ERROR, "Failed to create Oracle Universal Connection Pool", e);
     }
@@ -101,5 +104,10 @@ public class OraclePoolingConnectionFactory
     {
         void apply()
                 throws SQLException;
+    }
+
+    private static String randomUuidValue()
+    {
+        return randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
     }
 }

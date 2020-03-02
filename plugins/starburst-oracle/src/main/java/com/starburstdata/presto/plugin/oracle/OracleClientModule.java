@@ -11,33 +11,38 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
+import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.BaseJdbcStatisticsConfig;
+import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
-import io.prestosql.plugin.jdbc.caching.BaseJdbcCachingConfig;
-import io.prestosql.spi.procedure.Procedure;
 
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindProcedure;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static java.util.Objects.requireNonNull;
 
 public class OracleClientModule
         extends AbstractConfigurationAwareModule
 {
+    private final String catalogName;
+
+    public OracleClientModule(String catalogName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(JdbcClient.class).to(OracleClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(BaseJdbcConfig.class);
-        configBinder(binder).bindConfig(BaseJdbcCachingConfig.class);
-        configBinder(binder).bindConfig(BaseJdbcStatisticsConfig.class);
-        configBinder(binder).bindConfig(OracleConfig.class);
-        Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
-        procedures.addBinding().toProvider(AnalyzeProcedure.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(OracleClient.class).in(Scopes.SINGLETON);
 
-        Multibinder<SessionPropertiesProvider> sessionProperties = newSetBinder(binder, SessionPropertiesProvider.class);
-        sessionProperties.addBinding().to(OracleSessionProperties.class);
+        bindProcedure(binder, AnalyzeProcedure.class);
+
+        bindSessionPropertiesProvider(binder, OracleSessionProperties.class);
+
+        configBinder(binder).bindConfig(OracleConfig.class);
+        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+
+        install(new OracleAuthenticationModule(catalogName));
     }
 }

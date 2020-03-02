@@ -13,17 +13,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.plugin.jdbc.UnsupportedTypeHandlingStrategy;
+import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.datatype.CreateAndInsertDataSetup;
-import io.prestosql.tests.datatype.CreateAsSelectDataSetup;
-import io.prestosql.tests.datatype.DataSetup;
-import io.prestosql.tests.datatype.DataType;
-import io.prestosql.tests.datatype.DataTypeTest;
-import io.prestosql.tests.sql.JdbcSqlExecutor;
-import io.prestosql.tests.sql.PrestoSqlExecutor;
-import io.prestosql.tests.sql.TestTable;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
+import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
+import io.prestosql.testing.datatype.DataSetup;
+import io.prestosql.testing.datatype.DataType;
+import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.sql.JdbcSqlExecutor;
+import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -79,14 +80,13 @@ import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.times
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.unboundedVarcharTests;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.unicodeTests;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.varbinaryTests;
-import static io.prestosql.plugin.jdbc.BaseJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING_STRATEGY;
-import static io.prestosql.plugin.jdbc.UnsupportedTypeHandlingStrategy.CONVERT_TO_VARCHAR;
-import static io.prestosql.plugin.jdbc.UnsupportedTypeHandlingStrategy.FAIL;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.tests.datatype.DataType.varbinaryDataType;
-import static io.prestosql.tests.datatype.DataType.varcharDataType;
-import static io.prestosql.tests.sql.TestTable.Type.TABLE;
+import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
+import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -95,9 +95,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class TestOracleTypeMapping
         extends AbstractTestQueryFramework
 {
-    public TestOracleTypeMapping()
+    private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(
+        return createOracleQueryRunner(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
@@ -105,7 +109,7 @@ public class TestOracleTypeMapping
                         .put("allow-drop-table", "true")
                         .build(),
                 Function.identity(),
-                ImmutableList.of()));
+                ImmutableList.of());
     }
 
     @Test
@@ -306,7 +310,6 @@ public class TestOracleTypeMapping
     public void roundingOfUnspecifiedNumber()
     {
         try (TestTable table = oracleTable("rounding", "col NUMBER", "(0.123456789)")) {
-            assertQueryFails(number(FAIL), "SELECT * FROM " + table.getName(), "Unsupported data type for column: COL");
             assertQuery(number(9), "SELECT * FROM " + table.getName(), "VALUES 0.123456789");
             assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table.getName(), "VALUES 0.123457");
             assertQuery(number(HALF_EVEN, 3), "SELECT * FROM " + table.getName(), "VALUES 0.123");
@@ -314,7 +317,6 @@ public class TestOracleTypeMapping
         }
 
         try (TestTable table = oracleTable("rounding", "col NUMBER", "(123456789012345678901234567890.123456789)")) {
-            assertQueryFails(number(FAIL), "SELECT * FROM " + table.getName(), "Unsupported data type for column: COL");
             assertQueryFails(number(9), "SELECT * FROM " + table.getName(), "Decimal overflow");
             assertQuery(number(HALF_EVEN, 8), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.12345679");
             assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.123457");
@@ -323,7 +325,6 @@ public class TestOracleTypeMapping
         }
 
         try (TestTable table = oracleTable("rounding", "col NUMBER", "(123456789012345678901234567890123456789)")) {
-            assertQueryFails(number(FAIL), "SELECT * FROM " + table.getName(), "Unsupported data type for column: COL");
             assertQueryFails(number(0), "SELECT * FROM " + table.getName(), "Decimal overflow");
             assertQueryFails(number(HALF_EVEN, 8), "SELECT * FROM " + table.getName(), "Decimal overflow");
             assertQueryFails(number(HALF_EVEN, 0), "SELECT * FROM " + table.getName(), "Decimal overflow");
@@ -360,23 +361,19 @@ public class TestOracleTypeMapping
     public void highNumberScale()
     {
         try (TestTable table = oracleTable("highNumberScale", "col NUMBER(38, 40)", "(0.0012345678901234567890123456789012345678)")) {
-            String unsupported = "Unsupported data type for column: COL";
-            assertQueryFails(number(FAIL), "SELECT * FROM " + table.getName(), unsupported);
-            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), unsupported);
+            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
             assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0.00123456789012345678901234567890123457");
-            assertQuery(number(CONVERT_TO_VARCHAR), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012345678E-03'");
+            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012345678E-03'");
         }
 
         try (TestTable table = oracleTable("highNumberScale", "col NUMBER(18, 40)", "(0.0000000000000000000000123456789012345678)")) {
-            String unsupported = "Unsupported data type for column: COL";
-            assertQueryFails(number(FAIL), "SELECT * FROM " + table.getName(), unsupported);
-            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), unsupported);
+            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
             assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0.00000000000000000000001234567890123457");
         }
 
         try (TestTable table = oracleTable("highNumberScale", "col NUMBER(38, 80)", "(0.00000000000000000000000000000000000000000000012345678901234567890123456789012345678)")) {
             assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0");
-            assertQuery(number(CONVERT_TO_VARCHAR), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012346E-46'");
+            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012346E-46'");
         }
     }
 
@@ -384,8 +381,7 @@ public class TestOracleTypeMapping
     public void numberWithHiveNegativeScaleReadMapping()
     {
         try (TestTable table = oracleTable("highNegativeNumberScale", "col NUMBER(38, -60)", "(1234567890123456789012345678901234567000000000000000000000000000000000000000000000000000000000000)")) {
-            assertQueryFails(number(FAIL), "SELECT * FROM " + table.getName(), "Unsupported data type for column: COL");
-            assertQuery(number(CONVERT_TO_VARCHAR), "SELECT * FROM " + table.getName(), "VALUES '1.234567890123456789012345678901234567E96'");
+            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.234567890123456789012345678901234567E96'");
         }
 
         try (TestTable table = oracleTable("highNumberScale", "col NUMBER(18, 60)", "(0.000000000000000000000000000000000000000000000123456789012345678)")) {
@@ -395,32 +391,30 @@ public class TestOracleTypeMapping
 
     private Session number(int scale)
     {
-        return number(FAIL, UNNECESSARY, Optional.of(scale));
+        return number(IGNORE, UNNECESSARY, Optional.of(scale));
     }
 
     private Session number(RoundingMode roundingMode)
     {
-        return number(FAIL, roundingMode, Optional.empty());
+        return number(IGNORE, roundingMode, Optional.empty());
     }
 
     private Session number(RoundingMode roundingMode, int scale)
     {
-        return number(FAIL, roundingMode, Optional.of(scale));
+        return number(IGNORE, roundingMode, Optional.of(scale));
     }
 
-    private Session number(UnsupportedTypeHandlingStrategy unsupportedTypeHandlingStrategy)
+    private Session numberConvertToVarchar()
     {
-        return number(unsupportedTypeHandlingStrategy, UNNECESSARY, Optional.empty());
+        return number(CONVERT_TO_VARCHAR, UNNECESSARY, Optional.empty());
     }
 
-    private Session number(UnsupportedTypeHandlingStrategy unsupportedTypeHandlingStrategy, RoundingMode roundingMode, Optional<Integer> scale)
+    private Session number(UnsupportedTypeHandling unsupportedTypeHandlingStrategy, RoundingMode roundingMode, Optional<Integer> scale)
     {
         Session.SessionBuilder builder = Session.builder(getSession())
-                .setCatalogSessionProperty("oracle", UNSUPPORTED_TYPE_HANDLING_STRATEGY, unsupportedTypeHandlingStrategy.name())
+                .setCatalogSessionProperty("oracle", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandlingStrategy.name())
                 .setCatalogSessionProperty("oracle", NUMBER_ROUNDING_MODE, roundingMode.name());
-        if (scale.isPresent()) {
-            builder.setCatalogSessionProperty("oracle", NUMBER_DEFAULT_SCALE, scale.get().toString());
-        }
+        scale.ifPresent(value -> builder.setCatalogSessionProperty("oracle", NUMBER_DEFAULT_SCALE, value.toString()));
         return builder.build();
     }
 
@@ -606,9 +600,7 @@ public class TestOracleTypeMapping
     @Test
     public void unsupportedPrestoType()
     {
-        assertQueryFails("CREATE TABLE unsupported_boolean AS " +
-                        "SELECT true unsupported_type",
-                "^Unsupported column type: boolean$");
+        assertQueryFails("CREATE TABLE unsupported_boolean AS SELECT true AS b", "Unsupported column type: boolean");
     }
 
     /* Testing utilities */
@@ -619,7 +611,7 @@ public class TestOracleTypeMapping
     protected void testUnsupportedOracleType(String dataTypeName)
     {
         try (TestTable table = new TestTable(getSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
-            assertQueryFails(number(FAIL), "DESCRIBE " + table.getName(), "Unsupported data type for column: UNSUPPORTED_TYPE");
+            assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
         }
     }
 
@@ -712,11 +704,6 @@ public class TestOracleTypeMapping
 
     private TestTable oracleTable(String tableName, String schema, String data)
     {
-        return new TestTable(
-                getSqlExecutor(),
-                tableName,
-                format("(%s)", schema),
-                ImmutableList.of(data),
-                TABLE);
+        return new TestTable(getSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
     }
 }

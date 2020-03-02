@@ -12,9 +12,10 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
+import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.BaseJdbcStatisticsConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleWriteFunction;
@@ -25,12 +26,13 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
-import io.prestosql.plugin.jdbc.StatsCollecting;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
@@ -70,7 +72,6 @@ import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.get
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getNumberRoundingMode;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.plugin.jdbc.BaseJdbcSessionProperties.getUnsupportedTypeHandlingStrategy;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
@@ -83,7 +84,8 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunct
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
-import static io.prestosql.plugin.jdbc.UnsupportedTypeHandlingStrategy.CONVERT_TO_VARCHAR;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUnsupportedTypeHandling;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -121,9 +123,9 @@ public class OracleClient
         extends BaseJdbcClient
 {
     private static final int DEFAULT_ROW_FETCH_SIZE = 1000;
-    static final int ORACLE_MAX_CHAR_SIZE = 2000;
-    static final int ORACLE_MAX_VARCHAR2_SIZE = 4000;
-    static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
+    private static final int ORACLE_MAX_CHAR_SIZE = 2000;
+    private static final int ORACLE_MAX_VARCHAR2_SIZE = 4000;
+    private static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
     // TODO improve this by calling Domain#simplify
@@ -147,21 +149,24 @@ public class OracleClient
             .build();
 
     private final boolean synonymsEnabled;
+    private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
     public OracleClient(
             BaseJdbcConfig config,
-            BaseJdbcStatisticsConfig statisticsConfig,
+            JdbcStatisticsConfig statisticsConfig,
             OracleConfig oracleConfig,
-            @StatsCollecting ConnectionFactory connectionFactory)
+            ConnectionFactory connectionFactory)
     {
-        super(config, statisticsConfig, "\"", connectionFactory);
+        super(config, "\"", connectionFactory);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
+        tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
     }
 
-    @Override // Oracle before 12.2 doesn't allow identifiers over 30 characters
+    @Override
     protected String generateTemporaryTableName()
     {
+        // Oracle before 12.2 doesn't allow identifiers over 30 characters
         String id = super.generateTemporaryTableName();
         return id.substring(0, min(30, id.length()));
     }
@@ -171,8 +176,7 @@ public class OracleClient
     {
         if (name.contains("\"")) {
             // ORA-03001: unimplemented feature
-            throw new PrestoException(JDBC_NON_TRANSIENT_ERROR,
-                    "Oracle does not support escaping '\"' in identifiers");
+            throw new PrestoException(JDBC_NON_TRANSIENT_ERROR, "Oracle does not support escaping '\"' in identifiers");
         }
         return identifierQuote + name + identifierQuote;
     }
@@ -181,19 +185,19 @@ public class OracleClient
     public OracleConnection getConnection(JdbcIdentity identity, JdbcSplit split)
             throws SQLException
     {
-        OracleConnection conn = (OracleConnection) super.getConnection(identity, split);
+        OracleConnection connection = (OracleConnection) super.getConnection(identity, split);
         try {
-            conn.setDefaultRowPrefetch(DEFAULT_ROW_FETCH_SIZE);
+            connection.setDefaultRowPrefetch(DEFAULT_ROW_FETCH_SIZE);
         }
         catch (SQLException e) {
-            conn.close();
+            connection.close();
             throw e;
         }
-        return conn;
+        return connection;
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
         StringBuilder sql = new StringBuilder()
                 .append("ALTER TABLE ")
@@ -255,13 +259,12 @@ public class OracleClient
                             Optional.ofNullable(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
-                            Optional.empty(),
-                            true);
+                            Optional.empty());
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), true));
+                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType()));
                     }
                 }
                 if (columns.isEmpty()) {
@@ -389,7 +392,7 @@ public class OracleClient
             case OracleTypes.TIMESTAMPTZ:
                 return Optional.of(oracleTimestampWithTimeZoneColumnMapping());
         }
-        if (getUnsupportedTypeHandlingStrategy(session) == CONVERT_TO_VARCHAR) {
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
             return Optional.of(ColumnMapping.sliceMapping(
                     VARCHAR,
                     (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
@@ -536,7 +539,12 @@ public class OracleClient
     }
 
     @Override
-    protected Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return tableStatisticsClient.getTableStatistics(session, handle, tupleDomain);
+    }
+
+    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
@@ -565,12 +573,9 @@ public class OracleClient
                 }
 
                 ColumnStatistics statistics = ColumnStatistics.builder()
-                        .setNullsFraction(
-                                rowCount == 0
-                                        ? Estimate.of(1)
-                                        : result.getNullsCount()
-                                        .map(nullsCount -> Estimate.of(1. * nullsCount / rowCount))
-                                        .orElseGet(Estimate::unknown))
+                        .setNullsFraction(result.getNullsCount()
+                                .map(nullsCount -> Estimate.of(1.0 * nullsCount / rowCount))
+                                .orElseGet(Estimate::unknown))
                         .setDistinctValuesCount(result.getDistinctValuesCount()
                                 .map(Estimate::of)
                                 .orElseGet(Estimate::unknown))
@@ -586,7 +591,7 @@ public class OracleClient
                                  * Since the interpretation of the value is not obvious, we do not deduce is-null bytes. They will be accounted for second time in
                                  * `PlanNodeStatsEstimate.getOutputSizeForSymbol`, but this is the safer thing to do.
                                  */
-                                .map(averageColumnLength -> Estimate.of(1. * averageColumnLength * rowCount))
+                                .map(averageColumnLength -> Estimate.of(1.0 * averageColumnLength * rowCount))
                                 .orElseGet(Estimate::unknown))
                         .build();
 

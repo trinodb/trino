@@ -9,10 +9,17 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.spi.NonObfuscable;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
 
-@NonObfuscable
 public class OraclePlugin
-        extends BaseOraclePlugin
+        implements Plugin
 {
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
+    {
+        return ImmutableList.of(new JdbcConnectorFactory("oracle", OracleClientModule::new));
+    }
 }

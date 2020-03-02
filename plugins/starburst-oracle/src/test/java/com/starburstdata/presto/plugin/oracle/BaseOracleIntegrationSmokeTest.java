@@ -9,31 +9,25 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
-import io.prestosql.tests.sql.SqlExecutor;
-import io.prestosql.tests.sql.TestTable;
+import io.prestosql.testing.sql.SqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.USER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.tests.sql.TestTable.Type.SYNONYM;
-import static io.prestosql.tests.sql.TestTable.Type.VIEW;
-import static io.prestosql.tests.sql.TestTable.randomTableSuffix;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class BaseOracleIntegrationSmokeTest
+public abstract class BaseOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    protected BaseOracleIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected String getUser()
     {
         return USER;
@@ -92,7 +86,7 @@ public class BaseOracleIntegrationSmokeTest
 
     private void testCreateTableAsSelectIntoAnotherUsersSchema(String user)
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, format("oracle.%s.nationkeys_copy", user), "AS SELECT nationkey FROM nation", "123456789")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, format("oracle.%s.nationkeys_copy", user), "AS SELECT nationkey FROM nation", ImmutableList.of("123456789"))) {
             assertQuery(format("SELECT * FROM %s", table.getName()), "SELECT nationkey FROM nation UNION SELECT 123456789");
         }
     }
@@ -100,16 +94,16 @@ public class BaseOracleIntegrationSmokeTest
     @Test
     public void testViews()
     {
-        try (TestTable table = new TestTable(inOracle(), getUser() + ".test_view", "AS SELECT 'O' as status FROM dual", VIEW)) {
-            assertQuery("SELECT status FROM " + table.getName(), "SELECT 'O'");
+        try (TestView view = new TestView(inOracle(), getUser() + ".test_view", "AS SELECT 'O' as status FROM dual")) {
+            assertQuery("SELECT status FROM " + view.getName(), "SELECT 'O'");
         }
     }
 
     @Test
     public void testSynonyms()
     {
-        try (TestTable table = new TestTable(inOracle(), getUser() + ".test_synonym", "FOR ORDERS", SYNONYM)) {
-            assertQueryFails("SELECT orderkey FROM " + table.getName(), "line 1:22: Table oracle.* does not exist");
+        try (TestSynonym synonym = new TestSynonym(inOracle(), getUser() + ".test_synonym", "FOR ORDERS")) {
+            assertQueryFails("SELECT orderkey FROM " + synonym.getName(), "line 1:22: Table 'oracle.*' does not exist");
         }
     }
 
@@ -135,7 +129,7 @@ public class BaseOracleIntegrationSmokeTest
                 inOracle(),
                 getUser() + ".test_predicate_pushdown_numeric",
                 "(c_binary_float BINARY_FLOAT, c_binary_double BINARY_DOUBLE, c_number NUMBER(5,3))",
-                "(5.0f, 20.233, 5.0)")) {
+                ImmutableList.of("5.0f, 20.233, 5.0"))) {
             assertQuery(format("SELECT c_binary_double FROM %s WHERE c_binary_float = cast(5.0 as real)", table.getName()), "SELECT 20.233");
             assertQuery(format("SELECT c_binary_float FROM %s WHERE c_binary_double = cast(20.233 as double)", table.getName()), "SELECT 5.0");
             assertQuery(format("SELECT c_binary_float FROM %s WHERE c_number = cast(5.0 as decimal(5,3))", table.getName()), "SELECT 5.0");
@@ -149,7 +143,7 @@ public class BaseOracleIntegrationSmokeTest
                 inOracle(),
                 getUser() + ".test_predicate_pushdown_char",
                 "(c_char CHAR(7), c_nchar NCHAR(8), c_varchar VARCHAR2(20), c_nvarchar NVARCHAR2(20), c_clob CLOB, c_nclob NCLOB, c_long_char CHAR(2000), c_long_varchar VARCHAR2(4000))",
-                "('my_char', 'my_nchar', 'my_varchar', 'my_nvarchar', 'my_clob', 'my_nclob', 'my_long_char', 'my_long_varchar')")) {
+                ImmutableList.of("'my_char', 'my_nchar', 'my_varchar', 'my_nvarchar', 'my_clob', 'my_nclob', 'my_long_char', 'my_long_varchar'"))) {
             assertQuery(format("SELECT c_nchar FROM %s WHERE c_char = cast('my_char' as char(7))", table.getName()), "SELECT 'my_nchar'");
             assertQuery(format("SELECT c_char FROM %s WHERE c_nchar = cast('my_nchar' as char(8))", table.getName()), "SELECT 'my_char'");
             assertQuery(format("SELECT c_char FROM %s WHERE c_varchar = cast('my_varchar' as varchar(20))", table.getName()), "SELECT 'my_char'");

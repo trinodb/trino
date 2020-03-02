@@ -12,16 +12,13 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.InternalBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
-import io.prestosql.plugin.jdbc.StatsCollecting;
-import io.prestosql.spi.NonObfuscable;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.procedure.Procedure;
 
 import javax.inject.Provider;
@@ -51,7 +48,7 @@ public class AnalyzeProcedure
     private final ConnectionFactory connectionFactory;
 
     @Inject
-    public AnalyzeProcedure(@InternalBaseJdbc JdbcClient client, @StatsCollecting ConnectionFactory connectionFactory)
+    public AnalyzeProcedure(JdbcClient client, ConnectionFactory connectionFactory)
     {
         this.client = requireNonNull(client, "client is null");
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
@@ -69,14 +66,13 @@ public class AnalyzeProcedure
                 ANALYZE.bindTo(this));
     }
 
-    @NonObfuscable
     public void analyze(ConnectorSession session, String schemaName, String tableName)
             throws PrestoException
     {
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
         Optional<JdbcTableHandle> tableHandle = client.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         if (!tableHandle.isPresent()) {
-            throw new PrestoException(StandardErrorCode.NOT_FOUND, "Table does not exist: " + schemaTableName);
+            throw new TableNotFoundException(schemaTableName);
         }
 
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));

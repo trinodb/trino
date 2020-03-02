@@ -11,31 +11,34 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 
+import static com.google.common.io.Resources.getResource;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.getResource;
 
 public class TestOracleKerberosIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
 {
-    public TestOracleKerberosIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(
+        return createOracleQueryRunner(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("oracle.authentication.type", "KERBEROS")
                         .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
-                        .put("kerberos.client.keytab", getResource("krb/client/test.keytab").toString())
-                        .put("kerberos.config", getResource("krb/krb5.conf").toString())
+                        .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
+                        .put("kerberos.config", getResource("krb/krb5.conf").getPath())
                         .put("allow-drop-table", "true")
                         .build(),
                 session -> Session.builder(session)
                         .setSchema("test")
                         .build(),
-                ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION)));
+                ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION));
     }
 
     @Override

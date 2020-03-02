@@ -12,7 +12,8 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.function.Function;
@@ -20,20 +21,21 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.USER;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    public TestOracleCaseInsensitiveMapping()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(
+        return createOracleQueryRunner(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
@@ -42,7 +44,7 @@ public class TestOracleCaseInsensitiveMapping
                         .put("case-insensitive-name-matching", "true")
                         .build(),
                 Function.identity(),
-                ImmutableList.of()));
+                ImmutableList.of());
     }
 
     @Test
@@ -139,8 +141,8 @@ public class TestOracleCaseInsensitiveMapping
 
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
-                try (AutoCloseable ignore1 = withTable(USER + "." + nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable(USER + "." + nameVariants[j], "(d varchar(5))")) {
+                try (AutoCloseable ignore1 = withTable(TestingOracleServer.USER + "." + nameVariants[i], "(c varchar(5))");
+                        AutoCloseable ignore2 = withTable(TestingOracleServer.USER + "." + nameVariants[j], "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name:.*Multiple entries with same key.*");

@@ -11,21 +11,20 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.jdbc.KerberosConnectionFactory;
 import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -35,8 +34,8 @@ import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.execute
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.QueryAssertions.copyTable;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.QueryAssertions.copyTable;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -58,17 +57,7 @@ public final class OracleQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createOracleQueryRunner(connectorProperties, sessionModifier, tables, 2);
-    }
-
-    private static QueryRunner createOracleQueryRunner(
-            Map<String, String> connectorProperties,
-            Function<Session, Session> sessionModifier,
-            Iterable<TpchTable<?>> tables,
-            int nodesCount)
-            throws Exception
-    {
-        return createOracleQueryRunner(connectorProperties, sessionModifier, tables, nodesCount, ImmutableMap.of());
+        return createOracleQueryRunner(connectorProperties, sessionModifier, tables, 2, ImmutableMap.of());
     }
 
     public static QueryRunner createOracleQueryRunner(
@@ -189,7 +178,7 @@ public final class OracleQueryRunner
         return testSessionBuilder()
                 .setCatalog(ORACLE_CATALOG)
                 .setSchema(schema)
-                .setIdentity(new Identity(user, Optional.empty()))
+                .setIdentity(Identity.ofUser(user))
                 .build();
     }
 
@@ -201,7 +190,12 @@ public final class OracleQueryRunner
 
         // using single node so JMX stats can be queried
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) createOracleQueryRunner(
-                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", TestingOracleServer.getJdbcUrl())
+                        .put("connection-user", TestingOracleServer.USER)
+                        .put("connection-password", TestingOracleServer.PASSWORD)
+                        .put("allow-drop-table", "true")
+                        .build(),
                 Function.identity(),
                 TpchTable.getTables(),
                 1,
