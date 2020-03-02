@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.base.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -29,6 +30,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
@@ -56,6 +58,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 
 public class FileBasedAccessControl
@@ -148,13 +151,19 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanShowColumns(ConnectorSecurityContext identity, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
+        if (!checkAnyTablePermission(context, tableName)) {
+            denyShowColumns(tableName.toString());
+        }
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext identity, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
+        if (!checkAnyTablePermission(context, tableName)) {
+            return ImmutableList.of();
+        }
         return columns;
     }
 
@@ -346,7 +355,17 @@ public class FileBasedAccessControl
         return false;
     }
 
+    private boolean checkAnyTablePermission(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return checkTablePermission(context, tableName, privileges -> !privileges.isEmpty());
+    }
+
     private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, TablePrivilege... requiredPrivileges)
+    {
+        return checkTablePermission(context, tableName, privileges -> privileges.containsAll(ImmutableSet.copyOf(requiredPrivileges)));
+    }
+
+    private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, Predicate<Set<TablePrivilege>> checkPrivileges)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return true;
@@ -355,7 +374,7 @@ public class FileBasedAccessControl
         for (TableAccessControlRule rule : tableRules) {
             Optional<Set<TablePrivilege>> tablePrivileges = rule.match(context.getIdentity().getUser(), tableName);
             if (tablePrivileges.isPresent()) {
-                return tablePrivileges.get().containsAll(ImmutableSet.copyOf(requiredPrivileges));
+                return checkPrivileges.test(tablePrivileges.get());
             }
         }
         return false;
