@@ -85,7 +85,7 @@ public final class InternalHiveConnectorFactory
                     new HiveGcsModule(),
                     new HiveAzureModule(),
                     new HiveMetastoreModule(metastore),
-                    new HiveSecurityModule(),
+                    new HiveSecurityModule(catalogName),
                     new HiveAuthenticationModule(),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
