@@ -85,7 +85,6 @@ public class TestParquetDecimalScaling
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                "sql-standard",
                 ImmutableMap.of(),
                 Optional.of(basePath));
     }

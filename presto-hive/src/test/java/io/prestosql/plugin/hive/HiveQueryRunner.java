@@ -36,6 +36,7 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -82,10 +83,10 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tables, extraProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), baseDataDir);
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
@@ -108,12 +109,15 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new TestingHivePlugin(metastore));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                    .putAll(extraHiveProperties)
                     .put("hive.time-zone", TIME_ZONE.getID())
-                    .put("hive.security", security)
                     .put("hive.max-partitions-per-scan", "1000")
                     .put("hive.assume-canonical-partition-keys", "true")
                     .build();
+
+            hiveProperties = new HashMap<>(hiveProperties);
+            hiveProperties.putAll(extraHiveProperties);
+            hiveProperties.putIfAbsent("hive.security", "sql-standard");
+
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                     .putAll(hiveProperties)
                     .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
