@@ -37,7 +37,13 @@ public class TestHiveFileBasedSecurity
             throws Exception
     {
         String path = this.getClass().getResource("security.json").getPath();
-        queryRunner = createQueryRunner(ImmutableList.of(NATION), ImmutableMap.of(), "file", ImmutableMap.of("security.config-file", path), Optional.empty());
+        queryRunner = createQueryRunner(
+                ImmutableList.of(NATION),
+                ImmutableMap.of(),
+                ImmutableMap.of(
+                        "hive.security", "file",
+                        "security.config-file", path),
+                Optional.empty());
     }
 
     @AfterClass(alwaysRun = true)
