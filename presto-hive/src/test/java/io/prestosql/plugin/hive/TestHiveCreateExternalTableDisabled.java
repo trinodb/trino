@@ -40,8 +40,9 @@ public class TestHiveCreateExternalTableDisabled
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, CUSTOMER),
                 ImmutableMap.of(),
-                "sql-standard",
-                ImmutableMap.of("hive.non-managed-table-writes-enabled", "true", "hive.non-managed-table-creates-enabled", "false"),
+                ImmutableMap.of(
+                        "hive.non-managed-table-writes-enabled", "true",
+                        "hive.non-managed-table-creates-enabled", "false"),
                 Optional.empty());
     }
 
