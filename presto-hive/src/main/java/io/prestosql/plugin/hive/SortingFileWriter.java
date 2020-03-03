@@ -223,8 +223,7 @@ public class SortingFileWriter
 
             for (TempFile tempFile : files) {
                 Path file = tempFile.getPath();
-                fileSystem.delete(file, false);
-                if (fileSystem.exists(file)) {
+                if (!fileSystem.delete(file, false)) {
                     throw new IOException("Failed to delete temporary file: " + file);
                 }
             }
@@ -252,8 +251,7 @@ public class SortingFileWriter
     private void cleanupFile(Path file)
     {
         try {
-            fileSystem.delete(file, false);
-            if (fileSystem.exists(file)) {
+            if (!fileSystem.delete(file, false)) {
                 throw new IOException("Delete failed");
             }
         }
