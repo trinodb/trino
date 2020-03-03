@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -123,15 +124,26 @@ public class ElasticsearchPageSource
                 .filter(name -> !BuiltinColumns.NAMES.contains(name))
                 .collect(toList());
 
+        // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
+        Optional<String> sort = Optional.of("_doc");
+
+        if (table.getQuery().isPresent()) {
+            // However, if we're using a custom Elasticsearch query, use default sorting.
+            // Documents will be scored and returned based on relevance
+            sort = Optional.empty();
+        }
+
         long start = System.nanoTime();
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
                 buildSearchQuery(session, table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
-                documentFields);
+                documentFields,
+                sort,
+                table.getLimit());
         readTimeNanos += System.nanoTime() - start;
-        this.iterator = new SearchHitIterator(client, () -> searchResponse);
+        this.iterator = new SearchHitIterator(client, () -> searchResponse, table.getLimit());
     }
 
     @Override
@@ -341,17 +353,21 @@ public class ElasticsearchPageSource
     {
         private final ElasticsearchClient client;
         private final Supplier<SearchResponse> first;
+        private final OptionalLong limit;
 
         private SearchHits searchHits;
         private String scrollId;
         private int currentPosition;
 
         private long readTimeNanos;
+        private long totalRecordCount;
 
-        public SearchHitIterator(ElasticsearchClient client, Supplier<SearchResponse> first)
+        public SearchHitIterator(ElasticsearchClient client, Supplier<SearchResponse> first, OptionalLong limit)
         {
             this.client = client;
             this.first = first;
+            this.limit = limit;
+            this.totalRecordCount = 0;
         }
 
         public long getReadTimeNanos()
@@ -362,6 +378,11 @@ public class ElasticsearchPageSource
         @Override
         protected SearchHit computeNext()
         {
+            if (limit.isPresent() && totalRecordCount == limit.getAsLong()) {
+                // No more record is necessary.
+                return endOfData();
+            }
+
             if (scrollId == null) {
                 long start = System.nanoTime();
                 SearchResponse response = first.get();
@@ -381,6 +402,7 @@ public class ElasticsearchPageSource
 
             SearchHit hit = searchHits.getAt(currentPosition);
             currentPosition++;
+            totalRecordCount++;
 
             return hit;
         }

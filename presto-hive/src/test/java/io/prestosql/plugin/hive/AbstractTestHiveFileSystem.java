@@ -62,6 +62,7 @@ import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -110,7 +111,7 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestHiveFileSystem
 {
-    private static final HdfsContext TESTING_CONTEXT = new HdfsContext(new ConnectorIdentity("test", Optional.empty(), Optional.empty()));
+    protected static final HdfsContext TESTING_CONTEXT = new HdfsContext(ConnectorIdentity.ofUser("test"));
 
     protected String database;
     protected SchemaTableName table;
@@ -153,6 +154,8 @@ public abstract class AbstractTestHiveFileSystem
 
     protected abstract Path getBasePath();
 
+    protected void onSetupComplete() {}
+
     protected void setup(String host, int port, String databaseName, boolean s3SelectPushdownEnabled, HdfsConfiguration hdfsConfiguration)
     {
         database = databaseName;
@@ -175,13 +178,14 @@ public abstract class AbstractTestHiveFileSystem
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
                 executor,
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
+                new HiveCatalogName("hive"),
                 config,
                 metastoreClient,
                 hdfsEnvironment,
@@ -233,6 +237,8 @@ public abstract class AbstractTestHiveFileSystem
                 getDefaultHivePageSourceFactories(hdfsEnvironment),
                 getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
+
+        onSetupComplete();
     }
 
     protected ConnectorSession newSession()
@@ -332,7 +338,7 @@ public abstract class AbstractTestHiveFileSystem
         assertFalse(fs.rename(path, newPath));
 
         // rename foo.txt to foo.txt when foo.txt exists
-        assertFalse(fs.rename(path, path));
+        assertEquals(fs.rename(path, path), fs instanceof AzureBlobFileSystem);
 
         // delete foo.txt
         assertTrue(fs.delete(path, false));
@@ -504,7 +510,7 @@ public abstract class AbstractTestHiveFileSystem
         return handle;
     }
 
-    private static class TestingHiveMetastore
+    protected static class TestingHiveMetastore
             extends CachingHiveMetastore
     {
         private final Path basePath;

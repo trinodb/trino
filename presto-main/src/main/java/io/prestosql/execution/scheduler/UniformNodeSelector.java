@@ -16,7 +16,6 @@ package io.prestosql.execution.scheduler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -42,7 +41,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.prestosql.execution.scheduler.NodeScheduler.getAllNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
@@ -95,7 +96,7 @@ public class UniformNodeSelector
     @Override
     public List<InternalNode> allNodes()
     {
-        return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
+        return getAllNodes(nodeMap.get().get(), includeCoordinator);
     }
 
     @Override
@@ -208,7 +209,7 @@ public class UniformNodeSelector
         }
 
         if (splitsToBeRedistributed) {
-            equateDistribution(assignment, assignmentStats, nodeMap);
+            equateDistribution(assignment, assignmentStats, nodeMap, includeCoordinator);
         }
         return new SplitPlacementResult(blocked, assignment);
     }
@@ -227,13 +228,16 @@ public class UniformNodeSelector
      * @param assignmentStats required to obtain info regarding splits assigned to a node outside the current batch of assignment
      * @param nodeMap to get a list of all nodes to which splits can be assigned
      */
-    private void equateDistribution(Multimap<InternalNode, Split> assignment, NodeAssignmentStats assignmentStats, NodeMap nodeMap)
+    private void equateDistribution(Multimap<InternalNode, Split> assignment, NodeAssignmentStats assignmentStats, NodeMap nodeMap, boolean includeCoordinator)
     {
         if (assignment.isEmpty()) {
             return;
         }
 
-        Collection<InternalNode> allNodes = nodeMap.getNodesByHostAndPort().values();
+        Collection<InternalNode> allNodes = nodeMap.getNodesByHostAndPort().values().stream()
+                .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
+                .collect(toImmutableList());
+
         if (allNodes.size() < 2) {
             return;
         }

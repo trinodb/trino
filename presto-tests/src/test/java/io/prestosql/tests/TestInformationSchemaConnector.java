@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
@@ -33,8 +35,10 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestInformationSchemaConnector
@@ -49,11 +53,11 @@ public class TestInformationSchemaConnector
     {
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata", "VALUES 10");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables", "VALUES 80");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 585");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 583");
         assertQuery("SELECT * FROM tpch.information_schema.schemata ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('tpch', 'tiny')");
         assertQuery("SELECT * FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'BASE TABLE')");
-        assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'YES', 'bigint', NULL, NULL)");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 3000036");
+        assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'YES', 'bigint')");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 3000034");
     }
 
     @Test
@@ -62,9 +66,9 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata WHERE schema_name = 'sf1'", "VALUES 1");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema = 'sf1'", "VALUES 8");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'sf1'", "VALUES 61");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 36");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 34");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema > 'sf100'", "VALUES 427");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 524");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 522");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf100'", "VALUES 61");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf%'", "VALUES 488");
     }
@@ -80,7 +84,7 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name LIKE 'part%'", "VALUES 18");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name = 'orders'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'orders'", "VALUES 81");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name < 'orders'", "VALUES 267");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name < 'orders'", "VALUES 265");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'part'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'part%'", "VALUES 126");
     }
@@ -192,6 +196,14 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1)
                         .withListTablesCount(2)
                         .withGetColumnsCount(10000));
+        assertNoMetadataCalls("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''", "VALUES 0");
+    }
+
+    @Test
+    public void testInformationForEmptyNames()
+    {
+        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''");
+        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = ''");
     }
 
     @Override
@@ -266,6 +278,15 @@ public class TestInformationSchemaConnector
                 .withGetColumnsCount(GET_COLUMNS_CALLS_COUNTER.get() - getColumnsCallsCountBefore);
 
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
+    }
+
+    private void assertNoTableScan(String query)
+    {
+        assertFalse(searchFrom(getQueryRunner().createPlan(getSession(), query, WarningCollector.NOOP).getRoot())
+                        .where(TableScanNode.class::isInstance)
+                        .findFirst()
+                        .isPresent(),
+                "TableScanNode was not expected");
     }
 
     private static class MetadataCallsCount

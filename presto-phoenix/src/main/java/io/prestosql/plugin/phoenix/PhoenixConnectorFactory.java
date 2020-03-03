@@ -15,10 +15,13 @@ package io.prestosql.plugin.phoenix;
 
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.util.Types;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
@@ -29,9 +32,6 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -86,7 +86,7 @@ public class PhoenixConnectorFactory
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             PhoenixTableProperties tableProperties = injector.getInstance(PhoenixTableProperties.class);
             PhoenixColumnProperties columnProperties = injector.getInstance(PhoenixColumnProperties.class);
-            Set<SessionPropertiesProvider> sessionPropertiesProviders = (Set<SessionPropertiesProvider>) injector.getInstance(Key.get(Types.setOf(SessionPropertiesProvider.class)));
+            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
 
             return new PhoenixConnector(
                     lifeCycleManager,

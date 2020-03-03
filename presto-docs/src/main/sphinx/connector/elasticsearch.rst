@@ -185,6 +185,8 @@ Elasticsearch Presto
 (all others)  (unsupported)
 ============= =============
 
+.. _elasticsearch-array-types:
+
 Array Types
 ^^^^^^^^^^^
 

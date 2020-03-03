@@ -14,10 +14,11 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
@@ -62,6 +63,19 @@ public class TestMySqlDistributedQueries
     protected boolean supportsArrays()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                mysqlServer::execute,
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
     }
 
     @Override

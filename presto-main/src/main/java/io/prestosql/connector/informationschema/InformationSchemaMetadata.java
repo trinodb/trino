@@ -65,6 +65,7 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.TA
 import static io.prestosql.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -96,11 +97,9 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
     {
-        Optional<InformationSchemaTable> informationSchemaTable = InformationSchemaTable.of(tableName);
-        if (informationSchemaTable.isPresent()) {
-            return new InformationSchemaTableHandle(catalogName, informationSchemaTable.get(), defaultPrefixes(catalogName), OptionalLong.empty());
-        }
-        return null;
+        return InformationSchemaTable.of(tableName)
+                .map(table -> new InformationSchemaTableHandle(catalogName, table, defaultPrefixes(catalogName), OptionalLong.empty()))
+                .orElse(null);
     }
 
     @Override
@@ -164,7 +163,13 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        return new ConnectorTableProperties();
+        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) table;
+        return new ConnectorTableProperties(
+                tableHandle.getPrefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                emptyList());
     }
 
     @Override
@@ -212,7 +217,7 @@ public class InformationSchemaMetadata
             return ImmutableSet.of();
         }
 
-        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
+        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE).map(this::removeEmptyValues);
         if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
             return ImmutableSet.of();
         }
@@ -220,7 +225,7 @@ public class InformationSchemaMetadata
         InformationSchemaTable informationSchemaTable = table.getTable();
         Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
         Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, prefixes, constraint.getSummary(), constraint.predicate());
-        // in case of high number of prefixes it is better to populate all data and then filter
+
         if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
             prefixes = tablePrefixes;
         }
@@ -242,7 +247,7 @@ public class InformationSchemaMetadata
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
-        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
+        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE).map(this::removeEmptyValues);
         if (schemas.isPresent()) {
             return schemas.get().stream()
                     .filter(this::isLowerCase)
@@ -270,7 +275,7 @@ public class InformationSchemaMetadata
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
+        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE).map(this::removeEmptyValues);
         if (tables.isPresent()) {
             return prefixes.stream()
                     .peek(prefix -> verify(!prefix.asQualifiedObjectName().isPresent()))
@@ -301,7 +306,7 @@ public class InformationSchemaMetadata
 
     private boolean isColumnsEnumeratingTable(InformationSchemaTable table)
     {
-        return COLUMNS.equals(table);
+        return COLUMNS == table;
     }
 
     private Stream<QualifiedTablePrefix> listSchemaNames(Session session)
@@ -363,5 +368,12 @@ public class InformationSchemaMetadata
     private boolean isLowerCase(String value)
     {
         return value.toLowerCase(ENGLISH).equals(value);
+    }
+
+    private Set<String> removeEmptyValues(Set<String> values)
+    {
+        return values.stream()
+                .filter(value -> !value.isEmpty())
+                .collect(toImmutableSet());
     }
 }

@@ -184,4 +184,11 @@ public class TestSystemConnector
         assertTrue(queryFuture.isDone());
         assertTrue(metadataFuture.isCancelled());
     }
+
+    @Test
+    public void testTasksTable()
+    {
+        getQueryRunner().execute("SELECT 1");
+        getQueryRunner().execute("SELECT * FROM system.runtime.tasks");
+    }
 }

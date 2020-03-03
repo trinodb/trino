@@ -89,8 +89,9 @@ public class TestRaptorMetadata
 {
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
     private static final SchemaTableName DEFAULT_TEST_LINEITEMS = new SchemaTableName("test", "lineitems");
-    private static final ConnectorSession SESSION = new TestingConnectorSession(
-            new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties())
+            .build();
 
     private DBI dbi;
     private Handle dummyHandle;
@@ -383,8 +384,9 @@ public class TestRaptorMetadata
 
         ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
         assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
-        assertInstanceOf(layout.getPartitioning(), RaptorPartitioningHandle.class);
-        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning();
+        assertTrue(layout.getPartitioning().isPresent());
+        assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
+        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();
         assertEquals(partitioning.getDistributionId(), 1);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));
@@ -840,6 +842,7 @@ public class TestRaptorMetadata
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                Optional.empty(),
                 Optional.empty(),
                 true);
     }

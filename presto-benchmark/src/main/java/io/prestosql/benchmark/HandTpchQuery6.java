@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -74,12 +73,12 @@ public class HandTpchQuery6
 
         Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(field(0, BIGINT), Optional.empty());
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory tpchQuery6Operator = FilterAndProjectOperator.createOperatorFactory(
                 1,
                 new PlanNodeId("test"),
                 () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),
                 ImmutableList.of(DOUBLE),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(

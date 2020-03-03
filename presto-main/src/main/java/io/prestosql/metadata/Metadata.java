@@ -236,7 +236,12 @@ public interface Metadata
     /**
      * Begin insert query
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns);
+
+    /**
+     * @return whether connector handles missing columns during insert
+     */
+    boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle);
 
     /**
      * Finish insert query
@@ -330,6 +335,8 @@ public interface Metadata
     Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
 
     Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
+
+    default void validateScan(Session session, TableHandle table) {}
 
     //
     // Roles and Grants

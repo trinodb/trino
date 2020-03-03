@@ -18,6 +18,7 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.ErrorType;
 
 import static io.prestosql.spi.ErrorType.EXTERNAL;
+import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;
 import static io.prestosql.spi.ErrorType.USER_ERROR;
 
 public enum IcebergErrorCode
@@ -30,6 +31,11 @@ public enum IcebergErrorCode
     ICEBERG_BAD_DATA(4, EXTERNAL),
     ICEBERG_MISSING_DATA(5, EXTERNAL),
     ICEBERG_CANNOT_OPEN_SPLIT(6, EXTERNAL),
+    ICEBERG_WRITER_OPEN_ERROR(7, EXTERNAL),
+    ICEBERG_FILESYSTEM_ERROR(8, EXTERNAL),
+    ICEBERG_CURSOR_ERROR(9, EXTERNAL),
+    ICEBERG_WRITE_VALIDATION_FAILED(10, INTERNAL_ERROR),
+    ICEBERG_INVALID_SNAPSHOT_ID(11, USER_ERROR),
     /**/;
 
     private final ErrorCode errorCode;

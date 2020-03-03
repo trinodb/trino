@@ -22,6 +22,6 @@ public final class Least
 
     public Least()
     {
-        super("least", OperatorType.LESS_THAN, "get the smallest of the given values");
+        super("least", OperatorType.LESS_THAN, "Get the smallest of the given values");
     }
 }

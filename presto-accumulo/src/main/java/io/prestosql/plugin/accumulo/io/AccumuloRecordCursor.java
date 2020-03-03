@@ -165,9 +165,7 @@ public class AccumuloRecordCursor
                 }
                 return true;
             }
-            else {
-                return false;
-            }
+            return false;
         }
         catch (IOException e) {
             throw new PrestoException(IO_ERROR, "Caught IO error from serializer on read", e);
@@ -203,30 +201,28 @@ public class AccumuloRecordCursor
         if (type.equals(BIGINT)) {
             return serializer.getLong(fieldToColumnName[field]);
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return MILLISECONDS.toDays(serializer.getDate(fieldToColumnName[field]).getTime());
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return serializer.getInt(fieldToColumnName[field]);
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return Float.floatToIntBits(serializer.getFloat(fieldToColumnName[field]));
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return serializer.getShort(fieldToColumnName[field]);
         }
-        else if (type.equals(TIME)) {
+        if (type.equals(TIME)) {
             return serializer.getTime(fieldToColumnName[field]).getTime();
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             return serializer.getTimestamp(fieldToColumnName[field]).getTime();
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return serializer.getByte(fieldToColumnName[field]);
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
     }
 
     @Override
@@ -249,12 +245,10 @@ public class AccumuloRecordCursor
         if (type instanceof VarbinaryType) {
             return Slices.wrappedBuffer(serializer.getVarbinary(fieldToColumnName[field]));
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return Slices.utf8Slice(serializer.getVarchar(fieldToColumnName[field]));
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
 
     @Override

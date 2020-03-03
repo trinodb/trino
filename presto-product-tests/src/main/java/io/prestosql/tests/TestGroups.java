@@ -51,6 +51,7 @@ public final class TestGroups
     public static final String HIVE_PARTITIONING = "hive_partitioning";
     public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
+    public static final String HIVE_VIEWS = "hive_views";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";

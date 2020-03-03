@@ -29,6 +29,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.predicate.Domain;
@@ -43,8 +44,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -128,9 +130,13 @@ public class ElasticsearchMetadata
         result.add(BuiltinColumns.SOURCE.getMetadata());
         result.add(BuiltinColumns.SCORE.getMetadata());
 
+        Map<String, Long> counts = metadata.getSchema()
+                .getFields().stream()
+                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
+
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
             Type type = toPrestoType(field);
-            if (type == null) {
+            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
                 continue;
             }
 
@@ -175,7 +181,7 @@ public class ElasticsearchMetadata
             Type elementType = toPrestoType(metaDataField, false);
             return new ArrayType(elementType);
         }
-        else if (type instanceof PrimitiveType) {
+        if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
                     return REAL;
@@ -208,11 +214,21 @@ public class ElasticsearchMetadata
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
 
-            List<RowType.Field> fields = objectType.getFields().stream()
-                    .map(field -> RowType.field(field.getName(), toPrestoType(field)))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
+            for (IndexMetadata.Field field : objectType.getFields()) {
+                Type prestoType = toPrestoType(field);
+                if (prestoType != null) {
+                    builder.add(RowType.field(field.getName(), prestoType));
+                }
+            }
 
-            return RowType.from(fields);
+            List<RowType.Field> fields = builder.build();
+
+            if (!fields.isEmpty()) {
+                return RowType.from(fields);
+            }
+
+            // otherwise, skip -- row types must have at least 1 field
         }
 
         return null;
@@ -298,6 +314,25 @@ public class ElasticsearchMetadata
     }
 
     @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        handle = new ElasticsearchTableHandle(
+                handle.getSchema(),
+                handle.getIndex(),
+                handle.getConstraint(),
+                handle.getQuery(),
+                OptionalLong.of(limit));
+
+        return Optional.of(new LimitApplicationResult<>(handle, false));
+    }
+
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
@@ -327,7 +362,8 @@ public class ElasticsearchMetadata
                 handle.getSchema(),
                 handle.getIndex(),
                 newDomain,
-                handle.getQuery());
+                handle.getQuery(),
+                handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported)));
     }

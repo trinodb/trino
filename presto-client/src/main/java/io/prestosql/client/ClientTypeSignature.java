@@ -30,6 +30,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.client.ClientStandardTypes.ROW;
+import static io.prestosql.client.ClientStandardTypes.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -41,6 +42,7 @@ public class ClientTypeSignature
     private static final Pattern PATTERN = Pattern.compile(".*[<>,].*");
     private final String rawType;
     private final List<ClientTypeSignatureParameter> arguments;
+    public static final int VARCHAR_UNBOUNDED_LENGTH = Integer.MAX_VALUE;
 
     public ClientTypeSignature(String rawType)
     {
@@ -87,6 +89,10 @@ public class ClientTypeSignature
             return rowToString();
         }
 
+        if (rawType.equals(VARCHAR) && arguments.get(0).getKind() == ParameterKind.LONG && arguments.get(0).getLongLiteral() == VARCHAR_UNBOUNDED_LENGTH) {
+            return "varchar";
+        }
+
         if (arguments.isEmpty()) {
             return rawType;
         }
@@ -108,6 +114,9 @@ public class ClientTypeSignature
                 })
                 .collect(joining(","));
 
+        if (fields.isEmpty()) {
+            return "row";
+        }
         return format("row(%s)", fields);
     }
 

@@ -76,13 +76,14 @@ public final class RealType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
+        int floatValue;
         try {
-            toIntExact(value);
+            floatValue = toIntExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value).replace(' ', '0')));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
         }
-        blockBuilder.writeInt((int) value).closeEntry();
+        blockBuilder.writeInt(floatValue).closeEntry();
     }
 
     @Override

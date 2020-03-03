@@ -56,8 +56,29 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
+    public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+    {
+    }
+
+    @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
+    }
+
+    @Override
+    public void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+    }
+
+    @Override
+    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        return queryOwners;
     }
 
     @Override
@@ -120,7 +141,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
+    public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 

@@ -401,11 +401,28 @@ public interface ConnectorMetadata
     default void cleanupQuery(ConnectorSession session) {}
 
     /**
-     * Begin insert query
+     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List)} instead.
      */
+    @Deprecated
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
+    }
+
+    /**
+     * Begin insert query
+     */
+    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    {
+        return beginInsert(session, tableHandle);
+    }
+
+    /**
+     * @return whether connector handles missing columns during insert
+     */
+    default boolean supportsMissingColumnsOnInsert()
+    {
+        return false;
     }
 
     /**
@@ -789,4 +806,13 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+
+    /**
+     * Allows the connector to reject the table scan produced by the planner.
+     * <p>
+     * Connectors can choose to reject a query based on the table scan potentially being too expensive, for example
+     * if no filtering is done on a partition column.
+     * <p>
+     */
+    default void validateScan(ConnectorSession session, ConnectorTableHandle handle) {}
 }

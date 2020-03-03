@@ -85,6 +85,8 @@ public final class HiveSessionProperties
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
+    private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
+    private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -338,6 +340,16 @@ public final class HiveSessionProperties
                         TEMPORARY_STAGING_DIRECTORY_PATH,
                         "Temporary staging directory location",
                         hiveConfig.getTemporaryStagingDirectoryPath(),
+                        false),
+                booleanProperty(
+                        IGNORE_ABSENT_PARTITIONS,
+                        "Ignore partitions when the file system location does not exist rather than failing the query.",
+                        hiveConfig.isIgnoreAbsentPartitions(),
+                        false),
+                booleanProperty(
+                        QUERY_PARTITION_FILTER_REQUIRED,
+                        "Require filter on partition column",
+                        hiveConfig.isQueryPartitionFilterRequired(),
                         false));
     }
 
@@ -565,6 +577,16 @@ public final class HiveSessionProperties
     public static String getTemporaryStagingDirectoryPath(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
+    }
+
+    public static boolean isIgnoreAbsentPartitions(ConnectorSession session)
+    {
+        return session.getProperty(IGNORE_ABSENT_PARTITIONS, Boolean.class);
+    }
+
+    public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
+    {
+        return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
     }
 
     private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)

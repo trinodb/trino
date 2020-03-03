@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>329-SNAPSHOT</version>
+        <version>331-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tpcds</artifactId>
@@ -16,8 +16,9 @@
     </properties>
 
     <dependencies>
+
         <dependency>
-            <groupId>com.teradata.tpcds</groupId>
+            <groupId>io.prestosql.tpcds</groupId>
             <artifactId>tpcds</artifactId>
         </dependency>
 

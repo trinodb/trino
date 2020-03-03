@@ -28,9 +28,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -294,18 +294,6 @@ public class TestMongoIntegrationSmokeTest
         assertQuery("SELECT * FROM test.view_base", "SELECT 'foo'");
         assertUpdate("DROP TABLE test.test_view");
         assertUpdate("DROP TABLE test.view_base");
-    }
-
-    @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
     }
 
     private void assertOneNotNullResult(String query)

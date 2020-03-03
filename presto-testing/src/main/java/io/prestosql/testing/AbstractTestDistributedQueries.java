@@ -27,6 +27,7 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -52,7 +53,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -303,7 +304,7 @@ public abstract class AbstractTestDistributedQueries
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
-    private void assertExplainAnalyze(@Language("SQL") String query)
+    protected void assertExplainAnalyze(@Language("SQL") String query)
     {
         String value = (String) computeActual(query).getOnlyValue();
 
@@ -702,7 +703,14 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
 
+        assertUpdate("CREATE VIEW test_view_with_comment COMMENT 'orders' AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW test_view_with_comment COMMENT 'orders' AS " + query);
+
+        MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW test_view_with_comment");
+        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'orders'"));
+
         assertQuery("SELECT * FROM test_view", query);
+        assertQuery("SELECT * FROM test_view_with_comment", query);
 
         assertQuery(
                 "SELECT * FROM test_view a JOIN test_view b on a.orderkey = b.orderkey",
@@ -714,6 +722,7 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW test_view");
+        assertUpdate("DROP VIEW test_view_with_comment");
     }
 
     @Test
@@ -954,14 +963,29 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testTableSampleSystemBoundaryValues()
+    public void testTableSampleSystem()
     {
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
+        MaterializedResult randomSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (50)");
         MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
         assertContains(all, fullSample);
         assertEquals(emptySample.getMaterializedRows().size(), 0);
+        assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
+    }
+
+    @Test
+    public void testTableSampleWithFiltering()
+    {
+        MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (99) WHERE orderkey BETWEEN 0 AND 0");
+        MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (50) WHERE orderkey BETWEEN 0 AND 9999999999");
+        MaterializedResult all = computeActual("SELECT orderkey, orderdate FROM orders");
+
+        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
+        // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
+        assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
     }
 
     @Test
@@ -1077,8 +1101,8 @@ public abstract class AbstractTestDistributedQueries
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // change access denied exception to view
-        assertAccessDenied("SHOW CREATE VIEW test_nested_view_access", "Cannot show columns of .*test_nested_view_access.*", privilege("test_nested_view_access", SHOW_COLUMNS));
-        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_access", privilege("test_denied_access_view", SHOW_COLUMNS));
+        assertAccessDenied("SHOW CREATE VIEW test_nested_view_access", "Cannot show create table for .*test_nested_view_access.*", privilege("test_nested_view_access", SHOW_CREATE_TABLE));
+        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_access", privilege("test_denied_access_view", SHOW_CREATE_TABLE));
 
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
@@ -1119,4 +1143,30 @@ public abstract class AbstractTestDistributedQueries
                         "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
                 "VALUES (1, '0 00:00:01.000')");
     }
+
+    @Test
+    public void testCreateSchema()
+    {
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("test_schema_create");
+        assertUpdate("CREATE SCHEMA test_schema_create");
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains("test_schema_create");
+        assertQueryFails("CREATE SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' already exists");
+        assertUpdate("DROP SCHEMA test_schema_create");
+        assertQueryFails("DROP SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' does not exist");
+    }
+
+    @Test
+    public void testInsertForDefaultColumn()
+    {
+        try (TestTable testTable = createTableWithDefaultColumns()) {
+            assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (7, null, null, 8, 9)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
+
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
+        }
+    }
+
+    protected abstract TestTable createTableWithDefaultColumns();
 }

@@ -45,6 +45,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -79,6 +80,7 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoS3FileSystem
@@ -90,13 +92,12 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration(false);
-        config.set(S3_ACCESS_KEY, "test_secret_access_key");
-        config.set(S3_SECRET_KEY, "test_access_key_id");
+        config.set(S3_ACCESS_KEY, "test_access_key");
+        config.set(S3_SECRET_KEY, "test_secret_key");
         // the static credentials should be preferred
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
-            fs.initialize(new URI("s3n://test-bucket/"), config);
-            assertInstanceOf(getAwsCredentialsProvider(fs), AWSStaticCredentialsProvider.class);
+            verifyStaticCredentials(config, fs, "s3n://test-bucket/", "test_access_key", "test_secret_key");
         }
     }
 
@@ -105,16 +106,25 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration(false);
-        config.set(S3_ACCESS_KEY, "test_secret_access_key");
-        config.set(S3_SECRET_KEY, "test_access_key_id");
+        config.set(S3_ACCESS_KEY, "test_access_key");
+        config.set(S3_SECRET_KEY, "test_secret_key");
         config.set(S3_ENDPOINT, "test.example.endpoint.com");
         config.set(S3_SIGNER_TYPE, "S3SignerType");
         // the static credentials should be preferred
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
-            fs.initialize(new URI("s3a://test-bucket/"), config);
-            assertInstanceOf(getAwsCredentialsProvider(fs), AWSStaticCredentialsProvider.class);
+            verifyStaticCredentials(config, fs, "s3a://test-bucket/", "test_access_key", "test_secret_key");
         }
+    }
+
+    private static void verifyStaticCredentials(Configuration config, PrestoS3FileSystem fileSystem, String uri, String expectedAccessKey, String expectedSecretKey)
+            throws IOException, URISyntaxException
+    {
+        fileSystem.initialize(new URI(uri), config);
+        AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fileSystem);
+        assertInstanceOf(awsCredentialsProvider, AWSStaticCredentialsProvider.class);
+        assertEquals(awsCredentialsProvider.getCredentials().getAWSAccessKeyId(), expectedAccessKey);
+        assertEquals(awsCredentialsProvider.getCredentials().getAWSSecretKey(), expectedSecretKey);
     }
 
     @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region")
@@ -193,7 +203,9 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket_underscore";
-            fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
+            URI uri = new URI("s3n://" + expectedBucketName + "/");
+            assertEquals(fs.getBucketName(uri), expectedBucketName);
+            fs.initialize(uri, config);
             fs.setS3Client(s3);
             fs.getS3ObjectMetadata(new Path("/test/path"));
             assertEquals(expectedBucketName, s3.getGetObjectMetadataRequest().getBucketName());
@@ -397,7 +409,7 @@ public class TestPrestoS3FileSystem
             s3.setGetObjectMetadataHttpCode(HTTP_NOT_FOUND);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
             fs.setS3Client(s3);
-            assertEquals(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")), null);
+            assertNull(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")));
         }
     }
 
@@ -515,7 +527,7 @@ public class TestPrestoS3FileSystem
         }
     }
 
-    private static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
+    public static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
     {
         return getFieldValue(fs.getS3Client(), "awsCredentialsProvider", AWSCredentialsProvider.class);
     }

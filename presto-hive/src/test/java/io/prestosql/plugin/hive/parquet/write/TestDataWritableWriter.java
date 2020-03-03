@@ -17,7 +17,6 @@ import io.airlift.log.Logger;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
-import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.ParquetHiveRecord;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
@@ -60,7 +59,7 @@ import java.util.Map;
  */
 public class TestDataWritableWriter
 {
-    private static final Logger log = Logger.get(DataWritableWriter.class);
+    private static final Logger log = Logger.get(TestDataWritableWriter.class);
     private final RecordConsumer recordConsumer;
     private final GroupType schema;
     private final boolean singleLevelArray;
@@ -139,7 +138,7 @@ public class TestDataWritableWriter
             GroupType groupType = type.asGroupType();
             OriginalType originalType = type.getOriginalType();
 
-            if (OriginalType.LIST.equals(originalType)) {
+            if (OriginalType.LIST == originalType) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.LIST);
                 if (singleLevelArray) {
                     writeSingleLevelArray(value, (ListObjectInspector) inspector, groupType);
@@ -148,7 +147,7 @@ public class TestDataWritableWriter
                     writeArray(value, (ListObjectInspector) inspector, groupType);
                 }
             }
-            else if (originalType != null && (originalType.equals(OriginalType.MAP) || originalType.equals(OriginalType.MAP_KEY_VALUE))) {
+            else if (originalType != null && (originalType == OriginalType.MAP || originalType == OriginalType.MAP_KEY_VALUE)) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.MAP);
                 writeMap(value, (MapObjectInspector) inspector, groupType);
             }
@@ -168,7 +167,7 @@ public class TestDataWritableWriter
      */
     private void checkInspectorCategory(ObjectInspector inspector, ObjectInspector.Category category)
     {
-        if (!inspector.getCategory().equals(category)) {
+        if (inspector.getCategory() != category) {
             throw new IllegalArgumentException("Invalid data type: expected " + category
                     + " type, but found: " + inspector.getCategory());
         }

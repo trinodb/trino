@@ -117,14 +117,15 @@ public class HivePageSourceProvider
                 hiveSplit.getFileSize(),
                 hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast)),
+                hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast).simplify()),
                 hiveColumns,
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
                 hiveSplit.getColumnCoercions(),
                 hiveSplit.getBucketConversion(),
-                hiveSplit.isS3SelectPushdownEnabled());
+                hiveSplit.isS3SelectPushdownEnabled(),
+                hiveSplit.getDeleteDeltaLocations());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -150,7 +151,8 @@ public class HivePageSourceProvider
             TypeManager typeManager,
             Map<Integer, HiveType> columnCoercions,
             Optional<BucketConversion> bucketConversion,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new FixedPageSource(ImmutableList.of()));
@@ -195,7 +197,8 @@ public class HivePageSourceProvider
                     schema,
                     toColumnHandles(regularAndInterimColumnMappings, true, typeManager),
                     effectivePredicate,
-                    hiveStorageTimeZone);
+                    hiveStorageTimeZone,
+                    deleteDeltaLocations);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
@@ -227,6 +230,8 @@ public class HivePageSourceProvider
 
             if (cursor.isPresent()) {
                 RecordCursor delegate = cursor.get();
+
+                checkArgument(!deleteDeltaLocations.isPresent(), "Delete delta is not supported");
 
                 if (bucketAdaptation.isPresent()) {
                     delegate = new HiveBucketAdapterRecordCursor(

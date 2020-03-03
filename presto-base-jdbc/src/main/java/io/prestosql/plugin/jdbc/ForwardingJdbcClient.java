@@ -133,9 +133,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        return delegate().beginInsertTable(session, tableHandle);
+        return delegate().beginInsertTable(session, tableHandle, columns);
     }
 
     @Override
@@ -228,5 +228,11 @@ public abstract class ForwardingJdbcClient
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
         delegate().createSchema(identity, schemaName);
+    }
+
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate().dropSchema(identity, schemaName);
     }
 }

@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -64,6 +63,7 @@ public class TaskStats
 
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
 
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
@@ -101,25 +101,26 @@ public class TaskStats
                 0,
                 0,
                 0.0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
                 ImmutableList.of());
@@ -156,6 +157,7 @@ public class TaskStats
 
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
@@ -216,6 +218,7 @@ public class TaskStats
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
         this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
 
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
@@ -385,6 +388,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
+    }
+
+    @JsonProperty
     public DataSize getInternalNetworkInputDataSize()
     {
         return internalNetworkInputDataSize;
@@ -496,6 +505,7 @@ public class TaskStats
                 blockedReasons,
                 physicalInputDataSize,
                 physicalInputPositions,
+                physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,
@@ -538,6 +548,7 @@ public class TaskStats
                 blockedReasons,
                 physicalInputDataSize,
                 physicalInputPositions,
+                physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,

@@ -219,7 +219,7 @@ public class HiveTableOperations
         }
 
         PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
-        ConnectorIdentity identity = new ConnectorIdentity(table.getOwner(), Optional.empty(), Optional.empty());
+        ConnectorIdentity identity = ConnectorIdentity.ofUser(table.getOwner());
         HiveIdentity context = new HiveIdentity(identity);
         if (base == null) {
             metastore.createTable(context, table, privileges);

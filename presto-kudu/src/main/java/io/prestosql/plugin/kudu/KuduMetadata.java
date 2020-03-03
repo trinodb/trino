@@ -121,13 +121,13 @@ public class KuduMetadata
         }
 
         String encoding = KuduTableProperties.lookupEncodingString(column.getEncoding());
-        if (!column.getEncoding().equals(ColumnSchema.Encoding.AUTO_ENCODING)) {
+        if (column.getEncoding() != ColumnSchema.Encoding.AUTO_ENCODING) {
             properties.put(KuduTableProperties.ENCODING, encoding);
         }
         extra.append("encoding=").append(encoding).append(", ");
 
         String compression = KuduTableProperties.lookupCompressionString(column.getCompressionAlgorithm());
-        if (!column.getCompressionAlgorithm().equals(ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION)) {
+        if (column.getCompressionAlgorithm() != ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION) {
             properties.put(KuduTableProperties.COMPRESSION, compression);
         }
         extra.append("compression=").append(compression);

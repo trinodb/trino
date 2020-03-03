@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -55,6 +57,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClien
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_TABLE;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -91,7 +94,7 @@ public class TestCachingHiveMetastore
     private ThriftHiveMetastore createThriftHiveMetastore()
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
-        return new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), HDFS_ENVIRONMENT);
+        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), HDFS_ENVIRONMENT);
     }
 
     @Test
@@ -283,6 +286,20 @@ public class TestCachingHiveMetastore
 
         assertEquals(metastore.getPartitionStatistics(IDENTITY, table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
         assertEquals(mockClient.getAccessCount(), 3);
+    }
+
+    @Test
+    public void testUpdatePartitionStatistics()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+
+        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(metastore);
+
+        Table table = hiveMetastoreClosure.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE).get();
+        assertEquals(mockClient.getAccessCount(), 1);
+
+        hiveMetastoreClosure.updatePartitionStatistics(IDENTITY, table.getDatabaseName(), table.getTableName(), TEST_PARTITION1, identity());
+        assertEquals(mockClient.getAccessCount(), 5);
     }
 
     @Test

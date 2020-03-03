@@ -17,12 +17,10 @@ import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.ParquetWriter;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
-
 public class ParquetWriterConfig
 {
-    private DataSize blockSize = new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE);
-    private DataSize pageSize = new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE);
+    private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
+    private DataSize pageSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
 
     public DataSize getBlockSize()
     {

@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.sqlserver;
 
-import io.airlift.log.Logger;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -54,12 +53,7 @@ public class TestInsert
     @AfterTestWithContext
     public void dropTestTables()
     {
-        try {
-            onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", INSERT_TABLE_NAME));
-        }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table");
-        }
+        onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", INSERT_TABLE_NAME));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})

@@ -14,13 +14,12 @@
 package io.prestosql.plugin.sqlserver;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -28,17 +27,15 @@ import static org.testng.Assert.assertTrue;
 public class TestSqlServerIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingSqlServer sqlServer;
+    protected TestingSqlServer sqlServer;
 
-    public TestSqlServerIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new TestingSqlServer());
-    }
-
-    public TestSqlServerIntegrationSmokeTest(TestingSqlServer testingSqlServer)
-    {
-        super(() -> createSqlServerQueryRunner(testingSqlServer, ORDERS));
-        this.sqlServer = testingSqlServer;
+        sqlServer = new TestingSqlServer();
+        sqlServer.start();
+        return createSqlServerQueryRunner(sqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
@@ -108,20 +105,6 @@ public class TestSqlServerIntegrationSmokeTest
                     "VALUES (123.321, 123456789.987654321)");
             assertQuery("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321",
                     "VALUES (123.321, 123456789.987654321)");
-        }
-    }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected void cleanUpSchemas(List<String> schemaNames)
-    {
-        for (String schemaName : schemaNames) {
-            sqlServer.execute("DROP SCHEMA " + schemaName);
         }
     }
 

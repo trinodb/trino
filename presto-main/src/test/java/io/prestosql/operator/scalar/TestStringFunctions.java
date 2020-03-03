@@ -56,7 +56,7 @@ public class TestStringFunctions
         registerScalar(getClass());
     }
 
-    @Description("varchar length")
+    @Description("Varchar length")
     @ScalarFunction(value = "vl", deterministic = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)

@@ -128,7 +128,7 @@ public class IcebergTableHandle
         }
 
         Optional<Long> version = Optional.empty();
-        if (type == TableType.DATA || type == TableType.PARTITIONS || type == TableType.MANIFESTS) {
+        if (type == TableType.DATA || type == TableType.PARTITIONS || type == TableType.MANIFESTS || type == TableType.FILES) {
             if (ver1 != null && ver2 != null) {
                 throw new PrestoException(NOT_SUPPORTED, "Invalid Iceberg table name (cannot specify two @ versions): " + name);
             }

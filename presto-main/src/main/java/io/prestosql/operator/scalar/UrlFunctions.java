@@ -48,7 +48,7 @@ public final class UrlFunctions
     private UrlFunctions() {}
 
     @SqlNullable
-    @Description("extract protocol from url")
+    @Description("Extract protocol from url")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -59,7 +59,7 @@ public final class UrlFunctions
     }
 
     @SqlNullable
-    @Description("extract host from url")
+    @Description("Extract host from url")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -70,7 +70,7 @@ public final class UrlFunctions
     }
 
     @SqlNullable
-    @Description("extract port from url")
+    @Description("Extract port from url")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
@@ -84,7 +84,7 @@ public final class UrlFunctions
     }
 
     @SqlNullable
-    @Description("extract part from url")
+    @Description("Extract part from url")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -95,7 +95,7 @@ public final class UrlFunctions
     }
 
     @SqlNullable
-    @Description("extract query from url")
+    @Description("Extract query from url")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -106,7 +106,7 @@ public final class UrlFunctions
     }
 
     @SqlNullable
-    @Description("extract fragment from url")
+    @Description("Extract fragment from url")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -117,7 +117,7 @@ public final class UrlFunctions
     }
 
     @SqlNullable
-    @Description("extract query parameter from url")
+    @Description("Extract query parameter from url")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
     @SqlType("varchar(x)")
@@ -146,7 +146,7 @@ public final class UrlFunctions
         return null;
     }
 
-    @Description("escape a string for use in URL query parameter names and values")
+    @Description("Escape a string for use in URL query parameter names and values")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
     @Constraint(variable = "y", expression = "min(2147483647, x * 12)")
@@ -157,7 +157,7 @@ public final class UrlFunctions
         return slice(escaper.escape(value.toStringUtf8()));
     }
 
-    @Description("unescape a URL-encoded string")
+    @Description("Unescape a URL-encoded string")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")

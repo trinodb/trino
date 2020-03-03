@@ -69,7 +69,7 @@ import static java.util.Objects.requireNonNull;
 class HiveSplitSource
         implements ConnectorSplitSource
 {
-    private static final Logger log = Logger.get(HiveSplit.class);
+    private static final Logger log = Logger.get(HiveSplitSource.class);
 
     private final String queryId;
     private final String databaseName;
@@ -370,7 +370,8 @@ class HiveSplitSource
                         internalSplit.isForceLocalScheduling(),
                         transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType),
                         internalSplit.getBucketConversion(),
-                        internalSplit.isS3SelectPushdownEnabled()));
+                        internalSplit.isS3SelectPushdownEnabled(),
+                        internalSplit.getDeleteDeltaLocations()));
 
                 internalSplit.increaseStart(splitBytes);
 

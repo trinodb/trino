@@ -211,6 +211,22 @@ public final class ExpressionUtils
         return and(conjuncts);
     }
 
+    public static Expression combineConjunctsWithDuplicates(Collection<Expression> expressions)
+    {
+        requireNonNull(expressions, "expressions is null");
+
+        List<Expression> conjuncts = expressions.stream()
+                .flatMap(e -> ExpressionUtils.extractConjuncts(e).stream())
+                .filter(e -> !e.equals(TRUE_LITERAL))
+                .collect(toList());
+
+        if (conjuncts.contains(FALSE_LITERAL)) {
+            return FALSE_LITERAL;
+        }
+
+        return and(conjuncts);
+    }
+
     public static Expression combineDisjuncts(Metadata metadata, Expression... expressions)
     {
         return combineDisjuncts(metadata, Arrays.asList(expressions));

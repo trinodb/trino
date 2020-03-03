@@ -32,4 +32,11 @@ public interface WorkProcessorOperator
     {
         return Optional.empty();
     }
+
+    @Override
+    default void close()
+            throws Exception
+    {
+        // do nothing
+    }
 }

@@ -14,9 +14,11 @@
 package io.prestosql.connector.system;
 
 import io.airlift.units.Duration;
+import io.prestosql.FullConnectorSession;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryStats;
+import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.block.Block;
@@ -42,6 +44,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -75,11 +78,13 @@ public class QuerySystemTable
             .build();
 
     private final Optional<DispatchManager> dispatchManager;
+    private final AccessControl accessControl;
 
     @Inject
-    public QuerySystemTable(Optional<DispatchManager> dispatchManager)
+    public QuerySystemTable(Optional<DispatchManager> dispatchManager, AccessControl accessControl)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -98,8 +103,12 @@ public class QuerySystemTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         checkState(dispatchManager.isPresent(), "Query system table can return results only on coordinator");
+
+        List<BasicQueryInfo> queries = dispatchManager.get().getQueries();
+        queries = filterQueries(((FullConnectorSession) session).getSession().getIdentity(), queries, accessControl);
+
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
-        for (BasicQueryInfo queryInfo : dispatchManager.get().getQueries()) {
+        for (BasicQueryInfo queryInfo : queries) {
             Optional<QueryInfo> fullQueryInfo = dispatchManager.get().getFullQueryInfo(queryInfo.getQueryId());
             if (!fullQueryInfo.isPresent()) {
                 continue;

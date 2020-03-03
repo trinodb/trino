@@ -94,8 +94,8 @@ public class TestCachingOrcDataSource
     @Test
     public void testWrapWithCacheIfTinyStripes()
     {
-        DataSize maxMergeDistance = new DataSize(1, Unit.MEGABYTE);
-        DataSize tinyStripeThreshold = new DataSize(8, Unit.MEGABYTE);
+        DataSize maxMergeDistance = DataSize.of(1, Unit.MEGABYTE);
+        DataSize tinyStripeThreshold = DataSize.of(8, Unit.MEGABYTE);
 
         OrcDataSource actual = wrapWithCacheIfTinyStripes(
                 FakeOrcDataSource.INSTANCE,
@@ -137,8 +137,8 @@ public class TestCachingOrcDataSource
     public void testTinyStripesReadCacheAt()
             throws IOException
     {
-        DataSize maxMergeDistance = new DataSize(1, Unit.MEGABYTE);
-        DataSize tinyStripeThreshold = new DataSize(8, Unit.MEGABYTE);
+        DataSize maxMergeDistance = DataSize.of(1, Unit.MEGABYTE);
+        DataSize tinyStripeThreshold = DataSize.of(8, Unit.MEGABYTE);
 
         TestingOrcDataSource testingOrcDataSource = new TestingOrcDataSource(FakeOrcDataSource.INSTANCE);
         CachingOrcDataSource cachingOrcDataSource = new CachingOrcDataSource(
@@ -183,12 +183,12 @@ public class TestCachingOrcDataSource
     {
         // tiny file
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
-        doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
+        doIntegration(orcDataSource, DataSize.of(1, Unit.MEGABYTE), DataSize.of(1, Unit.MEGABYTE));
         assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
 
         // tiny stripes
         orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
-        doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
+        doIntegration(orcDataSource, DataSize.of(400, Unit.KILOBYTE), DataSize.of(400, Unit.KILOBYTE));
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
     }
 
@@ -198,7 +198,7 @@ public class TestCachingOrcDataSource
         OrcReaderOptions options = new OrcReaderOptions()
                 .withMaxMergeDistance(maxMergeDistance)
                 .withTinyStripeThreshold(tinyStripeThreshold)
-                .withMaxReadBlockSize(new DataSize(1, Unit.MEGABYTE));
+                .withMaxReadBlockSize(DataSize.of(1, Unit.MEGABYTE));
         OrcReader orcReader = new OrcReader(orcDataSource, options);
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);

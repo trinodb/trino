@@ -19,11 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RowBlock;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
@@ -65,8 +65,6 @@ public class TestStructColumnReader
 
     private static final String STRUCT_COL_NAME = "struct_col";
 
-    private static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
-
     private TempFile tempFile;
 
     @BeforeMethod
@@ -97,7 +95,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -120,7 +118,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -143,7 +141,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -183,7 +181,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -207,7 +205,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -217,17 +215,20 @@ public class TestStructColumnReader
     private void write(TempFile tempFile, Type writerType, List<String> data)
             throws IOException
     {
+        List<String> columnNames = ImmutableList.of(STRUCT_COL_NAME);
+        List<Type> types = ImmutableList.of(writerType);
         OrcWriter writer = new OrcWriter(
                 new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
-                ImmutableList.of(STRUCT_COL_NAME),
-                ImmutableList.of(writerType),
+                columnNames,
+                types,
+                OrcType.createRootOrcType(columnNames, types),
                 NONE,
                 new OrcWriterOptions()
-                        .withStripeMinSize(new DataSize(0, MEGABYTE))
-                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMinSize(DataSize.of(0, MEGABYTE))
+                        .withStripeMaxSize(DataSize.of(32, MEGABYTE))
                         .withStripeMaxRowCount(ORC_STRIPE_SIZE)
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
-                        .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                        .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE)),
                 false,
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,

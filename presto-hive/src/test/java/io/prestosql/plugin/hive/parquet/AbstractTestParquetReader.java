@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
@@ -32,7 +33,6 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
-import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -73,6 +73,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
+import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -844,7 +845,7 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT32()
             throws Exception
     {
-        for (int precision = 1; precision <= MAX_PRECISION_INT32; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT32; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Integer> intValues = intsBetween(-1_000, 1_000);
@@ -861,7 +862,7 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT64()
             throws Exception
     {
-        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
@@ -876,12 +877,10 @@ public abstract class AbstractTestParquetReader
 
     @Test
     public void testParquetShortDecimalWriteToPrestoDecimalWithNonMatchingScale()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
-            tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), createDecimalType(10, 2), Optional.of(parquetSchema));
-        }).hasMessage("Presto decimal column type has different scale (2) than Parquet decimal column (1)")
-                .isInstanceOf(ParquetDecodingException.class);
+        MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
+        tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(10L), ImmutableList.of(SqlDecimal.of(100L, 10, 2)), createDecimalType(10, 2), Optional.of(parquetSchema));
     }
 
     @Test
@@ -910,15 +909,13 @@ public abstract class AbstractTestParquetReader
 
     @Test
     public void testParquetLongDecimalWriteToPrestoDecimalWithNonMatchingScale()
+            throws Exception
     {
-        assertThatThrownBy(() ->
-                tester.testRoundTrip(
-                        new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
-                        ImmutableList.of(HiveDecimal.create(0)),
-                        ImmutableList.of(new SqlDecimal(BigInteger.ZERO, 38, 10)),
-                        createDecimalType(38, 9)))
-                .hasMessage("Presto decimal column type has different scale (9) than Parquet decimal column (10)")
-                .isInstanceOf(ParquetDecodingException.class);
+        tester.testRoundTrip(
+                new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
+                ImmutableList.of(HiveDecimal.create(100 * longTenToNth(10), 10)),
+                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(100 * longTenToNth(9)), 38, 9)),
+                createDecimalType(38, 9));
     }
 
     @Test
@@ -970,7 +967,7 @@ public abstract class AbstractTestParquetReader
     public void testParquetShortDecimalWriteToPrestoBigintBlock()
             throws Exception
     {
-        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
             ImmutableList.Builder<Long> expectedValues = new ImmutableList.Builder<>();
@@ -987,8 +984,8 @@ public abstract class AbstractTestParquetReader
         assertThatThrownBy(() -> {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
             tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), BIGINT, Optional.of(parquetSchema));
-        }).hasMessage("Parquet decimal column type with non-zero scale (1) cannot be converted to Presto bigint column type")
-                .isInstanceOf(ParquetDecodingException.class);
+        }).hasMessage("Unsupported Presto column type (bigint) for Parquet column ([test] optional int64 test (DECIMAL(10,1)))")
+                .isInstanceOf(PrestoException.class);
     }
 
     @Test
@@ -1597,7 +1594,7 @@ public abstract class AbstractTestParquetReader
     public void testStructMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         List<List<?>> structValues = createTestStructs(
                 Collections.nCopies(500, join("", Collections.nCopies(33, "test"))),
                 Collections.nCopies(500, join("", Collections.nCopies(1, "test"))));
@@ -1616,7 +1613,7 @@ public abstract class AbstractTestParquetReader
     public void testArrayMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         Iterable<List<Integer>> values = createFixedTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
         testMaxReadBytes(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER), maxReadBlockSize);
     }
@@ -1625,7 +1622,7 @@ public abstract class AbstractTestParquetReader
     public void testMapMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         Iterable<Map<String, Long>> values = createFixedTestMaps(Collections.nCopies(5_000, join("", Collections.nCopies(33, "test"))), longsBetween(0, 5_000));
         testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
     }

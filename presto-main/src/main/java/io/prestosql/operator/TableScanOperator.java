@@ -31,6 +31,8 @@ import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -54,6 +56,7 @@ public class TableScanOperator
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
+        private final Supplier<TupleDomain<ColumnHandle>> dynamicFilter;
         private boolean closed;
 
         public TableScanOperatorFactory(
@@ -61,13 +64,15 @@ public class TableScanOperator
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns)
+                Iterable<ColumnHandle> columns,
+                Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         }
 
         @Override
@@ -104,7 +109,8 @@ public class TableScanOperator
                     sourceId,
                     pageSourceProvider,
                     table,
-                    columns);
+                    columns,
+                    dynamicFilter);
         }
 
         @Override
@@ -120,7 +126,8 @@ public class TableScanOperator
                     splits,
                     pageSourceProvider,
                     table,
-                    columns);
+                    columns,
+                    dynamicFilter);
         }
 
         @Override
@@ -135,10 +142,13 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final TableHandle table;
     private final List<ColumnHandle> columns;
+    private final Supplier<TupleDomain<ColumnHandle>> dynamicFilter;
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
+    @Nullable
     private Split split;
+    @Nullable
     private ConnectorPageSource source;
 
     private boolean finished;
@@ -151,13 +161,15 @@ public class TableScanOperator
             PlanNodeId planNodeId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Iterable<ColumnHandle> columns)
+            Iterable<ColumnHandle> columns,
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
     }
 
@@ -281,7 +293,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, TupleDomain::all);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 
         Page page = source.getNextPage();

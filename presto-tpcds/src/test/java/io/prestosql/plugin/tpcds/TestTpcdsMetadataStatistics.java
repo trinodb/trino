@@ -14,9 +14,6 @@
 
 package io.prestosql.plugin.tpcds;
 
-import com.teradata.tpcds.Table;
-import com.teradata.tpcds.column.CallCenterColumn;
-import com.teradata.tpcds.column.WebSiteColumn;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -25,6 +22,9 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.tpcds.Table;
+import io.prestosql.tpcds.column.CallCenterColumn;
+import io.prestosql.tpcds.column.WebSiteColumn;
 import org.testng.annotations.Test;
 
 import java.util.Map;

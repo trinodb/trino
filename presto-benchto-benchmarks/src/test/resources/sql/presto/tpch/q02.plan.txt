@@ -21,13 +21,14 @@ remote exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan region
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["partkey"])
+                        remote exchange (REPARTITION, HASH, ["partkey_3"])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["suppkey_4"])
-                                    join (INNER, REPLICATED):
-                                        scan partsupp
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["partkey_3"])
+                                            scan partsupp
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPARTITION, HASH, ["partkey"])
                                                 scan part
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["suppkey"])

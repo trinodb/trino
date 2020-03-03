@@ -19,6 +19,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
@@ -68,17 +69,14 @@ import static java.util.stream.Collectors.toList;
 public class TestPhoenixSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private final TestingPhoenixServer phoenixServer;
+    private TestingPhoenixServer phoenixServer;
 
-    public TestPhoenixSqlTypeMapping()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestingPhoenixServer.getInstance());
-    }
-
-    private TestPhoenixSqlTypeMapping(TestingPhoenixServer phoenixServer)
-    {
-        super(() -> createPhoenixQueryRunner(phoenixServer));
-        this.phoenixServer = phoenixServer;
+        phoenixServer = TestingPhoenixServer.getInstance();
+        return createPhoenixQueryRunner(phoenixServer);
     }
 
     @AfterClass(alwaysRun = true)

@@ -76,24 +76,29 @@ to the coordinator's ``config.properties`` file:
     http-server.https.keystore.path=/etc/presto_keystore.jks
     http-server.https.keystore.key=keystore_password
 
-======================================================= ======================================================
-Property                                                Description
-======================================================= ======================================================
-``http-server.authentication.type``                     Enable password authentication for the Presto
-                                                        coordinator. Must be set to ``PASSWORD``.
-``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.
-                                                        Should be set to ``true``. Default value is
-                                                        ``false``.
-``http-server.https.port``                              HTTPS server port.
-``http-server.https.keystore.path``                     The location of the Java Keystore file that will be
-                                                        used to secure TLS.
-``http-server.https.keystore.key``                      The password for the keystore. This must match the
-                                                        password you specified when creating the keystore.
-``http-server.authentication.allow-forwarded-https``    Enable treating forwarded HTTPS requests over HTTP
-                                                        as secure.  Requires the ``X-Forwarded-Proto`` header
-                                                        to be set to ``https`` on forwarded requests.
-                                                        Default value is ``false``.
-======================================================= ======================================================
+============================================================= ======================================================
+Property                                                      Description
+============================================================= ======================================================
+``http-server.authentication.type``                           Enable password authentication for the Presto
+                                                              coordinator. Must be set to ``PASSWORD``.
+``http-server.https.enabled``                                 Enables HTTPS access for the Presto coordinator.
+                                                              Should be set to ``true``. Default value is
+                                                              ``false``.
+``http-server.https.port``                                    HTTPS server port.
+``http-server.https.keystore.path``                           The location of the Java Keystore file that will be
+                                                              used to secure TLS.
+``http-server.https.keystore.key``                            The password for the keystore. This must match the
+                                                              password you specified when creating the keystore.
+``http-server.authentication.allow-forwarded-https``          Enable treating forwarded HTTPS requests over HTTP
+                                                              as secure.  Requires the ``X-Forwarded-Proto`` header
+                                                              to be set to ``https`` on forwarded requests.
+                                                              Default value is ``false``.
+``http-server.authentication.password.user-mapping.pattern``  Regex to match against user.  If matched, user will be
+                                                              replaced with first regex group. If not matched,
+                                                              authentication is denied.  Default is ``(.*)``.
+``http-server.authentication.password.user-mapping.file``     File containing rules for mapping user.  See
+                                                              :doc:`/security/user-mapping` for more information.
+============================================================= ======================================================
 
 Password Authenticator Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -175,6 +180,34 @@ Property                                                Description
 
 Based on the LDAP server implementation type, the property
 ``ldap.group-auth-pattern`` can be used as described below.
+
+Authorization using Presto LDAP service user
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Presto server can use dedicated LDAP service user for doing user group membership queries.
+In such case Presto will first issue a group membership query for a Presto user that needs
+to be authenticated. A user distinguished name will be extracted from a group membership
+query result. Presto will then validate user password by creating LDAP context with
+user distinguished name and user password. In order to use this mechanism ``ldap.bind-dn``,
+``ldap.bind-password`` and ``ldap.group-auth-pattern`` properties need to be defined.
+
+======================================================= ======================================================
+Property                                                Description
+======================================================= ======================================================
+``ldap.bind-dn``                                        Bind distinguished name used by Presto when issuing
+                                                        group membership queries.
+                                                        Example: ``CN=admin,OU=CITY_OU,OU=STATE_OU,DC=domain``
+``ldap.bind-password``                                  Bind password used by Presto when issuing group
+                                                        membership queries.
+                                                        Example: ``password1234``
+``ldap.group-auth-pattern``                             This property is used to specify the LDAP query for
+                                                        the LDAP group membership authorization. This query
+                                                        will be executed against the LDAP server and if
+                                                        successful, a user distinguished name will be
+                                                        extracted from a query result. Presto will then
+                                                        validate user password by creating LDAP context with
+                                                        user distinguished name and user password.
+======================================================= ======================================================
 
 Active Directory
 ****************

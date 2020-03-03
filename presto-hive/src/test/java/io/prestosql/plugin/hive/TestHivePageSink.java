@@ -19,11 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slices;
-import io.airlift.tpch.LineItem;
-import io.airlift.tpch.LineItemColumn;
-import io.airlift.tpch.LineItemGenerator;
-import io.airlift.tpch.TpchColumnType;
-import io.airlift.tpch.TpchColumnTypes;
 import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -40,6 +35,11 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingNodeManager;
+import io.prestosql.tpch.LineItem;
+import io.prestosql.tpch.LineItemColumn;
+import io.prestosql.tpch.LineItemGenerator;
+import io.prestosql.tpch.TpchColumnType;
+import io.prestosql.tpch.TpchColumnTypes;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -235,7 +235,8 @@ public class TestHivePageSink
                 false,
                 ImmutableMap.of(),
                 Optional.empty(),
-                false);
+                false,
+                Optional.empty());
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,

@@ -177,9 +177,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        return delegate.beginInsertTable(session, tableHandle);
+        return delegate.beginInsertTable(session, tableHandle, columns);
     }
 
     @Override
@@ -232,6 +232,13 @@ public class CachingJdbcClient
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
         delegate.createSchema(identity, schemaName);
+        invalidateSchemasCache();
+    }
+
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate.dropSchema(identity, schemaName);
         invalidateSchemasCache();
     }
 

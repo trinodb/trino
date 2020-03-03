@@ -68,7 +68,7 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/presto-iceberg">
+    <artifactSet to="plugin/iceberg">
         <artifact id="${project.groupId}:presto-iceberg:zip:${project.version}">
             <unpack />
         </artifact>
@@ -76,6 +76,12 @@
 
     <artifactSet to="plugin/memory">
         <artifact id="${project.groupId}:presto-memory:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/noop">
+        <artifact id="${project.groupId}:presto-noop:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -146,7 +152,7 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/raptor">
+    <artifactSet to="plugin/raptor-legacy">
         <artifact id="${project.groupId}:presto-raptor-legacy:zip:${project.version}">
             <unpack />
         </artifact>
@@ -182,7 +188,7 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/localfile">
+    <artifactSet to="plugin/local-file">
         <artifact id="${project.groupId}:presto-local-file:zip:${project.version}">
             <unpack />
         </artifact>
@@ -194,13 +200,13 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/presto-thrift">
+    <artifactSet to="plugin/thrift">
         <artifact id="${project.groupId}:presto-thrift:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/presto-elasticsearch">
+    <artifactSet to="plugin/elasticsearch">
         <artifact id="${project.groupId}:presto-elasticsearch:zip:${project.version}">
             <unpack />
         </artifact>
@@ -212,8 +218,14 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/presto-kinesis">
+    <artifactSet to="plugin/kinesis">
         <artifact id="${project.groupId}:presto-kinesis:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/bigquery">
+        <artifact id="${project.groupId}:presto-bigquery:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

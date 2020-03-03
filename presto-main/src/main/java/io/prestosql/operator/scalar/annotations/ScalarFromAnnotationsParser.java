@@ -46,8 +46,9 @@ public final class ScalarFromAnnotationsParser
     public static List<SqlScalarFunction> parseFunctionDefinition(Class<?> clazz)
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
+        boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
         for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
-            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz)));
+            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz), deprecated));
         }
         return builder.build();
     }
@@ -56,8 +57,9 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
+            boolean deprecated = methods.getMethods().iterator().next().getAnnotationsByType(Deprecated.class).length > 0;
             // Non-static function only makes sense in classes annotated with @ScalarFunction or @ScalarOperator.
-            builder.add(parseParametricScalar(methods, Optional.empty()));
+            builder.add(parseParametricScalar(methods, Optional.empty(), deprecated));
         }
         return builder.build();
     }
@@ -96,7 +98,7 @@ public final class ScalarFromAnnotationsParser
         return methods;
     }
 
-    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor)
+    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor, boolean deprecated)
     {
         ScalarImplementationHeader header = scalar.getHeader();
         checkArgument(!header.getName().isEmpty());
@@ -129,7 +131,7 @@ public final class ScalarFromAnnotationsParser
         header.getOperatorType().ifPresent(operatorType ->
                 validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
 
-        return new ParametricScalar(scalarSignature, header.getHeader(), implementations);
+        return new ParametricScalar(scalarSignature, header.getHeader(), implementations, deprecated);
     }
 
     private static class ScalarHeaderAndMethods

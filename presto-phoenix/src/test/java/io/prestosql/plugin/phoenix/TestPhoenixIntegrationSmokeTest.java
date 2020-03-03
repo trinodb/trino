@@ -16,7 +16,7 @@ package io.prestosql.plugin.phoenix;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import org.testng.SkipException;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -36,15 +36,12 @@ public class TestPhoenixIntegrationSmokeTest
 {
     private TestingPhoenixServer testingPhoenixServer;
 
-    public TestPhoenixIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestingPhoenixServer.getInstance());
-    }
-
-    public TestPhoenixIntegrationSmokeTest(TestingPhoenixServer server)
-    {
-        super(() -> createPhoenixQueryRunner(server));
-        this.testingPhoenixServer = server;
+        testingPhoenixServer = TestingPhoenixServer.getInstance();
+        return createPhoenixQueryRunner(testingPhoenixServer);
     }
 
     @AfterClass(alwaysRun = true)
@@ -144,18 +141,6 @@ public class TestPhoenixIntegrationSmokeTest
         executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
-    }
-
-    @Override
-    public void testCreateSchema()
-    {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
-    }
-
-    @Override
-    public void testDropSchema()
-    {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
     }
 
     private void executeInPhoenix(String sql)

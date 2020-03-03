@@ -446,6 +446,16 @@ export function parseDataSize(value: string): ?number {
     }
 }
 
+export function parseAndFormatDataSize(value: string): string {
+    const parsed = parseDataSize(value);
+
+    if (parsed == null) {
+        return "";
+    }
+
+    return formatDataSize(parsed);
+}
+
 export function parseDuration(value: string): ?number {
     const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
 

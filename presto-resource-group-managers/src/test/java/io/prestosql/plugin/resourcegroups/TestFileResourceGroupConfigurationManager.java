@@ -77,7 +77,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
         manager.configure(global, new SelectionContext<>(globalId, new ResourceGroupIdTemplate("global")));
-        assertEquals(global.getSoftMemoryLimitBytes(), new DataSize(1, MEGABYTE).toBytes());
+        assertEquals(global.getSoftMemoryLimitBytes(), DataSize.of(1, MEGABYTE).toBytes());
         assertEquals(global.getSoftCpuLimit(), Duration.ofHours(1));
         assertEquals(global.getHardCpuLimit(), Duration.ofDays(1));
         assertEquals(global.getCpuQuotaGenerationMillisPerSecond(), 1000 * 24);
@@ -90,7 +90,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
         ResourceGroup sub = new TestingResourceGroup(subId);
         manager.configure(sub, new SelectionContext<>(subId, new ResourceGroupIdTemplate("global.sub")));
-        assertEquals(sub.getSoftMemoryLimitBytes(), new DataSize(2, MEGABYTE).toBytes());
+        assertEquals(sub.getSoftMemoryLimitBytes(), DataSize.of(2, MEGABYTE).toBytes());
         assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
         assertNull(sub.getSchedulingPolicy());
@@ -152,7 +152,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
         manager.configure(global, new SelectionContext<>(globalId, new ResourceGroupIdTemplate("global")));
-        assertEquals(global.getSoftMemoryLimitBytes(), new DataSize(3, MEGABYTE).toBytes());
+        assertEquals(global.getSoftMemoryLimitBytes(), DataSize.of(3, MEGABYTE).toBytes());
         assertEquals(global.getMaxQueuedQueries(), 99);
         assertEquals(global.getHardConcurrencyLimit(), 42);
     }

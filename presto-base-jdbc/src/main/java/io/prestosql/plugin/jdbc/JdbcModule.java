@@ -17,8 +17,11 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.procedure.Procedure;
+
+import javax.inject.Provider;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -41,17 +44,41 @@ public class JdbcModule
         binder.install(new JdbcDiagnosticModule(catalogName));
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
-        newSetBinder(binder, Procedure.class);
-        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(TypeHandlingJdbcPropertiesProvider.class);
+
+        procedureBinder(binder);
+
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
+
+        configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
+        bindSessionPropertiesProvider(binder, TypeHandlingJdbcPropertiesProvider.class);
 
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectionFactory.class)
-                .to(Key.get(ConnectionFactory.class, StatsCollecting.class));
+        binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
+    }
+
+    public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
+    {
+        return newSetBinder(binder, SessionPropertiesProvider.class);
+    }
+
+    public static void bindSessionPropertiesProvider(Binder binder, Class<? extends SessionPropertiesProvider> type)
+    {
+        sessionPropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    public static Multibinder<Procedure> procedureBinder(Binder binder)
+    {
+        return newSetBinder(binder, Procedure.class);
+    }
+
+    public static void bindProcedure(Binder binder, Class<? extends Provider<? extends Procedure>> type)
+    {
+        procedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
     }
 }

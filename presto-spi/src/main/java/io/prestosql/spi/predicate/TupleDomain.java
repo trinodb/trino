@@ -247,15 +247,26 @@ public final class TupleDomain<T>
      * <p>
      * Note that this is NOT equivalent to a strict union as the final result may allow tuples
      * that do not exist in either TupleDomain.
-     * For example:
+     * Example 1:
      * <p>
      * <ul>
      * <li>TupleDomain X: a => 1, b => 2
      * <li>TupleDomain Y: a => 2, b => 3
-     * <li>Column-wise unioned TupleDomain: a = > 1 OR 2, b => 2 OR 3
+     * <li>Column-wise unioned TupleDomain: a => 1 OR 2, b => 2 OR 3
      * </ul>
      * <p>
      * In the above resulting TupleDomain, tuple (a => 1, b => 3) would be considered valid but would
+     * not be valid for either TupleDomain X or TupleDomain Y.
+     * Example 2:
+     * <p>
+     * Let a be of type DOUBLE
+     * <ul>
+     * <li>TupleDomain X: (a < 5)
+     * <li>TupleDomain Y: (a > 0)
+     * <li>Column-wise unioned TupleDomain: (a IS NOT NULL)
+     * </ul>
+     * </p>
+     * In the above resulting TupleDomain, tuple (a => NaN) would be considered valid but would
      * not be valid for either TupleDomain X or TupleDomain Y.
      * However, this result is guaranteed to be a superset of the strict union.
      */

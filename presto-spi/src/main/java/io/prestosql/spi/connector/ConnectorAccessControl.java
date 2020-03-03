@@ -15,6 +15,7 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,7 +52,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRol
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
@@ -109,6 +110,13 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName);
+
+    /**
      * Check if identity is allowed to create the specified table in this catalog.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
@@ -157,9 +165,9 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
+    default void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
-        denyShowTablesMetadata(schemaName);
+        denyShowTables(schemaName);
     }
 
     /**
@@ -375,5 +383,30 @@ public interface ConnectorAccessControl
     default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    /**
+     * Get a row filter associated with the given table and identity.
+     *
+     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the filter, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Get a column mask associated with the given table, column and identity.
+     *
+     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * must be written in terms of columns in the table.
+     *
+     * @return the mask, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    {
+        return Optional.empty();
     }
 }

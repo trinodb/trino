@@ -20,6 +20,7 @@ import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 
@@ -30,7 +31,6 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
 import static org.joda.time.DateTimeZone.UTC;
@@ -77,11 +77,12 @@ public class TempFileWriter
                 sink,
                 columnNames,
                 types,
+                OrcType.createRootOrcType(columnNames, types),
                 LZ4,
                 new OrcWriterOptions()
-                        .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
-                        .withStripeMinSize(new DataSize(64, MEGABYTE))
-                        .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
+                        .withMaxStringStatisticsLimit(DataSize.ofBytes(0))
+                        .withStripeMinSize(DataSize.of(64, MEGABYTE))
+                        .withDictionaryMaxMemory(DataSize.of(1, MEGABYTE)),
                 false,
                 ImmutableMap.of(),
                 UTC,

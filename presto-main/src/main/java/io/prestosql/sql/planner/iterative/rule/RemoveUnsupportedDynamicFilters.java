@@ -37,6 +37,7 @@ import io.prestosql.sql.tree.LogicalBinaryExpression;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -117,9 +118,16 @@ public class RemoveUnsupportedDynamicFilters
             consumed.addAll(consumedProbeSide);
             consumed.removeAll(dynamicFilters.keySet());
 
+            Optional<Expression> filter = node
+                    .getFilter().map(this::removeAllDynamicFilters)  // no DF support at Join operators.
+                    .filter(expression -> !expression.equals(TRUE_LITERAL));
+
             PlanNode left = leftResult.getNode();
             PlanNode right = rightResult.getNode();
-            if (!left.equals(node.getLeft()) || !right.equals(node.getRight()) || !dynamicFilters.equals(node.getDynamicFilters())) {
+            if (!left.equals(node.getLeft())
+                    || !right.equals(node.getRight())
+                    || !dynamicFilters.equals(node.getDynamicFilters())
+                    || !filter.equals(node.getFilter())) {
                 return new PlanWithConsumedDynamicFilters(new JoinNode(
                         node.getId(),
                         node.getType(),
@@ -127,7 +135,7 @@ public class RemoveUnsupportedDynamicFilters
                         right,
                         node.getCriteria(),
                         node.getOutputSymbols(),
-                        node.getFilter(),
+                        filter,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
                         node.getDistributionType(),

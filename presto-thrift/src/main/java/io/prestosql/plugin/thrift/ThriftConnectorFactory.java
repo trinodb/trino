@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.drift.transport.netty.client.DriftNettyClientModule;
+import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
@@ -59,7 +60,7 @@ public class ThriftConnectorFactory
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.plugin.thrift", "presto.plugin.thrift"),
                 new DriftNettyClientModule(),
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());

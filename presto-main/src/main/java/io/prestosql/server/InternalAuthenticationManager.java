@@ -29,9 +29,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.security.Principal;
 import java.time.ZonedDateTime;
 import java.util.Date;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -44,44 +41,35 @@ public class InternalAuthenticationManager
 
     private static final String PRESTO_INTERNAL_BEARER = "X-Presto-Internal-Bearer";
 
-    private final Optional<Function<String, String>> jwtParser;
-    private final Optional<Supplier<String>> jwtGenerator;
+    private final byte[] hmac;
+    private final String nodeId;
 
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
     {
-        this(requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null").getSharedSecret(), nodeInfo.getNodeId());
+        this(getSharedSecret(internalCommunicationConfig, nodeInfo), nodeInfo.getNodeId());
     }
 
-    public InternalAuthenticationManager(Optional<String> sharedSecret, String nodeId)
+    private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
     {
-        if (sharedSecret.isPresent()) {
-            byte[] hmac = Hashing.sha256().hashString(sharedSecret.get(), UTF_8).asBytes();
-            this.jwtParser = Optional.of(jwt -> parseJwt(hmac, jwt));
-            this.jwtGenerator = Optional.of(() -> generateJwt(hmac, nodeId));
+        requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+
+        // This check should not be required (as bean validation already checked it),
+        // but be extra careful to not use a known secret for authentication.
+        if (!internalCommunicationConfig.isRequiredSharedSecretSet()) {
+            throw new IllegalArgumentException("Shared secret is required when internal communications uses https");
         }
-        else {
-            this.jwtParser = Optional.empty();
-            this.jwtGenerator = Optional.empty();
-        }
+
+        return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
     }
 
-    private static String generateJwt(byte[] hmac, String nodeId)
+    public InternalAuthenticationManager(String sharedSecret, String nodeId)
     {
-        return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, hmac)
-                .setSubject(nodeId)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
-                .compact();
-    }
-
-    private static String parseJwt(byte[] hmac, String jwt)
-    {
-        return Jwts.parser()
-                .setSigningKey(hmac)
-                .parseClaimsJws(jwt)
-                .getBody()
-                .getSubject();
+        requireNonNull(sharedSecret, "sharedSecret is null");
+        requireNonNull(nodeId, "nodeId is null");
+        this.hmac = Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes();
+        this.nodeId = nodeId;
     }
 
     public boolean isInternalRequest(HttpServletRequest request)
@@ -91,14 +79,9 @@ public class InternalAuthenticationManager
 
     public Principal authenticateInternalRequest(HttpServletRequest request)
     {
-        if (!jwtParser.isPresent()) {
-            log.error("Internal authentication in not configured");
-            return null;
-        }
-
         String internalBarer = request.getHeader(PRESTO_INTERNAL_BEARER);
         try {
-            String subject = jwtParser.get().apply(internalBarer);
+            String subject = parseJwt(internalBarer);
             return new InternalPrincipal(subject);
         }
         catch (JwtException e) {
@@ -113,10 +96,26 @@ public class InternalAuthenticationManager
     @Override
     public Request filterRequest(Request request)
     {
-        return jwtGenerator.map(Supplier::get)
-                .map(jwt -> fromRequest(request)
-                        .addHeader(PRESTO_INTERNAL_BEARER, jwt)
-                        .build())
-                .orElse(request);
+        return fromRequest(request)
+                .addHeader(PRESTO_INTERNAL_BEARER, generateJwt())
+                .build();
+    }
+
+    private String generateJwt()
+    {
+        return Jwts.builder()
+                .signWith(SignatureAlgorithm.HS256, hmac)
+                .setSubject(nodeId)
+                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .compact();
+    }
+
+    private String parseJwt(String jwt)
+    {
+        return Jwts.parser()
+                .setSigningKey(hmac)
+                .parseClaimsJws(jwt)
+                .getBody()
+                .getSubject();
     }
 }

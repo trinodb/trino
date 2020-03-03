@@ -31,7 +31,33 @@ public class AllowAllAccessControl
         implements AccessControl
 {
     @Override
+    public void checkCanImpersonateUser(Identity identity, String userName)
+    {
+    }
+
+    @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    {
+        return queryOwners;
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
     {
     }
 
@@ -68,6 +94,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
@@ -88,7 +119,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(SecurityContext context, CatalogSchemaName schema)
+    public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
     {
     }
 

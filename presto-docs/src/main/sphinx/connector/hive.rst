@@ -40,6 +40,18 @@ The following file types are supported for the Hive connector:
 * CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
 * TextFile
 
+In order to enable first-class support for Avro tables and CSV files when using
+Hive 3.x, you need to add the following property definition to the Hive
+metastore configuration file ``hive-site.xml``:
+
+.. code-block:: xml
+
+   <property>
+        <!-- https://community.hortonworks.com/content/supportkb/247055/errorjavalangunsupportedoperationexception-storage.html -->
+        <name>metastore.storage.schema.reader.impl</name>
+        <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
+    </property>
+
 Configuration
 -------------
 
@@ -146,6 +158,10 @@ Property Name                                      Description                  
                                                    ignored. This is equivalent to the
                                                    ``hive.mapred.supports.subdirectories`` property in Hive.
 
+``hive.ignore-absent-partitions``                  Ignore partitions when the file system location does not     ``false``
+                                                   exist rather than failing the query. This skips data that
+                                                   may be expected to be part of the table.
+
 ``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
@@ -201,7 +217,7 @@ Property Name                                      Description                  
                                                    tables in the schemas ``schema1`` and ``schema2``.
                                                    ``*`` to cache directory listing for all tables.
 
-``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        10,00,000
+``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        1,000,000
 
 ``hive.file-status-cache-expire-time``             Duration of time after a directory listing is cached that it ``1m``
                                                    should be automatically removed from cache.
@@ -210,9 +226,9 @@ Property Name                                      Description                  
 Hive Thrift Metastore Configuration Properties
 ----------------------------------------------
 
-================================================== ============================================================
-Property Name                                      Description
-================================================== ============================================================
+================================================== ============================================================ ============
+Property Name                                      Description                                                  Default
+================================================== ============================================================ ============
 ``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
                                                    Thrift protocol. If multiple URIs are provided, the first
                                                    URI is used by default, and the rest of the URIs are
@@ -234,10 +250,22 @@ Property Name                                      Description
                                                    to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                   Hive metastore client keytab location.
-================================================== ============================================================
+
+``hive.metastore-cache-ttl``                       Time to live Hive metadata cache.                            ``0s``
+
+``hive.metastore-refresh-interval``                How often to refresh the Hive metastore cache.
+
+``hive.metastore-cache-maximum-size``              Hive metastore cache maximum size.                           10,000
+
+``hive.metastore-refresh-max-threads``             Maximum number of threads to refresh Hive metastore cache.   100
+================================================== ============================================================ ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
+
+In order to use a Glue catalog, ensure to configure the metastore with
+``hive.metastore=glue`` and provide further details with the following
+properties:
 
 ==================================================== ============================================================
 Property Name                                        Description
@@ -630,6 +658,11 @@ specify a subset of columns to be analyzed via the optional ``columns`` property
 This query collects statistics for columns ``col_1`` and ``col_2`` for the partition
 with keys ``p2_value1, p2_value2``.
 
+Note that if statistics were previously collected for all columns, they need to be dropped
+before re-analyzing just a subset::
+
+    CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
+
 Schema Evolution
 ----------------
 
@@ -722,6 +755,26 @@ Procedures
     * ``DROP``: drop any partitions that exist in the metastore, but not on the file system.
     * ``FULL``: perform both ``ADD`` and ``DROP``.
 
+* ``system.drop_stats(schema_name, table_name, partition_values)``
+
+    Drops statistics for a subset of partitions or the entire table. The partitions are specified as an
+    array whose elements are arrays of partition values (similar to the ``partition_values`` argument in
+    ``create_empty_partition``). A null value for the ``partition_values`` argument indicates that stats
+    should be dropped for the entire table.
+
+.. _register_partition:
+
+* ``system.register_partition(schema_name, table_name, partition_columns, partition_values, location)``
+
+    Registers existing location as a new partition in the metastore for the specified table.
+
+.. _unregister_partition:
+
+* ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``
+
+    Unregisters given, existing partition in the metastore for the specified table.
+    The partition data is not deleted.
+
 Examples
 --------
 
@@ -768,6 +821,13 @@ Add an empty partition to the ``page_views`` table::
         partition_columns => ARRAY['ds', 'country'],
         partition_values => ARRAY['2016-08-09', 'US']);
 
+Drop stats for a partition of the ``page_views`` table::
+
+    CALL system.drop_stats(
+        schema_name => 'web',
+        table_name => 'page_views',
+        partition_values => ARRAY['2016-08-09', 'US']);
+
 Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
@@ -811,4 +871,6 @@ Drop a schema::
 Hive Connector Limitations
 --------------------------
 
-:doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+* :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+* :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
+

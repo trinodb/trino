@@ -23,7 +23,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestParquetWriterConfig
@@ -32,8 +31,8 @@ public class TestParquetWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
-                .setBlockSize(new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE))
-                .setPageSize(new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE)));
+                .setBlockSize(DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE))
+                .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE)));
     }
 
     @Test
@@ -45,8 +44,8 @@ public class TestParquetWriterConfig
                 .build();
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
-                .setBlockSize(new DataSize(234, MEGABYTE))
-                .setPageSize(new DataSize(11, MEGABYTE));
+                .setBlockSize(DataSize.of(234, MEGABYTE))
+                .setPageSize(DataSize.of(11, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

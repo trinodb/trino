@@ -94,6 +94,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -171,8 +172,8 @@ public class PrestoS3FileSystem
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
     private static final RequestMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
     private static final String DIRECTORY_SUFFIX = "_$folder$";
-    private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
-    private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize BLOCK_SIZE = DataSize.of(32, MEGABYTE);
+    private static final DataSize MAX_SKIP_SIZE = DataSize.of(1, MEGABYTE);
     private static final String PATH_SEPARATOR = "/";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
@@ -208,7 +209,12 @@ public class PrestoS3FileSystem
         super.initialize(uri, conf);
         setConf(conf);
 
-        this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
+        try {
+            this.uri = new URI(uri.getScheme(), uri.getAuthority(), null, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid uri: " + uri, e);
+        }
         this.workingDirectory = new Path(PATH_SEPARATOR).makeQualified(this.uri, new Path(PATH_SEPARATOR));
 
         HiveS3Config defaults = new HiveS3Config();
@@ -1317,6 +1323,12 @@ public class PrestoS3FileSystem
         s3 = client;
     }
 
+    @VisibleForTesting
+    protected String getBucketName(URI uri)
+    {
+        return extractBucketName(uri);
+    }
+
     /**
      * Helper function used to work around the fact that if you use an S3 bucket with an '_' that java.net.URI
      * behaves differently and sets the host value to null whereas S3 buckets without '_' have a properly
@@ -1326,7 +1338,7 @@ public class PrestoS3FileSystem
      * @return The host value where uri.getAuthority() is used when uri.getHost() returns null as long as no UserInfo is present.
      * @throws IllegalArgumentException If the bucket cannot be determined from the URI.
      */
-    public static String getBucketName(URI uri)
+    public static String extractBucketName(URI uri)
     {
         if (uri.getHost() != null) {
             return uri.getHost();
