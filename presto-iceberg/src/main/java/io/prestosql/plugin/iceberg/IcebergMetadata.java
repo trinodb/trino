@@ -23,10 +23,13 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveWrittenPartitions;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
+import io.prestosql.plugin.hive.ViewAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -39,6 +42,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaNotFoundException;
@@ -46,6 +50,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.connector.ViewNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.DecimalType;
@@ -81,6 +86,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveSchemaProperties.getLocation;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -118,6 +124,7 @@ public class IcebergMetadata
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
+    private final String prestoVersion;
 
     private Transaction transaction;
 
@@ -125,12 +132,14 @@ public class IcebergMetadata
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            String prestoVersion)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
     }
 
     @Override
@@ -567,5 +576,57 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         table.getPredicate().intersect(newDomain)),
                 constraint.getSummary()));
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    {
+        HiveIdentity identity = new HiveIdentity(session);
+        String owner = session.getUser();
+
+        Table table = HiveUtil.buildViewTable(definition, viewName, owner, session.getQueryId(), prestoVersion);
+
+        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(owner);
+
+        Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
+        if (existing.isPresent()) {
+            if (!replace || !HiveUtil.isPrestoView(existing.get())) {
+                throw new ViewAlreadyExistsException(viewName);
+            }
+
+            metastore.replaceTable(identity, viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+            return;
+        }
+
+        try {
+            metastore.createTable(identity, table, principalPrivileges);
+        }
+        catch (TableAlreadyExistsException e) {
+            throw new ViewAlreadyExistsException(e.getTableName());
+        }
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
+                .filter(HiveUtil::isPrestoView)
+                .map(HiveUtil::buildViewDefinition);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (!getView(session, viewName).isPresent()) {
+            throw new ViewNotFoundException(viewName);
+        }
+
+        try {
+            HiveIdentity identity = new HiveIdentity(session);
+            metastore.dropTable(identity, viewName.getSchemaName(), viewName.getTableName(), false);
+        }
+        catch (TableNotFoundException e) {
+            throw new ViewNotFoundException(e.getTableName());
+        }
     }
 }
