@@ -768,6 +768,9 @@ Procedures
 
     Registers existing location as a new partition in the metastore for the specified table.
 
+    Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
+    is set to ``true``.
+
 .. _unregister_partition:
 
 * ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``

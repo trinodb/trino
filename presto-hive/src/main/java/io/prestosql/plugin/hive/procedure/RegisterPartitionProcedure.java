@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.PartitionStatistics;
@@ -50,6 +51,7 @@ import static io.prestosql.plugin.hive.procedure.Procedures.checkIsPartitionedTa
 import static io.prestosql.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -68,13 +70,15 @@ public class RegisterPartitionProcedure
             List.class,
             String.class);
 
+    private final boolean allowRegisterPartition;
     private final Supplier<TransactionalMetadata> hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HiveMetastoreClosure metastore;
 
     @Inject
-    public RegisterPartitionProcedure(Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public RegisterPartitionProcedure(HiveConfig hiveConfig, Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
     {
+        this.allowRegisterPartition = requireNonNull(hiveConfig, "hiveConfig is null").isAllowRegisterPartition();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
@@ -104,6 +108,10 @@ public class RegisterPartitionProcedure
 
     private void doRegisterPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
     {
+        if (!allowRegisterPartition) {
+            throw new PrestoException(PERMISSION_DENIED, "register_partition procedure is disabled");
+        }
+
         HiveIdentity identity = new HiveIdentity(session);
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);

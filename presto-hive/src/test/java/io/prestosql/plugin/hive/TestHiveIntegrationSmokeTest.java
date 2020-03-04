@@ -156,7 +156,11 @@ public class TestHiveIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER);
+        return HiveQueryRunner.createQueryRunner(
+                ImmutableList.of(ORDERS, CUSTOMER),
+                ImmutableMap.of(),
+                ImmutableMap.of("hive.allow-register-partition-procedure", "true"),
+                Optional.empty());
     }
 
     @Test
