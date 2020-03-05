@@ -27,6 +27,7 @@ public class ServerConfig
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean enhancedErrorReporting = true;
+    private String signal;
 
     public boolean isCoordinator()
     {
@@ -89,6 +90,18 @@ public class ServerConfig
     public ServerConfig setEnhancedErrorReporting(boolean value)
     {
         this.enhancedErrorReporting = value;
+        return this;
+    }
+
+    public String getGracefulShutdownSignal()
+    {
+        return signal;
+    }
+
+    @Config("presto.graceful-shutdown-signal")
+    public ServerConfig setGracefulShutdownSignal(String signal)
+    {
+        this.signal = signal;
         return this;
     }
 }
