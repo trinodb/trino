@@ -410,8 +410,7 @@ public class TestBackgroundHiveSplitLoader
         for (String path : filePaths) {
             File file = new File(path);
             assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-            assertTrue(file.createNewFile(), "Failed to create file");
-            writeDeltaFileData(file);
+            assertTrue(writeFile(file), "Failed to write file");
         }
 
         // ValidWriteIdList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
@@ -454,7 +453,7 @@ public class TestBackgroundHiveSplitLoader
         for (String path : filePaths) {
             File file = new File(path);
             assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-            writeDeltaFileData(file);
+            assertTrue(writeFile(file), "Failed to write file");
         }
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
@@ -496,7 +495,7 @@ public class TestBackgroundHiveSplitLoader
         for (String path : filePaths) {
             File file = new File(path);
             assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-            writeDeltaFileData(file);
+            assertTrue(writeFile(file), "Failed to write file");
         }
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
@@ -520,15 +519,23 @@ public class TestBackgroundHiveSplitLoader
         deleteRecursively(tablePath, ALLOW_INSECURE);
     }
 
-    private void writeDeltaFileData(File file)
-            throws IOException
+    private boolean writeFile(File file)
     {
-        if (file.getName().equals("_orc_acid_version")) {
-            Files.write(file.toPath(), "2".getBytes(UTF_8));
+        try {
+            if (file.getName().equals("_orc_acid_version")) {
+                Files.write(file.toPath(), "2".getBytes(UTF_8));
+            }
+            else if (file.getName().startsWith("000000_")) {
+                Files.write(file.toPath(), "test".getBytes(UTF_8));
+            }
+            else {
+                file.createNewFile();
+            }
         }
-        else {
-            Files.write(file.toPath(), "test".getBytes(UTF_8));
+        catch (IOException e) {
+            return false;
         }
+        return true;
     }
 
     private static List<String> drain(HiveSplitSource source)
