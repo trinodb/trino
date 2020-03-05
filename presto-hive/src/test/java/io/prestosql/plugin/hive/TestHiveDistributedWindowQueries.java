@@ -26,7 +26,7 @@ public class TestHiveDistributedWindowQueries
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setTables(getTables())
+                .setInitialTables(getTables())
                 .build();
     }
 }

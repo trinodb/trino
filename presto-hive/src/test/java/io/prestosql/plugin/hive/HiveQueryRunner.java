@@ -21,6 +21,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
@@ -40,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
@@ -82,26 +84,37 @@ public final class HiveQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder
     {
-        private Map<String, String> extraHiveProperties = ImmutableMap.of();
-        private List<TpchTable<?>> tables = ImmutableList.of();
+        private Map<String, String> hiveProperties = ImmutableMap.of();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
+        private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
+            File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
+            return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
+        };
 
         protected Builder()
         {
             super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
         }
 
-        public Builder setExtraHiveProperties(Map<String, String> extraHiveProperties)
+        public Builder setHiveProperties(Map<String, String> hiveProperties)
         {
-            this.extraHiveProperties = ImmutableMap.copyOf(requireNonNull(extraHiveProperties, "extraHiveProperties is null"));
+            this.hiveProperties = ImmutableMap.copyOf(requireNonNull(hiveProperties, "hiveProperties is null"));
             return this;
         }
 
-        public Builder setTables(Iterable<TpchTable<?>> tables)
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
-            this.tables = ImmutableList.copyOf(requireNonNull(tables, "tables is null"));
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
             return this;
         }
 
+        public Builder setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
+        {
+            this.metastore = requireNonNull(metastore, "metastore is null");
+            return this;
+        }
+
+        @Override
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -114,19 +127,18 @@ public final class HiveQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-
-                FileHiveMetastore metastore = new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
+                HiveMetastore metastore = this.metastore.apply(queryRunner);
                 queryRunner.installPlugin(new TestingHivePlugin(metastore));
 
                 Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                         .put("hive.time-zone", TIME_ZONE.getID())
                         .put("hive.max-partitions-per-scan", "1000")
+                        // TODO why is this default?
                         .put("hive.assume-canonical-partition-keys", "true")
                         .build();
 
                 hiveProperties = new HashMap<>(hiveProperties);
-                hiveProperties.putAll(extraHiveProperties);
+                hiveProperties.putAll(this.hiveProperties);
                 hiveProperties.putIfAbsent("hive.security", "sql-standard");
 
                 Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
@@ -142,12 +154,12 @@ public final class HiveQueryRunner
                 HiveIdentity identity = new HiveIdentity(SESSION);
                 if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
                     metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
-                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
                 }
 
                 if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
                     metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-                    copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
+                    copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
                 }
 
                 return queryRunner;
@@ -259,8 +271,8 @@ public final class HiveQueryRunner
         }
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
-                .setExtraHiveProperties(ImmutableMap.of())
-                .setTables(TpchTable.getTables())
+                .setHiveProperties(ImmutableMap.of())
+                .setInitialTables(TpchTable.getTables())
                 .setNodeCount(4)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setBaseDataDir(baseDataDir)
