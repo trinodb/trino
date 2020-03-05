@@ -33,7 +33,7 @@ public class TestHiveDistributedQueries
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setTables(getTables())
+                .setInitialTables(getTables())
                 .build();
     }
 

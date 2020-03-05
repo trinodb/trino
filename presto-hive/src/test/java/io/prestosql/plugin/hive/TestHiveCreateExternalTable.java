@@ -40,8 +40,8 @@ public class TestHiveCreateExternalTable
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setExtraHiveProperties(ImmutableMap.of("hive.non-managed-table-writes-enabled", "true"))
-                .setTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .setHiveProperties(ImmutableMap.of("hive.non-managed-table-writes-enabled", "true"))
+                .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
                 .build();
     }
 
