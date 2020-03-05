@@ -125,6 +125,7 @@ public class HiveConfig
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
 
+    private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
 
     public int getMaxInitialSplits()
@@ -878,6 +879,20 @@ public class HiveConfig
     public HiveConfig setHiveTransactionHeartbeatThreads(int hiveTransactionHeartbeatThreads)
     {
         this.hiveTransactionHeartbeatThreads = hiveTransactionHeartbeatThreads;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isAllowRegisterPartition()
+    {
+        return allowRegisterPartition;
+    }
+
+    @Deprecated
+    @Config("hive.allow-register-partition-procedure")
+    public HiveConfig setAllowRegisterPartition(boolean allowRegisterPartition)
+    {
+        this.allowRegisterPartition = allowRegisterPartition;
         return this;
     }
 

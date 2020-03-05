@@ -91,6 +91,7 @@ public class TestHiveConfig
                 .setTranslateHiveViews(false)
                 .setHiveTransactionHeartbeatInterval(null)
                 .setHiveTransactionHeartbeatThreads(5)
+                .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false));
     }
 
@@ -155,6 +156,7 @@ public class TestHiveConfig
                 .put("hive.translate-hive-views", "true")
                 .put("hive.transaction-heartbeat-interval", "10s")
                 .put("hive.transaction-heartbeat-threads", "10")
+                .put("hive.allow-register-partition-procedure", "true")
                 .put("hive.query-partition-filter-required", "true")
                 .build();
 
@@ -216,6 +218,7 @@ public class TestHiveConfig
                 .setTranslateHiveViews(true)
                 .setHiveTransactionHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
                 .setHiveTransactionHeartbeatThreads(10)
+                .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true);
 
         assertFullMapping(properties, expected);
