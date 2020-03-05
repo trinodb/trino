@@ -420,14 +420,13 @@ public class BackgroundHiveSplitLoader
                     true));
 
             if (AcidUtils.isFullAcidTable(table.getParameters())) {
-                /**
-                 * From Hive version >= 3.0, delta/base files will always have file '_orc_acid_version' with value >= '2'.
-                 */
-                Path baseOrDeltaPath = directory.getBaseDirectory() != null ? directory.getBaseDirectory() :
-                        directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null;
+                // From Hive version >= 3.0, delta/base files will always have file '_orc_acid_version' with value >= '2'.
+                Path baseOrDeltaPath = directory.getBaseDirectory() != null
+                        ? directory.getBaseDirectory()
+                        : (directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null);
 
                 if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) < 2) {
-                    throw new PrestoException(NOT_SUPPORTED, String.format("Hive 2.0 versioned transactional tables are not supported, Please run major compaction in Hive 3.0"));
+                    throw new PrestoException(NOT_SUPPORTED, "Hive version <= 2.0 transactional tables are not supported, Please run major compaction in Hive 3.0");
                 }
             }
 

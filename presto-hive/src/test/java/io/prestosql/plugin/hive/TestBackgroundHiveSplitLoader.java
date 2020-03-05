@@ -429,8 +429,8 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> splits = drain(hiveSplitSource);
-        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(1))), format("%s not found in splits %s", filePaths.get(0), splits));
-        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(5))), format("%s not found in splits %s", filePaths.get(2), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(1))), format("%s not found in splits %s", filePaths.get(1), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(5))), format("%s not found in splits %s", filePaths.get(5), splits));
 
         deleteRecursively(tablePath, ALLOW_INSECURE);
     }
@@ -453,9 +453,7 @@ public class TestBackgroundHiveSplitLoader
 
         for (String path : filePaths) {
             File file = new File(path);
-            if (!file.getParent().equals(tablePath.toString())) {
-                assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-            }
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
             writeDeltaFileData(file);
         }
 
@@ -492,14 +490,12 @@ public class TestBackgroundHiveSplitLoader
                 ImmutableMap.of("transactional", "true"));
 
         List<String> filePaths = ImmutableList.of(
-                tablePath + "/000000_1",
+                tablePath + "/000000_1", // _orc_acid_version does not exist so it's assumed to be "ORC ACID version 0"
                 tablePath + "/delta_0000002_0000002_0000/bucket_00000");
 
         for (String path : filePaths) {
             File file = new File(path);
-            if (!file.getParent().equals(tablePath.toString())) {
-                assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-            }
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
             writeDeltaFileData(file);
         }
 
@@ -519,7 +515,7 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
         assertThatThrownBy(() -> drain(hiveSplitSource))
                 .isInstanceOfSatisfying(PrestoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
-                .hasMessage("Hive 2.0 versioned transactional tables are not supported, Please run major compaction in Hive 3.0");
+                .hasMessage("Hive version <= 2.0 transactional tables are not supported, Please run major compaction in Hive 3.0");
 
         deleteRecursively(tablePath, ALLOW_INSECURE);
     }
