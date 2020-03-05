@@ -198,6 +198,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
         configBinder(binder).bindConfig(DispatcherConfig.class);
         jaxrsBinder(binder).bind(QueuedStatementResource.class);
+        configBinder(binder).bindConfig(ExecutingStatementResourceConfig.class);
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();

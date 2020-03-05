@@ -26,6 +26,7 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
+import io.prestosql.server.ExecutingStatementResourceConfig;
 import io.prestosql.server.ForStatementResource;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -89,8 +90,9 @@ public class ExecutingStatementResource
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
-    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
+
+    private final DataSize serverTargetResultSize;
 
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -107,13 +109,15 @@ public class ExecutingStatementResource
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            @ForStatementResource ScheduledExecutorService timeoutExecutor,
+            ExecutingStatementResourceConfig executingStatementResourceConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.serverTargetResultSize = executingStatementResourceConfig.getServerTargetResultSize();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -214,7 +218,7 @@ public class ExecutingStatementResource
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
         if (targetResultSize == null) {
-            targetResultSize = DEFAULT_TARGET_RESULT_SIZE;
+            targetResultSize = Ordering.natural().min(serverTargetResultSize, MAX_TARGET_RESULT_SIZE);
         }
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
