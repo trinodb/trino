@@ -664,8 +664,7 @@ public class GlueHiveMetastore
                             .withCatalogId(catalogId)
                             .withDatabaseName(table.getDatabaseName())
                             .withTableName(table.getTableName())
-                            .withPartitionValues(partitionValues)
-                            .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS)));
+                            .withPartitionValues(partitionValues)));
             return Optional.of(GlueToPrestoConverter.convertPartition(result.getPartition(), table.getParameters()));
         }
         catch (EntityNotFoundException e) {
@@ -749,7 +748,8 @@ public class GlueHiveMetastore
                             .withTableName(table.getTableName())
                             .withExpression(expression)
                             .withSegment(segment)
-                            .withNextToken(nextToken));
+                            .withNextToken(nextToken)
+                            .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS));
                     result.getPartitions()
                             .forEach(partition -> partitions.add(GlueToPrestoConverter.convertPartition(partition, table.getParameters())));
                     nextToken = result.getNextToken();
