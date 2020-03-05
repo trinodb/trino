@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.parquet;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveQueryRunner;
 import io.prestosql.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -82,11 +81,9 @@ public class TestParquetDecimalScaling
     {
         basePath = getBasePath();
 
-        return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                Optional.of(basePath));
+        return HiveQueryRunner.builder()
+                .setBaseDataDir(Optional.of(basePath))
+                .build();
     }
 
     /**

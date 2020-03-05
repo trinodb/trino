@@ -37,6 +37,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -51,6 +52,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
@@ -68,82 +70,94 @@ public final class HiveQueryRunner
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
-    public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
+    public static DistributedQueryRunner create()
             throws Exception
     {
-        return createQueryRunner(ImmutableList.copyOf(tables));
+        return builder().build();
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder()
     {
-        return createQueryRunner(tables, ImmutableMap.of(), Optional.empty());
+        return new Builder();
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
-            throws Exception
+    public static class Builder
+            extends DistributedQueryRunner.Builder
     {
-        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), baseDataDir);
-    }
+        private Map<String, String> extraHiveProperties = ImmutableMap.of();
+        private List<TpchTable<?>> tables = ImmutableList.of();
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
-            throws Exception
-    {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
-        setupLogging();
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
-                .builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
-                .setNodeCount(4)
-                .setExtraProperties(extraProperties)
-                .setBaseDataDir(baseDataDir)
-                .build();
-
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-
-            FileHiveMetastore metastore = new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
-            queryRunner.installPlugin(new TestingHivePlugin(metastore));
-
-            Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                    .put("hive.time-zone", TIME_ZONE.getID())
-                    .put("hive.max-partitions-per-scan", "1000")
-                    .put("hive.assume-canonical-partition-keys", "true")
-                    .build();
-
-            hiveProperties = new HashMap<>(hiveProperties);
-            hiveProperties.putAll(extraHiveProperties);
-            hiveProperties.putIfAbsent("hive.security", "sql-standard");
-
-            Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                    .putAll(hiveProperties)
-                    .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
-                    .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                    .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                    .put("hive.compression-codec", "NONE") // so that the file is splittable
-                    .build();
-            queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
-            queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
-
-            HiveIdentity identity = new HiveIdentity(SESSION);
-            if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
-            }
-
-            if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
-            }
-
-            return queryRunner;
+        protected Builder()
+        {
+            super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
         }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
+
+        public Builder setExtraHiveProperties(Map<String, String> extraHiveProperties)
+        {
+            this.extraHiveProperties = ImmutableMap.copyOf(requireNonNull(extraHiveProperties, "extraHiveProperties is null"));
+            return this;
+        }
+
+        public Builder setTables(Iterable<TpchTable<?>> tables)
+        {
+            this.tables = ImmutableList.copyOf(requireNonNull(tables, "tables is null"));
+            return this;
+        }
+
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+            setupLogging();
+
+            DistributedQueryRunner queryRunner = super.build();
+
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
+
+                FileHiveMetastore metastore = new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
+                queryRunner.installPlugin(new TestingHivePlugin(metastore));
+
+                Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
+                        .put("hive.time-zone", TIME_ZONE.getID())
+                        .put("hive.max-partitions-per-scan", "1000")
+                        .put("hive.assume-canonical-partition-keys", "true")
+                        .build();
+
+                hiveProperties = new HashMap<>(hiveProperties);
+                hiveProperties.putAll(extraHiveProperties);
+                hiveProperties.putIfAbsent("hive.security", "sql-standard");
+
+                Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
+                        .putAll(hiveProperties)
+                        .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
+                        .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
+                        .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
+                        .put("hive.compression-codec", "NONE") // so that the file is splittable
+                        .build();
+                queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
+                queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
+
+                HiveIdentity identity = new HiveIdentity(SESSION);
+                if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
+                    metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
+                }
+
+                if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
+                    metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
+                    copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
+                }
+
+                return queryRunner;
+            }
+            catch (Exception e) {
+                queryRunner.close();
+                throw e;
+            }
         }
     }
 
@@ -246,7 +260,13 @@ public final class HiveQueryRunner
             baseDataDir = Optional.of(path);
         }
 
-        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), ImmutableMap.of("http-server.http.port", "8080"), baseDataDir);
+        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+                .setExtraHiveProperties(ImmutableMap.of())
+                .setTables(TpchTable.getTables())
+                .setNodeCount(4)
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setBaseDataDir(baseDataDir)
+                .build();
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
