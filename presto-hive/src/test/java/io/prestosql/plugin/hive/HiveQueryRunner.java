@@ -60,12 +60,10 @@ public final class HiveQueryRunner
 {
     private static final Logger log = Logger.get(HiveQueryRunner.class);
 
-    private HiveQueryRunner()
-    {
-    }
+    private HiveQueryRunner() {}
 
     public static final String HIVE_CATALOG = "hive";
-    public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
+    private static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
@@ -176,7 +174,7 @@ public final class HiveQueryRunner
                 .build();
     }
 
-    public static Session createSession(Optional<SelectedRole> role)
+    private static Session createSession(Optional<SelectedRole> role)
     {
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
@@ -200,7 +198,7 @@ public final class HiveQueryRunner
                 .build();
     }
 
-    public static void copyTpchTablesBucketed(
+    private static void copyTpchTablesBucketed(
             QueryRunner queryRunner,
             String sourceCatalog,
             String sourceSchema,
