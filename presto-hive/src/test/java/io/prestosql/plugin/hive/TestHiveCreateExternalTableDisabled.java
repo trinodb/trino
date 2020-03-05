@@ -21,7 +21,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Optional;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -37,13 +36,12 @@ public class TestHiveCreateExternalTableDisabled
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(ORDERS, CUSTOMER),
-                ImmutableMap.of(),
-                ImmutableMap.of(
+        return HiveQueryRunner.builder()
+                .setExtraHiveProperties(ImmutableMap.of(
                         "hive.non-managed-table-writes-enabled", "true",
-                        "hive.non-managed-table-creates-enabled", "false"),
-                Optional.empty());
+                        "hive.non-managed-table-creates-enabled", "false"))
+                .setTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .build();
     }
 
     @Test

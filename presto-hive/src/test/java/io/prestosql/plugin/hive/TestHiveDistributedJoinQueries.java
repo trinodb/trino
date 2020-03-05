@@ -25,6 +25,8 @@ public class TestHiveDistributedJoinQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(getTables());
+        return HiveQueryRunner.builder()
+                .setTables(getTables())
+                .build();
     }
 }
