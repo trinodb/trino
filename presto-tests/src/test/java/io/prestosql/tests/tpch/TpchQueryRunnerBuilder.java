@@ -27,7 +27,7 @@ import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
-        extends DistributedQueryRunner.Builder
+        extends DistributedQueryRunner.Builder<TpchQueryRunnerBuilder>
 {
     private static final Session DEFAULT_SESSION = testSessionBuilder()
             .setSource("test")

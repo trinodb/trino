@@ -60,7 +60,7 @@ public final class KafkaQueryRunner
     }
 
     public static class Builder
-            extends DistributedQueryRunner.Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
         private final TestingKafka testingKafka;
         private Map<String, String> extraKafkaProperties = ImmutableMap.of();

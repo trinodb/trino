@@ -82,7 +82,7 @@ public final class HiveQueryRunner
     }
 
     public static class Builder
-            extends DistributedQueryRunner.Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
         private Map<String, String> hiveProperties = ImmutableMap.of();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
@@ -271,10 +271,10 @@ public final class HiveQueryRunner
         }
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
                 .setNodeCount(4)
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setBaseDataDir(baseDataDir)
                 .build();
         Thread.sleep(10);

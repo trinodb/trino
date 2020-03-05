@@ -88,9 +88,9 @@ public class DistributedQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public static Builder builder(Session defaultSession)
+    public static Builder<?> builder(Session defaultSession)
     {
-        return new Builder(defaultSession);
+        return new Builder<Builder>(defaultSession);
     }
 
     private DistributedQueryRunner(
@@ -475,7 +475,7 @@ public class DistributedQueryRunner
         }
     }
 
-    public static class Builder
+    public static class Builder<SELF extends Builder<SELF>>
     {
         private Session defaultSession;
         private int nodeCount = 3;
@@ -490,23 +490,23 @@ public class DistributedQueryRunner
             this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
         }
 
-        public Builder amendSession(Function<SessionBuilder, SessionBuilder> amendSession)
+        public SELF amendSession(Function<SessionBuilder, SessionBuilder> amendSession)
         {
             SessionBuilder builder = Session.builder(defaultSession);
             this.defaultSession = amendSession.apply(builder).build();
-            return this;
+            return self();
         }
 
-        public Builder setNodeCount(int nodeCount)
+        public SELF setNodeCount(int nodeCount)
         {
             this.nodeCount = nodeCount;
-            return this;
+            return self();
         }
 
-        public Builder setExtraProperties(Map<String, String> extraProperties)
+        public SELF setExtraProperties(Map<String, String> extraProperties)
         {
             this.extraProperties = extraProperties;
-            return this;
+            return self();
         }
 
         /**
@@ -514,15 +514,15 @@ public class DistributedQueryRunner
          * Note, that calling this method OVERWRITES previously set property values.
          * As a result, it should only be used when only one extra property needs to be set.
          */
-        public Builder setSingleExtraProperty(String key, String value)
+        public SELF setSingleExtraProperty(String key, String value)
         {
             return setExtraProperties(ImmutableMap.of(key, value));
         }
 
-        public Builder setCoordinatorProperties(Map<String, String> coordinatorProperties)
+        public SELF setCoordinatorProperties(Map<String, String> coordinatorProperties)
         {
             this.coordinatorProperties = coordinatorProperties;
-            return this;
+            return self();
         }
 
         /**
@@ -530,27 +530,33 @@ public class DistributedQueryRunner
          * Note, that calling this method OVERWRITES previously set property values.
          * As a result, it should only be used when only one coordinator property needs to be set.
          */
-        public Builder setSingleCoordinatorProperty(String key, String value)
+        public SELF setSingleCoordinatorProperty(String key, String value)
         {
             return setCoordinatorProperties(ImmutableMap.of(key, value));
         }
 
-        public Builder setParserOptions(SqlParserOptions parserOptions)
+        public SELF setParserOptions(SqlParserOptions parserOptions)
         {
             this.parserOptions = parserOptions;
-            return this;
+            return self();
         }
 
-        public Builder setEnvironment(String environment)
+        public SELF setEnvironment(String environment)
         {
             this.environment = environment;
-            return this;
+            return self();
         }
 
-        public Builder setBaseDataDir(Optional<Path> baseDataDir)
+        public SELF setBaseDataDir(Optional<Path> baseDataDir)
         {
             this.baseDataDir = requireNonNull(baseDataDir, "baseDataDir is null");
-            return this;
+            return self();
+        }
+
+        private SELF self()
+        {
+            //noinspection unchecked
+            return (SELF) this;
         }
 
         public DistributedQueryRunner build()
