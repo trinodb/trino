@@ -584,8 +584,7 @@ public class MetastoreHiveStatisticsProvider
         return Optional.of(new DoubleRange(min, max));
     }
 
-    @VisibleForTesting
-    static OptionalDouble convertPartitionValueToDouble(Type type, Object value)
+    public static OptionalDouble convertPartitionValueToDouble(Type type, Object value)
     {
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
             return OptionalDouble.of((Long) value);
