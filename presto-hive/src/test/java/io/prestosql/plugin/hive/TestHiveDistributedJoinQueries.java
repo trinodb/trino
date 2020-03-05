@@ -26,7 +26,7 @@ public class TestHiveDistributedJoinQueries
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setTables(getTables())
+                .setInitialTables(getTables())
                 .build();
     }
 }

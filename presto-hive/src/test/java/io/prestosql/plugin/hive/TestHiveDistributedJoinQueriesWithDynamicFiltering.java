@@ -44,7 +44,7 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setTables(getTables())
+                .setInitialTables(getTables())
                 .build();
     }
 

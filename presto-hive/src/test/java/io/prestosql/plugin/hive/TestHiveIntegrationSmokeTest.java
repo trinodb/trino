@@ -157,8 +157,8 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setExtraHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
-                .setTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
                 .build();
     }
 

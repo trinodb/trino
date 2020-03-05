@@ -35,10 +35,10 @@ public class TestHiveFileBasedSecurity
     {
         String path = this.getClass().getResource("security.json").getPath();
         queryRunner = HiveQueryRunner.builder()
-                .setExtraHiveProperties(ImmutableMap.of(
+                .setHiveProperties(ImmutableMap.of(
                         "hive.security", "file",
                         "security.config-file", path))
-                .setTables(ImmutableList.of(NATION))
+                .setInitialTables(ImmutableList.of(NATION))
                 .build();
     }
 
