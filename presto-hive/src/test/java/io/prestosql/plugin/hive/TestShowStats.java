@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
@@ -26,7 +25,7 @@ public class TestShowStats
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ImmutableList.of());
+        return HiveQueryRunner.create();
     }
 
     @BeforeClass

@@ -45,7 +45,7 @@ public class TestHiveRoles
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner();
+        return HiveQueryRunner.create();
     }
 
     @AfterMethod(alwaysRun = true)

@@ -156,11 +156,10 @@ public class TestHiveIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(ORDERS, CUSTOMER),
-                ImmutableMap.of(),
-                ImmutableMap.of("hive.allow-register-partition-procedure", "true"),
-                Optional.empty());
+        return HiveQueryRunner.builder()
+                .setExtraHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .build();
     }
 
     @Test
