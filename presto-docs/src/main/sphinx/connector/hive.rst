@@ -329,7 +329,7 @@ Property Name                                Description
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
-                                             Default storage class is ``Standard``
+                                             Default storage class is ``STANDARD``
 
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
