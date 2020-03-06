@@ -756,6 +756,14 @@ public final class SqlFormatter
             builder.append("SHOW COLUMNS FROM ")
                     .append(formatName(node.getTable()));
 
+            node.getLikePattern().ifPresent(value ->
+                    builder.append(" LIKE ")
+                            .append(formatStringLiteral(value)));
+
+            node.getEscape().ifPresent(value ->
+                    builder.append(" ESCAPE ")
+                            .append(formatStringLiteral(value)));
+
             return null;
         }
 
