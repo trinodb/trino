@@ -935,7 +935,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = metadata.getType(signature.getArgumentTypes().get(i));
-                requireNonNull(expectedType, format("Type %s not found", signature.getArgumentTypes().get(i)));
+                requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }

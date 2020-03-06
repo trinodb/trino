@@ -222,7 +222,7 @@ public class HiveWriterFactory
         else {
             Optional<Table> table = pageSinkMetadataProvider.getTable();
             if (!table.isPresent()) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Table %s.%s was dropped during insert", schemaName, tableName));
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName));
             }
             this.table = table.get();
             writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
@@ -561,7 +561,7 @@ public class HiveWriterFactory
                 .collect(toMap(DataColumn::getName, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
-            throw new PrestoException(NOT_FOUND, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
+            throw new PrestoException(NOT_FOUND, format("Table '%s.%s' does not have columns '%s'", schema, tableName, missingColumns));
         }
         if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
             throw new PrestoException(HIVE_INVALID_METADATA, format(

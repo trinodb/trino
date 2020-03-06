@@ -127,7 +127,7 @@ public class FunctionResolver
                     Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
-        String message = format("Function %s not registered", name);
+        String message = format("Function '%s' not registered", name);
         if (!expectedParameters.isEmpty()) {
             String expected = Joiner.on(", ").join(expectedParameters);
             message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
