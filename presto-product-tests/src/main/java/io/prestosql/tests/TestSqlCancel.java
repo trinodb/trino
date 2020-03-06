@@ -90,7 +90,7 @@ public class TestSqlCancel
 
         runAndCancelQuery(sql);
         assertThat(() -> query("SELECT * from " + tableName))
-                .failsWithMessage(format("Table hive.default.%s does not exist", tableName));
+                .failsWithMessage(format("Table 'hive.default.%s' does not exist", tableName));
     }
 
     @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
