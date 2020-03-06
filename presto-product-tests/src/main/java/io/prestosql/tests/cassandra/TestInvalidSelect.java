@@ -43,7 +43,7 @@ public class TestInvalidSelect
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
-                .failsWithMessage(format("Table %s does not exist", tableName));
+                .failsWithMessage(format("Table '%s' does not exist", tableName));
     }
 
     @Test(groups = CASSANDRA)

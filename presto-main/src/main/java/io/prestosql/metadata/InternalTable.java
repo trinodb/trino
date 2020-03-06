@@ -43,7 +43,7 @@ public class InternalTable
     public int getColumnIndex(String columnName)
     {
         Integer index = columnIndexes.get(columnName);
-        checkArgument(index != null, "Column %s not found", columnName);
+        checkArgument(index != null, "Column '%s' not found", columnName);
         return index;
     }
 

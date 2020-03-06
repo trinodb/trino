@@ -106,7 +106,7 @@ public class CreateEmptyPartitionProcedure
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         if (tableHandle == null) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schemaName, tableName)));
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
         }
 
         List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()

@@ -209,7 +209,7 @@ public class ShowStatsRewrite
         {
             QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
             return metadata.getTableHandle(session, qualifiedTableName)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table %s not found", table));
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' not found", table));
         }
 
         private static List<String> buildColumnsNames()
