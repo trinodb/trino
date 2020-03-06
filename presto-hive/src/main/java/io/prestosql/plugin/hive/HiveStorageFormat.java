@@ -146,16 +146,16 @@ public enum HiveStorageFormat
             TypeInfo keyType = mapTypeInfo(type).getMapKeyTypeInfo();
             if ((keyType.getCategory() != Category.PRIMITIVE) ||
                     (primitiveTypeInfo(keyType).getPrimitiveCategory() != PrimitiveCategory.STRING)) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s has a non-varchar map key, which is not supported by Avro", columnName));
+                throw new PrestoException(NOT_SUPPORTED, format("Column '%s' has a non-varchar map key, which is not supported by Avro", columnName));
             }
         }
         else if (type.getCategory() == Category.PRIMITIVE) {
             PrimitiveCategory primitive = primitiveTypeInfo(type).getPrimitiveCategory();
             if (primitive == PrimitiveCategory.BYTE) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s is tinyint, which is not supported by Avro. Use integer instead.", columnName));
+                throw new PrestoException(NOT_SUPPORTED, format("Column '%s' is tinyint, which is not supported by Avro. Use integer instead.", columnName));
             }
             if (primitive == PrimitiveCategory.SHORT) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s is smallint, which is not supported by Avro. Use integer instead.", columnName));
+                throw new PrestoException(NOT_SUPPORTED, format("Column '%s' is smallint, which is not supported by Avro. Use integer instead.", columnName));
             }
         }
     }

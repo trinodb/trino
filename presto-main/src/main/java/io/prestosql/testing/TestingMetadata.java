@@ -96,7 +96,7 @@ public class TestingMetadata
         requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(tableName);
-        checkArgument(tableMetadata != null, "Table %s does not exist", tableName);
+        checkArgument(tableMetadata != null, "Table '%s' does not exist", tableName);
         return tableMetadata;
     }
 

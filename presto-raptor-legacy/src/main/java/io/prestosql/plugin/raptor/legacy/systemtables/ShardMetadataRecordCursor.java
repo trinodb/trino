@@ -377,7 +377,7 @@ public class ShardMetadataRecordCursor
                 return i;
             }
         }
-        throw new IllegalArgumentException(format("Column %s not found", columnName));
+        throw new IllegalArgumentException(format("Column '%s' not found", columnName));
     }
 
     private void checkFieldType(int field, Class<?> clazz)

@@ -390,7 +390,7 @@ public class TpchMetadata
                 return column;
             }
         }
-        throw new IllegalArgumentException(format("Table %s does not have column %s", tableMetadata.getTable(), columnName));
+        throw new IllegalArgumentException(format("Table '%s' does not have column '%s'", tableMetadata.getTable(), columnName));
     }
 
     @Override
