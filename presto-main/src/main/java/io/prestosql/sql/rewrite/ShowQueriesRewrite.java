@@ -381,6 +381,18 @@ final class ShowQueriesRewrite
 
             accessControl.checkCanShowColumns(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
 
+            Expression predicate = logicalAnd(
+                    equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
+                    equal(identifier("table_name"), new StringLiteral(tableName.getObjectName())));
+            Optional<String> likePattern = showColumns.getLikePattern();
+            if (likePattern.isPresent()) {
+                Expression likePredicate = new LikePredicate(
+                        identifier("column_name"),
+                        new StringLiteral(likePattern.get()),
+                        showColumns.getEscape().map(StringLiteral::new));
+                predicate = logicalAnd(predicate, likePredicate);
+            }
+
             return simpleQuery(
                     selectList(
                             aliasedName("column_name", "Column"),
@@ -388,9 +400,7 @@ final class ShowQueriesRewrite
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getCatalogName(), COLUMNS.getSchemaTableName()),
-                    logicalAnd(
-                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
+                    predicate,
                     ordering(ascending("ordinal_position")));
         }
 
