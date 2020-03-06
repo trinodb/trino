@@ -15,6 +15,7 @@ package io.prestosql.spi.connector;
 
 import java.util.Objects;
 
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class SchemaRoutineName
@@ -24,8 +25,8 @@ public final class SchemaRoutineName
 
     public SchemaRoutineName(String schemaName, String routineName)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.routineName = requireNonNull(routineName, "routineName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.routineName = requireNonNull(routineName, "routineName is null").toLowerCase(ENGLISH);
     }
 
     public String getSchemaName()
