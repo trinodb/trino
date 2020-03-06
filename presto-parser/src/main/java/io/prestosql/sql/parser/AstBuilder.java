@@ -880,7 +880,13 @@ class AstBuilder
     @Override
     public Node visitShowColumns(SqlBaseParser.ShowColumnsContext context)
     {
-        return new ShowColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new ShowColumns(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
+                        .map(AstBuilder::unquote));
     }
 
     @Override
