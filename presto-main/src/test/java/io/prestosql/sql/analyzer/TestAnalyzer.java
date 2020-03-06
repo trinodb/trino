@@ -1361,7 +1361,7 @@ public class TestAnalyzer
     {
         assertFails("SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
-                .hasMessageMatching("Column 1 not in GROUP BY clause");
+                .hasMessageMatching("Column '1' not in GROUP BY clause");
         assertFails("SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessageMatching("Column 't.a' not in GROUP BY clause");
@@ -1371,7 +1371,7 @@ public class TestAnalyzer
                 .hasMessageMatching("Column 'a' not in GROUP BY clause");
         assertFails("SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
-                .hasMessageMatching("Column 1 not in GROUP BY clause");
+                .hasMessageMatching("Column '1' not in GROUP BY clause");
     }
 
     @Test
