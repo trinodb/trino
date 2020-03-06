@@ -1000,12 +1000,12 @@ class StatementAnalyzer
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
             if (!tableHandle.isPresent()) {
                 if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
-                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog %s does not exist", name.getCatalogName());
+                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog '%s' does not exist", name.getCatalogName());
                 }
                 if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
-                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema %s does not exist", name.getSchemaName());
+                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", name.getSchemaName());
                 }
-                throw semanticException(TABLE_NOT_FOUND, table, "Table %s does not exist", name);
+                throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", name);
             }
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());

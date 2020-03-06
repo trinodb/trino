@@ -1594,7 +1594,7 @@ public class TestHiveIntegrationSmokeTest
 
         String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
 
-        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition part=empty does not exist");
+        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition 'part=empty' does not exist");
         assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName));
 
         assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
@@ -1641,7 +1641,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertQueryFails(
                 format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, "non_existing_table", "empty"),
-                format("Table %s.%s does not exist", TPCH_SCHEMA, "non_existing_table"));
+                format("Table '%s.%s' does not exist", TPCH_SCHEMA, "non_existing_table"));
     }
 
     @Test
@@ -2229,12 +2229,12 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"test_partitions_invalid$partitions$partitions\"",
-                ".*Table .*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions does not exist");
+                ".*Table '.*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"non_existent$partitions\"",
-                ".*Table .*\\.tpch\\.non_existent\\$partitions does not exist");
+                ".*Table '.*\\.tpch\\.non_existent\\$partitions' does not exist");
     }
 
     @Test
@@ -3370,7 +3370,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * FROM view_rename.rename_view_new", "SELECT COUNT(*) FROM orders");
 
-        assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original does not exist");
+        assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original' does not exist");
 
         assertUpdate("DROP VIEW view_rename.rename_view_new");
     }
@@ -3432,11 +3432,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testAvroTypeValidation()
     {
-        assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column x has a non-varchar map key, which is not supported by Avro");
-        assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column x is tinyint, which is not supported by Avro. Use integer instead.");
-        assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column x is smallint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column 'x' has a non-varchar map key, which is not supported by Avro");
+        assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column 'x' is tinyint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column 'x' is smallint, which is not supported by Avro. Use integer instead.");
 
-        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column z is smallint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column 'z' is smallint, which is not supported by Avro. Use integer instead.");
     }
 
     @Test
@@ -5414,7 +5414,7 @@ public class TestHiveIntegrationSmokeTest
                 "Partition '.*' not found");
         assertQueryFails(
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, "non_existing_table"),
-                format("Table %s.non_existing_table does not exist", TPCH_SCHEMA));
+                format("Table '%s.non_existing_table' does not exist", TPCH_SCHEMA));
 
         assertUpdate("DROP TABLE " + unpartitionedTableName);
         assertUpdate("DROP TABLE " + partitionedTableName);
