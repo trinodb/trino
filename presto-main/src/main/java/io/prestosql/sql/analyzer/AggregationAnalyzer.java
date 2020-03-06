@@ -524,7 +524,7 @@ class AggregationAnalyzer
                     column = "'" + field.getName().get() + "'";
                 }
 
-                throw semanticException(EXPRESSION_NOT_AGGREGATE, node, "Column '%s' not in GROUP BY clause", column);
+                throw semanticException(EXPRESSION_NOT_AGGREGATE, node, "Column %s not in GROUP BY clause", column);
             }
             return inGroup;
         }
