@@ -35,4 +35,24 @@ public class TestInterfaceTestUtils
 
     private static class Implementation
             implements Interface {}
+
+    @Test
+    public void testAcceptStaticMethod()
+    {
+        InterfaceTestUtils.assertAllMethodsOverridden(InterfaceWithStaticMethod.class, ImplementationOfInterfaceWithStaticMethod.class);
+    }
+
+    private interface InterfaceWithStaticMethod
+    {
+        default void foo(String s) {}
+
+        static void staticMethod(String s) {}
+    }
+
+    private static class ImplementationOfInterfaceWithStaticMethod
+            implements InterfaceWithStaticMethod
+    {
+        @Override
+        public void foo(String s) {}
+    }
 }
