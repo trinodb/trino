@@ -15,6 +15,8 @@ package io.prestosql.spi.testing;
 
 import org.testng.annotations.Test;
 
+import java.io.Serializable;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestInterfaceTestUtils
@@ -51,6 +53,19 @@ public class TestInterfaceTestUtils
 
     private static class ImplementationOfInterfaceWithStaticMethod
             implements InterfaceWithStaticMethod
+    {
+        @Override
+        public void foo(String s) {}
+    }
+
+    @Test
+    public void testAcceptMultipleImplementedInterfaces()
+    {
+        InterfaceTestUtils.assertAllMethodsOverridden(Interface.class, ImplementationWithMultipleInterfaces.class);
+    }
+
+    private static class ImplementationWithMultipleInterfaces
+            implements Cloneable, Interface, Serializable
     {
         @Override
         public void foo(String s) {}
