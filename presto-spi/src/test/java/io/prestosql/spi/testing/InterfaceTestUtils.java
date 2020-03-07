@@ -16,6 +16,7 @@ package io.prestosql.spi.testing;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.function.Function;
 
 import static com.google.common.base.Defaults.defaultValue;
@@ -32,6 +33,9 @@ public final class InterfaceTestUtils
     {
         assertEquals(ImmutableSet.copyOf(clazz.getInterfaces()), ImmutableSet.of(iface));
         for (Method method : iface.getMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
             try {
                 Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
                 if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
