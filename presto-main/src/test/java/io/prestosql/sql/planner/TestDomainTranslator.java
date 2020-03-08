@@ -215,6 +215,22 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testComparisonExpression()
+    {
+        Expression comparison = comparison(EQUAL, C_BIGINT.toSymbolReference(), C_BIGINT.toSymbolReference());
+        ExtractionResult result = fromPredicate(comparison);
+        assertEquals(result.getRemainingExpression(), comparison);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.notNull(BIGINT))));
+
+        comparison = comparison(EQUAL, C_BIGINT.toSymbolReference(), C_BIGINT_1.toSymbolReference());
+        result = fromPredicate(comparison);
+        assertEquals(result.getRemainingExpression(), comparison);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.notNull(BIGINT), C_BIGINT_1, Domain.notNull(BIGINT))));
+
+        assertUnsupportedPredicate(comparison(IS_DISTINCT_FROM, C_BIGINT.toSymbolReference(), C_BIGINT_1.toSymbolReference()));
+    }
+
+    @Test
     public void testInOptimization()
     {
         Domain testDomain = Domain.create(
@@ -1132,9 +1148,9 @@ public class TestDomainTranslator
     public void testExpressionConstantFolding()
     {
         FunctionCall fromHex = new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of("from_hex"))
-                        .addArgument(VARCHAR, stringLiteral("123456"))
-                        .build();
+                .setName(QualifiedName.of("from_hex"))
+                .addArgument(VARCHAR, stringLiteral("123456"))
+                .build();
         Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), fromHex);
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
@@ -1510,12 +1526,12 @@ public class TestDomainTranslator
 
     private static Expression unprocessableExpression1(Symbol symbol)
     {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
+        return comparison(IS_DISTINCT_FROM, symbol.toSymbolReference(), symbol.toSymbolReference());
     }
 
     private static Expression unprocessableExpression2(Symbol symbol)
     {
-        return comparison(LESS_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
+        return new NotExpression(comparison(IS_DISTINCT_FROM, symbol.toSymbolReference(), symbol.toSymbolReference()));
     }
 
     private Expression randPredicate(Symbol symbol, Type type)
