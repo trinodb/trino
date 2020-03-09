@@ -20,7 +20,6 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
-import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.TransactionalMetadataFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -134,7 +133,7 @@ public class RegisterPartitionProcedure
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
         }
 
-        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create(new HiveTransactionHandle())).getMetastore();
+        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();
 
         metastore.addPartition(
                 session,

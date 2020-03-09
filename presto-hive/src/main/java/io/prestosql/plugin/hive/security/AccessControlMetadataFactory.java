@@ -14,9 +14,8 @@
 package io.prestosql.plugin.hive.security;
 
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public interface AccessControlMetadataFactory
 {
-    AccessControlMetadata create(ConnectorTransactionHandle transactionHandle, SemiTransactionalHiveMetastore metastore);
+    AccessControlMetadata create(SemiTransactionalHiveMetastore metastore);
 }
