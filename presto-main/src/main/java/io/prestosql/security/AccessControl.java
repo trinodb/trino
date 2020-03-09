@@ -256,6 +256,13 @@ public interface AccessControl
     void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
 
     /**
+     * Check if identity is allowed to create a view that executes the function.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
+
+    /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
@@ -349,6 +356,13 @@ public interface AccessControl
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName);
+
+    /**
+     * Check if identity is allowed to execute function
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanExecuteFunction(SecurityContext context, String functionName);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

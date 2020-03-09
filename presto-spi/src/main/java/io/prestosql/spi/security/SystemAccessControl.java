@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import java.security.Principal;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -37,8 +38,10 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
@@ -57,6 +60,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
+import static java.lang.String.format;
 
 public interface SystemAccessControl
 {
@@ -405,6 +409,17 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to grant an access to the function execution to grantee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
+        denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), granteeAsString);
+    }
+
+    /**
      * Check if identity is allowed to set the specified property in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -452,6 +467,16 @@ public interface SystemAccessControl
     default void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
         denyExecuteProcedure(procedure.toString());
+    }
+
+    /**
+     * Check if identity is allowed to execute the specified function
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    {
+        denyExecuteFunction(functionName);
     }
 
     /**

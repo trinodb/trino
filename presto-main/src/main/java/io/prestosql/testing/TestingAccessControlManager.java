@@ -54,7 +54,9 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
@@ -80,7 +82,9 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_SCHEMA;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_QUERY;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.GRANT_EXECUTE_FUNCTION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.IMPERSONATE_USER;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
@@ -422,6 +426,17 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName, GRANT_EXECUTE_FUNCTION)) {
+            denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), grantee);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+        }
+    }
+
+    @Override
     public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), table.getSchemaTableName().getTableName(), SHOW_COLUMNS)) {
@@ -460,6 +475,17 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName, EXECUTE_FUNCTION)) {
+            denyExecuteFunction(functionName);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanExecuteFunction(context, functionName);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return rowFilters.getOrDefault(new RowFilterKey(context.getIdentity().getUser(), tableName), ImmutableList.of());
@@ -491,10 +517,12 @@ public class TestingAccessControlManager
     {
         SET_USER, IMPERSONATE_USER,
         EXECUTE_QUERY, VIEW_QUERY, KILL_QUERY,
+        EXECUTE_FUNCTION,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
         SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, INSERT_TABLE, DELETE_TABLE, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
+        GRANT_EXECUTE_FUNCTION,
         SET_SESSION
     }
 

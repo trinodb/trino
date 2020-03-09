@@ -237,6 +237,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantTablePrivilege(context, privilege, tableName, grantee, grantOption);
@@ -318,6 +324,12 @@ public abstract class ForwardingAccessControl
     public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
     {
         delegate().checkCanExecuteProcedure(context, procedureName);
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    {
+        delegate().checkCanExecuteFunction(context, functionName);
     }
 
     @Override

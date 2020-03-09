@@ -16,6 +16,7 @@ package io.prestosql.sql;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
@@ -108,6 +109,7 @@ public class TestSqlToRowExpressionTranslator
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata,
+                new AllowAllAccessControl(),
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyMap(),

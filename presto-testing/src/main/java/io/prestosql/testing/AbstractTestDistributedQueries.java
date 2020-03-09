@@ -55,6 +55,8 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.GRANT_EXECUTE_FUNCTION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -1117,6 +1119,52 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_column_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_column_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_column_access");
+    }
+
+    @Test
+    public void testViewFunctionAccessControl()
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_view_access_owner"))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        // TEST FUNCTION PRIVILEGES
+        // view creation permissions are only checked at query time, not at creation
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_function_access AS SELECT abs(1) AS c",
+                privilege("abs", GRANT_EXECUTE_FUNCTION));
+
+        assertAccessDenied(
+                "SELECT * FROM test_view_function_access",
+                "'test_view_access_owner' cannot grant 'abs' execution to user 'hive'",
+                privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
+
+        // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function
+        assertAccessAllowed(
+                "SELECT * FROM test_view_function_access",
+                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
+
+        // TEST SECURITY INVOKER
+        // view creation permissions are only checked at query time, not at creation
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_invoker_view_function_access SECURITY INVOKER AS SELECT abs(1) AS c",
+                privilege("abs", GRANT_EXECUTE_FUNCTION));
+        assertAccessAllowed(
+                "SELECT * FROM test_invoker_view_function_access",
+                privilege(viewOwnerSession.getUser(), "abs", EXECUTE_FUNCTION));
+        assertAccessDenied(
+                "SELECT * FROM test_invoker_view_function_access",
+                "Cannot execute function abs",
+                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
+
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_function_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_function_access");
     }
 
     @Test

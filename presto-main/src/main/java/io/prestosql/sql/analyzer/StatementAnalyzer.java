@@ -533,7 +533,7 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    analysis.getParameters());
+                    accessControl, analysis.getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
@@ -616,7 +616,7 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    analysis.getParameters());
+                    accessControl, analysis.getParameters());
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
@@ -723,7 +723,7 @@ class StatementAnalyzer
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
-            createConstantAnalyzer(metadata, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
+            createConstantAnalyzer(metadata, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -1184,6 +1184,7 @@ class StatementAnalyzer
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
                     session,
                     metadata,
+                    accessControl,
                     sqlParser,
                     TypeProvider.empty(),
                     ImmutableList.of(relation.getSamplePercentage()),
@@ -2333,7 +2334,7 @@ class StatementAnalyzer
                 AccessControl viewAccessControl;
                 if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
                     identity = Identity.ofUser(owner.get());
-                    viewAccessControl = new ViewAccessControl(accessControl);
+                    viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
                 }
                 else {
                     identity = session.getIdentity();
