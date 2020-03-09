@@ -70,4 +70,22 @@ public class TestInterfaceTestUtils
         @Override
         public void foo(String s) {}
     }
+
+    @Test
+    public void testAcceptAbstractClass()
+    {
+        InterfaceTestUtils.assertAllMethodsOverridden(AbstractClass.class, ImplementationOfAbstractClass.class);
+    }
+
+    private abstract static class AbstractClass
+    {
+        public void foo(String s) {}
+    }
+
+    private static class ImplementationOfAbstractClass
+            extends AbstractClass
+    {
+        @Override
+        public void foo(String s) {}
+    }
 }

@@ -35,6 +35,9 @@ public final class InterfaceTestUtils
             if (Modifier.isStatic(method.getModifiers())) {
                 continue;
             }
+            if (method.getDeclaringClass() == Object.class) {
+                continue;
+            }
             try {
                 Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
                 if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
