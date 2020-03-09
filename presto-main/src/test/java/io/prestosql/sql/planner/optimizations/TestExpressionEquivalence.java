@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.parser.ParsingOptions;
@@ -25,6 +26,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.transaction.TestingTransactionManager;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -38,6 +40,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.sql.ExpressionTestUtils.planExpression;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -133,10 +136,10 @@ public class TestExpressionEquivalence
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
         assertTrue(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
+                areExpressionEquivalent(leftExpression, rightExpression, types),
                 format("Expected (%s) and (%s) to be equivalent", left, right));
         assertTrue(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, rightExpression, leftExpression, types),
+                areExpressionEquivalent(rightExpression, leftExpression, types),
                 format("Expected (%s) and (%s) to be equivalent", right, left));
     }
 
@@ -185,11 +188,20 @@ public class TestExpressionEquivalence
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
         assertFalse(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
+                areExpressionEquivalent(leftExpression, rightExpression, types),
                 format("Expected (%s) and (%s) to not be equivalent", left, right));
         assertFalse(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, rightExpression, leftExpression, types),
+                areExpressionEquivalent(rightExpression, leftExpression, types),
                 format("Expected (%s) and (%s) to not be equivalent", right, left));
+    }
+
+    private static boolean areExpressionEquivalent(Expression leftExpression, Expression rightExpression, TypeProvider types)
+    {
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(TEST_SESSION, transactionSession -> {
+                    return EQUIVALENCE.areExpressionsEquivalent(transactionSession, leftExpression, rightExpression, types);
+                });
     }
 
     private static Type generateType(Symbol symbol)

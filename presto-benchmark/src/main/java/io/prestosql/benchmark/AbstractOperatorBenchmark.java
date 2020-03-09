@@ -279,6 +279,7 @@ public abstract class AbstractOperatorBenchmark
     {
         Session session = testSessionBuilder()
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
+                .setTransactionId(this.session.getRequiredTransactionId())
                 .build();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
