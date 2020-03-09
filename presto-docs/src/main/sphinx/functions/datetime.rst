@@ -63,6 +63,11 @@ Date and Time Functions
 
     Returns the last day of the month.
 
+.. function:: next_day(x, string) -> date
+
+    Returns the day of the specified day-of-week which is closest and larger than the given date.
+    Support abbreviated format (e.g., ``MO``,``MON`` and ``MONDAY`` are the same)
+
 .. function:: from_iso8601_timestamp(string) -> timestamp with time zone
 
     Parses the ISO 8601 formatted ``string`` into a ``timestamp with time zone``.

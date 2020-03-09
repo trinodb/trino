@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
@@ -37,6 +38,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -84,6 +86,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
+    private static final Map<String, Integer> DAY_OF_WEEK_ALIAS_TO_INT = getDayOfWeekAliasToInt();
 
     private DateTimeFunctions() {}
 
@@ -1010,6 +1013,84 @@ public final class DateTimeFunctions
     {
         long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
         return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("Day of the specified day-of-week which is closest and larger than the given date")
+    @ScalarFunction("next_day")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.DATE)
+    public static long nextDayFromDate(@SqlType(StandardTypes.DATE) long date, @SqlType("varchar(x)") Slice dayOfWeek)
+    {
+        long millis = computeNextDay(UTC_CHRONOLOGY, DAYS.toMillis(date), dayOfWeek);
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("Day of the specified day-of-week which is closest and larger than the given timestamp")
+    @ScalarFunction("next_day")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.DATE)
+    public static long nextDayFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice dayOfWeek)
+    {
+        if (session.isLegacyTimestamp()) {
+            long millis = computeNextDay(getChronology(session.getTimeZoneKey()), timestamp, dayOfWeek);
+            return MILLISECONDS.toDays(millis);
+        }
+        long millis = computeNextDay(UTC_CHRONOLOGY, timestamp, dayOfWeek);
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("Day of the specified day-of-week which is closest and larger than the given timestamp")
+    @ScalarFunction("next_day")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.DATE)
+    public static long nextDayFromTimestamp(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType("varchar(x)") Slice dayOfWeek)
+    {
+        long millis = computeNextDay(unpackChronology(timestampWithTimeZone), unpackMillisUtc(timestampWithTimeZone), dayOfWeek);
+        return MILLISECONDS.toDays(millis);
+    }
+
+    private static long computeNextDay(ISOChronology chronology, long instant, Slice dayOfWeek)
+    {
+        Integer target = DAY_OF_WEEK_ALIAS_TO_INT.get(dayOfWeek.toStringUtf8().toUpperCase());
+        if (target == null) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid day of week format. Only supports %s", DAY_OF_WEEK_ALIAS_TO_INT.keySet()));
+        }
+        int current = chronology.dayOfWeek().get(instant);
+        int daysToAdd;
+        if (current < target) {
+            daysToAdd = target - current;
+        }
+        else {
+            daysToAdd = 7 - current + target;
+        }
+        return chronology.days().add(instant, daysToAdd);
+    }
+
+    private static Map<String, Integer> getDayOfWeekAliasToInt()
+    {
+        ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
+        builder.put("MO", 1);
+        builder.put("MON", 1);
+        builder.put("MONDAY", 1);
+        builder.put("TU", 2);
+        builder.put("TUE", 2);
+        builder.put("TUESDAY", 2);
+        builder.put("WE", 3);
+        builder.put("WED", 3);
+        builder.put("WEDNESDAY", 3);
+        builder.put("TH", 4);
+        builder.put("THU", 4);
+        builder.put("THURSDAY", 4);
+        builder.put("FR", 5);
+        builder.put("FRI", 5);
+        builder.put("FRIDAY", 5);
+        builder.put("SA", 6);
+        builder.put("SAT", 6);
+        builder.put("SATURDAY", 6);
+        builder.put("SU", 7);
+        builder.put("SUN", 7);
+        builder.put("SUNDAY", 7);
+        return builder.build();
     }
 
     @Description("Day of the year of the given timestamp")

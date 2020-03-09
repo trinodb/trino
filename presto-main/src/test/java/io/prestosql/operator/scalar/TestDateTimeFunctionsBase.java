@@ -372,6 +372,24 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testNextDay()
+    {
+        assertFunction("next_day(" + DATE_LITERAL + ", 'MO')", DateType.DATE, toDate(DATE.dayOfWeek().withMaximumValue().plusDays(1)));
+        assertFunction("next_day(" + TIMESTAMP_LITERAL + ", 'MO')", DateType.DATE, toDate(DATE.dayOfWeek().withMaximumValue().plusDays(1)));
+        assertFunction("next_day(" + WEIRD_TIMESTAMP_LITERAL + ", 'MO')", DateType.DATE, toDate(WEIRD_TIMESTAMP.dayOfWeek().withMaximumValue().plusDays(1)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'TU')", DateType.DATE, toDate(DATE.dayOfWeek().withMaximumValue().plusDays(2)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'WE')", DateType.DATE, toDate(DATE.dayOfWeek().withMaximumValue().plusDays(3)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'TH')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(4)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'FR')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(5)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'SA')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(6)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'SAT')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(6)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'SATURDAY')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(6)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'SU')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(7)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'SUN')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(7)));
+        assertFunction("next_day(" + DATE_LITERAL + ", 'SUNDAY')", DateType.DATE, toDate(DATE.dayOfWeek().setCopy(7)));
+    }
+
+    @Test
     public void testExtractFromTimestamp()
     {
         assertFunction("extract(second FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getSecondOfMinute());
