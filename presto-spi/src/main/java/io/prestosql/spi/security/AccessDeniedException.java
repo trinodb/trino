@@ -413,7 +413,7 @@ public class AccessDeniedException
 
     public static void denyExecuteProcedure(String procedureName)
     {
-        throw new AccessDeniedException(format("Cannot invoke procedure %s", procedureName));
+        throw new AccessDeniedException(format("Cannot execute procedure %s", procedureName));
     }
 
     private static Object formatExtraInfo(String extraInfo)

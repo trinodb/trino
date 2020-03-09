@@ -269,7 +269,7 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("deny-all", ImmutableMap.of());
 
-        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot invoke procedure connector.schema.procedure");
+        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot execute procedure connector.schema.procedure");
     }
 
     @Test
@@ -283,7 +283,7 @@ public class TestAccessControlManager
         registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
         accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new DenyConnectorAccessControl());
 
-        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot invoke procedure schema.procedure");
+        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot execute procedure schema.procedure");
     }
 
     @Test
