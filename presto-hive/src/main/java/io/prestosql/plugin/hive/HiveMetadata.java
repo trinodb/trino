@@ -659,21 +659,6 @@ public class HiveMetadata
         return listSchemaNames(session);
     }
 
-    private static boolean filterSchema(String schemaName)
-    {
-        if ("information_schema".equals(schemaName)) {
-            // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
-            // TODO https://github.com/prestosql/presto/issues/1559 this should be filtered out in engine.
-            return false;
-        }
-        if ("sys".equals(schemaName)) {
-            // Hive 3's `sys` schema contains no objects we can handle, so there is no point in exposing it.
-            // Also, exposing it may require proper handling in access control.
-            return false;
-        }
-        return true;
-    }
-
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -1781,6 +1766,21 @@ public class HiveMetadata
     private boolean isHiveOrPrestoView(Table table)
     {
         return table.getTableType().equals(TableType.VIRTUAL_VIEW.name());
+    }
+
+    private static boolean filterSchema(String schemaName)
+    {
+        if ("information_schema".equals(schemaName)) {
+            // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
+            // TODO https://github.com/prestosql/presto/issues/1559 this should be filtered out in engine.
+            return false;
+        }
+        if ("sys".equals(schemaName)) {
+            // Hive 3's `sys` schema contains no objects we can handle, so there is no point in exposing it.
+            // Also, exposing it may require proper handling in access control.
+            return false;
+        }
+        return true;
     }
 
     @Override

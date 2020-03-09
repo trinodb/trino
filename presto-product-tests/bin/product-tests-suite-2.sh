@@ -11,7 +11,7 @@ presto-product-tests-launcher/bin/run-launcher test run \
 
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kerberos-hdfs-no-impersonation \
-    -- -g hdfs_no_impersonation \
+    -- -g storage_formats,hdfs_no_impersonation \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
