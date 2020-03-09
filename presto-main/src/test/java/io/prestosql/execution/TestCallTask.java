@@ -102,7 +102,7 @@ public class TestCallTask
         assertThatThrownBy(
                 () -> new CallTask().execute(procedure, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of()))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot invoke procedure test.test.testing_procedure");
+                .hasMessage("Access Denied: Cannot execute procedure test.test.testing_procedure");
 
         assertThat(invoked).isFalse();
     }
