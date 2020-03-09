@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
@@ -48,7 +49,7 @@ public class TypeAnalyzer
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
     {
-        return analyzeExpressions(session, metadata, parser, inputTypes, expressions, ImmutableMap.of(), WarningCollector.NOOP, false).getExpressionTypes();
+        return analyzeExpressions(session, metadata, new AllowAllAccessControl(), parser, inputTypes, expressions, ImmutableMap.of(), WarningCollector.NOOP, false).getExpressionTypes();
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Expression expression)

@@ -26,6 +26,7 @@ import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.ArraySubscriptOperator;
+import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -172,9 +173,15 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters)
+    public static Object evaluateConstantExpression(
+            Expression expression,
+            Type expectedType,
+            Metadata metadata,
+            Session session,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
@@ -186,7 +193,7 @@ public class ExpressionInterpreter
                 .putAll(analyzer.getExpressionCoercions())
                 .put(NodeRef.of(expression), expectedType)
                 .build();
-        return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), metadata, session, ImmutableSet.of(), parameters);
+        return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), metadata, session, accessControl, ImmutableSet.of(), parameters);
     }
 
     private static Object evaluateConstantExpression(
@@ -195,6 +202,7 @@ public class ExpressionInterpreter
             Set<NodeRef<Expression>> typeOnlyCoercions,
             Metadata metadata,
             Session session,
+            AccessControl accessControl,
             Set<NodeRef<Expression>> columnReferences,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
@@ -206,7 +214,7 @@ public class ExpressionInterpreter
         Expression rewrite = Coercer.addCoercions(expression, coercions, typeOnlyCoercions);
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
@@ -214,7 +222,7 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(metadata, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(rewrite, Scope.create());
 
         // expressionInterpreter/optimizer only understands a subset of expression types
@@ -223,7 +231,7 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(metadata, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(canonicalized, Scope.create());
 
         // resolve functions
@@ -231,7 +239,7 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(metadata, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression

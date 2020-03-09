@@ -36,6 +36,7 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
@@ -588,6 +589,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, String functionName, Identity grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionName, "functionName is null");
+
+        systemAuthorizationCheck(control -> control.checkCanGrantExecuteFunctionPrivilege(
+                securityContext.toSystemSecurityContext(),
+                functionName,
+                new PrestoPrincipal(PrincipalType.USER, grantee.getUser()),
+                grantOption));
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -764,6 +778,15 @@ public class AccessControlManager
                 procedureName.getCatalogName(),
                 securityContext,
                 (control, context) -> control.checkCanExecuteProcedure(context, procedureName.asSchemaRoutineName()));
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(functionName, "functionName is null");
+
+        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(context.toSystemSecurityContext(), functionName));
     }
 
     @Override

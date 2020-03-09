@@ -236,6 +236,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
     }
@@ -257,6 +262,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
     }
 

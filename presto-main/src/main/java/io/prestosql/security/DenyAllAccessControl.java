@@ -42,8 +42,10 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
@@ -260,6 +262,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+        denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), grantee);
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         denyGrantTablePrivilege(privilege.name(), tableName.toString());
@@ -341,5 +349,11 @@ public class DenyAllAccessControl
     public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
     {
         denyExecuteProcedure(procedureName.toString());
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    {
+        denyExecuteFunction(functionName);
     }
 }

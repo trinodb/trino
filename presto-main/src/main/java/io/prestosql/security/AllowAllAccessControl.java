@@ -191,6 +191,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
     }
@@ -257,6 +262,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
     {
     }
 }

@@ -19,6 +19,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
@@ -118,6 +119,7 @@ public final class ExpressionTestUtils
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata,
+                new AllowAllAccessControl(),
                 session,
                 typeProvider,
                 ImmutableMap.of(),
