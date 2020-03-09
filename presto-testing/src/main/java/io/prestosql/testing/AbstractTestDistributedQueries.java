@@ -1034,7 +1034,7 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testViewAccessControl()
+    public void testViewColumnAccessControl()
     {
         skipTestUnless(supportsViews());
 
@@ -1048,27 +1048,27 @@ public abstract class AbstractTestDistributedQueries
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                "CREATE VIEW test_view_column_access AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
         assertAccessAllowed(
                 viewOwnerSession,
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
         assertAccessAllowed(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
@@ -1080,43 +1080,43 @@ public abstract class AbstractTestDistributedQueries
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "CREATE VIEW test_nested_view_column_access AS SELECT * FROM test_view_column_access",
+                privilege("test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
-                "SELECT * FROM test_nested_view_access",
-                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
-                privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "SELECT * FROM test_nested_view_column_access",
+                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_column_access.*",
+                privilege(nestedViewOwnerSession.getUser(), "test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
         assertAccessAllowed(
-                "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "SELECT * FROM test_nested_view_column_access",
+                privilege(getSession().getUser(), "test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", SELECT_COLUMN));
+                "SELECT * FROM test_nested_view_column_access",
+                privilege(getSession().getUser(), "test_view_column_access", SELECT_COLUMN));
 
         // verify that INVOKER security runs as session user
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_invoker_view_access SECURITY INVOKER AS SELECT * FROM orders",
+                "CREATE VIEW test_invoker_view_column_access SECURITY INVOKER AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_invoker_view_access",
+                "SELECT * FROM test_invoker_view_column_access",
                 privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
         assertAccessDenied(
-                "SELECT * FROM test_invoker_view_access",
+                "SELECT * FROM test_invoker_view_column_access",
                 "Cannot select from columns \\[.*\\] in table .*.orders.*",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // change access denied exception to view
-        assertAccessDenied("SHOW CREATE VIEW test_nested_view_access", "Cannot show create table for .*test_nested_view_access.*", privilege("test_nested_view_access", SHOW_CREATE_TABLE));
-        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_access", privilege("test_denied_access_view", SHOW_CREATE_TABLE));
+        assertAccessDenied("SHOW CREATE VIEW test_nested_view_column_access", "Cannot show create table for .*test_nested_view_column_access.*", privilege("test_nested_view_column_access", SHOW_CREATE_TABLE));
+        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_column_access", privilege("test_denied_access_view", SHOW_CREATE_TABLE));
 
-        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_access");
+        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_column_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_column_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_column_access");
     }
 
     @Test
