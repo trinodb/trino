@@ -19,6 +19,7 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -44,6 +45,7 @@ import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.transaction.TestingTransactionManager;
 import io.prestosql.type.TypeCoercion;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -88,6 +90,7 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static io.prestosql.type.ColorType.COLOR;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -1132,9 +1135,9 @@ public class TestDomainTranslator
     public void testExpressionConstantFolding()
     {
         FunctionCall fromHex = new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of("from_hex"))
-                        .addArgument(VARCHAR, stringLiteral("123456"))
-                        .build();
+                .setName(QualifiedName.of("from_hex"))
+                .addArgument(VARCHAR, stringLiteral("123456"))
+                .build();
         Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), fromHex);
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
@@ -1500,7 +1503,11 @@ public class TestDomainTranslator
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(TEST_SESSION, transactionSession -> {
+                    return DomainTranslator.fromPredicate(metadata, transactionSession, originalPredicate, TYPES);
+                });
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)

@@ -37,6 +37,9 @@ import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.transaction.TestingTransactionManager;
+
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -45,6 +48,7 @@ import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferen
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
 import static org.testng.internal.EclipseInterface.ASSERT_RIGHT;
@@ -99,11 +103,15 @@ public final class ExpressionTestUtils
 
     public static Expression planExpression(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
     {
-        expression = rewriteIdentifiersToSymbolReferences(expression);
-        expression = DesugarLikeRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        expression = DesugarArrayConstructorRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        expression = CanonicalizeExpressionRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        return resolveFunctionCalls(metadata, session, typeProvider, expression);
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, transactionSession -> {
+                    Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
+                    rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+                    rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+                    rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+                    return resolveFunctionCalls(metadata, transactionSession, typeProvider, rewritten);
+                });
     }
 
     public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
@@ -162,5 +170,14 @@ public final class ExpressionTestUtils
                 return rewrittenExpression;
             }
         }, expression);
+    }
+
+    public static Map<NodeRef<Expression>, Type> getTypes(Session session, Metadata metadata, TypeProvider typeProvider, Expression expression)
+    {
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                    .singleStatement()
+                    .execute(session, transactionSession -> {
+                        return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(transactionSession, typeProvider, expression);
+                    });
     }
 }
