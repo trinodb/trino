@@ -59,10 +59,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.ExpressionCompiler;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.relational.RowExpression;
@@ -117,6 +115,7 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.ExpressionTestUtils.createExpression;
+import static io.prestosql.sql.ExpressionTestUtils.getTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -139,8 +138,6 @@ public final class FunctionAssertions
     private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
-    private static final SqlParser SQL_PARSER = new SqlParser();
-
     // Increase the number of fields to generate a wide column
     private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
     private static final RowType TEST_ROW_TYPE = createTestRowType(TEST_ROW_NUMBER_OF_FIELDS);
@@ -161,7 +158,7 @@ public final class FunctionAssertions
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
-    private static final Map<Symbol, Type> INPUT_TYPES = ImmutableMap.<Symbol, Type>builder()
+    private static final TypeProvider INPUT_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BIGINT)
             .put(new Symbol("bound_string"), VARCHAR)
             .put(new Symbol("bound_double"), DOUBLE)
@@ -173,7 +170,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_binary_literal"), VARBINARY)
             .put(new Symbol("bound_integer"), INTEGER)
             .put(new Symbol("bound_row"), TEST_ROW_TYPE)
-            .build();
+            .build());
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
             .put(new Symbol("bound_long"), 0)
@@ -195,7 +192,6 @@ public final class FunctionAssertions
     private final Session session;
     private final LocalQueryRunner runner;
     private final Metadata metadata;
-    private final TypeAnalyzer typeAnalyzer;
     private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
@@ -216,7 +212,6 @@ public final class FunctionAssertions
                 .build();
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
-        typeAnalyzer = new TypeAnalyzer(SQL_PARSER, metadata);
     }
 
     public Metadata getMetadata()
@@ -347,7 +342,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(session, projection, metadata, TypeProvider.copyOf(INPUT_TYPES));
+        Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
         RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
 
@@ -462,7 +457,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(session, projection, metadata, TypeProvider.copyOf(INPUT_TYPES));
+        Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
         RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
 
         List<Object> results = new ArrayList<>();
@@ -513,7 +508,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        return toRowExpression(projectionExpression, typeAnalyzer.getTypes(session, TypeProvider.copyOf(INPUT_TYPES), projectionExpression), INPUT_MAPPING);
+        return toRowExpression(projectionExpression, getTypes(session, metadata, INPUT_TYPES, projectionExpression), INPUT_MAPPING);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -564,7 +559,7 @@ public final class FunctionAssertions
     {
         requireNonNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(session, filter, metadata, TypeProvider.copyOf(INPUT_TYPES));
+        Expression filterExpression = createExpression(session, filter, metadata, INPUT_TYPES);
         RowExpression filterRowExpression = toRowExpression(session, filterExpression);
 
         List<Boolean> results = new ArrayList<>();
@@ -685,7 +680,7 @@ public final class FunctionAssertions
 
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, TypeProvider.copyOf(INPUT_TYPES), expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(session, metadata, INPUT_TYPES, expression);
         ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
 
         Object result = evaluator.evaluate(symbol -> {

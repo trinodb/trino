@@ -29,7 +29,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.testing.TestingSession;
+import io.prestosql.transaction.TransactionId;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -46,11 +46,14 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.prestosql.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestPartialTranslator
 {
-    private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
+    private static final Session TEST_SESSION = testSessionBuilder()
+            .setTransactionId(TransactionId.create())
+            .build();
     private static final Metadata METADATA = createTestMetadataManager();
     private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()

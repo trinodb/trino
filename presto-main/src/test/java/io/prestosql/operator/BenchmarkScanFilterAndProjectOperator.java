@@ -79,6 +79,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.ExpressionTestUtils.createExpression;
+import static io.prestosql.sql.ExpressionTestUtils.getTypes;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingSplit.createLocalSplit;
 import static java.util.Locale.ENGLISH;
@@ -234,7 +235,7 @@ public class BenchmarkScanFilterAndProjectOperator
 
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
+                    getTypes(TEST_SESSION, METADATA, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
                     METADATA,
                     TEST_SESSION,
