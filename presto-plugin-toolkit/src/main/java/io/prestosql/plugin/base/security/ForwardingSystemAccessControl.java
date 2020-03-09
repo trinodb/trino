@@ -256,6 +256,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
         delegate().checkCanSetCatalogSessionProperty(context, catalogName, propertyName);
@@ -283,6 +289,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
         delegate().checkCanExecuteProcedure(systemSecurityContext, procedure);
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    {
+        delegate().checkCanExecuteFunction(systemSecurityContext, functionName);
     }
 
     @Override

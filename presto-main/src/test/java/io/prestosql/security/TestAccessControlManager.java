@@ -108,6 +108,8 @@ public class TestAccessControlManager
                     accessControlManager.checkCanShowTables(context, new CatalogSchemaName("catalog", "schema"));
                     accessControlManager.checkCanSelectFromColumns(context, tableName, ImmutableSet.of("column"));
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(context, tableName, ImmutableSet.of("column"));
+                    accessControlManager.checkCanGrantExecuteFunctionPrivilege(context, "function", Identity.ofUser("bob"), false);
+                    accessControlManager.checkCanGrantExecuteFunctionPrivilege(context, "function", Identity.ofUser("bob"), true);
                     Set<String> catalogs = ImmutableSet.of("catalog");
                     assertEquals(accessControlManager.filterCatalogs(identity, catalogs), catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");
@@ -335,6 +337,43 @@ public class TestAccessControlManager
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog))));
 
         return catalog;
+    }
+
+    @Test
+    public void testDenyExecuteFunctionBySystemAccessControl()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("deny-all", ImmutableMap.of());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    assertThatThrownBy(() -> accessControlManager.checkCanExecuteFunction(context(transactionId), "executed_function"))
+                            .isInstanceOf(AccessDeniedException.class)
+                            .hasMessage("Access Denied: Cannot execute function executed_function");
+                    assertThatThrownBy(() -> accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), "executed_function", Identity.ofUser("bob"), true))
+                            .isInstanceOf(AccessDeniedException.class)
+                            .hasMessage("Access Denied: 'user_name' cannot grant 'executed_function' execution to user 'bob'");
+                });
+    }
+
+    @Test
+    public void testAllowExecuteFunction()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControlManager.setSystemAccessControl("allow-all", ImmutableMap.of());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanExecuteFunction(context(transactionId), "executed_function");
+                    accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), "executed_function", Identity.ofUser("bob"), true);
+                });
     }
 
     private static class TestSystemAccessControlFactory
