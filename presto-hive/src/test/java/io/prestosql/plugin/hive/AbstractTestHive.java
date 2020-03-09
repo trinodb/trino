@@ -759,7 +759,7 @@ public abstract class AbstractTestHive
                 heartbeatService,
                 new HiveTypeTranslator(),
                 TEST_SERVER_VERSION,
-                (transactionHandle, metastore) -> new SqlStandardAccessControlMetadata(metastore));
+                (metastore) -> new SqlStandardAccessControlMetadata(metastore));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
@@ -838,7 +838,7 @@ public abstract class AbstractTestHive
 
     protected Transaction newTransaction()
     {
-        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create(new HiveTransactionHandle()));
+        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
     }
 
     interface Transaction

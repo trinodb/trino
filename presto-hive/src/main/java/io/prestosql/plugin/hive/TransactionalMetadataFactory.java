@@ -13,9 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-
 public interface TransactionalMetadataFactory
 {
-    TransactionalMetadata create(ConnectorTransactionHandle transactionHandle);
+    TransactionalMetadata create();
 }
