@@ -24,6 +24,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.plugin.base.security.FileBasedSystemAccessControl;
+import io.prestosql.plugin.base.security.ForwardingSystemAccessControl;
 import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
@@ -916,34 +917,10 @@ public class AccessControlManager
     }
 
     private static class InitializingSystemAccessControl
-            implements SystemAccessControl
+            extends ForwardingSystemAccessControl
     {
         @Override
-        public void checkCanSetUser(Optional<Principal> principal, String userName)
-        {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
-        }
-
-        @Override
-        public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
-        {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
-        }
-
-        @Override
-        public void checkCanExecuteQuery(SystemSecurityContext context)
-        {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
-        }
-
-        @Override
-        public void checkCanSetSystemSessionProperty(SystemSecurityContext securityContext, String propertyName)
-        {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
-        }
-
-        @Override
-        public void checkCanAccessCatalog(SystemSecurityContext securityContext, String catalogName)
+        protected SystemAccessControl delegate()
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }
