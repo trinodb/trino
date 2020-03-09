@@ -29,6 +29,7 @@ import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.assertions.ExpressionVerifier;
 import io.prestosql.sql.planner.assertions.SymbolAliases;
+import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
@@ -38,8 +39,10 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
@@ -83,11 +86,23 @@ public final class ExpressionTestUtils
         throw new AssertionError(formatted + ASSERT_LEFT + expected + ASSERT_MIDDLE + actual + ASSERT_RIGHT);
     }
 
+    public static Expression createExpression(Session session, String expression, Metadata metadata, TypeProvider symbolTypes)
+    {
+        Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
+        return planExpression(metadata, session, symbolTypes, parsedExpression);
+    }
+
+    public static Expression createExpression(String expression, Metadata metadata, TypeProvider symbolTypes)
+    {
+        return createExpression(TEST_SESSION, expression, metadata, symbolTypes);
+    }
+
     public static Expression planExpression(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
     {
         expression = rewriteIdentifiersToSymbolReferences(expression);
         expression = DesugarLikeRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
         expression = DesugarArrayConstructorRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+        expression = CanonicalizeExpressionRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
         return resolveFunctionCalls(metadata, session, typeProvider, expression);
     }
 

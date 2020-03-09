@@ -64,7 +64,6 @@ import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.tree.DefaultTraversalVisitor;
@@ -117,8 +116,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.ExpressionTestUtils.planExpression;
-import static io.prestosql.sql.ParsingUtil.createParsingOptions;
+import static io.prestosql.sql.ExpressionTestUtils.createExpression;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -615,18 +613,6 @@ public final class FunctionAssertions
         }
 
         return results;
-    }
-
-    public static Expression createExpression(String expression, Metadata metadata, TypeProvider symbolTypes)
-    {
-        return createExpression(TEST_SESSION, expression, metadata, symbolTypes);
-    }
-
-    public static Expression createExpression(Session session, String expression, Metadata metadata, TypeProvider symbolTypes)
-    {
-        Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
-        Expression rewrittenExpression = planExpression(metadata, session, symbolTypes, parsedExpression);
-        return CanonicalizeExpressionRewriter.rewrite(rewrittenExpression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), symbolTypes);
     }
 
     private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)
