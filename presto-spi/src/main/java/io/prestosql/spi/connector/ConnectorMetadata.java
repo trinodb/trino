@@ -823,4 +823,27 @@ public interface ConnectorMetadata
      * <p>
      */
     default void validateScan(ConnectorSession session, ConnectorTableHandle handle) {}
+
+    /**
+     * API to determine if a table state (data in the table) has changed compared to cached table state in Presto.
+     * The cached table in Presto may take the form of result cache or a materialized view.
+     */
+    /**
+     * Method to request the connector for a token that captures the state of the table given the filters.
+     * Engine does not interpret the token in any way. It simply presents it back to the connector to determine freshness of the cached table
+     * the token is associated with.
+     */
+    default Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> predicate)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Method for the engine to present a table token and applied predicates to request the connector to evaluate if the cached table
+     * is fresh compared to the actual table state.
+     */
+    default boolean isTableCurrent(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<TableToken> tableToken, TupleDomain<ColumnHandle> predicate)
+    {
+        return false;
+    }
 }
