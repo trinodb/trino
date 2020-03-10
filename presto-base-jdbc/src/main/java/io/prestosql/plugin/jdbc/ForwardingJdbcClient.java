@@ -94,9 +94,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle layoutHandle)
     {
-        return delegate().getSplits(identity, layoutHandle);
+        return delegate().getSplits(session, layoutHandle);
     }
 
     @Override
