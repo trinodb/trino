@@ -26,6 +26,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
+import io.prestosql.sql.analyzer.Output;
 import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
