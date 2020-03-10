@@ -31,6 +31,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.Output;
 import io.prestosql.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;

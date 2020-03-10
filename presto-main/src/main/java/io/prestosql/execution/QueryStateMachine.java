@@ -42,6 +42,7 @@ import io.prestosql.spi.eventlistener.StageGcStatistics;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.Output;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.transaction.TransactionId;
