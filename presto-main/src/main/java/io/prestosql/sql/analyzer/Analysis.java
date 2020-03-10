@@ -21,7 +21,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.Output;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
