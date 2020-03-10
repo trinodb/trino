@@ -30,27 +30,31 @@ public class TestHiveFileSystemWasb
     private String container;
     private String account;
     private String accessKey;
+    private String testDirectory;
 
     @Parameters({
             "hive.hadoop2.metastoreHost",
             "hive.hadoop2.metastorePort",
             "hive.hadoop2.databaseName",
-            "hive.hadoop2.wasb-container",
-            "hive.hadoop2.wasb-account",
-            "hive.hadoop2.wasb-access-key"
+            "hive.hadoop2.wasb.container",
+            "hive.hadoop2.wasb.account",
+            "hive.hadoop2.wasb.accessKey",
+            "hive.hadoop2.wasb.testDirectory",
     })
     @BeforeClass
-    public void setup(String host, int port, String databaseName, String container, String account, String accessKey)
+    public void setup(String host, int port, String databaseName, String container, String account, String accessKey, String testDirectory)
     {
         checkArgument(!isNullOrEmpty(host), "expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "expected non empty databaseName");
         checkArgument(!isNullOrEmpty(container), "expected non empty container");
         checkArgument(!isNullOrEmpty(account), "expected non empty account");
         checkArgument(!isNullOrEmpty(accessKey), "expected non empty accessKey");
+        checkArgument(!isNullOrEmpty(testDirectory), "expected non empty testDirectory");
 
         this.container = container;
         this.account = account;
         this.accessKey = accessKey;
+        this.testDirectory = testDirectory;
 
         super.setup(host, port, databaseName, false, createHdfsConfiguration());
     }
@@ -66,6 +70,6 @@ public class TestHiveFileSystemWasb
     @Override
     protected Path getBasePath()
     {
-        return new Path(format("wasb://%s@%s.blob.core.windows.net/", container, account));
+        return new Path(format("wasb://%s@%s.blob.core.windows.net/%s/", container, account, testDirectory));
     }
 }
