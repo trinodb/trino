@@ -27,17 +27,24 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.CurrentTime;
+import io.prestosql.sql.tree.DataType;
+import io.prestosql.sql.tree.DataTypeParameter;
+import io.prestosql.sql.tree.DateTimeDataType;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.IntervalDayTimeDataType;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LambdaExpression;
@@ -48,14 +55,17 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
+import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.RowDataType;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.TryExpression;
+import io.prestosql.sql.tree.TypeParameter;
 import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
@@ -88,6 +98,7 @@ import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToS
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -141,7 +152,9 @@ class AggregationAnalyzer
         this.orderByScope = orderByScope;
         this.metadata = metadata;
         this.analysis = analysis;
-        this.expressions = groupByExpressions;
+        this.expressions = groupByExpressions.stream()
+                .map(AggregationAnalyzer::normalize)
+                .collect(toImmutableList());
 
         this.columnReferences = analysis.getColumnReferenceFields();
 
@@ -162,6 +175,78 @@ class AggregationAnalyzer
         Visitor visitor = new Visitor();
         if (!visitor.process(expression, null)) {
             throw semanticException(EXPRESSION_NOT_AGGREGATE, expression, "'%s' must be an aggregate expression or appear in GROUP BY clause", expression);
+        }
+    }
+
+    private static Expression normalize(Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionNormalizer(), expression);
+    }
+
+    private static class ExpressionNormalizer
+            extends ExpressionRewriter<Void>
+    {
+        @Override
+        public Expression rewriteCast(Cast node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            return new Cast(
+                    node.getExpression(),
+                    normalizeType(node.getType()),
+                    node.isSafe(),
+                    node.isTypeOnly());
+        }
+
+        private DataType normalizeType(DataType type)
+        {
+            if (type instanceof IntervalDayTimeDataType) {
+                return type;
+            }
+
+            if (type instanceof DateTimeDataType) {
+                return type;
+            }
+
+            if (type instanceof GenericDataType) {
+                GenericDataType genericDataType = (GenericDataType) type;
+                return new GenericDataType(
+                        Optional.empty(),
+                        normalizeIdentifier(genericDataType.getName()),
+                        genericDataType.getArguments().stream()
+                                .map(this::normalizeTypeParameter)
+                                .collect(toImmutableList()));
+            }
+
+            if (type instanceof RowDataType) {
+                new RowDataType(
+                        Optional.empty(),
+                        ((RowDataType) type).getFields().stream()
+                                .map(field -> new RowDataType.Field(
+                                        Optional.empty(),
+                                        field.getName().map(this::normalizeIdentifier),
+                                        normalizeType(field.getType())))
+                                .collect(toImmutableList()));
+            }
+
+            return type;
+        }
+
+        private Identifier normalizeIdentifier(Identifier identifier)
+        {
+            if (identifier.isDelimited()) {
+                return identifier;
+            }
+            return new Identifier(identifier.getValue().toLowerCase(ENGLISH));
+        }
+
+        private DataTypeParameter normalizeTypeParameter(DataTypeParameter dataTypeParameter)
+        {
+            if (dataTypeParameter instanceof NumericParameter) {
+                return dataTypeParameter;
+            }
+            if (dataTypeParameter instanceof TypeParameter) {
+                return new TypeParameter(normalizeType(((TypeParameter) dataTypeParameter).getValue()));
+            }
+            throw new IllegalStateException("Unsupported type parameter: " + dataTypeParameter);
         }
     }
 
@@ -644,7 +729,8 @@ class AggregationAnalyzer
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
-            if (expressions.stream().anyMatch(node::equals)
+            if (node instanceof Expression
+                    && expressions.stream().anyMatch(normalize(((Expression) node))::equals)
                     && (!orderByScope.isPresent() || !hasOrderByReferencesToOutputColumns(node))
                     && !hasFreeReferencesToLambdaArgument(node, analysis)) {
                 return true;

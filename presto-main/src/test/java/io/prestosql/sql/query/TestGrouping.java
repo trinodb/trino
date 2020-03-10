@@ -61,4 +61,38 @@ public class TestGrouping
                         "HAVING grouping(a, b) = 0",
                 "VALUES ('x0', 'y0', 0), ('x1', 'y1', 0)");
     }
+
+    @Test
+    public void testCastDifferentCase()
+    {
+        assertions.assertQuery(
+                "SELECT CAST(x AS bigint) " +
+                        "FROM (VALUES 42) t(x) " +
+                        "GROUP BY CAST(x AS BIGINT)", // CAST type in a different case
+                "VALUES BIGINT '42'");
+
+        assertions.assertQuery(
+                "SELECT CAST(row(x) AS row(\"A\" bigint)) " +
+                        "FROM (VALUES 42) t(x) " +
+                        "GROUP BY CAST(row(x) AS row(\"A\" bigint))", // same expression including ROW with a delimited field name
+                "SELECT CAST(row(BIGINT '42') AS row(\"A\" bigint))");
+
+        assertions.assertQuery(
+                "SELECT CAST(row(x) AS row(abc bigint)) " +
+                        "FROM (VALUES 42) t(x) " +
+                        "GROUP BY CAST(row(x) AS row(ABC bigint))", // ROW field name in a different case, not delimited
+                "SELECT CAST(row(BIGINT '42') AS row(\"A\" bigint))");
+
+        assertions.assertQuery(
+                "SELECT CAST(row(x) AS row(\"A\" bigint)) " +
+                        "FROM (VALUES 42) t(x) " +
+                        "GROUP BY CAST(row(x) AS row(\"A\" BigINT))", // ROW field type in a different case
+                "SELECT CAST(row(BIGINT '42') AS row(\"A\" bigint))");
+
+        assertions.assertFails(
+                "SELECT CAST(row(x) AS row(\"a\" bigint)) " +
+                        "FROM (VALUES 42) t(x) " +
+                        "GROUP BY CAST(row(x) AS row(\"A\" bigint))", // ROW field name in a different case, delimited
+                "\\Qline 1:8: 'CAST(ROW (x) AS ROW(\"a\" bigint))' must be an aggregate expression or appear in GROUP BY clause");
+    }
 }
