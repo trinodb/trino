@@ -55,7 +55,6 @@ import io.prestosql.sql.planner.DistributedExecutionPlanner;
 import io.prestosql.sql.planner.InputExtractor;
 import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.NodePartitioningManager;
-import io.prestosql.sql.planner.OutputExtractor;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanFragmenter;
@@ -399,9 +398,7 @@ public class SqlQueryExecution
         List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
         stateMachine.setInputs(inputs);
 
-        // extract output
-        Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
-        stateMachine.setOutput(output);
+        stateMachine.setOutput(analysis.getTarget());
 
         // fragment the plan
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
