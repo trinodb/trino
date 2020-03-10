@@ -100,6 +100,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorP
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.getRawFileSystem;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -339,7 +340,7 @@ public abstract class AbstractTestHiveFileSystem
         assertFalse(fs.rename(path, newPath));
 
         // rename foo.txt to foo.txt when foo.txt exists
-        assertEquals(fs.rename(path, path), fs instanceof AzureBlobFileSystem);
+        assertEquals(fs.rename(path, path), getRawFileSystem(fs) instanceof AzureBlobFileSystem);
 
         // delete foo.txt
         assertTrue(fs.delete(path, false));

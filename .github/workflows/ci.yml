@@ -126,6 +126,40 @@ jobs:
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             ./mvnw test -B -Dair.check.skip-all -pl presto-hive -P test-hive-glue
           fi
+      - name: Run Hive Azure ABFS Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+        run: |
+          if [ "${ABFS_CONTAINER}" != "" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_abfs_tests.sh
+          fi
+      - name: Run Hive Azure WASB Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          WASB_CONTAINER: ${{ secrets.AZURE_WASB_CONTAINER }}
+          WASB_ACCOUNT: ${{ secrets.AZURE_WASB_ACCOUNT }}
+          WASB_ACCESS_KEY: ${{ secrets.AZURE_WASB_ACCESSKEY }}
+        run: |
+          if [ "${WASB_CONTAINER}" != "" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_wasb_tests.sh
+          fi
+      - name: Run Hive Azure ADL Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          ADL_NAME: ${{ secrets.AZURE_ADL_NAME }}
+          ADL_CLIENT_ID: ${{ secrets.AZURE_ADL_CLIENTID }}
+          ADL_CREDENTIAL: ${{ secrets.AZURE_ADL_CREDENTIAL }}
+          ADL_REFRESH_URL: ${{ secrets.AZURE_ADL_REFRESHURL }}
+        run: |
+          if [ "${ADL_NAME}" != "" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_adl_tests.sh
+          fi
       - name: Run Hive Alluxio Tests
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
