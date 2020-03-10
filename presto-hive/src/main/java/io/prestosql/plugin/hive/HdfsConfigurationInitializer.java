@@ -20,19 +20,18 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.prestosql.hadoop.SocksSocketFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
-import java.io.File;
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.readConfiguration;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_PING_INTERVAL_KEY;
@@ -83,21 +82,6 @@ public class HdfsConfigurationInitializer
         this.wireEncryptionEnabled = config.isWireEncryptionEnabled();
 
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
-    }
-
-    private static Configuration readConfiguration(List<File> resourcePaths)
-    {
-        Configuration result = new Configuration(false);
-
-        for (File resourcePath : resourcePaths) {
-            checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
-
-            Configuration resourceProperties = new Configuration(false);
-            resourceProperties.addResource(new Path(resourcePath.toString()));
-            copy(resourceProperties, result);
-        }
-
-        return result;
     }
 
     public void initializeConfiguration(Configuration config)
