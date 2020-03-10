@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
+import io.prestosql.connector.CatalogName;
+import io.prestosql.execution.Output;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
@@ -88,6 +90,7 @@ public class Analysis
     private final Statement root;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
+    private Optional<QualifiedObjectName> target = Optional.empty();
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
@@ -169,9 +172,21 @@ public class Analysis
         return updateType;
     }
 
-    public void setUpdateType(String updateType)
+    public Optional<Output> getTarget()
+    {
+        return target.map(table -> new Output(new CatalogName(table.getCatalogName()), table.getSchemaName(), table.getObjectName()));
+    }
+
+    public void setUpdateType(String updateType, QualifiedObjectName target)
     {
         this.updateType = updateType;
+        this.target = Optional.of(target);
+    }
+
+    public void resetUpdateType()
+    {
+        this.updateType = null;
+        this.target = Optional.empty();
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
