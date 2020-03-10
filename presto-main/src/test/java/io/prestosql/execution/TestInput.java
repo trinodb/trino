@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.connector.CatalogName;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,7 +28,7 @@ public class TestInput
     @Test
     public void testRoundTrip()
     {
-        Input expected = new Input(new CatalogName("connectorId"), "schema", "table", Optional.empty(), ImmutableList.of(
+        Input expected = new Input("connectorId", "schema", "table", Optional.empty(), ImmutableList.of(
                 new Column("column1", "string"),
                 new Column("column2", "string"),
                 new Column("column3", "string")));
