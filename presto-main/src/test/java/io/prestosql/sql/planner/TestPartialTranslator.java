@@ -48,7 +48,6 @@ import static io.prestosql.sql.planner.PartialTranslator.extractPartialTranslati
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static org.testng.Assert.assertEquals;
 
-@Test
 public class TestPartialTranslator
 {
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();

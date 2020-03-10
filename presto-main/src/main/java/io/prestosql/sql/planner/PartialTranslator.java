@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class PartialTranslator
+public final class PartialTranslator
 {
     private PartialTranslator() {}
 
