@@ -14,7 +14,6 @@
 package io.prestosql.sql.analyzer;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.connector.CatalogName;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -26,7 +25,7 @@ public class TestOutput
     @Test
     public void testRoundTrip()
     {
-        Output expected = new Output(new CatalogName("connectorId"), "schema", "table");
+        Output expected = new Output("connectorId", "schema", "table");
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
