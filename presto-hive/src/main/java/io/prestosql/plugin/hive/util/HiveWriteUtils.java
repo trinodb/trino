@@ -488,7 +488,7 @@ public final class HiveWriteUtils
         }
     }
 
-    private static FileSystem getRawFileSystem(FileSystem fileSystem)
+    public static FileSystem getRawFileSystem(FileSystem fileSystem)
     {
         if (fileSystem instanceof FilterFileSystem) {
             return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());

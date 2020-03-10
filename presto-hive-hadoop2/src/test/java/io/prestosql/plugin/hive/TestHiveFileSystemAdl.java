@@ -22,10 +22,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
+import java.io.FileNotFoundException;
 import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.util.Strings.isNullOrEmpty;
@@ -37,18 +39,20 @@ public class TestHiveFileSystemAdl
     private String clientId;
     private String credential;
     private String refreshUrl;
+    private String testDirectory;
 
     @Parameters({
             "hive.hadoop2.metastoreHost",
             "hive.hadoop2.metastorePort",
             "hive.hadoop2.databaseName",
-            "hive.hadoop2.adl-name",
-            "hive.hadoop2.adl-client-id",
-            "hive.hadoop2.adl-credential",
-            "hive.hadoop2.adl-refresh-url"
+            "hive.hadoop2.adl.name",
+            "hive.hadoop2.adl.clientId",
+            "hive.hadoop2.adl.credential",
+            "hive.hadoop2.adl.refreshUrl",
+            "hive.hadoop2.adl.testDirectory",
     })
     @BeforeClass
-    public void setup(String host, int port, String databaseName, String dataLakeName, String clientId, String credential, String refreshUrl)
+    public void setup(String host, int port, String databaseName, String dataLakeName, String clientId, String credential, String refreshUrl, String testDirectory)
     {
         checkArgument(!isNullOrEmpty(host), "expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "expected non empty databaseName");
@@ -56,11 +60,13 @@ public class TestHiveFileSystemAdl
         checkArgument(!isNullOrEmpty(clientId), "expected non empty clientId");
         checkArgument(!isNullOrEmpty(credential), "expected non empty credential");
         checkArgument(!isNullOrEmpty(refreshUrl), "expected non empty refreshUrl");
+        checkArgument(!isNullOrEmpty(testDirectory), "expected non empty testDirectory");
 
         this.dataLakeName = dataLakeName;
         this.clientId = clientId;
         this.credential = credential;
         this.refreshUrl = refreshUrl;
+        this.testDirectory = testDirectory;
 
         super.setup(host, port, databaseName, false, createHdfsConfiguration());
     }
@@ -77,7 +83,7 @@ public class TestHiveFileSystemAdl
     @Override
     protected Path getBasePath()
     {
-        return new Path(format("adl://%s.azuredatalakestore.net/", dataLakeName));
+        return new Path(format("adl://%s.azuredatalakestore.net/%s/", dataLakeName, testDirectory));
     }
 
     @Override
@@ -103,7 +109,8 @@ public class TestHiveFileSystemAdl
 
         // rename foo.txt to foo.txt when foo.txt does not exist
         // This fails with error no such file in ADLFileSystem
-        // assertFalse(fs.rename(path, path));
+        assertThatThrownBy(() -> fs.rename(path, path))
+                .isInstanceOf(FileNotFoundException.class);
 
         // create file foo.txt and rename to existing bar.txt
         assertTrue(fs.createNewFile(path));
