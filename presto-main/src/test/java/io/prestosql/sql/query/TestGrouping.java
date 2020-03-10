@@ -61,4 +61,14 @@ public class TestGrouping
                         "HAVING grouping(a, b) = 0",
                 "VALUES ('x0', 'y0', 0), ('x1', 'y1', 0)");
     }
+
+    @Test
+    public void testCastDifferentCase()
+    {
+        assertions.assertQuery(
+                "SELECT CAST(x AS bigint) " +
+                    "FROM (VALUES 42) t(x) " +
+                    "GROUP BY CAST(x AS BIGINT)",
+                "VALUES CAST(42 AS BIGINT)");
+    }
 }

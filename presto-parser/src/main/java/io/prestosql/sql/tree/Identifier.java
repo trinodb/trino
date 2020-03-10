@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class Identifier
@@ -33,23 +34,23 @@ public class Identifier
 
     public Identifier(NodeLocation location, String value, boolean delimited)
     {
-        this(Optional.of(location), value, delimited);
+        this(Optional.of(location), value.toLowerCase(ENGLISH), delimited);
     }
 
     public Identifier(String value, boolean delimited)
     {
-        this(Optional.empty(), value, delimited);
+        this(Optional.empty(), value.toLowerCase(ENGLISH), delimited);
     }
 
     public Identifier(String value)
     {
-        this(Optional.empty(), value, !NAME_PATTERN.matcher(value).matches());
+        this(Optional.empty(), value.toLowerCase(ENGLISH), !NAME_PATTERN.matcher(value).matches());
     }
 
     private Identifier(Optional<NodeLocation> location, String value, boolean delimited)
     {
         super(location);
-        this.value = requireNonNull(value, "value is null");
+        this.value = requireNonNull(value.toLowerCase(ENGLISH), "value is null");
         this.delimited = delimited;
 
         checkArgument(!value.isEmpty(), "value is empty");
