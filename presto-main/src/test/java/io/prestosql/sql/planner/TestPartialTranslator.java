@@ -11,17 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.expression;
+package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.Expression;
@@ -39,14 +37,14 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.expression.ConnectorExpressionTranslator.translate;
-import static io.prestosql.spi.expression.PartialTranslator.extractPartialTranslations;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RowType.field;
 import static io.prestosql.spi.type.RowType.rowType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.planner.ConnectorExpressionTranslator.translate;
+import static io.prestosql.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static org.testng.Assert.assertEquals;
 
