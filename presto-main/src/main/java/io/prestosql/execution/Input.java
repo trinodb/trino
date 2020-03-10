@@ -16,7 +16,6 @@ package io.prestosql.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.CatalogName;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -30,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class Input
 {
-    private final CatalogName catalogName;
+    private final String catalogName;
     private final String schema;
     private final String table;
     private final List<Column> columns;
@@ -38,7 +37,7 @@ public final class Input
 
     @JsonCreator
     public Input(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
@@ -58,7 +57,7 @@ public final class Input
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public String getCatalogName()
     {
         return catalogName;
     }

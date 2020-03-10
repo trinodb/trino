@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
-import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
@@ -173,7 +172,7 @@ public class Analysis
 
     public Optional<Output> getTarget()
     {
-        return target.map(table -> new Output(new CatalogName(table.getCatalogName()), table.getSchemaName(), table.getObjectName()));
+        return target.map(table -> new Output(table.getCatalogName(), table.getSchemaName(), table.getObjectName()));
     }
 
     public void setUpdateType(String updateType, QualifiedObjectName target)
