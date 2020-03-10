@@ -39,6 +39,7 @@ public class LookupJoinPageBuilder
     private final PageBuilder buildPageBuilder;
     private final int buildOutputChannelCount;
     private int estimatedProbeBlockBytes;
+    private int estimatedProbeRowSize = -1;
     private boolean isSequentialProbeIndices = true;
 
     public LookupJoinPageBuilder(List<Type> buildTypes)
@@ -65,6 +66,7 @@ public class LookupJoinPageBuilder
         probeIndexBuilder.clear();
         buildPageBuilder.reset();
         estimatedProbeBlockBytes = 0;
+        estimatedProbeRowSize = -1;
         isSequentialProbeIndices = true;
     }
 
@@ -179,11 +181,24 @@ public class LookupJoinPageBuilder
         if (previousPosition == position) {
             return;
         }
+        estimatedProbeBlockBytes += getEstimatedProbeRowSize(probe);
+    }
+
+    private int getEstimatedProbeRowSize(JoinProbe probe)
+    {
+        if (estimatedProbeRowSize != -1) {
+            return estimatedProbeRowSize;
+        }
+
+        int estimatedProbeRowSize = 0;
         for (int index : probe.getOutputChannels()) {
             Block block = probe.getPage().getBlock(index);
-            // Estimate the size of the current row
+            // Estimate the size of the probe row
             // TODO: improve estimation for unloaded blocks by making it similar as in PageProcessor
-            estimatedProbeBlockBytes += block.getSizeInBytes() / block.getPositionCount();
+            estimatedProbeRowSize += block.getSizeInBytes() / block.getPositionCount();
         }
+
+        this.estimatedProbeRowSize = estimatedProbeRowSize;
+        return estimatedProbeRowSize;
     }
 }
