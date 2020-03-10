@@ -128,6 +128,22 @@ public class TestStreamingAggregationOperator
     }
 
     @Test
+    public void testLargeInputPage()
+    {
+        RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, VARCHAR, BIGINT);
+        List<Page> input = rowPagesBuilder
+                .addSequencePage(1_000_000, 0, 0, 1)
+                .build();
+
+        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT);
+        for (int i = 0; i < 1_000_000; ++i) {
+            expectedBuilder.row(String.valueOf(i), 1L, i + 1L);
+        }
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expectedBuilder.build());
+    }
+
+    @Test
     public void testEmptyInput()
     {
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, VARCHAR, BIGINT);
