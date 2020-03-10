@@ -22,6 +22,7 @@ import java.util.Set;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -52,11 +53,11 @@ public class ConnectorIdentity
             Optional<SelectedRole> role,
             Map<String, String> extraCredentials)
     {
-        this.user = user;
-        this.groups = groups;
-        this.principal = principal;
-        this.role = role;
-        this.extraCredentials = extraCredentials;
+        this.user = requireNonNull(user, "user is null");
+        this.groups = unmodifiableSet(new HashSet<>(requireNonNull(groups, "groups is null")));
+        this.principal = requireNonNull(principal, "principal is null");
+        this.role = requireNonNull(role, "role is null");
+        this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
     }
 
     public String getUser()
