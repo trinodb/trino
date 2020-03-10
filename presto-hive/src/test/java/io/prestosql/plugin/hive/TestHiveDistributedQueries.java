@@ -32,7 +32,9 @@ public class TestHiveDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(getTables());
+        return HiveQueryRunner.builder()
+                .setInitialTables(getTables())
+                .build();
     }
 
     @Override

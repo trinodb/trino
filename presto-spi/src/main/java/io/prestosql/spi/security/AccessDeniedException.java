@@ -121,6 +121,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetSchemaAuthorization(String schemaName, PrestoPrincipal principal)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for schema %s to %s", schemaName, principal));
+    }
+
     public static void denyShowSchemas()
     {
         denyShowSchemas(null);
@@ -404,6 +409,11 @@ public class AccessDeniedException
     public static void denySetRole(String role)
     {
         throw new AccessDeniedException(format("Cannot set role %s", role));
+    }
+
+    public static void denyExecuteProcedure(String procedureName)
+    {
+        throw new AccessDeniedException(format("Cannot invoke procedure %s", procedureName));
     }
 
     private static Object formatExtraInfo(String extraInfo)

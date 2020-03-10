@@ -121,7 +121,8 @@ public class ScalarAggregationToJoinRewriter
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Optional<AggregationNode> aggregationNode = createAggregationNode(
                 scalarAggregation,

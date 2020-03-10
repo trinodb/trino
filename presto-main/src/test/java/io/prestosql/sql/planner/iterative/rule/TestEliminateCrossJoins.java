@@ -348,7 +348,8 @@ public class TestEliminateCrossJoins
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
     }
 
     private ValuesNode values(String... symbols)

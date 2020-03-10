@@ -324,13 +324,18 @@ public class HiveMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        return metastore.getAllDatabases().stream()
+                .filter(HiveMetadata::filterSchema)
+                .collect(toImmutableList());
     }
 
     @Override
     public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
+        if (!filterSchema(tableName.getSchemaName())) {
+            return null;
+        }
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent()) {
             return null;
@@ -646,6 +651,9 @@ public class HiveMetadata
     private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
     {
         if (schemaName.isPresent()) {
+            if (!filterSchema(schemaName.get())) {
+                return ImmutableList.of();
+            }
             return ImmutableList.of(schemaName.get());
         }
         return listSchemaNames(session);
@@ -704,6 +712,9 @@ public class HiveMetadata
             return listTables(session, prefix.getSchema());
         }
         SchemaTableName tableName = prefix.toSchemaTableName();
+        if (!filterSchema(tableName.getSchemaName())) {
+            return ImmutableList.of();
+        }
         try {
             if (!metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName()).isPresent()) {
                 return ImmutableList.of();
@@ -762,6 +773,12 @@ public class HiveMetadata
     public void renameSchema(ConnectorSession session, String source, String target)
     {
         metastore.renameDatabase(new HiveIdentity(session), source, target);
+    }
+
+    @Override
+    public void setSchemaAuthorization(ConnectorSession session, String source, PrestoPrincipal principal)
+    {
+        metastore.setDatabaseOwner(new HiveIdentity(session), source, HivePrincipal.from(principal));
     }
 
     @Override
@@ -1718,6 +1735,9 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
+        if (!filterSchema(viewName.getSchemaName())) {
+            return Optional.empty();
+        }
         return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
                 .flatMap(view -> {
                     if (isPrestoView(view)) {
@@ -1746,6 +1766,21 @@ public class HiveMetadata
     private boolean isHiveOrPrestoView(Table table)
     {
         return table.getTableType().equals(TableType.VIRTUAL_VIEW.name());
+    }
+
+    private static boolean filterSchema(String schemaName)
+    {
+        if ("information_schema".equals(schemaName)) {
+            // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
+            // TODO https://github.com/prestosql/presto/issues/1559 this should be filtered out in engine.
+            return false;
+        }
+        if ("sys".equals(schemaName)) {
+            // Hive 3's `sys` schema contains no objects we can handle, so there is no point in exposing it.
+            // Also, exposing it may require proper handling in access control.
+            return false;
+        }
+        return true;
     }
 
     @Override

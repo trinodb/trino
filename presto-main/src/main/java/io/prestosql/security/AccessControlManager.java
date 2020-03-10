@@ -285,6 +285,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(SecurityContext securityContext, CatalogSchemaName schemaName, PrestoPrincipal principal)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetSchemaAuthorization(securityContext.toSystemSecurityContext(), schemaName, principal));
+
+        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetSchemaAuthorization(context, schemaName.getSchemaName(), principal));
+    }
+
+    @Override
     public void checkCanShowSchemas(SecurityContext securityContext, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -733,6 +746,22 @@ public class AccessControlManager
         checkCanAccessCatalog(securityContext, catalogName);
 
         catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleGrants(context, catalogName));
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SecurityContext securityContext, QualifiedObjectName procedureName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(procedureName, "procedureName is null");
+
+        checkCanAccessCatalog(securityContext, procedureName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanExecuteProcedure(securityContext.toSystemSecurityContext(), procedureName.asCatalogSchemaRoutineName()));
+
+        catalogAuthorizationCheck(
+                procedureName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanExecuteProcedure(context, procedureName.asSchemaRoutineName()));
     }
 
     @Override

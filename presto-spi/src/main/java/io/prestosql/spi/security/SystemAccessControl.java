@@ -14,6 +14,7 @@
 package io.prestosql.spi.security;
 
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -36,6 +37,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
@@ -47,6 +49,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -173,6 +176,16 @@ public interface SystemAccessControl
     default void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
         denyRenameSchema(schema.toString(), newSchemaName);
+    }
+
+    /**
+     * Check if identity is allowed to change the specified schema's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, PrestoPrincipal principal)
+    {
+        denySetSchemaAuthorization(schema.toString(), principal);
     }
 
     /**
@@ -429,6 +442,16 @@ public interface SystemAccessControl
     default void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
         denyShowRoles(catalogName);
+    }
+
+    /**
+     * Check if identity is allowed to execute the specified procedure
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
+    {
+        denyExecuteProcedure(procedure.toString());
     }
 
     /**

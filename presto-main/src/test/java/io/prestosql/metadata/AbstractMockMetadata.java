@@ -202,6 +202,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         throw new UnsupportedOperationException();

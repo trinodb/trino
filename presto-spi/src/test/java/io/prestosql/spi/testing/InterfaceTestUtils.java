@@ -13,12 +13,12 @@
  */
 package io.prestosql.spi.testing;
 
-import com.google.common.collect.ImmutableSet;
-
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.function.Function;
 
 import static com.google.common.base.Defaults.defaultValue;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -30,8 +30,14 @@ public final class InterfaceTestUtils
 
     public static <I, C extends I> void assertAllMethodsOverridden(Class<I> iface, Class<C> clazz)
     {
-        assertEquals(ImmutableSet.copyOf(clazz.getInterfaces()), ImmutableSet.of(iface));
+        checkArgument(iface.isAssignableFrom(clazz), "%s is not supertype of %s", iface, clazz);
         for (Method method : iface.getMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
+            if (method.getDeclaringClass() == Object.class) {
+                continue;
+            }
             try {
                 Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
                 if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {

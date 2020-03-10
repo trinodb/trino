@@ -21,8 +21,6 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
@@ -119,6 +117,7 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
@@ -187,10 +186,7 @@ public class GlueHiveMetastore
             asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
-            Region currentRegion = Regions.getCurrentRegion();
-            if (currentRegion != null) {
-                asyncGlueClientBuilder.setRegion(currentRegion.getName());
-            }
+            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
         }
 
         asyncGlueClientBuilder.setCredentials(getAwsCredentialsProvider(config));
@@ -505,6 +501,12 @@ public class GlueHiveMetastore
         catch (AmazonServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "setting the database owner is not supported by Glue");
     }
 
     @Override

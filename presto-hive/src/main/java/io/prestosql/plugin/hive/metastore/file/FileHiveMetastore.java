@@ -212,6 +212,19 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        Database database = getRequiredDatabase(databaseName);
+        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
+        Database newDatabase = Database.builder(database)
+                .setOwnerName(principal.getName())
+                .setOwnerType(principal.getType())
+                .build();
+
+        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(newDatabase), true);
+    }
+
+    @Override
     public synchronized Optional<Database> getDatabase(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
@@ -265,9 +278,6 @@ public class FileHiveMetastore
                 FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
                 if (!externalFileSystem.isDirectory(externalLocation)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
-                }
-                if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table.getParameters())) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "External table location cannot be inside the system metadata directory");
                 }
             }
             catch (IOException e) {

@@ -42,6 +42,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -57,6 +58,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
@@ -135,6 +137,12 @@ public class DenyAllAccessControl
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyShowCreateTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal)
+    {
+        denySetSchemaAuthorization(schemaName.toString(), principal);
     }
 
     @Override
@@ -327,5 +335,11 @@ public class DenyAllAccessControl
     public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
+    {
+        denyExecuteProcedure(procedureName.toString());
     }
 }

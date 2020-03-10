@@ -19,6 +19,7 @@ import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
+import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -59,6 +60,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 
@@ -102,6 +104,14 @@ public class FileBasedAccessControl
     {
         if (!isSchemaOwner(context, schemaName) || !isSchemaOwner(context, newSchemaName)) {
             denyRenameSchema(schemaName, newSchemaName);
+        }
+    }
+
+    @Override
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+        if (!isSchemaOwner(context, schemaName)) {
+            denySetSchemaAuthorization(schemaName, principal);
         }
     }
 
@@ -330,6 +340,11 @@ public class FileBasedAccessControl
 
     @Override
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
     {
     }
 

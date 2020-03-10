@@ -35,6 +35,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
@@ -47,6 +48,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
@@ -85,6 +87,16 @@ public interface ConnectorAccessControl
     default void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
     {
         denyRenameSchema(schemaName, newSchemaName);
+    }
+
+    /**
+     * Check if identity is allowed to change the specified schema's user/role.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+        denySetSchemaAuthorization(schemaName, principal);
     }
 
     /**
@@ -383,6 +395,11 @@ public interface ConnectorAccessControl
     default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    default void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+        denyExecuteProcedure(procedure.toString());
     }
 
     /**

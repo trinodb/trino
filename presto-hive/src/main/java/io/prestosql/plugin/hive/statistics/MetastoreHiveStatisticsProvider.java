@@ -61,6 +61,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -550,11 +551,7 @@ public class MetastoreHiveStatisticsProvider
     @VisibleForTesting
     static Optional<DoubleRange> calculateRangeForPartitioningKey(HiveColumnHandle column, Type type, List<HivePartition> partitions)
     {
-        if (!isRangeSupported(type)) {
-            return Optional.empty();
-        }
-
-        List<Double> values = partitions.stream()
+        List<OptionalDouble> convertedValues = partitions.stream()
                 .map(HivePartition::getKeys)
                 .map(keys -> keys.get(column))
                 .filter(value -> !value.isNull())
@@ -562,9 +559,15 @@ public class MetastoreHiveStatisticsProvider
                 .map(value -> convertPartitionValueToDouble(type, value))
                 .collect(toImmutableList());
 
-        if (values.isEmpty()) {
+        if (convertedValues.stream().noneMatch(OptionalDouble::isPresent)) {
             return Optional.empty();
         }
+        List<Double> values = convertedValues.stream()
+                .peek(convertedValue -> checkState(convertedValue.isPresent(), "convertedValue is missing"))
+                .map(OptionalDouble::getAsDouble)
+                .collect(toImmutableList());
+
+        verify(!values.isEmpty());
 
         double min = values.get(0);
         double max = values.get(0);
@@ -581,32 +584,31 @@ public class MetastoreHiveStatisticsProvider
         return Optional.of(new DoubleRange(min, max));
     }
 
-    @VisibleForTesting
-    static double convertPartitionValueToDouble(Type type, Object value)
+    public static OptionalDouble convertPartitionValueToDouble(Type type, Object value)
     {
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return (Long) value;
+            return OptionalDouble.of((Long) value);
         }
         if (type.equals(DOUBLE)) {
-            return (Double) value;
+            return OptionalDouble.of((Double) value);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat(((Long) value).intValue());
+            return OptionalDouble.of(intBitsToFloat(((Long) value).intValue()));
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             if (isShortDecimal(decimalType)) {
-                return parseDouble(Decimals.toString((Long) value, decimalType.getScale()));
+                return OptionalDouble.of(parseDouble(Decimals.toString((Long) value, decimalType.getScale())));
             }
             if (isLongDecimal(decimalType)) {
-                return parseDouble(Decimals.toString((Slice) value, decimalType.getScale()));
+                return OptionalDouble.of(parseDouble(Decimals.toString((Slice) value, decimalType.getScale())));
             }
             throw new IllegalArgumentException("Unexpected decimal type: " + decimalType);
         }
         if (type.equals(DATE)) {
-            return (Long) value;
+            return OptionalDouble.of((Long) value);
         }
-        throw new IllegalArgumentException("Unexpected type: " + type);
+        return OptionalDouble.empty();
     }
 
     @VisibleForTesting
@@ -752,26 +754,11 @@ public class MetastoreHiveStatisticsProvider
     @VisibleForTesting
     static Optional<DoubleRange> calculateRange(Type type, List<HiveColumnStatistics> columnStatistics)
     {
-        if (!isRangeSupported(type)) {
-            return Optional.empty();
-        }
         return columnStatistics.stream()
                 .map(statistics -> createRange(type, statistics))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .reduce(DoubleRange::union);
-    }
-
-    private static boolean isRangeSupported(Type type)
-    {
-        return type.equals(TINYINT)
-                || type.equals(SMALLINT)
-                || type.equals(INTEGER)
-                || type.equals(BIGINT)
-                || type.equals(REAL)
-                || type.equals(DOUBLE)
-                || type.equals(DATE)
-                || type instanceof DecimalType;
     }
 
     private static Optional<DoubleRange> createRange(Type type, HiveColumnStatistics statistics)
@@ -788,7 +775,7 @@ public class MetastoreHiveStatisticsProvider
         if (type instanceof DecimalType) {
             return statistics.getDecimalStatistics().flatMap(MetastoreHiveStatisticsProvider::createDecimalRange);
         }
-        throw new IllegalArgumentException("Unexpected type: " + type);
+        return Optional.empty();
     }
 
     private static Optional<DoubleRange> createIntegerRange(Type type, IntegerStatistics statistics)

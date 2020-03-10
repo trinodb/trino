@@ -14,6 +14,7 @@
 package io.prestosql.plugin.base.security;
 
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -119,6 +120,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
         delegate().checkCanRenameSchema(context, schema, newSchemaName);
+    }
+
+    @Override
+    public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetSchemaAuthorization(context, schema, principal);
     }
 
     @Override
@@ -269,6 +276,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
         delegate().checkCanShowRoles(context, catalogName);
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
+    {
+        delegate().checkCanExecuteProcedure(systemSecurityContext, procedure);
     }
 
     @Override

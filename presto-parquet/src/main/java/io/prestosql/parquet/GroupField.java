@@ -19,21 +19,45 @@ import io.prestosql.spi.type.Type;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class GroupField
         extends Field
 {
-    private final ImmutableList<Optional<Field>> children;
+    private final List<Optional<Field>> children;
 
-    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, ImmutableList<Optional<Field>> children)
+    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, List<Optional<Field>> children)
     {
         super(type, repetitionLevel, definitionLevel, required);
-        this.children = requireNonNull(children, "children is required");
+        checkArgument(
+                type.getTypeParameters().size() == children.size(),
+                "Type %s has %s parameters, but %s children: %s",
+                type,
+                type.getTypeParameters().size(),
+                children.size(),
+                children);
+        this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
     }
 
     public List<Optional<Field>> getChildren()
     {
         return children;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("type", getType())
+                .add("repetitionLevel", getRepetitionLevel())
+                .add("definitionLevel", getDefinitionLevel())
+                .add("required", isRequired())
+                .add("children", getChildren().stream()
+                        .map(field -> field.orElse(null))
+                        .collect(toList()))
+                .toString();
     }
 }

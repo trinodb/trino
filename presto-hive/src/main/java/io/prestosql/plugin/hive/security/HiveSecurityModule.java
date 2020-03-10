@@ -68,7 +68,7 @@ public class HiveSecurityModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {});
+            binder.bind(AccessControlMetadataFactory.class).toInstance((transactionHandle, metastore) -> new AccessControlMetadata() {});
         }
     }
 }

@@ -181,6 +181,7 @@ public class DispatchManager
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
+                    sessionContext.getIdentity().getGroups(),
                     Optional.ofNullable(sessionContext.getSource()),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),

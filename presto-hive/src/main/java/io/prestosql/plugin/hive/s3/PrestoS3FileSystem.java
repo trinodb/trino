@@ -32,8 +32,6 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.metrics.RequestMetricCollector;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -55,6 +53,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
+import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
@@ -116,6 +115,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -165,6 +165,7 @@ public class PrestoS3FileSystem
     public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
+    public static final String S3_STORAGE_CLASS = "presto.s3.storage-class";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
@@ -199,6 +200,7 @@ public class PrestoS3FileSystem
     private PrestoS3AclType s3AclType;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
+    private PrestoS3StorageClass s3StorageClass;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -244,6 +246,7 @@ public class PrestoS3FileSystem
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
+        this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -405,7 +408,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled),
+                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled, s3StorageClass),
                 statistics);
     }
 
@@ -740,11 +743,8 @@ public class PrestoS3FileSystem
 
         // use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
-            Region region = Regions.getCurrentRegion();
-            if (region != null) {
-                clientBuilder.setRegion(region.getName());
-                regionOrEndpointSet = true;
-            }
+            clientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            regionOrEndpointSet = true;
         }
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
@@ -1175,6 +1175,7 @@ public class PrestoS3FileSystem
         private final String sseKmsKeyId;
         private final CannedAccessControlList aclType;
         private final boolean requesterPaysEnabled;
+        private final StorageClass s3StorageClass;
 
         private boolean closed;
 
@@ -1189,7 +1190,8 @@ public class PrestoS3FileSystem
                 long multiPartUploadMinFileSize,
                 long multiPartUploadMinPartSize,
                 PrestoS3AclType aclType,
-                boolean requesterPaysEnabled)
+                boolean requesterPaysEnabled,
+                PrestoS3StorageClass s3StorageClass)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -1200,6 +1202,7 @@ public class PrestoS3FileSystem
                     .withMultipartUploadThreshold(multiPartUploadMinFileSize).build();
 
             requireNonNull(aclType, "aclType is null");
+            requireNonNull(s3StorageClass, "s3StorageClass is null");
             this.aclType = aclType.getCannedACL();
             this.host = requireNonNull(host, "host is null");
             this.key = requireNonNull(key, "key is null");
@@ -1208,6 +1211,7 @@ public class PrestoS3FileSystem
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
             this.requesterPaysEnabled = requesterPaysEnabled;
+            this.s3StorageClass = s3StorageClass.getS3StorageClass();
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1261,6 +1265,7 @@ public class PrestoS3FileSystem
                             break;
                     }
                 }
+                request.withStorageClass(s3StorageClass);
 
                 request.withCannedAcl(aclType);
 

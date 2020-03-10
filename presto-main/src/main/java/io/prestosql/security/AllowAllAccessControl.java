@@ -83,6 +83,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanShowSchemas(SecurityContext context, String catalogName)
     {
     }
@@ -247,6 +252,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
     {
     }
 }

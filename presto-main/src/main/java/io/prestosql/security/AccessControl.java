@@ -104,6 +104,13 @@ public interface AccessControl
     void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName);
 
     /**
+     * Check if identity is allowed to change the specified schema's user/role.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal);
+
+    /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
@@ -335,6 +342,13 @@ public interface AccessControl
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(SecurityContext context, String catalogName);
+
+    /**
+     * Check if identity is allowed to execute procedure
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

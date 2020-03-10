@@ -467,6 +467,18 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.setDatabaseOwner(identity, databaseName, principal);
+        }
+        finally {
+            invalidateDatabase(databaseName);
+        }
+    }
+
     protected void invalidateDatabase(String databaseName)
     {
         databaseCache.invalidate(databaseName);
