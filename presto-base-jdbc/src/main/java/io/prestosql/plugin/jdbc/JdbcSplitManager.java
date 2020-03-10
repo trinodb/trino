@@ -37,6 +37,6 @@ public class JdbcSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        return jdbcClient.getSplits(JdbcIdentity.from(session), (JdbcTableHandle) table);
+        return jdbcClient.getSplits(session, (JdbcTableHandle) table);
     }
 }
