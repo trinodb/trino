@@ -216,9 +216,7 @@ public class StreamingAggregationOperator
         @Override
         public TransformationState<Page> process(@Nullable Page inputPage)
         {
-            boolean finishing = inputPage == null;
-
-            if (finishing) {
+            if (inputPage == null) {
                 if (currentGroup != null) {
                     evaluateAndFlushGroup(currentGroup, 0);
                     currentGroup = null;
@@ -232,17 +230,26 @@ public class StreamingAggregationOperator
                 if (outputPages.isEmpty()) {
                     return finished();
                 }
+
+                return ofResult(outputPages.removeFirst(), false);
             }
-            else {
-                processInput(inputPage);
-                updateMemoryUsage();
+
+            // flush remaining output pages before requesting next input page
+            if (!outputPages.isEmpty()) {
+                Page outputPage = outputPages.removeFirst();
+                return ofResult(outputPage, outputPages.isEmpty());
             }
+
+            // invariant: next input page is requested only when there are no pending output pages queued
+            processInput(inputPage);
+            updateMemoryUsage();
 
             if (outputPages.isEmpty()) {
                 return needsMoreData();
             }
 
-            return ofResult(outputPages.removeFirst(), !finishing);
+            Page outputPage = outputPages.removeFirst();
+            return ofResult(outputPage, outputPages.isEmpty());
         }
 
         private void updateMemoryUsage()
