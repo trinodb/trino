@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.Session;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -90,6 +92,7 @@ public final class HiveQueryRunner
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
         };
+        private Module module = EMPTY_MODULE;
 
         protected Builder()
         {
@@ -114,6 +117,12 @@ public final class HiveQueryRunner
             return this;
         }
 
+        public Builder setModule(Module module)
+        {
+            this.module = requireNonNull(module, "module is null");
+            return this;
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -128,7 +137,7 @@ public final class HiveQueryRunner
                 queryRunner.createCatalog("tpch", "tpch");
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(metastore));
+                queryRunner.installPlugin(new TestingHivePlugin(metastore, module));
 
                 Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                         .put("hive.time-zone", TIME_ZONE.getID())
