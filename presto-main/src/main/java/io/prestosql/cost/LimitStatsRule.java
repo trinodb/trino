@@ -15,13 +15,18 @@ package io.prestosql.cost;
 
 import io.prestosql.Session;
 import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.LimitNode;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.prestosql.sql.planner.plan.Patterns.limit;
+import static java.lang.Double.min;
+import static java.util.Map.Entry;
 
 public class LimitStatsRule
         extends SimpleStatsRule<LimitNode>
@@ -48,8 +53,10 @@ public class LimitStatsRule
         }
 
         // LIMIT actually limits (or when there was no row count estimated for source)
-        return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)
-                .setOutputRowCount(node.getCount())
-                .build());
+        Map<Symbol, SymbolStatsEstimate> symbolStatsEstimate = statsProvider.getStats(node.getSource()).getSymbolStatistics()
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().mapDistinctValuesCount(distinctValueCount -> min(distinctValueCount, node.getCount()))));
+        return Optional.of(new PlanNodeStatsEstimate(node.getCount(), symbolStatsEstimate));
     }
 }
