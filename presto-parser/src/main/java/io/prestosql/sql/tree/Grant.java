@@ -29,19 +29,19 @@ public class Grant
     private final boolean table;
     private final QualifiedName tableName;
     private final PrincipalSpecification grantee;
-    private final boolean withGrantOption;
+    private final boolean grantOption;
 
-    public Grant(Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
+    public Grant(Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean grantOption)
     {
-        this(Optional.empty(), privileges, table, tableName, grantee, withGrantOption);
+        this(Optional.empty(), privileges, table, tableName, grantee, grantOption);
     }
 
-    public Grant(NodeLocation location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
+    public Grant(NodeLocation location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean grantOption)
     {
-        this(Optional.of(location), privileges, table, tableName, grantee, withGrantOption);
+        this(Optional.of(location), privileges, table, tableName, grantee, grantOption);
     }
 
-    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
+    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean grantOption)
     {
         super(location);
         requireNonNull(privileges, "privileges is null");
@@ -49,7 +49,7 @@ public class Grant
         this.table = table;
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.grantee = requireNonNull(grantee, "grantee is null");
-        this.withGrantOption = withGrantOption;
+        this.grantOption = grantOption;
     }
 
     public Optional<List<String>> getPrivileges()
@@ -74,7 +74,7 @@ public class Grant
 
     public boolean isWithGrantOption()
     {
-        return withGrantOption;
+        return grantOption;
     }
 
     @Override
@@ -92,7 +92,7 @@ public class Grant
     @Override
     public int hashCode()
     {
-        return Objects.hash(privileges, table, tableName, grantee, withGrantOption);
+        return Objects.hash(privileges, table, tableName, grantee, grantOption);
     }
 
     @Override
@@ -109,7 +109,7 @@ public class Grant
                 Objects.equals(table, o.table) &&
                 Objects.equals(tableName, o.tableName) &&
                 Objects.equals(grantee, o.grantee) &&
-                Objects.equals(withGrantOption, o.withGrantOption);
+                Objects.equals(grantOption, o.grantOption);
     }
 
     @Override
@@ -120,7 +120,7 @@ public class Grant
                 .add("table", table)
                 .add("tableName", tableName)
                 .add("grantee", grantee)
-                .add("withGrantOption", withGrantOption)
+                .add("grantOption", grantOption)
                 .toString();
     }
 }

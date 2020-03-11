@@ -1241,7 +1241,7 @@ public final class SqlFormatter
             builder.append(node.getGrantees().stream()
                     .map(Formatter::formatPrincipal)
                     .collect(joining(", ")));
-            if (node.isWithAdminOption()) {
+            if (node.isAdminOption()) {
                 builder.append(" WITH ADMIN OPTION");
             }
             if (node.getGrantor().isPresent()) {
@@ -1254,7 +1254,7 @@ public final class SqlFormatter
         protected Void visitRevokeRoles(RevokeRoles node, Integer context)
         {
             builder.append("REVOKE ");
-            if (node.isAdminOptionFor()) {
+            if (node.isAdminOption()) {
                 builder.append("ADMIN OPTION FOR ");
             }
             builder.append(node.getRoles().stream()
