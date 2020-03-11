@@ -62,6 +62,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -513,7 +514,17 @@ public class TestHiveIntegrationSmokeTest
         Session user = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_schema_authorization_user")
-                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .setIdentity(Identity.forUser("user")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
+                .build();
+
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_user")
+                .setIdentity(Identity.forUser("anotheruser")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
                 .build();
 
         // ordinary users cannot drop a schema or create a table in a schema the do not own
@@ -523,7 +534,16 @@ public class TestHiveIntegrationSmokeTest
         // change owner to user
         assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_user SET AUTHORIZATION user");
 
+        // another user still cannot create tables
+        assertQueryFails(anotherUser, "CREATE TABLE test_schema_authorization_user.test (x bigint)", "Access Denied: Cannot create table test_schema_authorization_user.test");
+
         assertUpdate(user, "CREATE TABLE test_schema_authorization_user.test (x bigint)");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_schema_authorization_user.test", "Access Denied: Cannot drop table test_schema_authorization_user.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_schema_authorization_user.test", "Access Denied: Cannot select from table test_schema_authorization_user.test");
+
         assertUpdate(user, "DROP TABLE test_schema_authorization_user.test");
         assertUpdate(user, "DROP SCHEMA test_schema_authorization_user");
     }
@@ -550,12 +570,119 @@ public class TestHiveIntegrationSmokeTest
         Session user = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_schema_authorization_role")
-                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .setIdentity(Identity.forUser("user")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
+                .build();
+
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_role")
+                .setIdentity(Identity.forUser("anotheruser")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
                 .build();
 
         assertUpdate(user, "CREATE TABLE test_schema_authorization_role.test (x bigint)");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_schema_authorization_role.test", "Access Denied: Cannot drop table test_schema_authorization_role.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_schema_authorization_role.test", "Access Denied: Cannot select from table test_schema_authorization_role.test");
+
         assertUpdate(user, "DROP TABLE test_schema_authorization_role.test");
         assertUpdate(user, "DROP SCHEMA test_schema_authorization_role");
+
+        assertUpdate(admin, "DROP ROLE authorized_users");
+    }
+
+    @Test
+    public void testCreateSchemaWithAuthorizationForUser()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_user")
+                .setIdentity(Identity.forUser("user")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
+                .build();
+
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_user")
+                .setIdentity(Identity.forUser("anotheruser")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_user AUTHORIZATION user");
+        assertUpdate(user, "CREATE TABLE test_createschema_authorization_user.test (x bigint)");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_createschema_authorization_user.test", "Access Denied: Cannot drop table test_createschema_authorization_user.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_createschema_authorization_user.test", "Access Denied: Cannot select from table test_createschema_authorization_user.test");
+
+        assertUpdate(user, "DROP TABLE test_createschema_authorization_user.test");
+        assertUpdate(user, "DROP SCHEMA test_createschema_authorization_user");
+    }
+
+    @Test
+    public void testCreateSchemaWithAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_role")
+                .setIdentity(Identity.forUser("user")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
+                .build();
+
+        Session userWithoutRole = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_role")
+                .setIdentity(Identity.forUser("user")
+                     .withRoles(Collections.emptyMap())
+                     .build())
+                .build();
+
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_role")
+                .setIdentity(Identity.forUser("anotheruser")
+                     .withPrincipal(getSession().getIdentity().getPrincipal())
+                     .build())
+                .build();
+
+        assertUpdate(admin, "CREATE ROLE authorized_users");
+        assertUpdate(admin, "GRANT authorized_users TO user");
+
+        assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+        assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE authorized_users");
+        assertUpdate(user, "CREATE TABLE test_createschema_authorization_role.test (x bigint)");
+
+        // "user" without the role enabled cannot create new tables
+        assertQueryFails(userWithoutRole, "CREATE TABLE test_schema_authorization_role.test1 (x bigint)", "Access Denied: Cannot create table test_schema_authorization_role.test1");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_createschema_authorization_role.test", "Access Denied: Cannot drop table test_createschema_authorization_role.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_createschema_authorization_role.test", "Access Denied: Cannot select from table test_createschema_authorization_role.test");
+
+        assertUpdate(user, "DROP TABLE test_createschema_authorization_role.test");
+        assertUpdate(user, "DROP SCHEMA test_createschema_authorization_role");
 
         assertUpdate(admin, "DROP ROLE authorized_users");
     }

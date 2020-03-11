@@ -253,6 +253,11 @@ class AstBuilder
     @Override
     public Node visitCreateSchema(SqlBaseParser.CreateSchemaContext context)
     {
+        Optional<PrincipalSpecification> principal = Optional.empty();
+        if (context.AUTHORIZATION() != null) {
+            principal = Optional.of(getPrincipalSpecification(context.principal()));
+        }
+
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
@@ -262,7 +267,8 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 context.EXISTS() != null,
-                properties);
+                properties,
+                principal);
     }
 
     @Override

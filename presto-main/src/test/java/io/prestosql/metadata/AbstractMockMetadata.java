@@ -184,7 +184,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties)
+    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }

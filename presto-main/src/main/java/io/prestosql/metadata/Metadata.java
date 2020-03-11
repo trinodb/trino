@@ -141,8 +141,9 @@ public interface Metadata
 
     /**
      * Creates a schema.
+     * @param principal TODO
      */
-    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties);
+    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal);
 
     /**
      * Drops the specified schema.

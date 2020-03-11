@@ -20,6 +20,8 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManager;
@@ -30,7 +32,10 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
+import static io.prestosql.metadata.MetadataUtil.createPrincipal;
+import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
@@ -80,8 +85,25 @@ public class CreateSchemaTask
                 accessControl,
                 parameterExtractor(statement, parameters));
 
-        metadata.createSchema(session, schema, properties);
+        PrestoPrincipal principal = getCreatePrincipal(statement, session, metadata);
+        metadata.createSchema(session, schema, properties, principal);
 
         return immediateFuture(null);
+    }
+
+    private PrestoPrincipal getCreatePrincipal(CreateSchema statement, Session session, Metadata metadata)
+    {
+        if (statement.getPrincipal().isPresent()) {
+            PrestoPrincipal principal = createPrincipal(statement.getPrincipal().get());
+            String catalog = getSessionCatalog(metadata, session, statement);
+            if (principal.getType() == PrincipalType.ROLE
+                    && !metadata.listRoles(session, catalog).contains(principal.getName())) {
+                throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
+            }
+            return principal;
+        }
+        else {
+            return new PrestoPrincipal(PrincipalType.USER, session.getUser());
+        }
     }
 }
