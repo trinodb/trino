@@ -311,7 +311,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         if (isTableOwner(context, tableName)) {
             return;
@@ -323,7 +323,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
         if (isTableOwner(context, tableName)) {
             return;
@@ -355,7 +355,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
         if (grantor.isPresent()) {
@@ -367,7 +367,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
         if (grantor.isPresent()) {

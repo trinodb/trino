@@ -518,7 +518,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean grantOption)
     {
         if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
             denyGrantTablePrivilege(privilege.toString(), table.toString());
@@ -526,7 +526,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOption)
     {
         if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
             denyRevokeTablePrivilege(privilege.toString(), table.toString());
