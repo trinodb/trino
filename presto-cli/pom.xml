@@ -15,6 +15,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.prestosql.cli.Presto</main-class>
         <dep.jline.version>3.14.0</dep.jline.version>
+        <graalvm.version>20.0.0</graalvm.version>
     </properties>
 
     <dependencies>
@@ -120,19 +121,77 @@
             <artifactId>jackson-core</artifactId>
         </dependency>
 
+        <!-- native image -->
+        <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>graal-sdk</artifactId>
+            <version>${graalvm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.graalvm.nativeimage</groupId>
+            <artifactId>svm</artifactId>
+            <version>${graalvm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.graalvm.nativeimage</groupId>
+            <artifactId>pointsto</artifactId>
+            <version>${graalvm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>substratevm</id>
+            <activation>
+                <property>
+                    <name>java.vendor.version</name>
+                    <value>GraalVM CE 20.0.0</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.nativeimage</groupId>
+                        <artifactId>native-image-maven-plugin</artifactId>
+                        <version>${graalvm.version}</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>native-image</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <skip>false</skip>
+                            <mainClass>io.prestosql.cli.Presto</mainClass>
+                            <imageName>presto-cli</imageName>
+                            <buildArgs>
+                                -H:+JNI -R:MinHeapSize=256m -R:MaxHeapSize=2g -R:MaxNewSize=128m --enable-all-security-services --enable-https --enable-http -H:+AddAllCharsets --allow-incomplete-classpath --no-fallback -H:+TraceClassInitialization -H:+SpawnIsolates
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <build>
         <plugins>
