@@ -15,13 +15,18 @@ package io.prestosql.cost;
 
 import io.prestosql.Session;
 import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.prestosql.sql.planner.plan.Patterns.enforceSingleRow;
+import static java.lang.Double.min;
+import static java.util.Map.Entry;
 
 public class EnforceSingleRowStatsRule
         extends SimpleStatsRule<EnforceSingleRowNode>
@@ -42,8 +47,10 @@ public class EnforceSingleRowStatsRule
     @Override
     protected Optional<PlanNodeStatsEstimate> doCalculate(EnforceSingleRowNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
-        return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats.getStats(node.getSource()))
-                .setOutputRowCount(1)
-                .build());
+        Map<Symbol, SymbolStatsEstimate> symbolStatsEstimate = sourceStats.getStats(node.getSource()).getSymbolStatistics()
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().mapDistinctValuesCount(distinctValueCount -> min(distinctValueCount, 1))));
+        return Optional.of(new PlanNodeStatsEstimate(1, symbolStatsEstimate));
     }
 }
