@@ -1900,7 +1900,7 @@ public class HiveMetadata
     public void validateScan(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        if (HiveSessionProperties.isQueryPartitionFilterRequired(session) && handle.getEnforcedConstraint().isAll()) {
+        if (HiveSessionProperties.isQueryPartitionFilterRequired(session) && !handle.getAnalyzePartitionValues().isPresent() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
                 Optional<Set<ColumnHandle>> referencedColumns = handle.getConstraintColumns();
