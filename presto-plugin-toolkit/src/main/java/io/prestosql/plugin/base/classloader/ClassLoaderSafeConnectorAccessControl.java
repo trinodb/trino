@@ -253,18 +253,18 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanGrantTablePrivilege(context, privilege, tableName, grantee, withGrantOption);
+            delegate.checkCanGrantTablePrivilege(context, privilege, tableName, grantee, grantOption);
         }
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOptionFor);
+            delegate.checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
         }
     }
 
@@ -285,18 +285,18 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanGrantRoles(context, roles, grantees, withAdminOption, grantor, catalogName);
+            delegate.checkCanGrantRoles(context, roles, grantees, adminOption, grantor, catalogName);
         }
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanRevokeRoles(context, roles, grantees, adminOptionFor, grantor, catalogName);
+            delegate.checkCanRevokeRoles(context, roles, grantees, adminOption, grantor, catalogName);
         }
     }
 

@@ -605,7 +605,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
+    default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -615,7 +615,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
+    default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }

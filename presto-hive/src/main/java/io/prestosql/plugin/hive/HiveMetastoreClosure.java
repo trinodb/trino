@@ -240,14 +240,14 @@ public class HiveMetastoreClosure
         return delegate.listRoles();
     }
 
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+        delegate.grantRoles(roles, grantees, adminOption, grantor);
     }
 
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+        delegate.revokeRoles(roles, grantees, adminOption, grantor);
     }
 
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
