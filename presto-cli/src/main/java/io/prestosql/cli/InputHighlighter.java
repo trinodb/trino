@@ -17,8 +17,8 @@ import io.prestosql.sql.parser.SqlBaseLexer;
 import io.prestosql.sql.parser.StatementSplitter;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenSource;
-import org.jline.reader.Highlighter;
 import org.jline.reader.LineReader;
+import org.jline.reader.impl.DefaultHighlighter;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
@@ -37,7 +37,7 @@ import static org.jline.utils.AttributedStyle.GREEN;
 import static org.jline.utils.AttributedStyle.RED;
 
 public class InputHighlighter
-        implements Highlighter
+        extends DefaultHighlighter
 {
     private static final AttributedStyle KEYWORD_STYLE = BOLD;
     private static final AttributedStyle STRING_STYLE = DEFAULT.foreground(GREEN);
