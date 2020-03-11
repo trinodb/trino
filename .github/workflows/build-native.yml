@@ -1,0 +1,32 @@
+name: native-image
+
+on: [push, pull_request]
+
+env:
+  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V -T C1 -DskipTests -Dair.check.skip-all"
+
+jobs:
+  presto-cli:
+    strategy:
+      matrix:
+          platform: [ubuntu, macos, windows]
+    runs-on: ${{ matrix.platform }}-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: DeLaGuardo/setup-graalvm@3
+        with:
+           graalvm-version: '20.0.0.java11'
+      - run: java -version
+      - name: setup-native-image
+        run: |
+          gu install native-image
+      - name: Build native presto-cli
+        run: |
+            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+            ./bin/retry ./mvnw package ${MAVEN_FAST_INSTALL} -pl 'presto-client,presto-parser,presto-cli' || true
+      - uses: actions/upload-artifact@v1
+        with:
+          name: presto-cli-${{ matrix.platform }}
+          path: presto-cli/target/presto-cli
