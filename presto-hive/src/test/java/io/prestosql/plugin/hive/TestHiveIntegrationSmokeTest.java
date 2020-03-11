@@ -435,6 +435,49 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testAnalyzeWithPartitionsAllowed()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "CREATE TABLE partition_test14(id integer, a varchar, b varchar, ds varchar) "
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO partition_test14(id,a,ds) VALUES(1, 'a','a')", 1);
+        String query = "ANALYZE partition_test14 WITH (PARTITIONS=ARRAY[ARRAY['a']])";
+        computeActual(session, query);
+        computeActual(session, "EXPLAIN " + query);
+        assertUpdate(session, "DROP TABLE partition_test14");
+    }
+
+    @Test
+    public void testAnalyzeFullTableDisallowed()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "CREATE TABLE partition_test15(id integer, a varchar, b varchar, ds varchar) "
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO partition_test15(id,a,ds) VALUES(1, 'a','a')", 1);
+        String query = "ANALYZE partition_test15";
+        String regExpMessage = "Filter required on tpch\\.partition_test15 for at least one partition column:.*";
+        assertQueryFails(session, query, regExpMessage);
+        assertQueryFails(session, "explain " + query, regExpMessage);
+        assertUpdate(session, "DROP TABLE partition_test15");
+    }
+
+    @Test
     public void testSchemaOperations()
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
