@@ -20,6 +20,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.PrestoPrincipal;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -46,7 +48,7 @@ public class TestBlackHoleMetadata
     public void testCreateSchema()
     {
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, "test", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
     }
 

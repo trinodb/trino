@@ -193,6 +193,12 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c drop column x");
 
         printStatement("create schema test");
+        printStatement("create schema test authorization alice");
+        printStatement("create schema test authorization alice with ( location = 'xyz' )");
+        printStatement("create schema test authorization user alice");
+        printStatement("create schema test authorization user alice with ( location = 'xyz' )");
+        printStatement("create schema test authorization role public");
+        printStatement("create schema test authorization role public with ( location = 'xyz' )");
         printStatement("create schema if not exists test");
         printStatement("create schema test with (a = 'apple', b = 123)");
 

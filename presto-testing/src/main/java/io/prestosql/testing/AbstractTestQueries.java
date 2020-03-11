@@ -5127,6 +5127,8 @@ public abstract class AbstractTestQueries
         assertDescribeOutputEmpty("GRANT INSERT ON foo TO bar");
         assertDescribeOutputEmpty("REVOKE INSERT ON foo FROM bar");
         assertDescribeOutputEmpty("CREATE SCHEMA foo");
+        assertDescribeOutputEmpty("CREATE SCHEMA foo AUTHORIZATION bar");
+        assertDescribeOutputEmpty("CREATE SCHEMA foo AUTHORIZATION bar WITH ( x = 'y' )");
         assertDescribeOutputEmpty("ALTER SCHEMA foo RENAME TO bar");
         assertDescribeOutputEmpty("ALTER SCHEMA foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("DROP SCHEMA foo");

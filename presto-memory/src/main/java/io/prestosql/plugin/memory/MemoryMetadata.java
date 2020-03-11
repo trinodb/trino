@@ -40,6 +40,7 @@ import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.ViewNotFoundException;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -94,7 +95,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));

@@ -232,7 +232,7 @@ public interface ConnectorMetadata
     /**
      * Creates a schema.
      */
-    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }

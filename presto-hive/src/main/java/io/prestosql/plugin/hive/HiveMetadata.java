@@ -224,7 +224,6 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
-import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -737,7 +736,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
@@ -752,8 +751,8 @@ public class HiveMetadata
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
-                .setOwnerType(USER)
-                .setOwnerName(session.getUser())
+                .setOwnerType(owner.getType())
+                .setOwnerName(owner.getName())
                 .build();
 
         metastore.createDatabase(new HiveIdentity(session), database);

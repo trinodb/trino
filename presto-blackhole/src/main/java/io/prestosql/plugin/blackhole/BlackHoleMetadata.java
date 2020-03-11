@@ -34,6 +34,7 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
@@ -82,7 +83,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));

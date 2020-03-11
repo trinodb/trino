@@ -39,6 +39,7 @@ statement
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
+        (AUTHORIZATION principal)?
         (WITH properties)?                                             #createSchema
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
