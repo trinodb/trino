@@ -279,10 +279,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.createSchema(session, schemaName, properties);
+            delegate.createSchema(session, schemaName, properties, owner);
         }
     }
 

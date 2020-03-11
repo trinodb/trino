@@ -28,23 +28,25 @@ public class CreateSchema
     private final QualifiedName schemaName;
     private final boolean notExists;
     private final List<Property> properties;
+    private final Optional<PrincipalSpecification> principal;
 
     public CreateSchema(QualifiedName schemaName, boolean notExists, List<Property> properties)
     {
-        this(Optional.empty(), schemaName, notExists, properties);
+        this(Optional.empty(), schemaName, notExists, properties, Optional.empty());
     }
 
-    public CreateSchema(NodeLocation location, QualifiedName schemaName, boolean notExists, List<Property> properties)
+    public CreateSchema(NodeLocation location, QualifiedName schemaName, boolean notExists, List<Property> properties, Optional<PrincipalSpecification> principal)
     {
-        this(Optional.of(location), schemaName, notExists, properties);
+        this(Optional.of(location), schemaName, notExists, properties, principal);
     }
 
-    private CreateSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean notExists, List<Property> properties)
+    private CreateSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean notExists, List<Property> properties, Optional<PrincipalSpecification> principal)
     {
         super(location);
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.notExists = notExists;
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
+        this.principal = principal;
     }
 
     public QualifiedName getSchemaName()
@@ -55,6 +57,11 @@ public class CreateSchema
     public boolean isNotExists()
     {
         return notExists;
+    }
+
+    public Optional<PrincipalSpecification> getPrincipal()
+    {
+        return principal;
     }
 
     public List<Property> getProperties()
