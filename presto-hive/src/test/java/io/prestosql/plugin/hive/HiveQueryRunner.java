@@ -160,15 +160,8 @@ public final class HiveQueryRunner
                 queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
                 queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
-                HiveIdentity identity = new HiveIdentity(SESSION);
-                if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
-                    metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
-                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
-                }
-
-                if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
-                    metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-                    copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
+                if (!initialTables.isEmpty()) {
+                    populateData(queryRunner, metastore);
                 }
 
                 return queryRunner;
@@ -176,6 +169,20 @@ public final class HiveQueryRunner
             catch (Exception e) {
                 queryRunner.close();
                 throw e;
+            }
+        }
+
+        private void populateData(DistributedQueryRunner queryRunner, HiveMetastore metastore)
+        {
+            HiveIdentity identity = new HiveIdentity(SESSION);
+            if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
+                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
+            }
+
+            if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
+                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
+                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
             }
         }
     }
