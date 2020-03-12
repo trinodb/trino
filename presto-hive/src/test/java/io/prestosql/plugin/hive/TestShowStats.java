@@ -13,10 +13,13 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static io.prestosql.tpch.TpchTable.NATION;
 
 public class TestShowStats
         extends AbstractTestQueryFramework
@@ -25,7 +28,10 @@ public class TestShowStats
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.create();
+        return HiveQueryRunner.builder()
+                // create nation so tpch schema got created
+                .setInitialTables(ImmutableList.of(NATION))
+                .build();
     }
 
     @BeforeClass
