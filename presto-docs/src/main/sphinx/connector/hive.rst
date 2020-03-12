@@ -266,6 +266,15 @@ Property Name                                            Description            
 
 ``hive.metastore.thrift.impersonation.enabled``          Enable Hive metastore end user impersonation.
 
+``hive.metastore.thrift.client.ssl.enabled``             Use SSL when connecting to metastore.                        ``false``
+
+``hive.metastore.thrift.client.ssl.key``                 Path to PEM private key and client certificate (key store).
+
+``hive.metastore.thrift.client.ssl.key-password``        Password for the PEM private key.
+
+``hive.metastore.thrift.client.ssl.trust-certificate``   Path to the PEM server certificate chain (trust store).
+                                                         Required when SSL is enabled.
+
 ``hive.metastore.service.principal``                     The Kerberos principal of the Hive metastore service.
 
 ``hive.metastore.client.principal``                      The Kerberos principal that Presto uses when connecting
