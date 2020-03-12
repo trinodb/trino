@@ -35,6 +35,11 @@
   "allDeclaredFields":true
 },
 {
+    "name":"io.prestosql.cli.ClientOptions$OutputFormat",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true
+},
+{
   "name":"io.prestosql.cli.Console",
   "allDeclaredFields":true,
   "methods":[{"name":"<init>","parameterTypes":[] }]
