@@ -551,7 +551,7 @@ partition.
 
   .. code:: sql
 
-    CALL kudu.system.add_range_partition(<schema>, <table>, <range_partition_as_json_string>),
+    CALL kudu.system.add_range_partition(<schema>, <table>, <range_partition_as_json_string>)
 
 - dropping a range partition
 
