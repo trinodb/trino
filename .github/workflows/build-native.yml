@@ -25,7 +25,7 @@ jobs:
       - name: Build native presto-cli
         run: |
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-            ./bin/retry ./mvnw package ${MAVEN_FAST_INSTALL} -pl 'presto-client,presto-parser,presto-cli' || true
+            ./bin/retry ./mvnw package ${MAVEN_FAST_INSTALL} -pl 'presto-spi,presto-client,presto-parser,presto-cli' || true
       - uses: actions/upload-artifact@v1
         with:
           name: presto-cli-${{ matrix.platform }}
