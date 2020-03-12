@@ -166,6 +166,10 @@ public final class TestRun
                                 .add(
                                         "java",
                                         "-Xmx1g",
+                                        // Force Parallel GC to ensure MaxHeapFreeRatio is respected
+                                        "-XX:+UseParallelGC",
+                                        "-XX:MinHeapFreeRatio=10",
+                                        "-XX:MaxHeapFreeRatio=10",
                                         // "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007", // TODO implement sth like --debug switch
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu")
