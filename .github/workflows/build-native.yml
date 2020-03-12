@@ -11,7 +11,7 @@ jobs:
   presto-cli:
     strategy:
       matrix:
-          platform: [ubuntu, macos, windows]
+          platform: [ubuntu, macos]
     runs-on: ${{ matrix.platform }}-latest
     steps:
       - uses: actions/checkout@v1
