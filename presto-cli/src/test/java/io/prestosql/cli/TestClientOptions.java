@@ -140,9 +140,9 @@ public class TestClientOptions
     public void testTimeZone()
     {
         ClientOptions options = new ClientOptions();
-        options.timeZone = "UTC";
+        options.timeZone = "Europe/Vilnius";
         ClientSession session = options.toClientSession();
-        assertEquals(session.getTimeZone(), ZoneId.of("UTC"));
+        assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
