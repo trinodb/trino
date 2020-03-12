@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -41,7 +42,12 @@ public class TestThriftMetastoreConfig
                 .setMaxRetryTime(new Duration(30, SECONDS))
                 .setImpersonationEnabled(false)
                 .setDeleteFilesOnDrop(false)
-                .setMaxWaitForTransactionLock(new Duration(10, MINUTES)));
+                .setMaxWaitForTransactionLock(new Duration(10, MINUTES))
+                .setTlsEnabled(false)
+                .setKeystorePath(null)
+                .setKeystorePassword(null)
+                .setTruststorePath(null)
+                .setTruststorePassword(null));
     }
 
     @Test
@@ -58,6 +64,11 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.impersonation.enabled", "true")
                 .put("hive.metastore.thrift.delete-files-on-drop", "true")
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
+                .put("hive.metastore.thrift.client.tls.enabled", "true")
+                .put("hive.metastore.thrift.client.tls.keystore.path", "/tmp/keystore")
+                .put("hive.metastore.thrift.client.tls.keystore.password", "keystore-password")
+                .put("hive.metastore.thrift.client.tls.truststore.path", "/tmp/truststore")
+                .put("hive.metastore.thrift.client.tls.truststore.password", "truststore-password")
                 .build();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
@@ -70,7 +81,12 @@ public class TestThriftMetastoreConfig
                 .setMaxRetryTime(new Duration(60, SECONDS))
                 .setImpersonationEnabled(true)
                 .setDeleteFilesOnDrop(true)
-                .setMaxWaitForTransactionLock(new Duration(5, MINUTES));
+                .setMaxWaitForTransactionLock(new Duration(5, MINUTES))
+                .setTlsEnabled(true)
+                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePassword("keystore-password")
+                .setTruststorePath(new File("/tmp/truststore"))
+                .setTruststorePassword("truststore-password");
 
         assertFullMapping(properties, expected);
     }
