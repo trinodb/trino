@@ -235,12 +235,12 @@ public class StreamingAggregationOperator
             }
 
             // flush remaining output pages before requesting next input page
+            // invariant: queued output pages are produced from argument `inputPage`
             if (!outputPages.isEmpty()) {
                 Page outputPage = outputPages.removeFirst();
                 return ofResult(outputPage, outputPages.isEmpty());
             }
 
-            // invariant: next input page is requested only when there are no pending output pages queued
             processInput(inputPage);
             updateMemoryUsage();
 
