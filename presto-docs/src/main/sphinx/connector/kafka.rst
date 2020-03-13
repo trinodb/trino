@@ -11,12 +11,14 @@ Overview
 --------
 
 This connector allows the use of `Apache Kafka <https://kafka.apache.org/>`_
-topics as tables in Presto.
-Each message is presented as a row in Presto.
+topics as tables in Presto. Each message is presented as a row in Presto.
 
 Topics can be live. Rows appear as data arrives, and disappear as
 segments get dropped. This can result in strange behavior if accessing the
 same table multiple times in a single query (e.g., performing a self join).
+
+The connector reads data from partitioned topics in parallel across workers to
+achieve a significant performance gain.
 
 .. note::
 
