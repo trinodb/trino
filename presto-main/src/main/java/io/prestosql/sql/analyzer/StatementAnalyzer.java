@@ -1013,14 +1013,12 @@ class StatementAnalyzer
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
-                Field field = Field.newQualified(
+                Field field = Field.newSourceField(
                         table.getName(),
-                        Optional.of(column.getName()),
+                        name,
+                        column.getName(),
                         column.getType(),
-                        column.isHidden(),
-                        Optional.of(name),
-                        Optional.of(column.getName()),
-                        false);
+                        column.isHidden());
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
@@ -1068,8 +1066,7 @@ class StatementAnalyzer
                             Optional.of(columnName.getValue()),
                             inputField.getType(),
                             false,
-                            inputField.getOriginTable(),
-                            inputField.getOriginColumnName(),
+                            inputField.getOrigin(),
                             inputField.isAliased()));
 
                     field++;
@@ -1084,8 +1081,7 @@ class StatementAnalyzer
                                 field.getName(),
                                 field.getType(),
                                 field.isHidden(),
-                                field.getOriginTable(),
-                                field.getOriginColumnName(),
+                                field.getOrigin(),
                                 field.isAliased()))
                         .collect(toImmutableList());
             }
@@ -1121,13 +1117,11 @@ class StatementAnalyzer
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
             // are implicitly coercible to the declared view types.
             List<Field> outputFields = view.getColumns().stream()
-                    .map(column -> Field.newQualified(
+                    .map(column -> Field.newSourceField(
                             table.getName(),
-                            Optional.of(column.getName()),
+                            name,
+                            column.getName(),
                             getViewColumnType(column, name, table),
-                            false,
-                            Optional.of(name),
-                            Optional.of(column.getName()),
                             false))
                     .collect(toImmutableList());
 
@@ -1347,8 +1341,7 @@ class StatementAnalyzer
                         oldField.getName(),
                         outputFieldTypes[i],
                         oldField.isHidden(),
-                        oldField.getOriginTable(),
-                        oldField.getOriginColumnName(),
+                        oldField.getOrigin(),
                         oldField.isAliased());
             }
 
@@ -1960,8 +1953,7 @@ class StatementAnalyzer
                     Expression expression = column.getExpression();
                     Optional<Identifier> field = column.getAlias();
 
-                    Optional<QualifiedObjectName> originTable = Optional.empty();
-                    Optional<String> originColumn = Optional.empty();
+                    Optional<Field.Source> origin = Optional.empty();
                     QualifiedName name = null;
 
                     if (expression instanceof Identifier) {
@@ -1974,8 +1966,7 @@ class StatementAnalyzer
                     if (name != null) {
                         List<Field> matchingFields = sourceScope.getRelationType().resolveFields(name);
                         if (!matchingFields.isEmpty()) {
-                            originTable = matchingFields.get(0).getOriginTable();
-                            originColumn = matchingFields.get(0).getOriginColumnName();
+                            origin = matchingFields.get(0).getOrigin();
                         }
                     }
 
@@ -1985,7 +1976,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), origin, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -2173,8 +2164,7 @@ class StatementAnalyzer
                         alias,
                         field.getType(),
                         false,
-                        field.getOriginTable(),
-                        field.getOriginColumnName(),
+                        field.getOrigin(),
                         !allColumns.getAliases().isEmpty() || field.isAliased()));
 
                 Type type = field.getType();

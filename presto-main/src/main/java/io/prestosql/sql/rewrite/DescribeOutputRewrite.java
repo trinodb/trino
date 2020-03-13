@@ -155,7 +155,7 @@ final class DescribeOutputRewrite
                 columnName = "_col" + columnIndex;
             }
 
-            Optional<QualifiedObjectName> originTable = field.getOriginTable();
+            Optional<QualifiedObjectName> originTable = field.getOrigin().map(Field.Source::getTable);
 
             return row(
                     new StringLiteral(columnName),

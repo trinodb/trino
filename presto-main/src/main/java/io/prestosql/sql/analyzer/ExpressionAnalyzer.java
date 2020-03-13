@@ -414,9 +414,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
-            }
+            field.getOrigin().ifPresent(originField -> tableColumnReferences.put(originField.getTable(), originField.getColumn()));
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
