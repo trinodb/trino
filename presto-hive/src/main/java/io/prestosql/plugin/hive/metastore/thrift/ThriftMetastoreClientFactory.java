@@ -110,13 +110,15 @@ public class ThriftMetastoreClientFactory
         }
 
         try {
+            // load KeyStore if configured and get KeyManagers
             KeyStore keyStore = null;
             KeyManager[] keyManagers = null;
             if (keyStorePath.isPresent()) {
                 char[] keyManagerPassword;
                 try {
-                    // Attempt to read keyStoreFile as a PEM file
+                    // attempt to read the key store as a PEM file
                     keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
+                    // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
                     keyManagerPassword = new char[0];
                 }
                 catch (GeneralSecurityException | IOException ignored) {
@@ -128,25 +130,28 @@ public class ThriftMetastoreClientFactory
                     }
                 }
                 validateCertificates(keyStore);
-
                 KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
                 keyManagerFactory.init(keyStore, keyManagerPassword);
                 keyManagers = keyManagerFactory.getKeyManagers();
             }
 
+            // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
                 trustStore = loadTrustStore(trustStorePath.get(), trustStorePassword);
             }
 
+            // create TrustManagerFactory
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             trustManagerFactory.init(trustStore);
 
+            // get X509TrustManager
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
             if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
                 throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
             }
 
+            // create SSLContext
             SSLContext sslContext = SSLContext.getInstance("SSL");
             sslContext.init(keyManagers, trustManagers, null);
             return Optional.of(sslContext);
