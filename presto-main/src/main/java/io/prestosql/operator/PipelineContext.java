@@ -197,7 +197,7 @@ public class PipelineContext
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
-            operatorSummaries.compute(operator.getOperatorId(), (k, v) -> v == null ? operator : v.add(operator));
+            operatorSummaries.merge(operator.getOperatorId(), operator, (left, right) -> left.add(right));
         }
 
         physicalInputDataSize.update(driverStats.getPhysicalInputDataSize().toBytes());
