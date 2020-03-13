@@ -184,7 +184,7 @@
                             <mainClass>io.prestosql.cli.Presto</mainClass>
                             <imageName>presto-cli</imageName>
                             <buildArgs>
-                                -H:+JNI -R:MinHeapSize=256m -R:MaxHeapSize=2g -R:MaxNewSize=128m --enable-all-security-services --enable-https --enable-http -H:+AddAllCharsets --allow-incomplete-classpath --no-fallback -H:+TraceClassInitialization -H:+SpawnIsolates
+                                -R:MinHeapSize=256m -R:MaxHeapSize=4g -R:MaxNewSize=256m --enable-all-security-services --enable-https --enable-http -H:+AddAllCharsets --allow-incomplete-classpath --no-fallback -H:+TraceClassInitialization --report-unsupported-elements-at-runtime --verbose
                             </buildArgs>
                         </configuration>
                     </plugin>
