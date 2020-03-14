@@ -16,6 +16,7 @@ package io.prestosql.plugin.mongodb;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -32,7 +33,7 @@ public class TestMongoDistributedQueries
             throws Exception
     {
         this.server = new MongoServer();
-        return createMongoQueryRunner(server, TpchTable.getTables());
+        return createMongoQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
