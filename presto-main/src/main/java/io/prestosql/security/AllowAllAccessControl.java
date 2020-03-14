@@ -99,6 +99,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }

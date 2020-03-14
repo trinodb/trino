@@ -97,6 +97,7 @@ statement
     | EXPLAIN ANALYZE? VERBOSE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
+    | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
     | SHOW TABLES ((FROM | IN) qualifiedName)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables

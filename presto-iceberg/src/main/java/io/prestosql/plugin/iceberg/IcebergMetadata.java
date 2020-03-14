@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveSchemaProperties;
 import io.prestosql.plugin.hive.HiveWrittenPartitions;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -29,6 +30,7 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -140,6 +142,28 @@ public class IcebergMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return metastore.getAllDatabases();
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
+        if (db.isPresent()) {
+            return HiveSchemaProperties.fromDatabase(db.get());
+        }
+
+        throw new SchemaNotFoundException(schemaName.getSchemaName());
+    }
+
+    @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
+        if (database.isPresent()) {
+            return database.flatMap(db -> Optional.of(new PrestoPrincipal(db.getOwnerType(), db.getOwnerName())));
+        }
+
+        throw new SchemaNotFoundException(schemaName.getSchemaName());
     }
 
     @Override

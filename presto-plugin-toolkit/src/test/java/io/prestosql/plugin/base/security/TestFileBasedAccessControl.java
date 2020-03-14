@@ -116,6 +116,21 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.USER, "some_user"));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.USER, "some_user")));
+
+        accessControl.checkCanShowCreateSchema(ADMIN, "bob");
+        accessControl.checkCanShowCreateSchema(ADMIN, "staff");
+        accessControl.checkCanShowCreateSchema(ADMIN, "authenticated");
+        accessControl.checkCanShowCreateSchema(ADMIN, "test");
+
+        accessControl.checkCanShowCreateSchema(BOB, "bob");
+        accessControl.checkCanShowCreateSchema(BOB, "staff");
+        accessControl.checkCanShowCreateSchema(BOB, "authenticated");
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(BOB, "test"));
+
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "bob"));
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "staff"));
+        accessControl.checkCanShowCreateSchema(CHARLIE, "authenticated");
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "test"));
     }
 
     @Test

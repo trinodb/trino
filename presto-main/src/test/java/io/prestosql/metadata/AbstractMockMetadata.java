@@ -388,6 +388,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         throw new UnsupportedOperationException();

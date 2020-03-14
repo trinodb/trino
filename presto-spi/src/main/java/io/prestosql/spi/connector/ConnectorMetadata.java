@@ -522,6 +522,22 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the schema properties for the specified schema.
+     */
+    default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support schema properties");
+    }
+
+    /**
+     * Get the schema properties for the specified schema.
+     */
+    default Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support schema ownership");
+    }
+
+    /**
      * @return whether delete without table scan is supported
      */
     default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)

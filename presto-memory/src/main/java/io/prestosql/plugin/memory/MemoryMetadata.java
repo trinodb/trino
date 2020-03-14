@@ -22,6 +22,7 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -118,6 +119,18 @@ public class MemoryMetadata
         }
 
         verify(schemas.remove(schemaName));
+    }
+
+    @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return ImmutableMap.of();
     }
 
     @Override

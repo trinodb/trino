@@ -126,6 +126,7 @@ import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
@@ -957,6 +958,34 @@ public final class MetadataManager
             }
         }
         return ImmutableMap.copyOf(views);
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
+    {
+        if (!schemaExists(session, schemaName)) {
+            throw new PrestoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+        }
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.getSchemaProperties(connectorSession, schemaName);
+    }
+
+    @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
+    {
+        if (!schemaExists(session, schemaName)) {
+            throw new PrestoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+        }
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.getSchemaOwner(connectorSession, schemaName);
     }
 
     @Override

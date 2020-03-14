@@ -102,6 +102,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }

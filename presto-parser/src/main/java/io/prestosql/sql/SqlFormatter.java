@@ -823,7 +823,7 @@ public final class SqlFormatter
             }
             builder.append(formatName(node.getSchemaName()));
             if (node.getPrincipal().isPresent()) {
-                builder.append(" AUTHORIZATION ")
+                builder.append("\nAUTHORIZATION ")
                         .append(formatPrincipal(node.getPrincipal().get()));
             }
             builder.append(formatPropertiesMultiLine(node.getProperties()));

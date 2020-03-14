@@ -23,8 +23,10 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.GrantorSpecification;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
@@ -179,6 +181,19 @@ public final class MetadataUtil
                 return new PrestoPrincipal(USER, specification.getName().getValue());
             case ROLE:
                 return new PrestoPrincipal(ROLE, specification.getName().getValue());
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
+    public static PrincipalSpecification createPrincipal(PrestoPrincipal principal)
+    {
+        PrincipalType type = principal.getType();
+        switch (type) {
+            case USER:
+                return new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
+            case ROLE:
+                return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
         }

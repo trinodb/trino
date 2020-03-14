@@ -312,6 +312,16 @@ public interface Metadata
     Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Gets the schema properties for the specified schema.
+     */
+    Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName);
+
+    /**
+     * Gets the schema owner for the specified schema.
+     */
+    Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName);
+
+    /**
      * Creates the specified view with the specified view definition.
      */
     void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace);
