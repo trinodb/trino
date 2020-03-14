@@ -26,6 +26,7 @@ import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.operator.WorkProcessorAssertion.Transform;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -105,7 +106,10 @@ public class TestWorkProcessorPipelineSourceOperator
 
         SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
                 99,
-                ImmutableList.of(sourceOperatorFactory, firstOperatorFactory, secondOperatorFactory)));
+                ImmutableList.of(
+                        new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(secondOperatorFactory, ImmutableList.of(BIGINT)))));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
