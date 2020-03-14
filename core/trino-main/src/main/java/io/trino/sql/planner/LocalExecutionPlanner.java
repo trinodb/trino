@@ -494,17 +494,15 @@ public class LocalExecutionPlanner
         context.addDriverFactory(
                 context.isInputDriver(),
                 true,
-                ImmutableList.<OperatorFactory>builder()
-                        .addAll(physicalOperation.getOperatorFactories())
-                        .add(outputOperatorFactory.createOutputOperator(
+                new PhysicalOperation(
+                        outputOperatorFactory.createOutputOperator(
                                 context.getNextOperatorId(),
                                 plan.getId(),
                                 outputTypes,
                                 pagePreprocessor,
-                                new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))))
-                        .build(),
-                context.getDriverInstanceCount(),
-                physicalOperation.getPipelineExecutionStrategy());
+                                new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
+                        physicalOperation),
+                context.getDriverInstanceCount());
 
         addLookupOuterDrivers(context);
 
@@ -592,6 +590,16 @@ public class LocalExecutionPlanner
             this.indexSourceContext = indexSourceContext;
             this.dynamicFiltersCollector = dynamicFiltersCollector;
             this.nextPipelineId = nextPipelineId;
+        }
+
+        public void addDriverFactory(boolean inputDriver, boolean outputDriver, PhysicalOperation physicalOperation, OptionalInt driverInstances)
+        {
+            addDriverFactory(
+                    inputDriver,
+                    outputDriver,
+                    physicalOperation.getOperatorFactories(),
+                    driverInstances,
+                    physicalOperation.getPipelineExecutionStrategy());
         }
 
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
@@ -1941,19 +1949,17 @@ public class LocalExecutionPlanner
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
             checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
 
-            ImmutableList.Builder<OperatorFactory> factoriesBuilder = ImmutableList.builder();
-            factoriesBuilder.addAll(buildSource.getOperatorFactories());
             int operatorId = buildContext.getNextOperatorId();
-            createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters)
-                    .ifPresent(filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(operatorId, filter, node, buildSource)));
-            factoriesBuilder.add(nestedLoopBuildOperatorFactory);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters);
+            if (localDynamicFilter.isPresent()) {
+                buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
+            }
 
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    factoriesBuilder.build(),
-                    buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    new PhysicalOperation(nestedLoopBuildOperatorFactory, buildSource),
+                    buildContext.getDriverInstanceCount());
 
             // build output mapping
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -2083,12 +2089,8 @@ public class LocalExecutionPlanner
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(builderOperatorFactory)
-                            .build(),
-                    buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    new PhysicalOperation(builderOperatorFactory, buildSource),
+                    buildContext.getDriverInstanceCount());
 
             return builderOperatorFactory.getPagesSpatialIndexFactory();
         }
@@ -2151,11 +2153,12 @@ public class LocalExecutionPlanner
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
 
+            Map<Symbol, Integer> buildLayout = buildSource.getLayout();
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
                             probeSource.getLayout(),
-                            buildSource.getLayout(),
+                            buildLayout,
                             context.getTypes(),
                             session));
 
@@ -2165,7 +2168,7 @@ public class LocalExecutionPlanner
             Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
                     .map(Symbol::from)
-                    .map(sortSymbol -> createJoinSourcesLayout(buildSource.getLayout(), probeSource.getLayout()).get(sortSymbol));
+                    .map(sortSymbol -> createJoinSourcesLayout(buildLayout, probeSource.getLayout()).get(sortSymbol));
 
             List<JoinFilterFunctionFactory> searchFunctionFactories = sortExpressionContext
                     .map(SortExpressionContext::getSearchExpressions)
@@ -2173,7 +2176,7 @@ public class LocalExecutionPlanner
                             .map(searchExpression -> compileJoinFilterFunction(
                                     searchExpression,
                                     probeSource.getLayout(),
-                                    buildSource.getLayout(),
+                                    buildLayout,
                                     context.getTypes(),
                                     session))
                             .collect(toImmutableList()))
@@ -2182,27 +2185,27 @@ public class LocalExecutionPlanner
             ImmutableList<Type> buildOutputTypes = buildOutputChannels.stream()
                     .map(buildSource.getTypes()::get)
                     .collect(toImmutableList());
+            List<Type> buildTypes = buildSource.getTypes();
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     buildOuter,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
                     lifespan -> new PartitionedLookupSourceFactory(
-                            buildSource.getTypes(),
+                            buildTypes,
                             buildOutputTypes,
                             buildChannels.stream()
-                                    .map(buildSource.getTypes()::get)
+                                    .map(buildTypes::get)
                                     .collect(toImmutableList()),
                             partitionCount,
                             buildOuter,
                             blockTypeOperators),
                     buildOutputTypes);
 
-            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
-            factoriesBuilder.addAll(buildSource.getOperatorFactories());
-
             int operatorId = buildContext.getNextOperatorId();
-            createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters).ifPresent(
-                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(operatorId, filter, node, buildSource)));
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters);
+            if (localDynamicFilter.isPresent()) {
+                buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
+            }
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2219,23 +2222,21 @@ public class LocalExecutionPlanner
                     spillEnabled && !buildOuter && partitionCount > 1,
                     singleStreamSpillerFactory);
 
-            factoriesBuilder.add(hashBuilderOperatorFactory);
-
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    factoriesBuilder.build(),
-                    buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    new PhysicalOperation(hashBuilderOperatorFactory, buildSource),
+                    buildContext.getDriverInstanceCount());
 
             return lookupSourceFactoryManager;
         }
 
-        private DynamicFilterSourceOperatorFactory createDynamicFilterSourceOperatorFactory(
+        private PhysicalOperation createDynamicFilterSourceOperatorFactory(
                 int operatorId,
                 LocalDynamicFilterConsumer dynamicFilter,
                 JoinNode node,
-                PhysicalOperation buildSource)
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext context)
         {
             List<DynamicFilterSourceOperator.Channel> filterBuildChannels = dynamicFilter.getBuildChannels().entrySet().stream()
                     .map(entry -> {
@@ -2246,15 +2247,19 @@ public class LocalExecutionPlanner
                     })
                     .collect(Collectors.toList());
             boolean isReplicatedJoin = isBuildSideReplicated(node);
-            return new DynamicFilterSourceOperatorFactory(
-                    operatorId,
-                    node.getId(),
-                    dynamicFilter.getTupleDomainConsumer(),
-                    filterBuildChannels,
-                    getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
-                    getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
-                    getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin),
-                    blockTypeOperators);
+            return new PhysicalOperation(
+                    new DynamicFilterSourceOperatorFactory(
+                            operatorId,
+                            node.getId(),
+                            dynamicFilter.getTupleDomainConsumer(),
+                            filterBuildChannels,
+                            getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
+                            getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
+                            getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin),
+                            blockTypeOperators),
+                    buildSource.getLayout(),
+                    context,
+                    buildSource);
         }
 
         private Optional<LocalDynamicFilterConsumer> createDynamicFilter(
@@ -2402,9 +2407,6 @@ public class LocalExecutionPlanner
             int probeChannel = probeSource.getLayout().get(node.getSourceJoinSymbol());
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinSymbol());
 
-            ImmutableList.Builder<OperatorFactory> buildOperatorFactories = new ImmutableList.Builder<>();
-            buildOperatorFactories.addAll(buildSource.getOperatorFactories());
-
             int operatorId = buildContext.getNextOperatorId();
             if (isLocalDynamicFilter || isCoordinatorDynamicFilter) {
                 // Add a DynamicFilterSourceOperatorFactory to build operator factories
@@ -2422,15 +2424,19 @@ public class LocalExecutionPlanner
                     addSuccessCallback(domainsFuture, context::addCoordinatorDynamicFilters);
                 }
                 boolean isReplicatedJoin = isBuildSideReplicated(node);
-                buildOperatorFactories.add(new DynamicFilterSourceOperatorFactory(
-                        operatorId,
-                        node.getId(),
-                        filterConsumer.getTupleDomainConsumer(),
-                        ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
-                        getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
-                        getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
-                        getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin),
-                        blockTypeOperators));
+                buildSource = new PhysicalOperation(
+                        new DynamicFilterSourceOperatorFactory(
+                                operatorId,
+                                node.getId(),
+                                filterConsumer.getTupleDomainConsumer(),
+                                ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
+                                getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
+                                getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
+                                getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin),
+                                blockTypeOperators),
+                        buildSource.getLayout(),
+                        buildContext,
+                        buildSource);
             }
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
@@ -2445,14 +2451,12 @@ public class LocalExecutionPlanner
                     10_000,
                     joinCompiler,
                     blockTypeOperators);
-            buildOperatorFactories.add(setBuilderOperatorFactory);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    buildOperatorFactories.build(),
-                    buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    new PhysicalOperation(setBuilderOperatorFactory, buildSource),
+                    buildContext.getDriverInstanceCount());
 
             // Source channels are always laid out first, followed by the boolean output symbol
             Map<Symbol, Integer> outputMappings = ImmutableMap.<Symbol, Integer>builder()
@@ -2742,16 +2746,20 @@ public class LocalExecutionPlanner
                     maxLocalExchangeBufferSize,
                     blockTypeOperators);
 
-            List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
             List<Symbol> expectedLayout = node.getInputs().get(0);
             Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
-            operatorFactories.add(new LocalExchangeSinkOperatorFactory(
-                    exchangeFactory,
-                    subContext.getNextOperatorId(),
-                    node.getId(),
-                    exchangeFactory.newSinkFactoryId(),
-                    pagePreprocessor));
-            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), source.getPipelineExecutionStrategy());
+            context.addDriverFactory(
+                    subContext.isInputDriver(),
+                    false,
+                    new PhysicalOperation(
+                            new LocalExchangeSinkOperatorFactory(
+                                    exchangeFactory,
+                                    subContext.getNextOperatorId(),
+                                    node.getId(),
+                                    exchangeFactory.newSinkFactoryId(),
+                                    pagePreprocessor),
+                            source),
+                    subContext.getDriverInstanceCount());
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -2824,20 +2832,19 @@ public class LocalExecutionPlanner
 
                 List<Symbol> expectedLayout = node.getInputs().get(i);
                 Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
-                List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
-                operatorFactories.add(new LocalExchangeSinkOperatorFactory(
-                        localExchangeFactory,
-                        subContext.getNextOperatorId(),
-                        node.getId(),
-                        localExchangeFactory.newSinkFactoryId(),
-                        pagePreprocessor));
                 context.addDriverFactory(
                         subContext.isInputDriver(),
                         false,
-                        operatorFactories,
-                        subContext.getDriverInstanceCount(),
-                        exchangeSourcePipelineExecutionStrategy);
+                        new PhysicalOperation(
+                                new LocalExchangeSinkOperatorFactory(
+                                        localExchangeFactory,
+                                        subContext.getNextOperatorId(),
+                                        node.getId(),
+                                        localExchangeFactory.newSinkFactoryId(),
+                                        pagePreprocessor),
+                                source),
+                        subContext.getDriverInstanceCount());
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
@@ -3270,24 +3277,29 @@ public class LocalExecutionPlanner
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PipelineExecutionStrategy pipelineExecutionStrategy)
         {
-            this(operatorFactory, layout, context, Optional.empty(), pipelineExecutionStrategy);
+            this(operatorFactory, layout, context.getTypes(), Optional.empty(), pipelineExecutionStrategy);
         }
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PhysicalOperation source)
         {
-            this(operatorFactory, layout, context, Optional.of(requireNonNull(source, "source is null")), source.getPipelineExecutionStrategy());
+            this(operatorFactory, layout, context.getTypes(), Optional.of(requireNonNull(source, "source is null")), source.getPipelineExecutionStrategy());
+        }
+
+        public PhysicalOperation(OperatorFactory outputOperatorFactory, PhysicalOperation source)
+        {
+            this(outputOperatorFactory, ImmutableMap.of(), TypeProvider.empty(), Optional.of(requireNonNull(source, "source is null")), source.getPipelineExecutionStrategy());
         }
 
         private PhysicalOperation(
                 OperatorFactory operatorFactory,
                 Map<Symbol, Integer> layout,
-                LocalExecutionPlanContext context,
+                TypeProvider typeProvider,
                 Optional<PhysicalOperation> source,
                 PipelineExecutionStrategy pipelineExecutionStrategy)
         {
             requireNonNull(operatorFactory, "operatorFactory is null");
             requireNonNull(layout, "layout is null");
-            requireNonNull(context, "context is null");
+            requireNonNull(typeProvider, "typeProvider is null");
             requireNonNull(source, "source is null");
             requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
@@ -3296,11 +3308,11 @@ public class LocalExecutionPlanner
                     .add(operatorFactory)
                     .build();
             this.layout = ImmutableMap.copyOf(layout);
-            this.types = toTypes(layout, context);
+            this.types = toTypes(layout, typeProvider);
             this.pipelineExecutionStrategy = pipelineExecutionStrategy;
         }
 
-        private static List<Type> toTypes(Map<Symbol, Integer> layout, LocalExecutionPlanContext context)
+        private static List<Type> toTypes(Map<Symbol, Integer> layout, TypeProvider typeProvider)
         {
             // verify layout covers all values
             int channelCount = layout.values().stream().mapToInt(Integer::intValue).max().orElse(-1) + 1;
@@ -3311,7 +3323,7 @@ public class LocalExecutionPlanner
 
             return range(0, channelCount)
                     .mapToObj(channelLayout::get)
-                    .map(context.getTypes()::get)
+                    .map(typeProvider::get)
                     .collect(toImmutableList());
         }
 
