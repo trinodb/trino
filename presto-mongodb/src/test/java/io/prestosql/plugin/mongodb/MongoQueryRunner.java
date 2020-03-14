@@ -39,15 +39,17 @@ public final class MongoQueryRunner
     public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, TpchTable<?>... tables)
             throws Exception
     {
-        return createMongoQueryRunner(server, ImmutableList.copyOf(tables));
+        return createMongoQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setExtraProperties(extraProperties)
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -85,7 +87,10 @@ public final class MongoQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createMongoQueryRunner(new MongoServer(), TpchTable.getTables());
+        DistributedQueryRunner queryRunner = createMongoQueryRunner(
+                new MongoServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables());
         Thread.sleep(10);
         Logger log = Logger.get(MongoQueryRunner.class);
         log.info("======== SERVER STARTED ========");
