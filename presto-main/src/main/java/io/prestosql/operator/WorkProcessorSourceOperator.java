@@ -62,4 +62,9 @@ public interface WorkProcessorSourceOperator
     {
         return new Duration(0, NANOSECONDS);
     }
+
+    default long getDynamicFilterSplitsProcessed()
+    {
+        return 0;
+    }
 }
