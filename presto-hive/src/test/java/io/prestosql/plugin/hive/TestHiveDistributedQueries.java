@@ -20,6 +20,8 @@ import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
 import static io.prestosql.tpch.TpchTable.getTables;
@@ -55,6 +57,18 @@ public class TestHiveDistributedQueries
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest

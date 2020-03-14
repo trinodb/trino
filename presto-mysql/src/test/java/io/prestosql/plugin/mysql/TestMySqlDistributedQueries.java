@@ -21,6 +21,8 @@ import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
@@ -127,6 +129,24 @@ public class TestMySqlDistributedQueries
     public void testDelete()
     {
         // delete is not supported
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("real")
+                || typeName.equals("timestamp")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest

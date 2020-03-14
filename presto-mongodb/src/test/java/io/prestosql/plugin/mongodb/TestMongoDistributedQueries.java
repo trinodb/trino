@@ -22,6 +22,8 @@ import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
 @Test
@@ -111,5 +113,17 @@ public class TestMongoDistributedQueries
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("test disabled for Mongo");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 }
