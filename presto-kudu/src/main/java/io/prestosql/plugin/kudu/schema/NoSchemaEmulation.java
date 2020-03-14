@@ -83,4 +83,10 @@ public class NoSchemaEmulation
     {
         return "";
     }
+
+    @Override
+    public List<String> filterTablesForDefaultSchema(List<String> rawTables)
+    {
+        return rawTables;
+    }
 }
