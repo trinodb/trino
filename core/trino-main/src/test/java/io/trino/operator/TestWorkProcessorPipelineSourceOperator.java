@@ -26,6 +26,7 @@ import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -104,7 +105,10 @@ public class TestWorkProcessorPipelineSourceOperator
         TestWorkProcessorOperatorFactory secondOperatorFactory = new TestWorkProcessorOperatorFactory(3, secondOperatorPages);
 
         SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
-                ImmutableList.of(sourceOperatorFactory, firstOperatorFactory, secondOperatorFactory)));
+                ImmutableList.of(
+                        new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(secondOperatorFactory, ImmutableList.of(BIGINT)))));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
