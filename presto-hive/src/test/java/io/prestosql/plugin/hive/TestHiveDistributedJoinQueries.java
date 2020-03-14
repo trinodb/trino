@@ -75,6 +75,7 @@ public class TestHiveDistributedJoinQueries
         OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:lineitem");
         // Probe-side is not scanned at all, due to dynamic filtering:
         assertEquals(probeStats.getInputPositions(), 0L);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), probeStats.getTotalDrivers());
     }
 
     private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)

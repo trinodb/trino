@@ -293,6 +293,9 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
+            if (!dynamicFilter.get().isAll()) {
+                operatorContext.recordDynamicFilterSplitProcessed(1L);
+            }
             source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 
