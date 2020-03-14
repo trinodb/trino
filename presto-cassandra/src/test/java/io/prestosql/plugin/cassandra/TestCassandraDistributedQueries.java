@@ -171,4 +171,10 @@ public class TestCassandraDistributedQueries
     {
         throw new SkipException("Cassandra connector does not support column default values");
     }
+
+    @Override
+    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    {
+        // Cassandra connector currently does not support create table
+    }
 }
