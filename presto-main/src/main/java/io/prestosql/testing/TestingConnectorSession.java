@@ -159,7 +159,7 @@ public class TestingConnectorSession
 
     public static class Builder
     {
-        private final ConnectorIdentity identity = ConnectorIdentity.ofUser("user");
+        private ConnectorIdentity identity = ConnectorIdentity.ofUser("user");
         private final Optional<String> source = Optional.of("test");
         private TimeZoneKey timeZoneKey = UTC_KEY;
         private final Locale locale = ENGLISH;
@@ -168,6 +168,12 @@ public class TestingConnectorSession
         private List<PropertyMetadata<?>> propertyMetadatas = ImmutableList.of();
         private Map<String, Object> propertyValues = ImmutableMap.of();
         private boolean isLegacyTimestamp = new FeaturesConfig().isLegacyTimestamp();
+
+        public Builder setIdentity(ConnectorIdentity identity)
+        {
+            this.identity = requireNonNull(identity, "identity is null");
+            return this;
+        }
 
         public Builder setTimeZoneKey(TimeZoneKey timeZoneKey)
         {
