@@ -717,6 +717,56 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testShowCreateSchema()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_show_create_schema")
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        assertUpdate(admin, "CREATE ROLE test_show_create_schema_role");
+        assertUpdate(admin, "GRANT test_show_create_schema_role TO user");
+
+        assertUpdate(admin, "CREATE SCHEMA test_show_create_schema");
+
+        String createSchemaSql = format("" +
+                "CREATE SCHEMA %s.test_show_create_schema\n" +
+                "AUTHORIZATION USER hive\n" +
+                "WITH \\(\n" +
+                "   location = '.*test_show_create_schema'\n" +
+                "\\)",
+                getSession().getCatalog().get());
+
+        String actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
+        assertThat(actualResult).matches(createSchemaSql);
+
+        assertQueryFails(user, "SHOW CREATE SCHEMA test_show_create_schema", "Access Denied: Cannot show create schema for test_show_create_schema");
+
+        assertUpdate(admin, "ALTER SCHEMA test_show_create_schema SET AUTHORIZATION ROLE test_show_create_schema_role");
+
+        createSchemaSql = format("" +
+                "CREATE SCHEMA %s.test_show_create_schema\n" +
+                "AUTHORIZATION ROLE test_show_create_schema_role\n" +
+                "WITH \\(\n" +
+                "   location = '.*test_show_create_schema'\n" +
+                "\\)",
+                getSession().getCatalog().get());
+
+        actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
+        assertThat(actualResult).matches(createSchemaSql);
+
+        assertUpdate(user, "DROP SCHEMA test_show_create_schema");
+        assertUpdate(admin, "DROP ROLE test_show_create_schema_role");
+    }
+
+    @Test
     public void testIoExplain()
     {
         // Test IO explain with small number of discrete components.
