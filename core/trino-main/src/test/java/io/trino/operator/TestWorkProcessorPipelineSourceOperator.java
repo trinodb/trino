@@ -108,7 +108,9 @@ public class TestWorkProcessorPipelineSourceOperator
                 ImmutableList.of(
                         new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
                         new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT)),
-                        new OperatorFactoryWithTypes(secondOperatorFactory, ImmutableList.of(BIGINT)))));
+                        new OperatorFactoryWithTypes(secondOperatorFactory, ImmutableList.of(BIGINT))),
+                DataSize.ofBytes(0),
+                0));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
@@ -216,6 +218,33 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(sourceOperatorStats.getInputPositions(), pipelineOperatorStats.getInputPositions());
 
         assertEquals(sourceOperatorStats.getAddInputWall(), pipelineOperatorStats.getAddInputWall());
+    }
+
+    @Test
+    public void testMergePages()
+    {
+        Transformation<Split, Page> sourceOperatorPages = split -> TransformationState.ofResult(createPage(1), false);
+        Transformation<Page, Page> firstOperatorPages = page -> TransformationState.ofResult(
+                getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(1, 0).build()));
+
+        TestWorkProcessorSourceOperatorFactory sourceOperatorFactory = new TestWorkProcessorSourceOperatorFactory(
+                1,
+                new PlanNodeId("1"),
+                sourceOperatorPages);
+        TestWorkProcessorOperatorFactory firstOperatorFactory = new TestWorkProcessorOperatorFactory(2, firstOperatorPages);
+
+        SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
+                ImmutableList.of(
+                        new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT))),
+                DataSize.ofBytes(100),
+                100));
+
+        DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
+        SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
+        pipelineOperator.addSplit(createSplit());
+
+        assertTrue(pipelineOperator.getOutput().getPositionCount() > 100);
     }
 
     private TestOperatorInfo getTestingOperatorInfo(OperatorStats operatorStats)
