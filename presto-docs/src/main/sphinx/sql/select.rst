@@ -2,6 +2,11 @@
 SELECT
 ======
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
 Synopsis
 --------
 
@@ -52,8 +57,6 @@ Description
 -----------
 
 Retrieve rows from zero or more tables.
-
-.. contents::
 
 WITH Clause
 -----------
