@@ -469,15 +469,13 @@ public class LocalExecutionPlanner
         context.addDriverFactory(
                 context.isInputDriver(),
                 true,
-                ImmutableList.<OperatorFactory>builder()
-                        .addAll(physicalOperation.getOperatorFactories())
-                        .add(outputOperatorFactory.createOutputOperator(
-                                context.getNextOperatorId(),
-                                plan.getId(),
-                                outputTypes,
-                                pagePreprocessor,
-                                new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))))
-                        .build(),
+                physicalOperation,
+                outputOperatorFactory.createOutputOperator(
+                        context.getNextOperatorId(),
+                        plan.getId(),
+                        outputTypes,
+                        pagePreprocessor,
+                        new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
                 context.getDriverInstanceCount(),
                 physicalOperation.getPipelineExecutionStrategy());
 
@@ -561,6 +559,19 @@ public class LocalExecutionPlanner
             this.indexSourceContext = indexSourceContext;
             this.dynamicFiltersCollector = dynamicFiltersCollector;
             this.nextPipelineId = nextPipelineId;
+        }
+
+        public void addDriverFactory(boolean inputDriver, boolean outputDriver, PhysicalOperation physicalOperation, OperatorFactory finalOperatorFactory, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+        {
+            addDriverFactory(
+                    inputDriver,
+                    outputDriver,
+                    ImmutableList.<OperatorFactory>builder()
+                            .addAll(physicalOperation.getOperatorFactories())
+                            .add(finalOperatorFactory)
+                            .build(),
+                    driverInstances,
+                    pipelineExecutionStrategy);
         }
 
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
@@ -1839,10 +1850,8 @@ public class LocalExecutionPlanner
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(nestedLoopBuildOperatorFactory)
-                            .build(),
+                    buildSource,
+                    nestedLoopBuildOperatorFactory,
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
@@ -1974,10 +1983,8 @@ public class LocalExecutionPlanner
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(builderOperatorFactory)
-                            .build(),
+                    buildSource,
+                    builderOperatorFactory,
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
@@ -2025,6 +2032,8 @@ public class LocalExecutionPlanner
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            Map<Symbol, Integer> buildLayout = buildSource.getLayout();
+            List<Type> buildTypes = buildSource.getTypes();
 
             if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
                 checkState(
@@ -2044,7 +2053,7 @@ public class LocalExecutionPlanner
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
                             probeSource.getLayout(),
-                            buildSource.getLayout(),
+                            buildLayout,
                             context.getTypes(),
                             context.getSession()));
 
@@ -2054,7 +2063,7 @@ public class LocalExecutionPlanner
             Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
                     .map(Symbol::from)
-                    .map(sortSymbol -> createJoinSourcesLayout(buildSource.getLayout(), probeSource.getLayout()).get(sortSymbol));
+                    .map(sortSymbol -> createJoinSourcesLayout(buildLayout, probeSource.getLayout()).get(sortSymbol));
 
             List<JoinFilterFunctionFactory> searchFunctionFactories = sortExpressionContext
                     .map(SortExpressionContext::getSearchExpressions)
@@ -2062,7 +2071,7 @@ public class LocalExecutionPlanner
                             .map(searchExpression -> compileJoinFilterFunction(
                                     searchExpression,
                                     probeSource.getLayout(),
-                                    buildSource.getLayout(),
+                                    buildLayout,
                                     context.getTypes(),
                                     context.getSession()))
                             .collect(toImmutableList()))
@@ -2076,20 +2085,19 @@ public class LocalExecutionPlanner
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
                     lifespan -> new PartitionedLookupSourceFactory(
-                            buildSource.getTypes(),
+                            buildTypes,
                             buildOutputTypes,
                             buildChannels.stream()
-                                    .map(buildSource.getTypes()::get)
+                                    .map(buildTypes::get)
                                     .collect(toImmutableList()),
                             partitionCount,
                             buildOuter),
                     buildOutputTypes);
 
-            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
-            factoriesBuilder.addAll(buildSource.getOperatorFactories());
-
-            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
-                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node, buildSource, buildContext)));
+            Optional<LocalDynamicFilter> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount);
+            if (localDynamicFilter.isPresent()) {
+                buildSource = createDynamicFilterSourceOperatorFactory(localDynamicFilter.get(), node, buildSource, buildContext);
+            }
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2106,19 +2114,18 @@ public class LocalExecutionPlanner
                     spillEnabled && !buildOuter && partitionCount > 1,
                     singleStreamSpillerFactory);
 
-            factoriesBuilder.add(hashBuilderOperatorFactory);
-
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    factoriesBuilder.build(),
+                    buildSource,
+                    hashBuilderOperatorFactory,
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
             return lookupSourceFactoryManager;
         }
 
-        private DynamicFilterSourceOperatorFactory createDynamicFilterSourceOperatorFactory(
+        private PhysicalOperation createDynamicFilterSourceOperatorFactory(
                 LocalDynamicFilter dynamicFilter,
                 JoinNode node,
                 PhysicalOperation buildSource,
@@ -2132,13 +2139,17 @@ public class LocalExecutionPlanner
                         return new DynamicFilterSourceOperator.Channel(filterId, type, index);
                     })
                     .collect(Collectors.toList());
-            return new DynamicFilterSourceOperatorFactory(
-                    context.getNextOperatorId(),
-                    node.getId(),
-                    dynamicFilter.getTupleDomainConsumer(),
-                    filterBuildChannels,
-                    getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
-                    getDynamicFilteringMaxPerDriverSize(context.getSession()));
+            return new PhysicalOperation(
+                    new DynamicFilterSourceOperatorFactory(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            dynamicFilter.getTupleDomainConsumer(),
+                            filterBuildChannels,
+                            getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
+                            getDynamicFilteringMaxPerDriverSize(context.getSession())),
+                    buildSource.getLayout(),
+                    context,
+                    buildSource);
         }
 
         private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, JoinNode node, LocalExecutionPlanContext context, int partitionCount)
@@ -2245,10 +2256,8 @@ public class LocalExecutionPlanner
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(setBuilderOperatorFactory)
-                            .build(),
+                    buildSource,
+                    setBuilderOperatorFactory,
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
@@ -2502,16 +2511,20 @@ public class LocalExecutionPlanner
                     source.getPipelineExecutionStrategy(),
                     maxLocalExchangeBufferSize);
 
-            List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
             List<Symbol> expectedLayout = node.getInputs().get(0);
             Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
-            operatorFactories.add(new LocalExchangeSinkOperatorFactory(
-                    exchangeFactory,
-                    subContext.getNextOperatorId(),
-                    node.getId(),
-                    exchangeFactory.newSinkFactoryId(),
-                    pagePreprocessor));
-            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), source.getPipelineExecutionStrategy());
+            context.addDriverFactory(
+                    subContext.isInputDriver(),
+                    false,
+                    source,
+                    new LocalExchangeSinkOperatorFactory(
+                            exchangeFactory,
+                            subContext.getNextOperatorId(),
+                            node.getId(),
+                            exchangeFactory.newSinkFactoryId(),
+                            pagePreprocessor),
+                    subContext.getDriverInstanceCount(),
+                    source.getPipelineExecutionStrategy());
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -2581,18 +2594,17 @@ public class LocalExecutionPlanner
 
                 List<Symbol> expectedLayout = node.getInputs().get(i);
                 Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
-                List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
-                operatorFactories.add(new LocalExchangeSinkOperatorFactory(
-                        localExchangeFactory,
-                        subContext.getNextOperatorId(),
-                        node.getId(),
-                        localExchangeFactory.newSinkFactoryId(),
-                        pagePreprocessor));
                 context.addDriverFactory(
                         subContext.isInputDriver(),
                         false,
-                        operatorFactories,
+                        source,
+                        new LocalExchangeSinkOperatorFactory(
+                                localExchangeFactory,
+                                subContext.getNextOperatorId(),
+                                node.getId(),
+                                localExchangeFactory.newSinkFactoryId(),
+                                pagePreprocessor),
                         subContext.getDriverInstanceCount(),
                         exchangeSourcePipelineExecutionStrategy);
             }
