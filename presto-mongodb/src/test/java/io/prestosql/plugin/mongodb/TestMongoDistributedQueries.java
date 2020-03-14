@@ -13,10 +13,12 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -24,7 +26,7 @@ import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunne
 
 @Test
 public class TestMongoDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
     private MongoServer server;
 
@@ -40,5 +42,74 @@ public class TestMongoDistributedQueries
     public final void destroy()
     {
         server.close();
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    public void testCreateTable()
+    {
+        // TODO https://github.com/prestosql/presto/issues/3082
+        throw new SkipException("Fix DROP TABLE");
+    }
+
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        // TODO https://github.com/prestosql/presto/issues/3082
+        throw new SkipException("Fix DROP TABLE");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // the connector does not support creating schemas
+    }
+
+    @Override
+    public void testRenameTable()
+    {
+        // the connector does not support renaming tables
+    }
+
+    @Override
+    public void testAddColumn()
+    {
+        // the connector does not support adding columns
+    }
+
+    @Override
+    public void testRenameColumn()
+    {
+        // the connector does not support renaming columns
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // the connector does not support dropping columns
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // the connector does not support delete
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        // the connector does not support comment on table
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("test disabled for Mongo");
     }
 }
