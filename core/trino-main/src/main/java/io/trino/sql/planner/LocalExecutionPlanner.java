@@ -578,7 +578,10 @@ public class LocalExecutionPlanner
 
         private List<OperatorFactory> handleLateMaterialization(List<OperatorFactoryWithTypes> operatorFactories)
         {
-            return WorkProcessorPipelineSourceOperator.convertOperators(operatorFactories);
+            return WorkProcessorPipelineSourceOperator.convertOperators(
+                    operatorFactories,
+                    getFilterAndProjectMinOutputPageSize(taskContext.getSession()),
+                    getFilterAndProjectMinOutputPageRowCount(taskContext.getSession()));
         }
 
         private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
