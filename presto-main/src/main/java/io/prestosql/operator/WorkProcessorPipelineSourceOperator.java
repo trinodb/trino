@@ -591,7 +591,6 @@ public class WorkProcessorPipelineSourceOperator
         final Runnable allocationListener;
 
         InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, Runnable allocationListener)
-
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.allocationListener = requireNonNull(allocationListener, "allocationListener is null");
