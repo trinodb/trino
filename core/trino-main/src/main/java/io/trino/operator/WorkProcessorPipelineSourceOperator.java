@@ -28,6 +28,7 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -72,31 +73,39 @@ public class WorkProcessorPipelineSourceOperator
     private SettableFuture<?> blockedOnSplits = SettableFuture.create();
     private boolean operatorFinishing;
 
-    public static List<OperatorFactory> convertOperators(List<OperatorFactory> operatorFactories)
+    public static List<OperatorFactory> convertOperators(List<OperatorFactoryWithTypes> operatorFactoriesWithTypes)
     {
-        if (operatorFactories.isEmpty() || !(operatorFactories.get(0) instanceof WorkProcessorSourceOperatorFactory)) {
-            return operatorFactories;
+        if (operatorFactoriesWithTypes.isEmpty() || !(operatorFactoriesWithTypes.get(0).getOperatorFactory() instanceof WorkProcessorSourceOperatorFactory)) {
+            return toOperatorFactories(operatorFactoriesWithTypes);
         }
 
-        WorkProcessorSourceOperatorFactory sourceOperatorFactory = (WorkProcessorSourceOperatorFactory) operatorFactories.get(0);
+        WorkProcessorSourceOperatorFactory sourceOperatorFactory = (WorkProcessorSourceOperatorFactory) operatorFactoriesWithTypes.get(0).getOperatorFactory();
         ImmutableList.Builder<WorkProcessorOperatorFactory> workProcessorOperatorFactoriesBuilder = ImmutableList.builder();
         int operatorIndex = 1;
-        for (; operatorIndex < operatorFactories.size(); ++operatorIndex) {
-            if (!(operatorFactories.get(operatorIndex) instanceof WorkProcessorOperatorFactory)) {
+        for (; operatorIndex < operatorFactoriesWithTypes.size(); ++operatorIndex) {
+            OperatorFactory operatorFactory = operatorFactoriesWithTypes.get(operatorIndex).getOperatorFactory();
+            if (!(operatorFactory instanceof WorkProcessorOperatorFactory)) {
                 break;
             }
-            workProcessorOperatorFactoriesBuilder.add((WorkProcessorOperatorFactory) operatorFactories.get(operatorIndex));
+            workProcessorOperatorFactoriesBuilder.add((WorkProcessorOperatorFactory) operatorFactory);
         }
 
         List<WorkProcessorOperatorFactory> workProcessorOperatorFactories = workProcessorOperatorFactoriesBuilder.build();
         if (workProcessorOperatorFactories.isEmpty()) {
-            return operatorFactories;
+            return toOperatorFactories(operatorFactoriesWithTypes);
         }
 
         return ImmutableList.<OperatorFactory>builder()
                 .add(new WorkProcessorPipelineSourceOperatorFactory(sourceOperatorFactory, workProcessorOperatorFactories))
-                .addAll(operatorFactories.subList(operatorIndex, operatorFactories.size()))
+                .addAll(toOperatorFactories(operatorFactoriesWithTypes.subList(operatorIndex, operatorFactoriesWithTypes.size())))
                 .build();
+    }
+
+    public static List<OperatorFactory> toOperatorFactories(List<OperatorFactoryWithTypes> operatorFactoriesWithTypes)
+    {
+        return operatorFactoriesWithTypes.stream()
+                .map(OperatorFactoryWithTypes::getOperatorFactory)
+                .collect(toImmutableList());
     }
 
     private WorkProcessorPipelineSourceOperator(
