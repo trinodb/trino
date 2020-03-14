@@ -50,7 +50,7 @@ public class TestMongoIntegrationSmokeTest
     {
         this.server = new MongoServer();
         this.client = createMongoClient(server);
-        return createMongoQueryRunner(server, ORDERS);
+        return createMongoQueryRunner(server, ImmutableList.of(ORDERS), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)

@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import io.airlift.log.Logger;
@@ -36,18 +35,6 @@ public final class MongoQueryRunner
 
     private MongoQueryRunner() {}
 
-    public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createMongoQueryRunner(server, ImmutableList.copyOf(tables));
-    }
-
-    public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createMongoQueryRunner(server, tables, ImmutableMap.of());
-    }
-
     public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, Iterable<TpchTable<?>> tables, Map<String, String> extraProperties)
             throws Exception
     {
@@ -60,9 +47,10 @@ public final class MongoQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = ImmutableMap.of(
-                    "mongodb.seeds", server.getAddress().toString(),
-                    "mongodb.socket-keep-alive", "true");
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    .put("mongodb.seeds", server.getAddress().toString())
+                    .put("mongodb.socket-keep-alive", "true")
+                    .build();
 
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", properties);

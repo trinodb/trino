@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.mongodb;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
@@ -32,7 +33,7 @@ public class TestMongoDistributedQueries
             throws Exception
     {
         this.server = new MongoServer();
-        return createMongoQueryRunner(server, TpchTable.getTables());
+        return createMongoQueryRunner(server, TpchTable.getTables(), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
