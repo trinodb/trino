@@ -262,6 +262,7 @@ import static io.trino.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
+import static io.trino.operator.WorkProcessorPipelineSourceOperator.toOperatorFactories;
 import static io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -562,16 +563,20 @@ public class LocalExecutionPlanner
 
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, PhysicalOperation physicalOperation, OptionalInt driverInstances)
         {
-            List<OperatorFactory> operatorFactories = physicalOperation.getOperatorFactories();
-            validateFirstOperatorFactory(inputDriver, operatorFactories.get(0), physicalOperation.getPipelineExecutionStrategy());
-            addLookupOuterDrivers(outputDriver, operatorFactories);
+            List<OperatorFactoryWithTypes> operatorFactoriesWithTypes = physicalOperation.getOperatorFactoriesWithTypes();
+            validateFirstOperatorFactory(inputDriver, operatorFactoriesWithTypes.get(0).getOperatorFactory(), physicalOperation.getPipelineExecutionStrategy());
+            addLookupOuterDrivers(outputDriver, toOperatorFactories(operatorFactoriesWithTypes));
+            List<OperatorFactory> operatorFactories;
             if (isLateMaterializationEnabled(taskContext.getSession())) {
-                operatorFactories = handleLateMaterialization(operatorFactories);
+                operatorFactories = handleLateMaterialization(operatorFactoriesWithTypes);
+            }
+            else {
+                operatorFactories = toOperatorFactories(operatorFactoriesWithTypes);
             }
             driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, physicalOperation.getPipelineExecutionStrategy()));
         }
 
-        private List<OperatorFactory> handleLateMaterialization(List<OperatorFactory> operatorFactories)
+        private List<OperatorFactory> handleLateMaterialization(List<OperatorFactoryWithTypes> operatorFactories)
         {
             return WorkProcessorPipelineSourceOperator.convertOperators(operatorFactories);
         }
@@ -748,6 +753,28 @@ public class LocalExecutionPlanner
         public StageExecutionDescriptor getStageExecutionDescriptor()
         {
             return stageExecutionDescriptor;
+        }
+    }
+
+    public static class OperatorFactoryWithTypes
+    {
+        private final OperatorFactory operatorFactory;
+        private final List<Type> types;
+
+        public OperatorFactoryWithTypes(OperatorFactory operatorFactory, List<Type> types)
+        {
+            this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
+            this.types = requireNonNull(types, "types is null");
+        }
+
+        public OperatorFactory getOperatorFactory()
+        {
+            return operatorFactory;
+        }
+
+        public List<Type> getTypes()
+        {
+            return types;
         }
     }
 
@@ -3301,7 +3328,7 @@ public class LocalExecutionPlanner
      */
     private static class PhysicalOperation
     {
-        private final List<OperatorFactory> operatorFactories;
+        private final List<OperatorFactoryWithTypes> operatorFactoriesWithTypes;
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
 
@@ -3335,12 +3362,12 @@ public class LocalExecutionPlanner
             requireNonNull(source, "source is null");
             requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
-            this.operatorFactories = ImmutableList.<OperatorFactory>builder()
-                    .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
-                    .add(operatorFactory)
+            this.types = toTypes(layout, typeProvider);
+            this.operatorFactoriesWithTypes = ImmutableList.<OperatorFactoryWithTypes>builder()
+                    .addAll(source.map(PhysicalOperation::getOperatorFactoriesWithTypes).orElse(ImmutableList.of()))
+                    .add(new OperatorFactoryWithTypes(operatorFactory, types))
                     .build();
             this.layout = ImmutableMap.copyOf(layout);
-            this.types = toTypes(layout, typeProvider);
             this.pipelineExecutionStrategy = pipelineExecutionStrategy;
         }
 
@@ -3377,7 +3404,12 @@ public class LocalExecutionPlanner
 
         private List<OperatorFactory> getOperatorFactories()
         {
-            return operatorFactories;
+            return toOperatorFactories(operatorFactoriesWithTypes);
+        }
+
+        private List<OperatorFactoryWithTypes> getOperatorFactoriesWithTypes()
+        {
+            return operatorFactoriesWithTypes;
         }
 
         public PipelineExecutionStrategy getPipelineExecutionStrategy()
