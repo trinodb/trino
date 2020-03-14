@@ -75,6 +75,7 @@ public class ScanFilterAndProjectOperator
     private long processedBytes;
     private long physicalBytes;
     private long readTimeNanos;
+    private long dynamicFilterSplitsProcessed;
 
     private ScanFilterAndProjectOperator(
             Session session,
@@ -148,6 +149,12 @@ public class ScanFilterAndProjectOperator
     public Duration getReadTime()
     {
         return new Duration(readTimeNanos, NANOSECONDS);
+    }
+
+    @Override
+    public long getDynamicFilterSplitsProcessed()
+    {
+        return dynamicFilterSplitsProcessed;
     }
 
     @Override
@@ -234,6 +241,10 @@ public class ScanFilterAndProjectOperator
             }
 
             checkState(cursor == null && pageSource == null, "Table scan split already set");
+
+            if (!dynamicFilter.get().isAll()) {
+                dynamicFilterSplitsProcessed++;
+            }
 
             ConnectorPageSource source;
             if (split.getConnectorSplit() instanceof EmptySplit) {

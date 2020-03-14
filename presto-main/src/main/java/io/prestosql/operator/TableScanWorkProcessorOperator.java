@@ -108,6 +108,12 @@ public class TableScanWorkProcessorOperator
     }
 
     @Override
+    public long getDynamicFilterSplitsProcessed()
+    {
+        return splitToPages.getDynamicFilterSplitsProcessed();
+    }
+
+    @Override
     public Duration getReadTime()
     {
         return splitToPages.getReadTime();
@@ -132,6 +138,7 @@ public class TableScanWorkProcessorOperator
 
         long processedBytes;
         long processedPositions;
+        long dynamicFilterSplitsProcessed;
 
         @Nullable
         ConnectorPageSource source;
@@ -160,6 +167,9 @@ public class TableScanWorkProcessorOperator
             }
 
             checkState(source == null, "Table scan split already set");
+            if (!dynamicFilter.get().isAll()) {
+                dynamicFilterSplitsProcessed++;
+            }
             source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
             return TransformationState.ofResult(
                     WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
@@ -202,6 +212,11 @@ public class TableScanWorkProcessorOperator
         long getInputPositions()
         {
             return processedPositions;
+        }
+
+        long getDynamicFilterSplitsProcessed()
+        {
+            return dynamicFilterSplitsProcessed;
         }
 
         Duration getReadTime()
