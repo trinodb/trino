@@ -14,11 +14,13 @@
 package io.prestosql.plugin.blackhole;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -89,6 +91,18 @@ public class BlackHoleMetadata
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
         }
         schemas.add(schemaName);
+    }
+
+    @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return ImmutableMap.of();
     }
 
     @Override

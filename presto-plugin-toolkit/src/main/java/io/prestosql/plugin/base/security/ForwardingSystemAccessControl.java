@@ -142,6 +142,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(SystemSecurityContext context, CatalogSchemaName schemaName)
+    {
+        delegate().checkCanShowCreateSchema(context, schemaName);
+    }
+
+    @Override
     public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanShowCreateTable(context, table);

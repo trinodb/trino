@@ -897,6 +897,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowCreateSchema(SqlBaseParser.ShowCreateSchemaContext context)
+    {
+        return new ShowCreate(getLocation(context), ShowCreate.Type.SCHEMA, getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
     public Node visitShowCreateView(SqlBaseParser.ShowCreateViewContext context)
     {
         return new ShowCreate(getLocation(context), ShowCreate.Type.VIEW, getQualifiedName(context.qualifiedName()));

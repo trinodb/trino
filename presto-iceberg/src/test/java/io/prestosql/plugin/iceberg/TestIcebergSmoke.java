@@ -45,6 +45,17 @@ public class TestIcebergSmoke
     }
 
     @Test
+    public void testShowCreateSchema()
+    {
+        assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
+                .matches("CREATE SCHEMA iceberg.tpch\n" +
+                         "AUTHORIZATION USER user\n" +
+                         "WITH \\(\n" +
+                         "   location = '.*/iceberg_data/tpch'\n" +
+                         "\\)");
+    }
+
+    @Test
     @Override
     public void testDescribeTable()
     {

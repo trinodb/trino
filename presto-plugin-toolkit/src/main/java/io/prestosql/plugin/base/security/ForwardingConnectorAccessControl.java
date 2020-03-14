@@ -85,6 +85,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+        delegate().checkCanShowCreateSchema(context, schemaName);
+    }
+
+    @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanShowCreateTable(context, tableName);

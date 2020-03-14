@@ -25,6 +25,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataUtil;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.prestosql.metadata.TableHandle;
@@ -46,6 +47,7 @@ import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.ColumnDefinition;
+import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.CreateView;
 import io.prestosql.sql.tree.DoubleLiteral;
@@ -57,6 +59,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Parameter;
+import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.Property;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
@@ -98,6 +101,7 @@ import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
@@ -127,6 +131,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.LogicalBinaryExpression.and;
+import static io.prestosql.sql.tree.ShowCreate.Type.SCHEMA;
 import static io.prestosql.sql.tree.ShowCreate.Type.TABLE;
 import static io.prestosql.sql.tree.ShowCreate.Type.VIEW;
 import static java.lang.String.format;
@@ -427,10 +432,10 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
-            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-            Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
-
             if (node.getType() == VIEW) {
+                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
+
                 if (!viewDefinition.isPresent()) {
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
@@ -451,6 +456,9 @@ final class ShowQueriesRewrite
             }
 
             if (node.getType() == TABLE) {
+                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
+
                 if (viewDefinition.isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
@@ -486,7 +494,31 @@ final class ShowQueriesRewrite
                 return singleValueQuery("Create Table", formatSql(createTable).trim());
             }
 
-            throw new UnsupportedOperationException("SHOW CREATE only supported for tables and views");
+            if (node.getType() == SCHEMA) {
+                CatalogSchemaName schemaName = createCatalogSchemaName(session, node, Optional.of(node.getName()));
+
+                if (!metadata.schemaExists(session, schemaName)) {
+                    throw semanticException(SCHEMA_NOT_FOUND, node, "Schema '%s' does not exist", schemaName);
+                }
+
+                accessControl.checkCanShowCreateSchema(session.toSecurityContext(), schemaName);
+
+                Map<String, Object> properties = metadata.getSchemaProperties(session, schemaName);
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getSchemaPropertyManager().getAllProperties().get(new CatalogName(schemaName.getCatalogName()));
+                QualifiedName qualifiedSchemaName = QualifiedName.of(schemaName.getCatalogName(), schemaName.getSchemaName());
+                List<Property> propertyNodes = buildProperties(qualifiedSchemaName, Optional.empty(), INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
+
+                Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(principal -> MetadataUtil.createPrincipal(principal));
+
+                CreateSchema createSchema = new CreateSchema(
+                        qualifiedSchemaName,
+                        false,
+                        propertyNodes,
+                        owner);
+                return singleValueQuery("Create Schema", formatSql(createSchema).trim());
+            }
+
+            throw new UnsupportedOperationException("SHOW CREATE only supported for schemas, tables and views");
         }
 
         private List<Property> buildProperties(
