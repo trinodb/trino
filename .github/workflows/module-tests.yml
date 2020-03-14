@@ -56,24 +56,6 @@ jobs:
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
             presto-hive-hadoop2/bin/run_hive_alluxio_tests.sh
 
-  kudu-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-java@v1
-        with:
-          java-version: 8
-      - name: Install Kudu Module
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
-      - name: Run Kudu Tests -- disable InferSchema
-        run: presto-kudu/bin/run_kudu_tests.sh "null"
-      - name: Run Kudu Tests -- enable InferSchema, empty prefix
-        run: presto-kudu/bin/run_kudu_tests.sh ""
-      - name: Run Kudu Tests -- enable InferSchema, standard prefix
-        run: presto-kudu/bin/run_kudu_tests.sh "presto::"
-
   test-other-modules:
     runs-on: ubuntu-latest
     steps:
@@ -118,6 +100,7 @@ jobs:
           "presto-redis",
           "presto-sqlserver,presto-postgresql,presto-mysql",
           "presto-phoenix,presto-iceberg",
+          "presto-kudu",
         ]
     steps:
       - uses: actions/checkout@v1
