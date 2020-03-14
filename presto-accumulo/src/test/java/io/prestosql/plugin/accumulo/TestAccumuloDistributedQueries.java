@@ -23,6 +23,8 @@ import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -357,5 +359,18 @@ public class TestAccumuloDistributedQueries
     {
         // Accumulo connector currently does not support comment on table
         assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.startsWith("decimal(")
+                || typeName.equals("timestamp with time zone")
+                || typeName.startsWith("char(")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 }
