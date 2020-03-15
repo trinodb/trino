@@ -3,12 +3,12 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>327</version>
+        <version>331-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>presto-sybase</artifactId>
-    <description>Presto - Sybase Connector</description>
+    <artifactId>presto-genericjdbc</artifactId>
+    <description>Presto - Generic JDBC Connector</description>
     <packaging>presto-plugin</packaging>
 
     <properties>
@@ -35,14 +35,6 @@
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
         </dependency>
-
-        <dependency>
-      			<groupId>jconn4</groupId>
-      			<artifactId>jconn4</artifactId>
-<version>16.0</version>
-<scope>system</scope>
-	<systemPath>${basedir}/jconn4-16.jar</systemPath>        
-</dependency>
 
         <dependency>
             <groupId>javax.inject</groupId>
@@ -98,17 +90,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-testing-docker</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift.tpch</groupId>
-            <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>

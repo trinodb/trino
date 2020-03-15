@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.sybase;
+package io.prestosql.plugin.genericjdbc;
 
 import io.prestosql.plugin.jdbc.JdbcPlugin;
 
-public class SybasePlugin
+public class GenericJdbcPlugin
         extends JdbcPlugin
 {
-    public SybasePlugin()
+    public GenericJdbcPlugin()
     {
-        super("sybase", new SybaseClientModule());
+        super("genericjdbc", new GenericJdbcClientModule());
     }
 }

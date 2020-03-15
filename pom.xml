@@ -101,7 +101,6 @@
         <module>presto-postgresql</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
-        <module>presto-sybase</module>
         <module>presto-mongodb</module>
         <module>presto-client</module>
         <module>presto-parser</module>
@@ -138,6 +137,7 @@
         <module>presto-iceberg</module>
         <module>presto-google-sheets</module>
         <module>presto-bigquery</module>
+        <module>presto-genericjdbc</module>
     </modules>
 
     <dependencyManagement>
@@ -439,7 +439,7 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-sybase</artifactId>
+                <artifactId>presto-genericjdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

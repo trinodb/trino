@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.sybase;
+package io.prestosql.plugin.genericjdbc;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -19,24 +19,28 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import com.sybase.jdbc4.jdbc.SybDriver;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.prestosql.spi.PrestoException;
+
+import java.lang.reflect.InvocationTargetException;
+import java.sql.Driver;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.jdbc.JdbcErrorCode.DRIVER_NOT_FOUND;
 
-public class SybaseClientModule
+public class GenericJdbcClientModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
-                .to(SybaseClient.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class)).to(GenericJdbcClient.class)
+                 .in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
     }
 
@@ -45,6 +49,32 @@ public class SybaseClientModule
     @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
-        return new DriverConnectionFactory(new SybDriver(), config, credentialProvider);
+        try {
+            Class.forName(config.getDriverClass());
+        }
+        catch (ClassNotFoundException e) {
+            throw new PrestoException(DRIVER_NOT_FOUND, config.getDriverClass() + " not found");
+        }
+        try {
+            try {
+                return new DriverConnectionFactory((Driver) Class.forName(config.getDriverClass()).getConstructor().newInstance(), config, credentialProvider);
+            }
+            catch (InvocationTargetException e) {
+                e.printStackTrace();
+            }
+            catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            }
+        }
+        catch (InstantiationException e) {
+            e.printStackTrace();
+        }
+        catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }

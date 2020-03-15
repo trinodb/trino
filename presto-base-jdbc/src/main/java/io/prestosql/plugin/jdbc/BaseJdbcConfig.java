@@ -35,6 +35,7 @@ public class BaseJdbcConfig
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
     private Duration metadataCacheTtl = new Duration(0, MINUTES);
     private boolean cacheMissing;
+    private String driverClass;
 
     @NotNull
     public String getConnectionUrl()
@@ -46,6 +47,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionUrl(String connectionUrl)
     {
         this.connectionUrl = connectionUrl;
+        return this;
+    }
+
+    public String getDriverClass()
+    {
+        return driverClass;
+    }
+
+    @Config("driver-class")
+    public BaseJdbcConfig setDriverClass(String driverClass)
+    {
+        this.driverClass = driverClass;
         return this;
     }
 

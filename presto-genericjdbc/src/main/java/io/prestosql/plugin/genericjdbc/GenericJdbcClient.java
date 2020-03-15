@@ -11,21 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.sybase;
+package io.prestosql.plugin.genericjdbc;
 
 import com.google.common.base.Joiner;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.WriteMapping;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Type;
@@ -37,11 +32,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -50,56 +42,26 @@ import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
-public class SybaseClient
+public class GenericJdbcClient
         extends BaseJdbcClient
 {
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
     // Sybase supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
-    private static final int SYBASE_MAX_LIST_EXPRESSIONS = 500;
+    private static final int MAX_LIST_EXPRESSIONS = 500;
 
     // TODO improve this by calling Domain#simplify
     private static final UnaryOperator<Domain> DISABLE_UNSUPPORTED_PUSHDOWN = domain -> {
-        if (domain.getValues().getRanges().getRangeCount() <= SYBASE_MAX_LIST_EXPRESSIONS) {
+        if (domain.getValues().getRanges().getRangeCount() <= MAX_LIST_EXPRESSIONS) {
             return domain;
         }
         return Domain.all(domain.getType());
     };
 
     @Inject
-    public SybaseClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    public GenericJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
         super(config, "\"", connectionFactory);
-    }
-
-    @Override
-    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
-    {
-        String sql = format(
-                "sp_rename %s, %s",
-                singleQuote(catalogName, schemaName, tableName),
-                singleQuote(newTable.getTableName()));
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
-    {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            String sql = format(
-                    "sp_rename %s, %s, 'COLUMN'",
-                    singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
-                    singleQuote(newColumnName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
     }
 
     @Override
@@ -129,7 +91,6 @@ public class SybaseClient
                         columnMapping.getType(),
                         columnMapping.getReadFunction(),
                         columnMapping.getWriteFunction(),
-                        columnMapping.getWriteNullFunction(),
                         DISABLE_UNSUPPORTED_PUSHDOWN));
     }
 
@@ -169,19 +130,9 @@ public class SybaseClient
     }
 
     @Override
-    protected Optional<BiFunction<String, Long, String>> limitFunction()
-    {
-        return Optional.of((sql, limit) -> {
-            String start = "SELECT ";
-            checkArgument(sql.startsWith(start));
-            return "SELECT TOP " + limit + " " + sql.substring(start.length());
-        });
-    }
-
-    @Override
     public boolean isLimitGuaranteed()
     {
-        return true;
+        return false;
     }
 
     private static String singleQuote(String... objects)
