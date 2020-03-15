@@ -44,6 +44,7 @@ public class HiveMetadataFactory
     private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean createsOfNonManagedTablesV2Enabled;
     private final boolean translateHiveViews;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastore metastore;
@@ -91,6 +92,7 @@ public class HiveMetadataFactory
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveConfig.getCreatesOfNonManagedTablesV2Enabled(),
                 hiveConfig.isTranslateHiveViews(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
@@ -117,6 +119,7 @@ public class HiveMetadataFactory
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean createsOfNonManagedTablesV2Enabled,
             boolean translateHiveViews,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
@@ -135,6 +138,7 @@ public class HiveMetadataFactory
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.createsOfNonManagedTablesV2Enabled = createsOfNonManagedTablesV2Enabled;
         this.translateHiveViews = translateHiveViews;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
@@ -184,6 +188,7 @@ public class HiveMetadataFactory
                 allowCorruptWritesForTesting,
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
+                createsOfNonManagedTablesV2Enabled,
                 translateHiveViews,
                 typeManager,
                 locationService,

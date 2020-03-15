@@ -64,6 +64,7 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
 import io.prestosql.spi.connector.InMemoryRecordSet;
+import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
@@ -137,7 +138,9 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_TABLE_LOCATION;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
@@ -273,6 +276,7 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean createsOfNonManagedTablesV2Enabled;
     private final boolean translateHiveViews;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
@@ -288,6 +292,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean createsOfNonManagedTablesV2Enabled,
             boolean translateHiveViews,
             TypeManager typeManager,
             LocationService locationService,
@@ -309,6 +314,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.createsOfNonManagedTablesV2Enabled = createsOfNonManagedTablesV2Enabled;
         this.translateHiveViews = translateHiveViews;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
@@ -811,12 +817,26 @@ public class HiveMetadata
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
-            if (!createsOfNonManagedTablesEnabled) {
+            if (!createsOfNonManagedTablesV2Enabled && !createsOfNonManagedTablesEnabled) {
                 throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
             }
 
-            external = true;
             targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
+
+            if (createsOfNonManagedTablesV2Enabled) {
+                Database database = metastore.getDatabase(schemaName)
+                        .orElseThrow(() -> new SchemaNotFoundException(schemaName));
+                Optional<String> location = database.getLocation();
+                if (!location.isPresent() || location.get().isEmpty()) {
+                    throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
+                }
+                String databaseLocation = location.get();
+                if (!targetPath.toString().startsWith(databaseLocation)) {
+                    throw new PrestoException(HIVE_INVALID_TABLE_LOCATION, "The schema location must be a prefix of the table external location");
+                }
+            }
+
+            external = true;
         }
         else {
             external = false;

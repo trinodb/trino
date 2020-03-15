@@ -102,6 +102,7 @@ public class HiveConfig
     private boolean optimizeMismatchedBucketCount;
     private boolean writesToNonManagedTablesEnabled;
     private boolean createsOfNonManagedTablesEnabled = true;
+    private boolean createsOfNonManagedTablesV2Enabled;
 
     private boolean tableStatisticsEnabled = true;
     private int partitionStatisticsSampleSize = 100;
@@ -710,6 +711,19 @@ public class HiveConfig
     public boolean getCreatesOfNonManagedTablesEnabled()
     {
         return createsOfNonManagedTablesEnabled;
+    }
+
+    @Config("hive.non-managed-table-creates-v2-enabled")
+    @ConfigDescription("Enable non-managed (external) table version 2 creates")
+    public HiveConfig setCreatesOfNonManagedTablesV2Enabled(boolean createsOfNonManagedTablesV2Enabled)
+    {
+        this.createsOfNonManagedTablesV2Enabled = createsOfNonManagedTablesV2Enabled;
+        return this;
+    }
+
+    public boolean getCreatesOfNonManagedTablesV2Enabled()
+    {
+        return createsOfNonManagedTablesV2Enabled;
     }
 
     @Config("hive.table-statistics-enabled")
