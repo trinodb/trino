@@ -26,6 +26,6 @@ jobs:
           java-version: ${{ matrix.java-version }}
       - name: Maven Checks
         run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # maven.wagon.rto is in millis, defaults to 30m
-          ./bin/retry ./mvnw install -e -Dmaven.wagon.rto=300000 -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS} -Dmaven.wagon.rto=300000"
+          ./bin/retry ./mvnw install -e -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
