@@ -7,7 +7,7 @@ x() {
     "$@"
 }
 
-max_retry_time_seconds=$(( 10 * 60 ))
+max_retry_time_seconds=$(( 30 * 60 ))
 retry_delay_seconds=10
 
 END=$(( $(date +%s) + ${max_retry_time_seconds} ))
