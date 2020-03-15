@@ -27,4 +27,5 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install -e -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
+          # maven.wagon.rto is in millis, defaults to 30m
+          ./bin/retry ./mvnw install -e -Dmaven.wagon.rto=300000 -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
