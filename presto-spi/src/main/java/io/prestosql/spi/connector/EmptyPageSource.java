@@ -11,32 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.split;
+package io.prestosql.spi.connector;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.UpdatablePageSource;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-public class EmptySplitPageSource
+public class EmptyPageSource
         implements UpdatablePageSource
 {
     @Override
     public void deleteRows(Block rowIds)
     {
-        throw new UnsupportedOperationException("deleteRows called on EmptySplitPageSource");
+        throw new UnsupportedOperationException("deleteRows called on EmptyPageSource");
     }
 
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        return completedFuture(ImmutableList.of());
+        return completedFuture(Collections.emptyList());
     }
 
     @Override
