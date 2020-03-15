@@ -34,7 +34,6 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.CharType;
@@ -243,14 +242,7 @@ public class HivePartitionManager
         effectivePredicate.getDomains().ifPresent(domains -> {
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
-
-                ValueSet values = entry.getValue().getValues();
-                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
-                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
-                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
-                        allOrNone -> Optional.empty())
-                        .orElse(values);
-                builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
+                builder.put(hiveColumnHandle, entry.getValue().simplify(threshold));
             }
         });
         return TupleDomain.withColumnDomains(builder.build());
