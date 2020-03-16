@@ -19,9 +19,12 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.prestosql.plugin.hive.HiveConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -36,6 +39,8 @@ public class HiveS3Module
     {
         S3FileSystemType type = buildConfigObject(HiveS3TypeConfig.class).getS3FileSystemType();
         if (type == S3FileSystemType.PRESTO) {
+            bindSecurityMapping(binder);
+
             newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(PrestoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(HiveS3Config.class);
 
@@ -53,6 +58,16 @@ public class HiveS3Module
         }
         else {
             throw new RuntimeException("Unknown file system type: " + type);
+        }
+    }
+
+    private void bindSecurityMapping(Binder binder)
+    {
+        if (buildConfigObject(S3SecurityMappingConfig.class).getConfigFile().isPresent()) {
+            checkArgument(!buildConfigObject(HiveConfig.class).isS3SelectPushdownEnabled(), "S3 security mapping is not compatible with S3 Select pushdown");
+
+            newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
+                    .to(S3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
         }
     }
 
