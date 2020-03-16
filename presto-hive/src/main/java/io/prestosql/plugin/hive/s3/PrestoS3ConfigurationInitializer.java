@@ -51,7 +51,6 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSL_ENABLED;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STORAGE_CLASS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 
 public class PrestoS3ConfigurationInitializer
         implements ConfigurationInitializer
@@ -62,7 +61,6 @@ public class PrestoS3ConfigurationInitializer
     private final PrestoS3StorageClass s3StorageClass;
     private final PrestoS3SignerType signerType;
     private final boolean pathStyleAccess;
-    private final boolean useInstanceCredentials;
     private final String iamRole;
     private final boolean sslEnabled;
     private final boolean sseEnabled;
@@ -97,7 +95,6 @@ public class PrestoS3ConfigurationInitializer
         this.signerType = config.getS3SignerType();
         this.signerClass = config.getS3SignerClass();
         this.pathStyleAccess = config.isS3PathStyleAccess();
-        this.useInstanceCredentials = config.isS3UseInstanceCredentials();
         this.iamRole = config.getS3IamRole();
         this.sslEnabled = config.isS3SslEnabled();
         this.sseEnabled = config.isS3SseEnabled();
@@ -147,7 +144,6 @@ public class PrestoS3ConfigurationInitializer
             config.set(S3_SIGNER_CLASS, signerClass);
         }
         config.setBoolean(S3_PATH_STYLE_ACCESS, pathStyleAccess);
-        config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
         if (iamRole != null) {
             config.set(S3_IAM_ROLE, iamRole);
         }
