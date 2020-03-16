@@ -33,6 +33,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.SqlFunction;
+import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.Plugin;
@@ -97,7 +98,9 @@ public class DistributedQueryRunner
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             String environment,
-            Optional<Path> baseDataDir)
+            Optional<Path> baseDataDir,
+            String systemAccessControlName,
+            Map<String, String> systemAccessControlProperties)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -111,14 +114,28 @@ public class DistributedQueryRunner
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
             for (int i = 1; i < nodeCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, environment, baseDataDir));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(
+                        discoveryServer.getBaseUrl(),
+                        false,
+                        extraProperties,
+                        environment,
+                        baseDataDir,
+                        systemAccessControlName,
+                        systemAccessControlProperties));
                 servers.add(worker);
             }
 
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, environment, baseDataDir));
+            coordinator = closer.register(createTestingPrestoServer(
+                    discoveryServer.getBaseUrl(),
+                    true,
+                    extraCoordinatorProperties,
+                    environment,
+                    baseDataDir,
+                    systemAccessControlName,
+                    systemAccessControlProperties));
             servers.add(coordinator);
 
             this.servers = servers.build();
@@ -150,7 +167,14 @@ public class DistributedQueryRunner
         }
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, String environment, Optional<Path> baseDataDir)
+    private static TestingPrestoServer createTestingPrestoServer(
+            URI discoveryUri,
+            boolean coordinator,
+            Map<String, String> extraProperties,
+            String environment,
+            Optional<Path> baseDataDir,
+            String systemAccessControlName,
+            Map<String, String> systemAccessControlProperties)
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
@@ -173,6 +197,7 @@ public class DistributedQueryRunner
                 .setEnvironment(environment)
                 .setDiscoveryUri(discoveryUri)
                 .setBaseDataDir(baseDataDir)
+                .setSystemAccessControl(systemAccessControlName, systemAccessControlProperties)
                 .build();
 
         String nodeRole = coordinator ? "coordinator" : "worker";
@@ -187,7 +212,14 @@ public class DistributedQueryRunner
         ImmutableList.Builder<TestingPrestoServer> serverBuilder = new ImmutableList.Builder<TestingPrestoServer>()
                 .addAll(servers);
         for (int i = 0; i < nodeCount; i++) {
-            TestingPrestoServer server = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, ImmutableMap.of(), ENVIRONMENT, Optional.empty()));
+            TestingPrestoServer server = closer.register(createTestingPrestoServer(
+                    discoveryServer.getBaseUrl(),
+                    false,
+                    ImmutableMap.of(),
+                    ENVIRONMENT,
+                    Optional.empty(),
+                    AllowAllSystemAccessControl.NAME,
+                    ImmutableMap.of()));
             serverBuilder.add(server);
             // add functions
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
@@ -486,6 +518,8 @@ public class DistributedQueryRunner
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private String environment = ENVIRONMENT;
         private Optional<Path> baseDataDir = Optional.empty();
+        private String systemAccessControlName = AllowAllSystemAccessControl.NAME;
+        private Map<String, String> systemAccessControlProperties = ImmutableMap.of();
 
         protected Builder(Session defaultSession)
         {
@@ -549,10 +583,26 @@ public class DistributedQueryRunner
             return this;
         }
 
+        @SuppressWarnings("unused")
+        public Builder setSystemAccessControl(String name, Map<String, String> properties)
+        {
+            this.systemAccessControlName = requireNonNull(name, "name is null");
+            this.systemAccessControlProperties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, environment, baseDataDir);
+            return new DistributedQueryRunner(
+                    defaultSession,
+                    nodeCount,
+                    extraProperties,
+                    coordinatorProperties,
+                    environment,
+                    baseDataDir,
+                    systemAccessControlName,
+                    systemAccessControlProperties);
         }
     }
 }
