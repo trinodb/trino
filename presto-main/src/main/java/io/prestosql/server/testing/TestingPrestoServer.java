@@ -181,8 +181,8 @@ public class TestingPrestoServer
     private TestingPrestoServer(
             boolean coordinator,
             Map<String, String> properties,
-            String environment,
-            URI discoveryUri,
+            Optional<String> environment,
+            Optional<URI> discoveryUri,
             Module additionalModule,
             Optional<Path> baseDataDir,
             String systemAccessControlName,
@@ -213,7 +213,7 @@ public class TestingPrestoServer
         }
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
-                .add(new TestingNodeModule(Optional.ofNullable(environment)))
+                .add(new TestingNodeModule(environment))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
                 .add(new JaxrsModule())
@@ -243,9 +243,9 @@ public class TestingPrestoServer
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                 });
 
-        if (discoveryUri != null) {
+        if (discoveryUri.isPresent()) {
             requireNonNull(environment, "environment required when discoveryUri is present");
-            serverProperties.put("discovery.uri", discoveryUri.toString());
+            serverProperties.put("discovery.uri", discoveryUri.get().toString());
             modules.add(new DiscoveryModule());
         }
         else {
@@ -257,9 +257,7 @@ public class TestingPrestoServer
         Bootstrap app = new Bootstrap(modules.build());
 
         Map<String, String> optionalProperties = new HashMap<>();
-        if (environment != null) {
-            optionalProperties.put("node.environment", environment);
-        }
+        environment.ifPresent(env -> optionalProperties.put("node.environment", env));
 
         injector = app
                 .strictConfig()
@@ -551,8 +549,8 @@ public class TestingPrestoServer
     {
         private boolean coordinator = true;
         private Map<String, String> properties = ImmutableMap.of();
-        private String environment;
-        private URI discoveryUri;
+        private Optional<String> environment = Optional.empty();
+        private Optional<URI> discoveryUri = Optional.empty();
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
         private String systemAccessControlName = AllowAllSystemAccessControl.NAME;
@@ -572,13 +570,13 @@ public class TestingPrestoServer
 
         public Builder setEnvironment(String environment)
         {
-            this.environment = requireNonNull(environment, "environment is null");
+            this.environment = Optional.of(environment);
             return this;
         }
 
         public Builder setDiscoveryUri(URI discoveryUri)
         {
-            this.discoveryUri = requireNonNull(discoveryUri, "discoveryUri is null");
+            this.discoveryUri = Optional.of(discoveryUri);
             return this;
         }
 
