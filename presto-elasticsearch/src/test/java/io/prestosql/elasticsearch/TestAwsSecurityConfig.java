@@ -30,8 +30,7 @@ public class TestAwsSecurityConfig
         assertRecordedDefaults(recordDefaults(AwsSecurityConfig.class)
                 .setAccessKey(null)
                 .setSecretKey(null)
-                .setRegion(null)
-                .setUseInstanceCredentials(false));
+                .setRegion(null));
     }
 
     @Test
@@ -41,14 +40,12 @@ public class TestAwsSecurityConfig
                 .put("elasticsearch.aws.access-key", "access")
                 .put("elasticsearch.aws.secret-key", "secret")
                 .put("elasticsearch.aws.region", "region")
-                .put("elasticsearch.aws.use-instance-credentials", "true")
                 .build();
 
         AwsSecurityConfig expected = new AwsSecurityConfig()
                 .setAccessKey("access")
                 .setSecretKey("secret")
-                .setRegion("region")
-                .setUseInstanceCredentials(true);
+                .setRegion("region");
 
         assertFullMapping(properties, expected);
     }
