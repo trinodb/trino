@@ -429,6 +429,102 @@ or credentials for a specific use case (e.g., bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
 
+S3 Security Mapping
+^^^^^^^^^^^^^^^^^^^
+
+Presto supports flexible security mapping for S3, allowing for separate
+credentials or IAM roles for specific users or buckets/paths. The IAM role
+for a specific query can be selected from a list of allowed roles by providing
+it as an *extra credential*.
+
+Each security mapping entry may specify one or more match criteria. If multiple
+criteria are specified, all criteria must match. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+* ``group``: Regular expression to match against any of the groups that the user
+  belongs to. Example: ``finance|sales``
+
+* ``prefix``: S3 URL prefix. It can specify an entire bucket or a path within a
+  bucket. The URL must start with ``s3://`` but will also match ``s3a`` or ``s3n``.
+  Example: ``s3://bucket-name/abc/xyz/``
+
+The security mapping must provide one or more configuration settings:
+
+* ``accessKey`` and ``secretKey``: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+
+* ``iamRole``: IAM role to use if no user provided role is specified as an
+  extra credential. This overrides any globally configured IAM role. This role
+  is allowed to be specified as an extra credential, although specifying it
+  explicitly has no effect, as it would be used anyway.
+
+* ``allowedIamRoles``: IAM roles that are allowed to be specified as an extra
+  credential. This is useful because a particular AWS account may have permissions
+  to use many roles, but a specific user should only be allowed to use a subset
+  of those roles.
+
+The security mapping entries are processed in the order listed in the configuration
+file. More specific mappings should thus be specified before less specific mappings.
+For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
+``s3://abc/`` to allow different configuration for a specific path within a bucket
+than for other paths within the bucket. You can set default configuration by not
+including any match criteria for the last entry in the list.
+
+Example JSON configuration file:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "prefix": "s3://bucket-name/abc/",
+          "iamRole": "arn:aws:iam::123456789101:role/test_path"
+        },
+        {
+          "user": "bob|charlie",
+          "iamRole": "arn:aws:iam::123456789101:role/test_default",
+          "allowedIamRoles": [
+            "arn:aws:iam::123456789101:role/test1",
+            "arn:aws:iam::123456789101:role/test2",
+            "arn:aws:iam::123456789101:role/test3"
+          ]
+        },
+        {
+          "prefix": "s3://special-bucket/",
+          "accessKey": "AKIAxxxaccess",
+          "secretKey": "iXbXxxxsecret"
+        },
+        {
+          "user": "test.*",
+          "iamRole": "arn:aws:iam::123456789101:role/test_users"
+        },
+        {
+          "group": "finance",
+          "iamRole": "arn:aws:iam::123456789101:role/finance_users"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default"
+        }
+      ]
+    }
+
+======================================================= =================================================================
+Property Name                                           Description
+======================================================= =================================================================
+``hive.s3.security-mapping.config-file``                The JSON configuration file containing security mappings.
+
+``hive.s3.security-mapping.iam-role-credential-name``   The name of the *extra credential* used to provide the IAM role.
+
+``hive.s3.security-mapping.refresh-period``             How often to refresh the security mapping configuration.
+
+``hive.s3.security-mapping.colon-replacement``          The character or characters to be used in place of the colon
+                                                        (``:``) character when specifying an IAM role name as an
+                                                        extra credential. Any instances of this replacement value in the
+                                                        extra credential value will be converted to a colon. Choose a
+                                                        value that is not used in any of your IAM ARNs.
+======================================================= =================================================================
+
 Tuning Properties
 ^^^^^^^^^^^^^^^^^
 
