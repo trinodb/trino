@@ -23,6 +23,7 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
@@ -56,6 +57,7 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.GroupProviderManager;
@@ -182,7 +184,9 @@ public class TestingPrestoServer
             String environment,
             URI discoveryUri,
             Module additionalModule,
-            Optional<Path> baseDataDir)
+            Optional<Path> baseDataDir,
+            String systemAccessControlName,
+            Map<String, String> systemAccessControlProperties)
     {
         this.coordinator = coordinator;
 
@@ -221,6 +225,12 @@ public class TestingPrestoServer
                 .add(new ServerMainModule())
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
+                    binder.bind(String.class)
+                            .annotatedWith(TestingAccessControlManager.ForSystemAccessControl.class)
+                            .toInstance(systemAccessControlName);
+                    binder.bind(new TypeLiteral<Map<String, String>>() {})
+                            .annotatedWith(TestingAccessControlManager.ForSystemAccessControl.class)
+                            .toInstance(ImmutableMap.copyOf(systemAccessControlProperties));
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
@@ -300,6 +310,10 @@ public class TestingPrestoServer
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
+
+        accessControl.loadSystemAccessControl(
+                injector.getInstance(Key.get(String.class, TestingAccessControlManager.ForSystemAccessControl.class)),
+                injector.getInstance(Key.get(new TypeLiteral<Map<String, String>>() {}, TestingAccessControlManager.ForSystemAccessControl.class)));
 
         announcer.forceAnnounce();
 
@@ -541,6 +555,8 @@ public class TestingPrestoServer
         private URI discoveryUri;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
+        private String systemAccessControlName = AllowAllSystemAccessControl.NAME;
+        private Map<String, String> systemAccessControlProperties = ImmutableMap.of();
 
         public Builder setCoordinator(boolean coordinator)
         {
@@ -578,9 +594,24 @@ public class TestingPrestoServer
             return this;
         }
 
+        public Builder setSystemAccessControl(String name, Map<String, String> properties)
+        {
+            this.systemAccessControlName = requireNonNull(name, "name is null");
+            this.systemAccessControlProperties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+            return this;
+        }
+
         public TestingPrestoServer build()
         {
-            return new TestingPrestoServer(coordinator, properties, environment, discoveryUri, additionalModule, baseDataDir);
+            return new TestingPrestoServer(
+                    coordinator,
+                    properties,
+                    environment,
+                    discoveryUri,
+                    additionalModule,
+                    baseDataDir,
+                    systemAccessControlName,
+                    systemAccessControlProperties);
         }
     }
 }
