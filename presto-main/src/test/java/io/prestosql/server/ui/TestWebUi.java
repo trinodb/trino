@@ -75,7 +75,9 @@ public class TestWebUi
     @BeforeClass
     public void setup()
     {
-        server = new TestingPrestoServer(SECURE_PROPERTIES);
+        server = TestingPrestoServer.builder()
+                .setProperties(SECURE_PROPERTIES)
+                .build();
         server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);
 
         HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -258,11 +260,12 @@ public class TestWebUi
     public void testDisabled()
             throws Exception
     {
-        try (TestingPrestoServer server = new TestingPrestoServer(
-                ImmutableMap.<String, String>builder()
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("web-ui.enabled", "false")
-                        .build())) {
+                        .build())
+                .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -293,7 +296,9 @@ public class TestWebUi
     public void testNoPasswordAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = new TestingPrestoServer(SECURE_PROPERTIES)) {
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(SECURE_PROPERTIES)
+                .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             testLogIn(httpServerInfo.getHttpUri());
             testNoPasswordAuthenticator(httpServerInfo.getHttpsUri());

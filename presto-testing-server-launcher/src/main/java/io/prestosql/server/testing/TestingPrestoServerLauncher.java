@@ -49,7 +49,7 @@ public class TestingPrestoServerLauncher
     public void run()
             throws Exception
     {
-        try (TestingPrestoServer server = new TestingPrestoServer()) {
+        try (TestingPrestoServer server = TestingPrestoServer.create()) {
             for (String pluginClass : options.getPluginClassNames()) {
                 Plugin plugin = (Plugin) Class.forName(pluginClass).getConstructor().newInstance();
                 server.installPlugin(plugin);

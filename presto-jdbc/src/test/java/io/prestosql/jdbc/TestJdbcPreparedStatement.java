@@ -65,7 +65,7 @@ public class TestJdbcPreparedStatement
             throws Exception
     {
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
         waitForNodeRefresh(server);

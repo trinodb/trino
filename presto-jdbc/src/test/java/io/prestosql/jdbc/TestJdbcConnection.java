@@ -69,7 +69,9 @@ public class TestJdbcConnection
         Logging.initialize();
         Module systemTables = binder -> newSetBinder(binder, SystemTable.class)
                 .addBinding().to(ExtraCredentialsSystemTable.class).in(Scopes.SINGLETON);
-        server = new TestingPrestoServer(ImmutableList.of(systemTables));
+        server = TestingPrestoServer.builder()
+                .setAdditionalModule(systemTables)
+                .build();
         server.installPlugin(new HiveHadoop2Plugin());
         server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")

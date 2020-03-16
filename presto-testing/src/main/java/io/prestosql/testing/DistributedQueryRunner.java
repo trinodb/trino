@@ -167,7 +167,13 @@ public class DistributedQueryRunner
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, ImmutableList.of(), baseDataDir);
+        TestingPrestoServer server = TestingPrestoServer.builder()
+                .setCoordinator(coordinator)
+                .setProperties(properties)
+                .setEnvironment(environment)
+                .setDiscoveryUri(discoveryUri)
+                .setBaseDataDir(baseDataDir)
+                .build();
 
         String nodeRole = coordinator ? "coordinator" : "worker";
         log.info("Created %s TestingPrestoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());

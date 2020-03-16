@@ -72,10 +72,12 @@ public class TestJdbcWarnings
     public void setupServer()
             throws Exception
     {
-        server = new TestingPrestoServer(ImmutableMap.<String, String>builder()
-                .put("testing-warning-collector.add-warnings", "true")
-                .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
-                .build());
+        server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("testing-warning-collector.add-warnings", "true")
+                        .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
+                        .build())
+                .build();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
         waitForNodeRefresh(server);
