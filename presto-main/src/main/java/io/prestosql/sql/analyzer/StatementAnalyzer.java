@@ -346,16 +346,20 @@ class StatementAnalyzer
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-            List<String> tableColumns = tableMetadata.getColumns().stream()
+
+            List<ColumnMetadata> columns = tableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
-                    .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
-            for (String column : tableColumns) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column).isEmpty()) {
+            for (ColumnMetadata column : columns) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks");
                 }
             }
+
+            List<String> tableColumns = columns.stream()
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableList());
 
             // analyze target table layout, table columns should contain all partition columns
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
@@ -499,12 +503,8 @@ class StatementAnalyzer
                     .orElseThrow(() -> new TableNotFoundException(tableName.asSchemaTableName()));
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            List<String> columns = tableMetadata.getColumns().stream()
-                    .map(ColumnMetadata::getName)
-                    .collect(toImmutableList());
-
-            for (String tableColumn : columns) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn).isEmpty()) {
+            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
             }
@@ -1034,7 +1034,7 @@ class StatementAnalyzer
                     .build();
 
             for (Field field : outputFields) {
-                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get())
+                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType())
                         .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
             }
 
@@ -1138,7 +1138,7 @@ class StatementAnalyzer
                     .build();
 
             for (Field field : outputFields) {
-                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get())
+                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType())
                         .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
             }
 

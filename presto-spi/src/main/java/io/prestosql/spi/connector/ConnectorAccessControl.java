@@ -16,6 +16,7 @@ package io.prestosql.spi.connector;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
 import java.util.Collections;
 import java.util.List;
@@ -422,7 +423,7 @@ public interface ConnectorAccessControl
      *
      * @return the mask, or {@link Optional#empty()} if not applicable
      */
-    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
     }
