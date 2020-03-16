@@ -13,10 +13,8 @@
  */
 package io.prestosql.testing;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.SecurityContext;
@@ -28,7 +26,10 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
+import javax.inject.Qualifier;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,6 +99,10 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Objects.requireNonNull;
 
 public class TestingAccessControlManager
@@ -112,7 +117,11 @@ public class TestingAccessControlManager
     public TestingAccessControlManager(TransactionManager transactionManager)
     {
         super(transactionManager, new AccessControlConfig());
-        setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+    }
+
+    public void loadSystemAccessControl(String name, Map<String, String> properties)
+    {
+        setSystemAccessControl(name, properties);
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
@@ -651,4 +660,9 @@ public class TestingAccessControlManager
             return Objects.hash(identity, table, column);
         }
     }
+
+    @Retention(RUNTIME)
+    @Target({FIELD, PARAMETER, METHOD})
+    @Qualifier
+    public @interface ForSystemAccessControl {}
 }
