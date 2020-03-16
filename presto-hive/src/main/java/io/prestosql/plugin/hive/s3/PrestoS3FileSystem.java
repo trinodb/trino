@@ -23,7 +23,6 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.auth.Signer;
 import com.amazonaws.auth.SignerFactory;
@@ -143,7 +142,6 @@ public class PrestoS3FileSystem
     public static final String S3_KMS_KEY_ID = "presto.s3.kms-key-id";
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
     public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
-    public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
@@ -188,7 +186,6 @@ public class PrestoS3FileSystem
     private int maxAttempts;
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
-    private boolean useInstanceCredentials;
     private String iamRole;
     private boolean pinS3ClientToCurrentRegion;
     private boolean sseEnabled;
@@ -232,10 +229,7 @@ public class PrestoS3FileSystem
         this.multiPartUploadMinFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         this.multiPartUploadMinPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.isPathStyleAccess = conf.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
-        this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.iamRole = conf.get(S3_IAM_ROLE, defaults.getS3IamRole());
-        verify(!(useInstanceCredentials && this.iamRole != null),
-                "Invalid configuration: either use instance credentials or specify an iam role");
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         verify(!pinS3ClientToCurrentRegion || conf.get(S3_ENDPOINT) == null,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
@@ -798,10 +792,6 @@ public class PrestoS3FileSystem
         Optional<AWSCredentials> credentials = getAwsCredentials(uri, conf);
         if (credentials.isPresent()) {
             return new AWSStaticCredentialsProvider(credentials.get());
-        }
-
-        if (useInstanceCredentials) {
-            return InstanceProfileCredentialsProvider.getInstance();
         }
 
         if (iamRole != null) {
