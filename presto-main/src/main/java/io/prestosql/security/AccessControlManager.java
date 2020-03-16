@@ -40,6 +40,7 @@ import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.Managed;
@@ -787,7 +788,7 @@ public class AccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName)
+    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
         requireNonNull(context, "securityContext is null");
         requireNonNull(tableName, "catalogName is null");
@@ -797,12 +798,12 @@ public class AccessControlManager
         // connector-provided masks take precedence over global masks
         CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), tableName.getCatalogName());
         if (entry != null) {
-            entry.getAccessControl().getColumnMask(entry.toConnectorSecurityContext(context), tableName.asSchemaTableName(), columnName)
+            entry.getAccessControl().getColumnMask(entry.toConnectorSecurityContext(context), tableName.asSchemaTableName(), columnName, type)
                     .ifPresent(masks::add);
         }
 
         for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
-            systemAccessControl.getColumnMask(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName)
+            systemAccessControl.getColumnMask(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName, type)
                     .ifPresent(masks::add);
         }
 

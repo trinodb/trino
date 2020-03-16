@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collections;
@@ -474,7 +475,7 @@ public interface SystemAccessControl
      *
      * @return the mask, or {@link Optional#empty()} if not applicable
      */
-    default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName)
+    default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
     }

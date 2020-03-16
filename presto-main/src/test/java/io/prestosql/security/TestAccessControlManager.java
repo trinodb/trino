@@ -43,6 +43,7 @@ import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 import io.prestosql.testing.TestingConnectorContext;
 import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
@@ -59,6 +60,7 @@ import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
@@ -194,7 +196,7 @@ public class TestAccessControlManager
             {
                 return new SystemAccessControl() {
                     @Override
-                    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String column)
+                    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String column, Type type)
                     {
                         return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "system mask"));
                     }
@@ -211,7 +213,7 @@ public class TestAccessControlManager
         CatalogName catalogName = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
         accessControlManager.addCatalogAccessControl(catalogName, new ConnectorAccessControl() {
             @Override
-            public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String column)
+            public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
             {
                 return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "connector mask"));
             }
@@ -224,7 +226,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    List<ViewExpression> masks = accessControlManager.getColumnMasks(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), "column");
+                    List<ViewExpression> masks = accessControlManager.getColumnMasks(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), "column", BIGINT);
                     assertEquals(masks.get(0).getExpression(), "connector mask");
                     assertEquals(masks.get(1).getExpression(), "system mask");
                 });

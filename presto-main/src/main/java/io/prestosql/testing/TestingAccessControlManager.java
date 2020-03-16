@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -466,7 +467,7 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String column)
+    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String column, Type type)
     {
         return columnMasks.getOrDefault(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column), ImmutableList.of());
     }
