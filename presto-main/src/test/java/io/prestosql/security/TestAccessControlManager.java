@@ -186,7 +186,8 @@ public class TestAccessControlManager
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
 
-        accessControlManager.addSystemAccessControlFactory(new SystemAccessControlFactory() {
+        accessControlManager.addSystemAccessControlFactory(new SystemAccessControlFactory()
+        {
             @Override
             public String getName()
             {
@@ -196,7 +197,8 @@ public class TestAccessControlManager
             @Override
             public SystemAccessControl create(Map<String, String> config)
             {
-                return new SystemAccessControl() {
+                return new SystemAccessControl()
+                {
                     @Override
                     public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String column, Type type)
                     {
@@ -213,7 +215,8 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         CatalogName catalogName = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
-        accessControlManager.addCatalogAccessControl(catalogName, new ConnectorAccessControl() {
+        accessControlManager.addCatalogAccessControl(catalogName, new ConnectorAccessControl()
+        {
             @Override
             public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
             {
