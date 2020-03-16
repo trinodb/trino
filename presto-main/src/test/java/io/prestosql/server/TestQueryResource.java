@@ -72,7 +72,7 @@ public class TestQueryResource
     public void setup()
     {
         client = new JettyHttpClient();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
     }

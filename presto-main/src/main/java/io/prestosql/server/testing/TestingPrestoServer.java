@@ -89,7 +89,6 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -99,6 +98,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
@@ -109,6 +109,16 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingPrestoServer
         implements Closeable
 {
+    public static TestingPrestoServer create()
+    {
+        return builder().build();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
     private final Injector injector;
     private final Path baseDataDir;
     private final boolean preserveData;
@@ -166,27 +176,12 @@ public class TestingPrestoServer
         }
     }
 
-    public TestingPrestoServer()
-    {
-        this(ImmutableList.of());
-    }
-
-    public TestingPrestoServer(List<Module> additionalModules)
-    {
-        this(true, ImmutableMap.of(), null, null, additionalModules, Optional.empty());
-    }
-
-    public TestingPrestoServer(Map<String, String> properties)
-    {
-        this(true, properties, null, null, ImmutableList.of(), Optional.empty());
-    }
-
-    public TestingPrestoServer(
+    private TestingPrestoServer(
             boolean coordinator,
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
-            List<Module> additionalModules,
+            Module additionalModule,
             Optional<Path> baseDataDir)
     {
         this.coordinator = coordinator;
@@ -247,7 +242,7 @@ public class TestingPrestoServer
             modules.add(new TestingDiscoveryModule());
         }
 
-        modules.addAll(additionalModules);
+        modules.add(additionalModule);
 
         Bootstrap app = new Bootstrap(modules.build());
 
@@ -535,6 +530,57 @@ public class TestingPrestoServer
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    public static class Builder
+    {
+        private boolean coordinator = true;
+        private Map<String, String> properties = ImmutableMap.of();
+        private String environment;
+        private URI discoveryUri;
+        private Module additionalModule = EMPTY_MODULE;
+        private Optional<Path> baseDataDir = Optional.empty();
+
+        public Builder setCoordinator(boolean coordinator)
+        {
+            this.coordinator = coordinator;
+            return this;
+        }
+
+        public Builder setProperties(Map<String, String> properties)
+        {
+            this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+            return this;
+        }
+
+        public Builder setEnvironment(String environment)
+        {
+            this.environment = requireNonNull(environment, "environment is null");
+            return this;
+        }
+
+        public Builder setDiscoveryUri(URI discoveryUri)
+        {
+            this.discoveryUri = requireNonNull(discoveryUri, "discoveryUri is null");
+            return this;
+        }
+
+        public Builder setAdditionalModule(Module additionalModule)
+        {
+            this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
+            return this;
+        }
+
+        public Builder setBaseDataDir(Optional<Path> baseDataDir)
+        {
+            this.baseDataDir = requireNonNull(baseDataDir, "baseDataDir is null");
+            return this;
+        }
+
+        public TestingPrestoServer build()
+        {
+            return new TestingPrestoServer(coordinator, properties, environment, discoveryUri, additionalModule, baseDataDir);
         }
     }
 }

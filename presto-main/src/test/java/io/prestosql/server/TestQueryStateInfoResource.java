@@ -58,7 +58,7 @@ public class TestQueryStateInfoResource
     @BeforeClass
     public void setUp()
     {
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         client = new JettyHttpClient();
