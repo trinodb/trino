@@ -111,7 +111,7 @@ public class PrestoServer
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
-                new ServerMainModule(sqlParserOptions),
+                new ServerMainModule(),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
 
