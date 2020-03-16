@@ -16,6 +16,7 @@ package io.prestosql.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
+import com.google.inject.Module;
 import io.airlift.discovery.server.testing.TestingDiscoveryServer;
 import io.airlift.log.Logger;
 import io.airlift.testing.Assertions;
@@ -62,6 +63,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.testing.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static io.prestosql.testing.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
@@ -98,6 +100,7 @@ public class DistributedQueryRunner
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             String environment,
+            Module additionalModule,
             Optional<Path> baseDataDir,
             String systemAccessControlName,
             Map<String, String> systemAccessControlProperties)
@@ -119,6 +122,7 @@ public class DistributedQueryRunner
                         false,
                         extraProperties,
                         environment,
+                        additionalModule,
                         baseDataDir,
                         systemAccessControlName,
                         systemAccessControlProperties));
@@ -133,6 +137,7 @@ public class DistributedQueryRunner
                     true,
                     extraCoordinatorProperties,
                     environment,
+                    additionalModule,
                     baseDataDir,
                     systemAccessControlName,
                     systemAccessControlProperties));
@@ -172,6 +177,7 @@ public class DistributedQueryRunner
             boolean coordinator,
             Map<String, String> extraProperties,
             String environment,
+            Module additionalModule,
             Optional<Path> baseDataDir,
             String systemAccessControlName,
             Map<String, String> systemAccessControlProperties)
@@ -196,6 +202,7 @@ public class DistributedQueryRunner
                 .setProperties(properties)
                 .setEnvironment(environment)
                 .setDiscoveryUri(discoveryUri)
+                .setAdditionalModule(additionalModule)
                 .setBaseDataDir(baseDataDir)
                 .setSystemAccessControl(systemAccessControlName, systemAccessControlProperties)
                 .build();
@@ -217,6 +224,7 @@ public class DistributedQueryRunner
                     false,
                     ImmutableMap.of(),
                     ENVIRONMENT,
+                    EMPTY_MODULE,
                     Optional.empty(),
                     AllowAllSystemAccessControl.NAME,
                     ImmutableMap.of()));
@@ -517,6 +525,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private String environment = ENVIRONMENT;
+        private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
         private String systemAccessControlName = AllowAllSystemAccessControl.NAME;
         private Map<String, String> systemAccessControlProperties = ImmutableMap.of();
@@ -577,6 +586,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setAdditionalModule(Module additionalModule)
+        {
+            this.additionalModule = requireNonNull(additionalModule, "additionalModules is null");
+            return this;
+        }
+
         public Builder setBaseDataDir(Optional<Path> baseDataDir)
         {
             this.baseDataDir = requireNonNull(baseDataDir, "baseDataDir is null");
@@ -600,6 +615,7 @@ public class DistributedQueryRunner
                     extraProperties,
                     coordinatorProperties,
                     environment,
+                    additionalModule,
                     baseDataDir,
                     systemAccessControlName,
                     systemAccessControlProperties);
