@@ -13,7 +13,6 @@
  */
 package io.prestosql.testing;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -489,13 +488,21 @@ public class TestingAccessControlManager
     @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
-        return rowFilters.getOrDefault(new RowFilterKey(context.getIdentity().getUser(), tableName), ImmutableList.of());
+        List<ViewExpression> viewExpressions = rowFilters.get(new RowFilterKey(context.getIdentity().getUser(), tableName));
+        if (viewExpressions != null) {
+            return viewExpressions;
+        }
+        return super.getRowFilters(context, tableName);
     }
 
     @Override
     public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String column, Type type)
     {
-        return columnMasks.getOrDefault(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column), ImmutableList.of());
+        List<ViewExpression> viewExpressions = columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column));
+        if (viewExpressions != null) {
+            return viewExpressions;
+        }
+        return super.getColumnMasks(context, tableName, column, type);
     }
 
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
