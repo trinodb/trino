@@ -39,7 +39,6 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.transaction.TransactionManager;
@@ -76,7 +75,6 @@ public class DistributedQueryRunner
 {
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
-    private static final SqlParserOptions DEFAULT_SQL_PARSER_OPTIONS = new SqlParserOptions();
 
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
@@ -98,7 +96,6 @@ public class DistributedQueryRunner
             int nodeCount,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
-            SqlParserOptions parserOptions,
             String environment,
             Optional<Path> baseDataDir)
             throws Exception
@@ -114,14 +111,14 @@ public class DistributedQueryRunner
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
             for (int i = 1; i < nodeCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment, baseDataDir));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, environment, baseDataDir));
                 servers.add(worker);
             }
 
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment, baseDataDir));
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, environment, baseDataDir));
             servers.add(coordinator);
 
             this.servers = servers.build();
@@ -153,7 +150,7 @@ public class DistributedQueryRunner
         }
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment, Optional<Path> baseDataDir)
+    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, String environment, Optional<Path> baseDataDir)
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
@@ -170,7 +167,7 @@ public class DistributedQueryRunner
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, parserOptions, ImmutableList.of(), baseDataDir);
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, ImmutableList.of(), baseDataDir);
 
         String nodeRole = coordinator ? "coordinator" : "worker";
         log.info("Created %s TestingPrestoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
@@ -184,7 +181,7 @@ public class DistributedQueryRunner
         ImmutableList.Builder<TestingPrestoServer> serverBuilder = new ImmutableList.Builder<TestingPrestoServer>()
                 .addAll(servers);
         for (int i = 0; i < nodeCount; i++) {
-            TestingPrestoServer server = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty()));
+            TestingPrestoServer server = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, ImmutableMap.of(), ENVIRONMENT, Optional.empty()));
             serverBuilder.add(server);
             // add functions
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
@@ -481,7 +478,6 @@ public class DistributedQueryRunner
         private int nodeCount = 3;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
-        private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
         private String environment = ENVIRONMENT;
         private Optional<Path> baseDataDir = Optional.empty();
 
@@ -535,12 +531,6 @@ public class DistributedQueryRunner
             return setCoordinatorProperties(ImmutableMap.of(key, value));
         }
 
-        public Builder setParserOptions(SqlParserOptions parserOptions)
-        {
-            this.parserOptions = parserOptions;
-            return this;
-        }
-
         public Builder setEnvironment(String environment)
         {
             this.environment = environment;
@@ -556,7 +546,7 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, parserOptions, environment, baseDataDir);
+            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, environment, baseDataDir);
         }
     }
 }

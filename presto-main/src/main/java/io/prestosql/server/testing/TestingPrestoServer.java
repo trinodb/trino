@@ -70,7 +70,6 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.testing.ProcedureTester;
@@ -174,12 +173,12 @@ public class TestingPrestoServer
 
     public TestingPrestoServer(List<Module> additionalModules)
     {
-        this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules, Optional.empty());
+        this(true, ImmutableMap.of(), null, null, additionalModules, Optional.empty());
     }
 
     public TestingPrestoServer(Map<String, String> properties)
     {
-        this(true, properties, null, null, new SqlParserOptions(), ImmutableList.of(), Optional.empty());
+        this(true, properties, null, null, ImmutableList.of(), Optional.empty());
     }
 
     public TestingPrestoServer(
@@ -187,7 +186,6 @@ public class TestingPrestoServer
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
-            SqlParserOptions parserOptions,
             List<Module> additionalModules,
             Optional<Path> baseDataDir)
     {
@@ -225,7 +223,7 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
-                .add(new ServerMainModule(parserOptions))
+                .add(new ServerMainModule())
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
