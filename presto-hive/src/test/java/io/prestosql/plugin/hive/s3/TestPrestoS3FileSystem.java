@@ -19,7 +19,6 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
@@ -73,7 +72,6 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJ
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -140,25 +138,11 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
-    public void testInstanceCredentialsEnabled()
-            throws Exception
-    {
-        Configuration config = new Configuration(false);
-        // instance credentials are enabled by default
-
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
-            fs.initialize(new URI("s3n://test-bucket/"), config);
-            assertInstanceOf(getAwsCredentialsProvider(fs), InstanceProfileCredentialsProvider.class);
-        }
-    }
-
-    @Test
     public void testAssumeRoleCredentials()
             throws Exception
     {
         Configuration config = new Configuration(false);
         config.set(S3_IAM_ROLE, "role");
-        config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, false);
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
@@ -171,7 +155,6 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration(false);
-        config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, false);
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
@@ -451,7 +434,6 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration(false);
-        config.set(S3_USE_INSTANCE_CREDENTIALS, "false");
         config.set(S3_CREDENTIALS_PROVIDER, TestCredentialsProvider.class.getName());
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
@@ -464,7 +446,6 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration(false);
-        config.set(S3_USE_INSTANCE_CREDENTIALS, "false");
         config.set(S3_CREDENTIALS_PROVIDER, "com.example.DoesNotExist");
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
