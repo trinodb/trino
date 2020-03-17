@@ -1141,7 +1141,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertAccessDenied(
                 "SELECT * FROM test_view_function_access",
-                "'test_view_access_owner' cannot grant 'abs' execution to user 'hive'",
+                "'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
                 privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
 
         // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function
