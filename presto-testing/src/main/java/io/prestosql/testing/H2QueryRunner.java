@@ -76,6 +76,7 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.NATION;
@@ -288,6 +289,15 @@ public class H2QueryRunner
                         }
                         else {
                             row.add(padSpaces(stringValue, (CharType) type));
+                        }
+                    }
+                    else if (VARBINARY.equals(type)) {
+                        byte[] bytes = resultSet.getBytes(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(bytes);
                         }
                     }
                     else if (DATE.equals(type)) {

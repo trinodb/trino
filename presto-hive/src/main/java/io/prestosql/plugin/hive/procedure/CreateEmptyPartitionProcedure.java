@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.PartitionUpdate;
 import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
 import io.prestosql.plugin.hive.TransactionalMetadata;
+import io.prestosql.plugin.hive.TransactionalMetadataFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
@@ -44,7 +45,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -66,13 +66,13 @@ public class CreateEmptyPartitionProcedure
             List.class,
             List.class);
 
-    private final Supplier<TransactionalMetadata> hiveMetadataFactory;
+    private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HiveMetastoreClosure metastore;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateJsonCodec;
 
     @Inject
-    public CreateEmptyPartitionProcedure(Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
+    public CreateEmptyPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
@@ -103,7 +103,7 @@ public class CreateEmptyPartitionProcedure
 
     private void doCreateEmptyPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
     {
-        TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
+        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         if (tableHandle == null) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schemaName, tableName)));

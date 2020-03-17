@@ -65,7 +65,7 @@ public class TestJdbcPreparedStatement
             throws Exception
     {
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
         waitForNodeRefresh(server);
@@ -281,6 +281,20 @@ public class TestJdbcPreparedStatement
                 assertEquals(rs.getLong(1), 456);
                 assertFalse(rs.next());
             }
+        }
+    }
+
+    @Test
+    public void testPrepareLarge()
+            throws Exception
+    {
+        String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
+        try (Connection connection = createConnection();
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet rs = statement.executeQuery()) {
+            assertTrue(rs.next());
+            assertFalse(rs.getBoolean(1));
+            assertFalse(rs.next());
         }
     }
 

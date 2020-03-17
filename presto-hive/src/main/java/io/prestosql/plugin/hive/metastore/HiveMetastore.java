@@ -58,6 +58,8 @@ public interface HiveMetastore
 
     void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName);
 
+    void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal);
+
     void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges);
 
     void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData);
@@ -99,9 +101,9 @@ public interface HiveMetastore
 
     Set<String> listRoles();
 
-    void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor);
+    void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
-    void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor);
+    void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 

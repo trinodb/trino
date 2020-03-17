@@ -14,7 +14,6 @@
 package io.prestosql.parquet;
 
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
@@ -203,17 +202,13 @@ public final class ParquetTypeUtils
         return null;
     }
 
-    public static Optional<Type> createDecimalType(RichColumnDescriptor descriptor)
+    public static Optional<DecimalType> createDecimalType(RichColumnDescriptor descriptor)
     {
         if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
             return Optional.empty();
         }
-        return Optional.of(createDecimalType(descriptor.getPrimitiveType().getDecimalMetadata()));
-    }
-
-    private static Type createDecimalType(DecimalMetadata decimalMetadata)
-    {
-        return DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale());
+        DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
+        return Optional.of(DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale()));
     }
 
     /**

@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.parquet;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveQueryRunner;
 import io.prestosql.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -56,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.prestosql.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -82,11 +82,11 @@ public class TestParquetDecimalScaling
     {
         basePath = getBasePath();
 
-        return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                Optional.of(basePath));
+        return HiveQueryRunner.builder()
+                // create nation so tpch schema got created
+                .setInitialTables(ImmutableList.of(NATION))
+                .setBaseDataDir(Optional.of(basePath))
+                .build();
     }
 
     /**

@@ -22,8 +22,6 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.metrics.RequestMetricCollector;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -44,6 +42,7 @@ import static com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguratio
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
@@ -127,11 +126,8 @@ public class PrestoS3ClientFactory
 
         // use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
-            Region region = Regions.getCurrentRegion();
-            if (region != null) {
-                clientBuilder.withRegion(region.getName());
-                regionOrEndpointSet = true;
-            }
+            clientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            regionOrEndpointSet = true;
         }
 
         if (!isNullOrEmpty(endpoint)) {

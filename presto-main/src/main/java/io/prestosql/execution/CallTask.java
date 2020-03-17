@@ -136,7 +136,7 @@ public class CallTask
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
             Type type = argument.getType();
-            Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup);
+            Object value = evaluateConstantExpression(expression, type, metadata, session, accessControl, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
         }
@@ -171,6 +171,8 @@ public class CallTask
                 arguments.add(valuesIterator.next());
             }
         }
+
+        accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
 
         try {
             procedure.getMethodHandle().invokeWithArguments(arguments);

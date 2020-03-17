@@ -19,6 +19,7 @@ import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.TransactionalMetadata;
+import io.prestosql.plugin.hive.TransactionalMetadataFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
@@ -36,7 +37,6 @@ import javax.inject.Provider;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -62,11 +62,11 @@ public class DropStatsProcedure
             String.class,
             List.class);
 
-    private final Supplier<TransactionalMetadata> hiveMetadataFactory;
+    private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HiveMetastoreClosure metastore;
 
     @Inject
-    public DropStatsProcedure(Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore)
+    public DropStatsProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
@@ -94,7 +94,7 @@ public class DropStatsProcedure
 
     private void doDropStats(ConnectorSession session, String schema, String table, List<?> partitionValues)
     {
-        TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
+        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schema, table)));

@@ -15,9 +15,12 @@ package io.prestosql.plugin.base.security;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemSecurityContext;
 import org.testng.annotations.Test;
@@ -154,6 +157,37 @@ public class TestFileBasedSystemAccessControl
         assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob), "any"));
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob), ImmutableSet.of("a", "b")), ImmutableSet.of());
         assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob), "any"));
+    }
+
+    @Test
+    public void testSchemaOperations()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("catalog.json");
+
+        PrestoPrincipal user = new PrestoPrincipal(PrincipalType.USER, "some_user");
+        PrestoPrincipal role = new PrestoPrincipal(PrincipalType.ROLE, "some_user");
+
+        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(admin), new CatalogSchemaName("alice-catalog", "some_schema"), user);
+        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(admin), new CatalogSchemaName("alice-catalog", "some_schema"), role);
+
+        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice), new CatalogSchemaName("alice-catalog", "some_schema"), user);
+        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice), new CatalogSchemaName("alice-catalog", "some_schema"), role);
+
+        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob), new CatalogSchemaName("alice-catalog", "some_schema"), user))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema alice-catalog.some_schema");
+
+        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob), new CatalogSchemaName("alice-catalog", "some_schema"), role))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema alice-catalog.some_schema");
+
+        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice), new CatalogSchemaName("secret", "some_schema"), user))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema secret.some_schema");
+
+        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice), new CatalogSchemaName("secret", "some_schema"), role))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema secret.some_schema");
     }
 
     @Test

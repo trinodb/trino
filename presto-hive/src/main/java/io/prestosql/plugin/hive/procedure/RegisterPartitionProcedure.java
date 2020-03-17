@@ -21,7 +21,7 @@ import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.PartitionStatistics;
-import io.prestosql.plugin.hive.TransactionalMetadata;
+import io.prestosql.plugin.hive.TransactionalMetadataFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -44,7 +44,6 @@ import javax.inject.Provider;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
@@ -71,12 +70,12 @@ public class RegisterPartitionProcedure
             String.class);
 
     private final boolean allowRegisterPartition;
-    private final Supplier<TransactionalMetadata> hiveMetadataFactory;
+    private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HiveMetastoreClosure metastore;
 
     @Inject
-    public RegisterPartitionProcedure(HiveConfig hiveConfig, Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
     {
         this.allowRegisterPartition = requireNonNull(hiveConfig, "hiveConfig is null").isAllowRegisterPartition();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
@@ -134,7 +133,7 @@ public class RegisterPartitionProcedure
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
         }
 
-        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.get()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();
 
         metastore.addPartition(
                 session,

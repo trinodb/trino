@@ -14,6 +14,7 @@
 package io.prestosql.testing;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,15 +27,21 @@ import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -48,6 +55,8 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.GRANT_EXECUTE_FUNCTION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -57,14 +66,17 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -1024,7 +1036,7 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testViewAccessControl()
+    public void testViewColumnAccessControl()
     {
         skipTestUnless(supportsViews());
 
@@ -1038,27 +1050,27 @@ public abstract class AbstractTestDistributedQueries
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                "CREATE VIEW test_view_column_access AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
         assertAccessAllowed(
                 viewOwnerSession,
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
         assertAccessAllowed(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM test_view_column_access",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
@@ -1070,43 +1082,89 @@ public abstract class AbstractTestDistributedQueries
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "CREATE VIEW test_nested_view_column_access AS SELECT * FROM test_view_column_access",
+                privilege("test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
-                "SELECT * FROM test_nested_view_access",
-                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
-                privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "SELECT * FROM test_nested_view_column_access",
+                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_column_access.*",
+                privilege(nestedViewOwnerSession.getUser(), "test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
         assertAccessAllowed(
-                "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "SELECT * FROM test_nested_view_column_access",
+                privilege(getSession().getUser(), "test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", SELECT_COLUMN));
+                "SELECT * FROM test_nested_view_column_access",
+                privilege(getSession().getUser(), "test_view_column_access", SELECT_COLUMN));
 
         // verify that INVOKER security runs as session user
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_invoker_view_access SECURITY INVOKER AS SELECT * FROM orders",
+                "CREATE VIEW test_invoker_view_column_access SECURITY INVOKER AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_invoker_view_access",
+                "SELECT * FROM test_invoker_view_column_access",
                 privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
         assertAccessDenied(
-                "SELECT * FROM test_invoker_view_access",
+                "SELECT * FROM test_invoker_view_column_access",
                 "Cannot select from columns \\[.*\\] in table .*.orders.*",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // change access denied exception to view
-        assertAccessDenied("SHOW CREATE VIEW test_nested_view_access", "Cannot show create table for .*test_nested_view_access.*", privilege("test_nested_view_access", SHOW_CREATE_TABLE));
-        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_access", privilege("test_denied_access_view", SHOW_CREATE_TABLE));
+        assertAccessDenied("SHOW CREATE VIEW test_nested_view_column_access", "Cannot show create table for .*test_nested_view_column_access.*", privilege("test_nested_view_column_access", SHOW_CREATE_TABLE));
+        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_column_access", privilege("test_denied_access_view", SHOW_CREATE_TABLE));
 
-        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_access");
+        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_column_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_column_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_column_access");
+    }
+
+    @Test
+    public void testViewFunctionAccessControl()
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_view_access_owner"))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        // TEST FUNCTION PRIVILEGES
+        // view creation permissions are only checked at query time, not at creation
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_function_access AS SELECT abs(1) AS c",
+                privilege("abs", GRANT_EXECUTE_FUNCTION));
+
+        assertAccessDenied(
+                "SELECT * FROM test_view_function_access",
+                "'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
+                privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
+
+        // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function
+        assertAccessAllowed(
+                "SELECT * FROM test_view_function_access",
+                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
+
+        // TEST SECURITY INVOKER
+        // view creation permissions are only checked at query time, not at creation
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_invoker_view_function_access SECURITY INVOKER AS SELECT abs(1) AS c",
+                privilege("abs", GRANT_EXECUTE_FUNCTION));
+        assertAccessAllowed(
+                "SELECT * FROM test_invoker_view_function_access",
+                privilege(viewOwnerSession.getUser(), "abs", EXECUTE_FUNCTION));
+        assertAccessDenied(
+                "SELECT * FROM test_invoker_view_function_access",
+                "Cannot execute function abs",
+                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
+
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_function_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_function_access");
     }
 
     @Test
@@ -1169,4 +1227,152 @@ public abstract class AbstractTestDistributedQueries
     }
 
     protected abstract TestTable createTableWithDefaultColumns();
+
+    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
+    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String prestoTypeName = dataMappingTestSetup.getPrestoTypeName();
+        String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
+        String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
+
+        String tableName = "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+
+        Runnable setup = () -> {
+            String createTable = format("CREATE TABLE %s(id bigint, value %s)", tableName, prestoTypeName);
+            assertUpdate(createTable);
+            assertUpdate(
+                    format("INSERT INTO %s VALUES (10000, NULL), (10001, %s), (99999, %s)", tableName, sampleValueLiteral, highValueLiteral),
+                    3);
+        };
+        if (dataMappingTestSetup.isUnsupportedType()) {
+            String typeNameBase = prestoTypeName.replaceFirst("\\(.*", "");
+            String expectedMessagePart = format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));
+            assertThatThrownBy(setup::run)
+                    .hasMessageFindingMatch(expectedMessagePart)
+                    .satisfies(e -> assertThat(getPrestoExceptionCause(e)).hasMessageFindingMatch(expectedMessagePart));
+            return;
+        }
+        setup.run();
+
+        // without pushdown, i.e. test read data mapping
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 10000");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES (10001), (99999)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 10001");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 99999");
+
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL", "VALUES 10000");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES (10001), (99999)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 10001");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 99999");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 10001");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 99999");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES (10001), (99999)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public final Object[][] testDataMappingSmokeTestDataProvider()
+    {
+        return testDataMappingSmokeTestData().stream()
+                .map(this::filterDataMappingSmokeTestData)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(dataMappingTestSetup -> new Object[] {dataMappingTestSetup})
+                .toArray(Object[][]::new);
+    }
+
+    private List<DataMappingTestSetup> testDataMappingSmokeTestData()
+    {
+        return ImmutableList.<DataMappingTestSetup>builder()
+                .add(new DataMappingTestSetup("tinyint", "37", "127"))
+                .add(new DataMappingTestSetup("smallint", "32123", "32767"))
+                .add(new DataMappingTestSetup("integer", "1274942432", "2147483647"))
+                .add(new DataMappingTestSetup("bigint", "312739231274942432", "9223372036854775807"))
+                .add(new DataMappingTestSetup("real", "REAL '567.123'", "REAL '999999.999'"))
+                .add(new DataMappingTestSetup("double", "DOUBLE '1234567890123.123'", "DOUBLE '9999999999999.999'"))
+                .add(new DataMappingTestSetup("decimal(5,3)", "12.345", "99.999"))
+                .add(new DataMappingTestSetup("decimal(15,3)", "123456789012.345", "999999999999.99"))
+                .add(new DataMappingTestSetup("date", "DATE '2020-02-12'", "DATE '9999-12-31'"))
+                .add(new DataMappingTestSetup("time", "TIME '15:03:00'", "TIME '23:59:59.999'"))
+                .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999'"))
+                .add(new DataMappingTestSetup("timestamp with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999 +12:00'"))
+                .add(new DataMappingTestSetup("char(3)", "'ab'", "'zzz'"))
+                .add(new DataMappingTestSetup("varchar(3)", "'de'", "'zzz'"))
+                .add(new DataMappingTestSetup("varchar", "'łąka for the win'", "'ŻŻŻŻŻŻŻŻŻŻ'"))
+                .add(new DataMappingTestSetup("varbinary", "X'12ab3f'", "X'ffffffffffffffffffff'"))
+                .build();
+    }
+
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    private static RuntimeException getPrestoExceptionCause(Throwable e)
+    {
+        return Throwables.getCausalChain(e).stream()
+                .filter(cause -> cause.toString().startsWith(PrestoException.class.getName() + ": ")) // e.g. io.prestosql.client.FailureInfo
+                .map(RuntimeException.class::cast)
+                .collect(toOptional())
+                .orElseThrow(() -> new IllegalArgumentException("Exception does not have PrestoException cause", e));
+    }
+
+    protected static final class DataMappingTestSetup
+    {
+        private final String prestoTypeName;
+        private final String sampleValueLiteral;
+        private final String highValueLiteral;
+
+        private final boolean unsupportedType;
+
+        public DataMappingTestSetup(String prestoTypeName, String sampleValueLiteral, String highValueLiteral)
+        {
+            this(prestoTypeName, sampleValueLiteral, highValueLiteral, false);
+        }
+
+        private DataMappingTestSetup(String prestoTypeName, String sampleValueLiteral, String highValueLiteral, boolean unsupportedType)
+        {
+            this.prestoTypeName = requireNonNull(prestoTypeName, "prestoTypeName is null");
+            this.sampleValueLiteral = requireNonNull(sampleValueLiteral, "sampleValueLiteral is null");
+            this.highValueLiteral = requireNonNull(highValueLiteral, "highValueLiteral is null");
+            this.unsupportedType = unsupportedType;
+        }
+
+        public String getPrestoTypeName()
+        {
+            return prestoTypeName;
+        }
+
+        public String getSampleValueLiteral()
+        {
+            return sampleValueLiteral;
+        }
+
+        public String getHighValueLiteral()
+        {
+            return highValueLiteral;
+        }
+
+        public boolean isUnsupportedType()
+        {
+            return unsupportedType;
+        }
+
+        public DataMappingTestSetup asUnsupported()
+        {
+            return new DataMappingTestSetup(
+                    prestoTypeName,
+                    sampleValueLiteral,
+                    highValueLiteral,
+                    true);
+        }
+
+        @Override
+        public String toString()
+        {
+            // toString is brief because it's used for test case labels in IDE
+            return prestoTypeName + (unsupportedType ? "!" : "");
+        }
+    }
 }

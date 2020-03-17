@@ -112,9 +112,9 @@ public class StatisticsAwareJdbcClient
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle layoutHandle)
     {
-        return stats.getSplits.wrap(() -> delegate().getSplits(identity, layoutHandle));
+        return stats.getSplits.wrap(() -> delegate().getSplits(session, layoutHandle));
     }
 
     @Override

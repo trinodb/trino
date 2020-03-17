@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Iterators.limit;
-import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static java.lang.String.format;
@@ -75,7 +74,6 @@ public class IcebergSplitSource
     {
         // TODO: move this to a background thread
         List<ConnectorSplit> splits = new ArrayList<>();
-        TupleDomain<IcebergColumnHandle> predicate = convertTupleDomainTypes(this.predicate);
         Iterator<FileScanTask> iterator = limit(fileScanIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();

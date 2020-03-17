@@ -467,6 +467,18 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.setDatabaseOwner(identity, databaseName, principal);
+        }
+        finally {
+            invalidateDatabase(databaseName);
+        }
+    }
+
     protected void invalidateDatabase(String databaseName)
     {
         databaseCache.invalidate(databaseName);
@@ -771,10 +783,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         try {
-            delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+            delegate.grantRoles(roles, grantees, adminOption, grantor);
         }
         finally {
             roleGrantsCache.invalidateAll();
@@ -782,10 +794,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         try {
-            delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+            delegate.revokeRoles(roles, grantees, adminOption, grantor);
         }
         finally {
             roleGrantsCache.invalidateAll();

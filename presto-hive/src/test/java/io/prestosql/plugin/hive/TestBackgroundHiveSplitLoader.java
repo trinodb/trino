@@ -49,8 +49,10 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -63,6 +65,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -399,14 +402,17 @@ public class TestBackgroundHiveSplitLoader
                         "transactional_properties", "insert_only"));
 
         List<String> filePaths = ImmutableList.of(
+                tablePath + "/delta_0000001_0000001_0000/_orc_acid_version",
                 tablePath + "/delta_0000001_0000001_0000/bucket_00000",
+                tablePath + "/delta_0000002_0000002_0000/_orc_acid_version",
                 tablePath + "/delta_0000002_0000002_0000/bucket_00000",
+                tablePath + "/delta_0000003_0000003_0000/_orc_acid_version",
                 tablePath + "/delta_0000003_0000003_0000/bucket_00000");
 
         for (String path : filePaths) {
             File file = new File(path);
-            assertTrue(file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-            assertTrue(file.createNewFile(), "Failed to create file");
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            createOrcAcidFile(file);
         }
 
         // ValidWriteIdList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
@@ -424,8 +430,8 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> splits = drain(hiveSplitSource);
-        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(0))), format("%s not found in splits %s", filePaths.get(0), splits));
-        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(2))), format("%s not found in splits %s", filePaths.get(2), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(1))), format("%s not found in splits %s", filePaths.get(1), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(5))), format("%s not found in splits %s", filePaths.get(5), splits));
 
         deleteRecursively(tablePath, ALLOW_INSECURE);
     }
@@ -441,17 +447,17 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 ImmutableMap.of("transactional", "true"));
 
+        String originalFile = tablePath + "/000000_1";
         List<String> filePaths = ImmutableList.of(
-                tablePath + "/000000_1",
+                tablePath + "/delta_0000002_0000002_0000/_orc_acid_version",
                 tablePath + "/delta_0000002_0000002_0000/bucket_00000");
 
         for (String path : filePaths) {
             File file = new File(path);
-            if (!file.getParent().equals(tablePath.toString())) {
-                assertTrue(file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-            }
-            Files.write(file.toPath(), "test".getBytes(UTF_8));
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            createOrcAcidFile(file);
         }
+        Files.write(Paths.get(originalFile), "test".getBytes(UTF_8));
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
@@ -472,6 +478,58 @@ public class TestBackgroundHiveSplitLoader
                 .hasMessage("Original non-ACID files in transactional tables are not supported");
 
         deleteRecursively(tablePath, ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testHive2VersionedFullAcidTableFails()
+            throws Exception
+    {
+        java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
+        Table table = table(
+                tablePath.toString(),
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableMap.of("transactional", "true"));
+
+        List<String> filePaths = ImmutableList.of(
+                tablePath + "/000000_1", // _orc_acid_version does not exist so it's assumed to be "ORC ACID version 0"
+                tablePath + "/delta_0000002_0000002_0000/bucket_00000");
+
+        for (String path : filePaths) {
+            File file = new File(path);
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            createOrcAcidFile(file);
+        }
+
+        // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3
+        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                HDFS_ENVIRONMENT,
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(validWriteIdsList));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        assertThatThrownBy(() -> drain(hiveSplitSource))
+                .isInstanceOfSatisfying(PrestoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
+                .hasMessage("Hive transactional tables are supported with Hive 3.0 and only after a major compaction has been run");
+
+        deleteRecursively(tablePath, ALLOW_INSECURE);
+    }
+
+    private static void createOrcAcidFile(File file)
+            throws IOException
+    {
+        if (file.getName().equals("_orc_acid_version")) {
+            Files.write(file.toPath(), "2".getBytes(UTF_8));
+            return;
+        }
+        checkState(file.createNewFile(), "Failed to create file %s", file);
     }
 
     private static List<String> drain(HiveSplitSource source)

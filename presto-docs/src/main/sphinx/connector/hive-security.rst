@@ -54,13 +54,14 @@ Hive does not exactly follow the SQL standard, there are the following
 limitations and differences:
 
 * ``CREATE ROLE role WITH ADMIN`` is not supported.
-* The ``admin`` role must be enabled to execute ``CREATE ROLE`` or ``DROP ROLE``.
+* The ``admin`` role must be enabled to execute ``CREATE ROLE``, ``DROP ROLE`` or ``CREATE SCHEMA``.
 * ``GRANT role TO user GRANTED BY someone`` is not supported.
 * ``REVOKE role FROM user GRANTED BY someone`` is not supported.
 * By default, all a user's roles, except ``admin``, are enabled in a new user session.
 * One particular role can be selected by executing ``SET ROLE role``.
 * ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
 * The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
+* ``GRANT privilege ON SCHEMA schema`` is not supported. Schema ownership can be changed with ``ALTER SCHEMA schema SET AUTHORIZATION user``
 
 Authentication
 ==============

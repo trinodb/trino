@@ -44,9 +44,11 @@ import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogN
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -185,9 +187,7 @@ public class TestTransactionManager
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
             transactionManager.trySetInactive(transactionId);
-            TimeUnit.MILLISECONDS.sleep(100);
-
-            assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+            assertEventually(new Duration(10, SECONDS), () -> assertTrue(transactionManager.getAllTransactionInfos().isEmpty()));
         }
     }
 

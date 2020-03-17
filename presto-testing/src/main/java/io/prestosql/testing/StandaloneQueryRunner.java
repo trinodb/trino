@@ -250,10 +250,12 @@ public final class StandaloneQueryRunner
 
     private static TestingPrestoServer createTestingPrestoServer()
     {
-        return new TestingPrestoServer(ImmutableMap.<String, String>builder()
-                .put("query.client.timeout", "10m")
-                .put("exchange.http-client.idle-timeout", "1h")
-                .put("node-scheduler.min-candidates", "1")
-                .build());
+        return TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("query.client.timeout", "10m")
+                        .put("exchange.http-client.idle-timeout", "1h")
+                        .put("node-scheduler.min-candidates", "1")
+                        .build())
+                .build();
     }
 }
