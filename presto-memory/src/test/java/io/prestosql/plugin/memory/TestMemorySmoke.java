@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.operator.OperatorStats;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -100,10 +101,10 @@ public class TestMemorySmoke
 
         // Probe-side is not scanned at all, due to dynamic filtering:
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.getQueryId()).getQueryStats();
-        Set rowsRead = stats.getOperatorSummaries()
+        Set<Long> rowsRead = stats.getOperatorSummaries()
                 .stream()
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
-                .map(summary -> summary.getInputPositions())
+                .map(OperatorStats::getInputPositions)
                 .collect(toImmutableSet());
         assertEquals(rowsRead, ImmutableSet.of(0L, buildSideRowsCount));
     }
@@ -129,10 +130,10 @@ public class TestMemorySmoke
 
         // Probe-side is dynamically filtered:
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.getQueryId()).getQueryStats();
-        Set rowsRead = stats.getOperatorSummaries()
+        Set<Long> rowsRead = stats.getOperatorSummaries()
                 .stream()
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
-                .map(summary -> summary.getInputPositions())
+                .map(OperatorStats::getInputPositions)
                 .collect(toImmutableSet());
         assertEquals(rowsRead, ImmutableSet.of(6L, buildSideRowsCount));
     }
@@ -301,10 +302,10 @@ public class TestMemorySmoke
         for (int i = 0; i < expected.length; i++) {
             MaterializedRow materializedRow = rows.getMaterializedRows().get(i);
             int fieldCount = materializedRow.getFieldCount();
-            assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
+            assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
             Object value = materializedRow.getField(0);
             assertEquals(value, expected[i]);
-            assertTrue(materializedRow.getFieldCount() == 1);
+            assertEquals(materializedRow.getFieldCount(), 1);
         }
     }
 }
