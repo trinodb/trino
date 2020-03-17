@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
@@ -27,7 +28,6 @@ import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.google.common.primitives.Primitives.wrap;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
@@ -80,8 +80,8 @@ public final class ApplyFunction
                         functionTypeArgumentProperty(UnaryFunctionInterface.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
-                                .changeReturnType(wrap(returnType.getJavaType()))
-                                .changeParameterType(0, wrap(argumentType.getJavaType()))));
+                                .changeReturnType(Primitives.wrap(returnType.getJavaType()))
+                                .changeParameterType(0, Primitives.wrap(argumentType.getJavaType()))));
     }
 
     @UsedByGeneratedCode
