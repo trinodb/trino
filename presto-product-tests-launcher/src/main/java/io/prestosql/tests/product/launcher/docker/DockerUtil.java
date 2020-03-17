@@ -24,6 +24,8 @@ import com.github.dockerjava.api.model.Network;
 import java.util.List;
 import java.util.function.Function;
 
+import static com.github.dockerjava.api.model.PruneType.CONTAINERS;
+
 public final class DockerUtil
 {
     private DockerUtil() {}
@@ -58,5 +60,12 @@ public final class DockerUtil
             dockerClient.removeNetworkCmd(network.getId())
                     .exec();
         }
+    }
+
+    public static void removeStoppedContainers(DockerClient dockerClient, String label)
+    {
+        dockerClient.pruneCmd(CONTAINERS)
+                .withLabelFilter(label)
+                .exec();
     }
 }

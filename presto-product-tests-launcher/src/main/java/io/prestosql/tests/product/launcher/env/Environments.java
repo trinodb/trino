@@ -47,6 +47,8 @@ public final class Environments
             DockerUtil.removeNetworks(
                     dockerClient,
                     listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
+
+            DockerUtil.removeStoppedContainers(dockerClient, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
