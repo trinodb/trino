@@ -23,6 +23,7 @@ connection properties as appropriate for your setup:
     connection-url=jdbc:
     connection-user=root
     connection-password=secret
+    case-insensitive-name-matching=true
 
 Some examples:
 
@@ -33,6 +34,7 @@ Some examples:
     connection-url=jdbc:sybase:Tds:localhost:8000/MYSYBASE
     connection-user=sa
     connection-password=myPassword
+    case-insensitive-name-matching=true
 
 .. code-block:: none
 
@@ -41,6 +43,7 @@ Some examples:
     connection-url=jdbc:oracle:thin:@localhost:49161:xe
     connection-user=system
     connection-password=rootpw
+    case-insensitive-name-matching=true
 
 Multiple Generic JDBC Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
