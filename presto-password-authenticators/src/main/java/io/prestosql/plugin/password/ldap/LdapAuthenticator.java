@@ -127,20 +127,32 @@ public class LdapAuthenticator
         if (containsSpecialCharacters(user)) {
             throw new AccessDeniedException("Username contains a special LDAP character");
         }
+        DirContext context = null;
         try {
             String userDistinguishedName = createUserDistinguishedName(user);
             if (groupAuthorizationSearchPattern.isPresent()) {
                 // user password is also validated as user DN and password is used for querying LDAP
-                validateGroupMembership(user, userDistinguishedName, credentials.getPassword());
+                Map<String, String> environment = createEnvironment(userDistinguishedName, credentials.getPassword());
+                context = createDirContext(environment);
+                checkForGroupMembership(user, context);
             }
             else {
                 validatePassword(userDistinguishedName, credentials.getPassword());
             }
             log.debug("Authentication successful for user [%s]", user);
         }
+        catch (AuthenticationException e) {
+            log.debug("Authentication failed for user [%s]: %s", user, e.getMessage());
+            throw new AccessDeniedException("Invalid credentials");
+        }
         catch (NamingException e) {
             log.debug(e, "Authentication failed for user [%s], %s", user, e.getMessage());
             throw new RuntimeException("Authentication error");
+        }
+        finally {
+            if (context != null) {
+                closeContext(context);
+            }
         }
         return new BasicPrincipal(user);
     }
@@ -263,9 +275,43 @@ public class LdapAuthenticator
                 .build();
     }
 
+    private void checkForGroupMembership(String user, DirContext context)
+    {
+        String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
+        String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
+        SearchControls searchControls = new SearchControls();
+        searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+
+        boolean authorized;
+        try {
+            NamingEnumeration<SearchResult> search = context.search(userBase, searchFilter, searchControls);
+            authorized = search.hasMore();
+            search.close();
+        }
+        catch (NamingException e) {
+            log.debug("Authentication error for user [%s]: %s", user, e.getMessage());
+            throw new RuntimeException("Authentication error");
+        }
+
+        if (!authorized) {
+            String message = format("User [%s] not a member of the authorized group", user);
+            log.debug(message);
+            throw new AccessDeniedException(message);
+        }
+    }
+
     private static String replaceUser(String pattern, String user)
     {
         return pattern.replace("${USER}", user);
+    }
+
+    private static void closeContext(DirContext context)
+    {
+        try {
+            context.close();
+        }
+        catch (NamingException ignored) {
+        }
     }
 
     private static class Credentials
