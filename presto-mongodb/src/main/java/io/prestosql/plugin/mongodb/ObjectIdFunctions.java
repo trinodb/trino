@@ -51,17 +51,17 @@ public final class ObjectIdFunctions
     private ObjectIdFunctions() {}
 
     @Description("Mongodb ObjectId")
-    @ScalarFunction("objectid")
+    @ScalarFunction
     @SqlType("ObjectId")
-    public static Slice ObjectId()
+    public static Slice objectid()
     {
         return Slices.wrappedBuffer(new ObjectId().toByteArray());
     }
 
     @Description("Mongodb ObjectId from the given string")
-    @ScalarFunction("objectid")
+    @ScalarFunction
     @SqlType("ObjectId")
-    public static Slice ObjectId(@SqlType(StandardTypes.VARCHAR) Slice value)
+    public static Slice objectid(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         return Slices.wrappedBuffer(new ObjectId(CharMatcher.is(' ').removeFrom(value.toStringUtf8())).toByteArray());
     }
