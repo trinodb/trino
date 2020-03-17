@@ -14,6 +14,7 @@
 package io.prestosql.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.spi.type.Type;
@@ -32,7 +33,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
-import static com.google.common.primitives.Ints.toByteArray;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -120,7 +120,7 @@ public class TestCassandraIntegrationSmokeTest
                 " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
-                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
+                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
                 " AND typetimestamp = TIMESTAMP '1969-12-31 23:04:05'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +
@@ -658,7 +658,7 @@ public class TestCassandraIntegrationSmokeTest
                     format("00000000-0000-0000-0000-%012d", rowNumber),
                     rowNumber,
                     rowNumber + 1000L,
-                    ByteBuffer.wrap(toByteArray(rowNumber)),
+                    ByteBuffer.wrap(Ints.toByteArray(rowNumber)),
                     TIMESTAMP_LOCAL,
                     "ansi " + rowNumber,
                     rowNumber % 2 == 0,

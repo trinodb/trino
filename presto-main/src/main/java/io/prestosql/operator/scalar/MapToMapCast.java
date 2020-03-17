@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
@@ -34,7 +35,6 @@ import java.lang.invoke.MethodHandles;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.primitives.Primitives.unwrap;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -130,7 +130,7 @@ public final class MapToMapCast
         MethodHandle writer = nativeValueWriter(toType);
         writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], writer.type().parameterArray()[0]), 1, 0);
 
-        return compose(writer, target.asType(methodType(unwrap(target.type().returnType()), target.type().parameterArray())));
+        return compose(writer, target.asType(methodType(Primitives.unwrap(target.type().returnType()), target.type().parameterArray())));
     }
 
     /**
