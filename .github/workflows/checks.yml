@@ -6,7 +6,7 @@ env:
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B -V -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
 
 jobs:
   maven-checks:
