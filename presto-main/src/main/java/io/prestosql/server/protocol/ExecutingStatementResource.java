@@ -110,7 +110,7 @@ public class ExecutingStatementResource
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor,
-            ExecutingStatementResourceConfig executingStatementResourceConfig)
+             ExecutingStatementResourceConfig executingStatementResourceConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
