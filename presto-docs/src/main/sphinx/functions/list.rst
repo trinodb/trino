@@ -104,7 +104,7 @@ C
 - :data:`current_time`
 - :data:`current_timestamp`
 - :func:`current_timezone`
-- :func:`current_user`
+- :data:`current_user`
 
 D
 
