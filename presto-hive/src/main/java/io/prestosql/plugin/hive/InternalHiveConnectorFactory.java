@@ -34,7 +34,7 @@ import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
 import io.prestosql.plugin.hive.procedure.HiveProcedureModule;
-import io.prestosql.plugin.hive.rubix.RubixConfig;
+import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
 import io.prestosql.plugin.hive.rubix.RubixInitializer;
 import io.prestosql.plugin.hive.rubix.RubixModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalHiveConnectorFactory
@@ -87,7 +88,7 @@ public final class InternalHiveConnectorFactory
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
-                    new RubixModule(),
+                    installModuleIf(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(catalogName),
                     new HiveAuthenticationModule(),
@@ -110,7 +111,7 @@ public final class InternalHiveConnectorFactory
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
-            if (injector.getInstance(RubixConfig.class).isCacheEnabled()) {
+            if (injector.getInstance(RubixEnabledConfig.class).isCacheEnabled()) {
                 // RubixInitializer needs ConfigurationInitializers, hence kept outside RubixModule
                 RubixInitializer rubixInitializer = injector.getInstance(RubixInitializer.class);
                 rubixInitializer.initializeRubix(context.getNodeManager());

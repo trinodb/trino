@@ -18,23 +18,10 @@ import io.airlift.configuration.Config;
 
 public class RubixConfig
 {
-    private boolean cacheEnabled;
     private boolean parallelWarmupEnabled = true;
     private String cacheLocation = "/tmp";
     private int bookKeeperServerPort = CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT;
     private int dataTransferServerPort = CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT;
-
-    public boolean isCacheEnabled()
-    {
-        return cacheEnabled;
-    }
-
-    @Config("hive.cache.enabled")
-    public RubixConfig setCacheEnabled(boolean value)
-    {
-        this.cacheEnabled = value;
-        return this;
-    }
 
     public boolean isParallelWarmupEnabled()
     {
