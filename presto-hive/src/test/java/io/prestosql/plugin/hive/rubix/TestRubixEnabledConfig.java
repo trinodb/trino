@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive.rubix;
 
 import com.google.common.collect.ImmutableMap;
-import com.qubole.rubix.spi.CacheConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -23,33 +22,24 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestRubixConfig
+public class TestRubixEnabledConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(RubixConfig.class)
-                .setBookKeeperServerPort(CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT)
-                .setDataTransferServerPort(CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT)
-                .setCacheLocation("/tmp")
-                .setParallelWarmupEnabled(true));
+        assertRecordedDefaults(recordDefaults(RubixEnabledConfig.class)
+                .setCacheEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.cache.parallel-warmup-enabled", "false")
-                .put("hive.cache.location", "/etc")
-                .put("hive.cache.rubix-bookkeeper-port", "1234")
-                .put("hive.cache.rubix-data-transfer-port", "1235")
+                .put("hive.cache.enabled", "true")
                 .build();
 
-        RubixConfig expected = new RubixConfig()
-                .setParallelWarmupEnabled(false)
-                .setCacheLocation("/etc")
-                .setBookKeeperServerPort(1234)
-                .setDataTransferServerPort(1235);
+        RubixEnabledConfig expected = new RubixEnabledConfig()
+                .setCacheEnabled(true);
 
         assertFullMapping(properties, expected);
     }

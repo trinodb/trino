@@ -14,24 +14,19 @@
 package io.prestosql.plugin.hive.rubix;
 
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ConfigurationInitializer;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class RubixModule
-        extends AbstractConfigurationAwareModule
+        implements Module
 {
     @Override
-    protected void setup(Binder binder)
+    public void configure(Binder binder)
     {
-        RubixConfig config = buildConfigObject(RubixConfig.class);
-        if (!config.isCacheEnabled()) {
-            return;
-        }
-
         configBinder(binder).bindConfig(RubixConfig.class);
         binder.bind(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
