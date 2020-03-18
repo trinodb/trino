@@ -48,6 +48,9 @@ public final class NoOpPlugin
         @Override
         public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
         {
+            if (!config.isEmpty()) {
+                throw new IllegalArgumentException("this connector accepts no configuration properties");
+            }
             return new NoOpConnector();
         }
 
