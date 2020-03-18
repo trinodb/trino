@@ -99,6 +99,7 @@ public class Analysis
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
     private Optional<QualifiedObjectName> target = Optional.empty();
+    private boolean skipMaterializedViewRefresh;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
@@ -168,6 +169,7 @@ public class Analysis
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
+    private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
 
     // for describe input and describe output
@@ -211,6 +213,16 @@ public class Analysis
     {
         this.updateType = null;
         this.target = Optional.empty();
+    }
+
+    public boolean isSkipMaterializedViewRefresh()
+    {
+        return skipMaterializedViewRefresh;
+    }
+
+    public void setSkipMaterializedViewRefresh(boolean skipMaterializedViewRefresh)
+    {
+        this.skipMaterializedViewRefresh = skipMaterializedViewRefresh;
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
@@ -607,6 +619,16 @@ public class Analysis
         return insert;
     }
 
+    public void setRefreshMaterializedView(RefreshMaterializedViewAnalysis refreshMaterializedView)
+    {
+        this.refreshMaterializedView = Optional.of(refreshMaterializedView);
+    }
+
+    public Optional<RefreshMaterializedViewAnalysis> getRefreshMaterializedView()
+    {
+        return refreshMaterializedView;
+    }
+
     public Query getNamedQuery(Table table)
     {
         return namedQueries.get(NodeRef.of(table));
@@ -973,6 +995,44 @@ public class Analysis
         public Optional<NewTableLayout> getNewTableLayout()
         {
             return newTableLayout;
+        }
+    }
+
+    @Immutable
+    public static final class RefreshMaterializedViewAnalysis
+    {
+        private final TableHandle materializedViewHandle;
+        private final TableHandle target;
+        private final Query query;
+        private final List<ColumnHandle> columns;
+
+        public RefreshMaterializedViewAnalysis(TableHandle materializedViewHandle, TableHandle target, Query query, List<ColumnHandle> columns)
+        {
+            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.target = requireNonNull(target, "target is null");
+            this.query = query;
+            this.columns = requireNonNull(columns, "columns is null");
+            checkArgument(columns.size() > 0, "No columns given to refresh materialized view");
+        }
+
+        public Query getQuery()
+        {
+            return query;
+        }
+
+        public List<ColumnHandle> getColumns()
+        {
+            return columns;
+        }
+
+        public TableHandle getTarget()
+        {
+            return target;
+        }
+
+        public TableHandle getMaterializedViewHandle()
+        {
+            return materializedViewHandle;
         }
     }
 

@@ -581,6 +581,12 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitRefreshMaterializedView(RefreshMaterializedView node, C context)
+    {
+        return null;
+    }
+
+    @Override
     protected Void visitDelete(Delete node, C context)
     {
         process(node.getTable(), context);

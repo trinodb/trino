@@ -25,6 +25,7 @@ import io.prestosql.sql.tree.CallArgument;
 import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
+import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.CreateRole;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.CreateTable;
@@ -35,6 +36,7 @@ import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.DescribeInput;
 import io.prestosql.sql.tree.DescribeOutput;
 import io.prestosql.sql.tree.DropColumn;
+import io.prestosql.sql.tree.DropMaterializedView;
 import io.prestosql.sql.tree.DropRole;
 import io.prestosql.sql.tree.DropSchema;
 import io.prestosql.sql.tree.DropTable;
@@ -71,6 +73,7 @@ import io.prestosql.sql.tree.Property;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
+import io.prestosql.sql.tree.RefreshMaterializedView;
 import io.prestosql.sql.tree.Relation;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameSchema;
@@ -634,6 +637,51 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateMaterializedView(CreateMaterializedView node, Integer indent)
+        {
+            builder.append("CREATE ");
+            if (node.isReplace()) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("MATERIALIZED VIEW ");
+
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+
+            builder.append(formatName(node.getName()));
+            if (node.getComment().isPresent()) {
+                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+            }
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+            builder.append(" AS\n");
+
+            process(node.getQuery(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
+        {
+            builder.append("REFRESH MATERIALIZED VIEW ");
+            builder.append(formatName(node.getName()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropMaterializedView(DropMaterializedView node, Integer context)
+        {
+            builder.append("DROP MATERIALIZED VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
+            return null;
+        }
+
+        @Override
         protected Void visitDropView(DropView node, Integer context)
         {
             builder.append("DROP VIEW ");
@@ -748,7 +796,10 @@ public final class SqlFormatter
                 builder.append("SHOW CREATE VIEW ")
                         .append(formatName(node.getName()));
             }
-
+            else if (node.getType() == ShowCreate.Type.MATERIALIZED_VIEW) {
+                builder.append("SHOW CREATE MATERIALIZED VIEW ")
+                        .append(formatName(node.getName()));
+            }
             return null;
         }
 
