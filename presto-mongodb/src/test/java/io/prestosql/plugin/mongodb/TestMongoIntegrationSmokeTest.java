@@ -296,6 +296,14 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("DROP TABLE test.view_base");
     }
 
+    @Test
+    public void testDropTable()
+    {
+        assertUpdate("CREATE TABLE test.foo(bar bigint)");
+        assertUpdate("DROP TABLE test.foo");
+        assertQueryFails("SELECT * FROM test.foo", "line \\S+ Table mongodb.test.foo does not exist");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
