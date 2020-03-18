@@ -52,7 +52,7 @@ public class RubixConfig
         return bookKeeperServerPort;
     }
 
-    @Config("hive.cache.rubix-bookkeeper-port")
+    @Config("hive.cache.bookkeeper-port")
     public RubixConfig setBookKeeperServerPort(int port)
     {
         this.bookKeeperServerPort = port;
@@ -64,7 +64,7 @@ public class RubixConfig
         return dataTransferServerPort;
     }
 
-    @Config("hive.cache.rubix-data-transfer-port")
+    @Config("hive.cache.data-transfer-port")
     public RubixConfig setDataTransferServerPort(int port)
     {
         this.dataTransferServerPort = port;
