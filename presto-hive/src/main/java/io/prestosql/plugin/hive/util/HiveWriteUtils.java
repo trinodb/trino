@@ -54,7 +54,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -170,9 +169,6 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
 {
-    @SuppressWarnings("OctalInteger")
-    private static final FsPermission ALL_PERMISSIONS = new FsPermission((short) 0777);
-
     private HiveWriteUtils()
     {
     }
@@ -565,7 +561,7 @@ public final class HiveWriteUtils
     public static void createDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, ALL_PERMISSIONS)) {
+            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions())) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -575,7 +571,7 @@ public final class HiveWriteUtils
 
         // explicitly set permission since the default umask overrides it on creation
         try {
-            hdfsEnvironment.getFileSystem(context, path).setPermission(path, ALL_PERMISSIONS);
+            hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions());
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
