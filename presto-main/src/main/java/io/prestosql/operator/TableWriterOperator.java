@@ -33,6 +33,7 @@ import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.prestosql.util.AutoCloseableCloser;
 import io.prestosql.util.Mergeable;
@@ -94,7 +95,8 @@ public class TableWriterOperator
             this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
             this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
-            checkArgument(writerTarget instanceof CreateTarget || writerTarget instanceof InsertTarget, "writerTarget must be CreateTarget or InsertTarget");
+            checkArgument(writerTarget instanceof CreateTarget || writerTarget instanceof InsertTarget || writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget,
+                    "writerTarget must be CreateTarget, InsertTarget or RefreshMaterializedViewTarget");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -118,6 +120,9 @@ public class TableWriterOperator
             }
             if (target instanceof InsertTarget) {
                 return pageSinkManager.createPageSink(session, ((InsertTarget) target).getHandle());
+            }
+            if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
+                return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getHandle());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

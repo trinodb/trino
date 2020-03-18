@@ -20,38 +20,28 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
-public class ShowCreate
+public class DropMaterializedView
         extends Statement
 {
-    public enum Type
-    {
-        TABLE,
-        VIEW,
-        SCHEMA,
-        MATERIALIZED_VIEW,
-        /**/;
-    }
-
-    private final Type type;
     private final QualifiedName name;
+    private final boolean exists;
 
-    public ShowCreate(Type type, QualifiedName name)
+    public DropMaterializedView(QualifiedName name, boolean exists)
     {
-        this(Optional.empty(), type, name);
+        this(Optional.empty(), name, exists);
     }
 
-    public ShowCreate(NodeLocation location, Type type, QualifiedName name)
+    public DropMaterializedView(NodeLocation location, QualifiedName name, boolean exists)
     {
-        this(Optional.of(location), type, name);
+        this(Optional.of(location), name, exists);
     }
 
-    private ShowCreate(Optional<NodeLocation> location, Type type, QualifiedName name)
+    private DropMaterializedView(Optional<NodeLocation> location, QualifiedName name, boolean exists)
     {
         super(location);
-        this.type = requireNonNull(type, "type is null");
-        this.name = requireNonNull(name, "name is null");
+        this.name = name;
+        this.exists = exists;
     }
 
     public QualifiedName getName()
@@ -59,15 +49,15 @@ public class ShowCreate
         return name;
     }
 
-    public Type getType()
+    public boolean isExists()
     {
-        return type;
+        return exists;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitShowCreate(this, context);
+        return visitor.visitDropMaterializedView(this, context);
     }
 
     @Override
@@ -79,7 +69,7 @@ public class ShowCreate
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, name);
+        return Objects.hash(name, exists);
     }
 
     @Override
@@ -91,16 +81,17 @@ public class ShowCreate
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        ShowCreate o = (ShowCreate) obj;
-        return Objects.equals(name, o.name) && type == o.type;
+        DropMaterializedView o = (DropMaterializedView) obj;
+        return Objects.equals(name, o.name)
+                && (exists == o.exists);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("type", type)
                 .add("name", name)
+                .add("exists", exists)
                 .toString();
     }
 }

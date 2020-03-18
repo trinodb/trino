@@ -27,12 +27,14 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.MaterializedViewFreshness;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SortItem;
@@ -263,6 +265,21 @@ public interface Metadata
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Begin refresh materialized view query
+     */
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish refresh materialized view query
+     */
+    Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -533,4 +550,25 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    /**
+     * Creates the specified materialized view with the specified view definition.
+     */
+    void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+
+    /**
+     * Drops the specified materialized view.
+     */
+    void dropMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Returns the materialized view definition for the specified view name.
+     */
+    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Method to get difference between the states of table at two different points in time/or as of given token-ids.
+     * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     */
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle);
 }

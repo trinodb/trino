@@ -37,6 +37,7 @@ import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.CreateRole;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.CreateTable;
@@ -52,6 +53,7 @@ import io.prestosql.sql.tree.DescribeInput;
 import io.prestosql.sql.tree.DescribeOutput;
 import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.DropColumn;
+import io.prestosql.sql.tree.DropMaterializedView;
 import io.prestosql.sql.tree.DropRole;
 import io.prestosql.sql.tree.DropSchema;
 import io.prestosql.sql.tree.DropTable;
@@ -93,6 +95,7 @@ import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NaturalJoin;
 import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.NodeLocation;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
@@ -108,6 +111,7 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
+import io.prestosql.sql.tree.RefreshMaterializedView;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
@@ -156,6 +160,7 @@ import io.prestosql.sql.tree.With;
 import io.prestosql.sql.tree.WithQuery;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -2580,6 +2585,73 @@ public class TestSqlParser
         assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty()));
         assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
         assertStatement("SET ROLE \"role\"", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
+    }
+
+    @Test
+    public void testCreateMaterializedView()
+    {
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+
+        Optional<NodeLocation> location = Optional.empty();
+
+        assertStatement("CREATE MATERIALIZED VIEW a AS SELECT * FROM t", new CreateMaterializedView(location,
+                QualifiedName.of("a"), query, false, false, new ArrayList<>(), Optional.empty()));
+
+        Query query2 = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("catalog2", "schema2", "tab")));
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
+                        " AS SELECT * FROM catalog2.schema2.tab",
+                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
+                        true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
+
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS catalog.schema.matview COMMENT 'A simple materialized view'" +
+                        " AS SELECT * FROM catalog2.schema2.tab",
+                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
+                        true, true, new ArrayList<>(), Optional.of("A simple materialized view")));
+
+        List<Property> properties = ImmutableList.of(new Property(new Identifier("partitioned_by"),
+                new ArrayConstructor(ImmutableList.of(new StringLiteral("dateint")))));
+
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS catalog.schema.matview COMMENT 'A simple materialized view'" +
+                        "WITH (partitioned_by = ARRAY ['dateint'])" +
+                        " AS SELECT * FROM catalog2.schema2.tab",
+                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
+                        true, true, properties, Optional.of("A simple materialized view")));
+
+        Query query3 = new Query(Optional.of(new With(false, ImmutableList.of(
+                new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of(identifier("t"), identifier("u")))),
+                new WithQuery(identifier("b"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("a"))), Optional.empty())))),
+                new Table(QualifiedName.of("b")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS catalog.schema.matview COMMENT 'A partitioned materialized view' " +
+                        "WITH (partitioned_by = ARRAY ['dateint'])" +
+                        " AS WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM a) TABLE b",
+                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query3,
+                        true, true, properties, Optional.of("A partitioned materialized view")));
+    }
+
+    @Test
+    public void testRefreshMaterializedView()
+    {
+        assertStatement("REFRESH MATERIALIZED VIEW test",
+                new RefreshMaterializedView(Optional.empty(), QualifiedName.of("test")));
+
+        assertStatement("REFRESH MATERIALIZED VIEW \"some name that contains space\"",
+                new RefreshMaterializedView(Optional.empty(), QualifiedName.of("some name that contains space")));
+    }
+
+    @Test
+    public void testDropMaterializedView()
+    {
+        assertStatement("DROP MATERIALIZED VIEW a", new DropMaterializedView(QualifiedName.of("a"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b", new DropMaterializedView(QualifiedName.of("a", "b"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b.c", new DropMaterializedView(QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(QualifiedName.of("a"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(QualifiedName.of("a", "b"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(QualifiedName.of("a", "b", "c"), true));
     }
 
     @Test
