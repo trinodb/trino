@@ -41,8 +41,8 @@ public class TestRubixConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.cache.parallel-warmup-enabled", "false")
                 .put("hive.cache.location", "/etc")
-                .put("hive.cache.rubix-bookkeeper-port", "1234")
-                .put("hive.cache.rubix-data-transfer-port", "1235")
+                .put("hive.cache.bookkeeper-port", "1234")
+                .put("hive.cache.data-transfer-port", "1235")
                 .build();
 
         RubixConfig expected = new RubixConfig()
