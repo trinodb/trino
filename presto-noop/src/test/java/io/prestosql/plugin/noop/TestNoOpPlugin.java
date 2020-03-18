@@ -16,6 +16,7 @@ package io.prestosql.plugin.noop;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.security.GroupProviderFactory;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
@@ -29,5 +30,13 @@ public class TestNoOpPlugin
         Plugin plugin = new NoOpPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("noop", ImmutableMap.of(), new TestingConnectorContext());
+    }
+
+    @Test
+    public void testCreateGroupProvider()
+    {
+        Plugin plugin = new NoOpPlugin();
+        GroupProviderFactory factory = getOnlyElement(plugin.getGroupProviderFactories());
+        factory.create(ImmutableMap.of());
     }
 }
