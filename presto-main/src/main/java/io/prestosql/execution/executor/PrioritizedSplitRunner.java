@@ -169,18 +169,22 @@ public class PrioritizedSplitRunner
             priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
             lastRun.set(ticker.read());
 
-            if (blocked == NOT_BLOCKED) {
-                unblockedQuantaWallTime.add(elapsed.getWall());
-            }
-            else {
-                blockedQuantaWallTime.add(elapsed.getWall());
-            }
+            try {
+                if (blocked == NOT_BLOCKED) {
+                    unblockedQuantaWallTime.add(elapsed.getWall());
+                }
+                else {
+                    blockedQuantaWallTime.add(elapsed.getWall());
+                }
 
-            long quantaCpuNanos = elapsed.getCpu().roundTo(NANOSECONDS);
-            cpuTimeNanos.addAndGet(quantaCpuNanos);
+                long quantaCpuNanos = elapsed.getCpu().roundTo(NANOSECONDS);
+                cpuTimeNanos.addAndGet(quantaCpuNanos);
 
-            globalCpuTimeMicros.update(quantaCpuNanos / 1000);
-            globalScheduledTimeMicros.update(quantaScheduledNanos / 1000);
+                globalCpuTimeMicros.update(quantaCpuNanos / 1000);
+                globalScheduledTimeMicros.update(quantaScheduledNanos / 1000);
+            }
+            catch (Exception ignored) {
+            }
 
             return blocked;
         }
