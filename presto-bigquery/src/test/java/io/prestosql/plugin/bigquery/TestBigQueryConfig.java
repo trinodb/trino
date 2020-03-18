@@ -41,7 +41,7 @@ public class TestBigQueryConfig
         assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
-        assertEquals(config.getParentProjectId(), "ppid");
+        assertEquals(config.getParentProjectId(), Optional.of("ppid"));
         assertEquals(config.getParallelism(), OptionalInt.of(20));
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
@@ -66,7 +66,7 @@ public class TestBigQueryConfig
 
         assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
-        assertEquals(config.getParentProjectId(), "ppid");
+        assertEquals(config.getParentProjectId(), Optional.of("ppid"));
         assertEquals(config.getParallelism(), OptionalInt.of(20));
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
