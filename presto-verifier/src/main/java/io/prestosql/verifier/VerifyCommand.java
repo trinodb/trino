@@ -33,15 +33,18 @@ import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.Comment;
+import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.CreateView;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.DropColumn;
+import io.prestosql.sql.tree.DropMaterializedView;
 import io.prestosql.sql.tree.DropTable;
 import io.prestosql.sql.tree.DropView;
 import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.Insert;
+import io.prestosql.sql.tree.RefreshMaterializedView;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.sql.tree.RenameView;
@@ -366,6 +369,18 @@ public class VerifyCommand
                 return MODIFY;
             }
             return CREATE;
+        }
+        if (statement instanceof CreateMaterializedView) {
+            if (((CreateMaterializedView) statement).isReplace()) {
+                return MODIFY;
+            }
+            return CREATE;
+        }
+        if (statement instanceof RefreshMaterializedView) {
+            return MODIFY;
+        }
+        if (statement instanceof DropMaterializedView) {
+            return MODIFY;
         }
         if (statement instanceof Delete) {
             return MODIFY;

@@ -152,7 +152,7 @@ public interface AccessControl
     void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName);
 
     /**
-     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
      *
      * @throws AccessDeniedException if not allowed
      */
