@@ -17,7 +17,6 @@ import java.util.Optional;
 
 class ReadSessionCreatorConfig
 {
-    final String parentProjectId;
     final boolean viewsEnabled;
     final Optional<String> viewMaterializationProject;
     final Optional<String> viewMaterializationDataset;
@@ -25,14 +24,12 @@ class ReadSessionCreatorConfig
     final int maxReadRowsRetries;
 
     ReadSessionCreatorConfig(
-            String parentProjectId,
             boolean viewsEnabled,
             Optional<String> viewMaterializationProject,
             Optional<String> viewMaterializationDataset,
             int viewExpirationTimeInHours,
             int maxReadRowsRetries)
     {
-        this.parentProjectId = parentProjectId;
         this.viewsEnabled = viewsEnabled;
         this.viewMaterializationProject = viewMaterializationProject;
         this.viewMaterializationDataset = viewMaterializationDataset;
