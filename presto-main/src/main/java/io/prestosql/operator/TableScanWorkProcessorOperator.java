@@ -27,8 +27,10 @@ import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.split.EmptySplit;
 import io.prestosql.split.PageSourceProvider;
 
 import javax.annotation.Nullable;
@@ -169,7 +171,14 @@ public class TableScanWorkProcessorOperator
             if (!dynamicFilter.get().isAll()) {
                 dynamicFilterSplitsProcessed++;
             }
-            source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
+
+            if (split.getConnectorSplit() instanceof EmptySplit) {
+                source = new EmptyPageSource();
+            }
+            else {
+                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
+            }
+
             return TransformationState.ofResult(
                     WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
                             .map(page -> {
