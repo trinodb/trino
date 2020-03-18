@@ -118,9 +118,9 @@ public class TestHiveSchema
 
         // SELECT
         assertThat(() -> onPresto().executeQuery("SELECT * FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
-                .failsWithMessage("line 1:15: Schema sys does not exist");
+                .failsWithMessage("line 1:15: Schema 'sys' does not exist");
         assertThat(() -> onPresto().executeQuery("SELECT * FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
-                .failsWithMessage("line 1:15: Schema sys does not exist");
+                .failsWithMessage("line 1:15: Schema 'sys' does not exist");
     }
 
     // Note: this test is run on various Hive versions. Hive before 3 did not have `information_schema` schema, but it does not hurt to run the test there too.
@@ -243,7 +243,7 @@ public class TestHiveSchema
 
         // SELECT
         assertThat(() -> onPresto().executeQuery("SELECT * FROM hive.information_schema.column_privileges"))  // information_schema.column_privileges exists in Hive 3
-                .failsWithMessage("line 1:15: Table hive.information_schema.column_privileges does not exist");
+                .failsWithMessage("line 1:15: Table 'hive.information_schema.column_privileges' does not exist");
     }
 
     /** Returns whether table privileges are supported in current setup. */
