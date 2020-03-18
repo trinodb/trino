@@ -21,8 +21,11 @@ import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.security.GroupProvider;
+import io.prestosql.spi.security.GroupProviderFactory;
 import io.prestosql.spi.transaction.IsolationLevel;
 
+import java.util.Collections;
 import java.util.Map;
 
 import static java.util.Collections.singletonList;
@@ -34,6 +37,12 @@ public final class NoOpPlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return singletonList(new NoOpConnectorFactory());
+    }
+
+    @Override
+    public Iterable<GroupProviderFactory> getGroupProviderFactories()
+    {
+        return singletonList(new NoOpGroupProviderFactory());
     }
 
     private static class NoOpConnectorFactory
@@ -98,4 +107,23 @@ public final class NoOpPlugin
 
     private static class NoOpMetadata
             implements ConnectorMetadata {}
+
+    private static class NoOpGroupProviderFactory
+            implements GroupProviderFactory
+    {
+        @Override
+        public String getName()
+        {
+            return "noop";
+        }
+
+        @Override
+        public GroupProvider create(Map<String, String> config)
+        {
+            if (!config.isEmpty()) {
+                throw new IllegalArgumentException("this group provider accepts no configuration properties");
+            }
+            return user -> Collections.emptySet();
+        }
+    }
 }

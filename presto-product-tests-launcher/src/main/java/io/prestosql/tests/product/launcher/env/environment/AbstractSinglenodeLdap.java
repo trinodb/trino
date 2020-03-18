@@ -13,18 +13,17 @@
  */
 package io.prestosql.tests.product.launcher.env.environment;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
-import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import java.time.Duration;
+import java.util.List;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
@@ -42,9 +41,9 @@ public abstract class AbstractSinglenodeLdap
 
     private static final int LDAP_PORT = 636;
 
-    protected AbstractSinglenodeLdap(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentOptions environmentOptions)
+    protected AbstractSinglenodeLdap(List<EnvironmentExtender> bases, DockerFiles dockerFiles, EnvironmentOptions environmentOptions)
     {
-        super(ImmutableList.of(standard, hadoop));
+        super(bases);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
     }
@@ -90,6 +89,16 @@ public abstract class AbstractSinglenodeLdap
     protected String getBaseImage()
     {
         return "centos6-oj8-openldap";
+    }
+
+    protected DockerFiles getDockerFiles()
+    {
+        return dockerFiles;
+    }
+
+    protected String getImagesVersion()
+    {
+        return imagesVersion;
     }
 
     protected abstract String getPasswordAuthenticatorConfigPath();
