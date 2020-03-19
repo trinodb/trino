@@ -15,6 +15,7 @@ package io.prestosql.plugin.kudu;
 
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
 import org.apache.kudu.client.KuduException;
@@ -45,11 +46,11 @@ public class KuduRecordCursor
         this.columnTypes = columnTypes;
         Field field = null;
         try {
-            field = RowResult.class.getDeclaredField("rawData");
+            field = RowResult.class.getDeclaredField("rowData");
             field.setAccessible(true);
         }
         catch (NoSuchFieldException e) {
-            // ignore
+            throw new RuntimeException(e);
         }
         this.rowDataField = field;
     }
@@ -119,7 +120,7 @@ public class KuduRecordCursor
                 return ((org.apache.kudu.util.Slice) rowDataField.get(currentRow));
             }
             catch (IllegalAccessException e) {
-                return null;
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
             }
         }
         return null;
