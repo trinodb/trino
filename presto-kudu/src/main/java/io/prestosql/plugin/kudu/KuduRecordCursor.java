@@ -26,14 +26,27 @@ import org.apache.kudu.client.RowResultIterator;
 import java.lang.reflect.Field;
 import java.util.List;
 
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+
 public class KuduRecordCursor
         implements RecordCursor
 {
     private static final Logger log = Logger.get(KuduRecordCursor.class);
 
+    private static final Field ROW_DATA_FIELD;
+
+    static {
+        try {
+            ROW_DATA_FIELD = RowResult.class.getDeclaredField("rowData");
+            ROW_DATA_FIELD.setAccessible(true);
+        }
+        catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private final KuduScanner scanner;
     private final List<Type> columnTypes;
-    private final Field rowDataField;
     private RowResultIterator nextRows;
     protected RowResult currentRow;
 
@@ -44,15 +57,6 @@ public class KuduRecordCursor
     {
         this.scanner = scanner;
         this.columnTypes = columnTypes;
-        Field field = null;
-        try {
-            field = RowResult.class.getDeclaredField("rowData");
-            field.setAccessible(true);
-        }
-        catch (NoSuchFieldException e) {
-            throw new RuntimeException(e);
-        }
-        this.rowDataField = field;
     }
 
     @Override
@@ -115,9 +119,9 @@ public class KuduRecordCursor
 
     private org.apache.kudu.util.Slice getCurrentRowRawData()
     {
-        if (rowDataField != null && currentRow != null) {
+        if (currentRow != null) {
             try {
-                return ((org.apache.kudu.util.Slice) rowDataField.get(currentRow));
+                return (org.apache.kudu.util.Slice) ROW_DATA_FIELD.get(currentRow);
             }
             catch (IllegalAccessException e) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
