@@ -27,6 +27,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -263,7 +264,7 @@ public class HiveMetadata
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
 
     private final boolean allowCorruptWritesForTesting;
-    private final HiveCatalogName catalogName;
+    private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -280,7 +281,7 @@ public class HiveMetadata
     private final AccessControlMetadata accessControlMetadata;
 
     public HiveMetadata(
-            HiveCatalogName catalogName,
+            CatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -299,7 +300,7 @@ public class HiveMetadata
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
-        this.catalogName = requireNonNull(catalogName, "hiveCatalogName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");

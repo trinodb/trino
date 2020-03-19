@@ -22,8 +22,8 @@ import com.qubole.rubix.bookkeeper.BookKeeperServer;
 import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
 import com.qubole.rubix.core.CachingFileSystem;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.ConfigurationInitializer;
-import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -44,14 +44,14 @@ public class RubixInitializer
 {
     private static final Logger log = Logger.get(RubixInitializer.class);
 
-    private final HiveCatalogName hiveCatalogName;
+    private final CatalogName catalogName;
     private final RubixConfigurationInitializer rubixConfigurationInitializer;
     private final Set<ConfigurationInitializer> configurationInitializers;
 
     @Inject
-    public RubixInitializer(HiveCatalogName hiveCatalogName, RubixConfigurationInitializer rubixConfigurationInitializer, Set<ConfigurationInitializer> configurationInitializers)
+    public RubixInitializer(CatalogName catalogName, RubixConfigurationInitializer rubixConfigurationInitializer, Set<ConfigurationInitializer> configurationInitializers)
     {
-        this.hiveCatalogName = hiveCatalogName;
+        this.catalogName = catalogName;
         this.rubixConfigurationInitializer = rubixConfigurationInitializer;
         this.configurationInitializers = configurationInitializers;
     }
@@ -97,7 +97,7 @@ public class RubixInitializer
                         BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
                         LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
 
-                        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + hiveCatalogName);
+                        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
                         log.info("Rubix initialized successfully");
                         rubixConfigurationInitializer.initializationDone();
                     }

@@ -21,6 +21,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -100,7 +101,7 @@ public final class InternalHiveConnectorFactory
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
-                        binder.bind(HiveCatalogName.class).toInstance(new HiveCatalogName(catalogName));
+                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                     },
                     module);
 

@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.metastore.cache;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import io.prestosql.plugin.hive.HiveCatalogName;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreDecorator;
 
@@ -60,7 +60,7 @@ public class CachingHiveMetastoreModule
     @Provides
     @Singleton
     @ForCachingHiveMetastore
-    public Executor createCachingHiveMetastoreExecutor(HiveCatalogName catalogName, CachingHiveMetastoreConfig hiveConfig)
+    public Executor createCachingHiveMetastoreExecutor(CatalogName catalogName, CachingHiveMetastoreConfig hiveConfig)
     {
         return new ReentrantBoundedExecutor(
                 newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
