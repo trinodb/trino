@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
@@ -164,6 +165,8 @@ public final class MetadataManager
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
+    private static final Logger log = Logger.get(MetadataManager.class);
+
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
@@ -289,9 +292,14 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
             for (CatalogName connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                metadata.listSchemaNames(connectorSession).stream()
-                        .map(schema -> schema.toLowerCase(Locale.ENGLISH))
-                        .forEach(schemaNames::add);
+                try {
+                    metadata.listSchemaNames(connectorSession).stream()
+                            .map(schema -> schema.toLowerCase(Locale.ENGLISH))
+                            .forEach(schemaNames::add);
+                }
+                catch (Exception ignored) {
+                    log.debug("Unable to list schemas for catalog [%s]", catalogName);
+                }
             }
         }
         return ImmutableList.copyOf(schemaNames.build());
@@ -540,10 +548,15 @@ public final class MetadataManager
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
-                        .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(prefix::matches)
-                        .forEach(tables::add);
+                try {
+                    metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
+                            .map(convertFromSchemaTableName(prefix.getCatalogName()))
+                            .filter(prefix::matches)
+                            .forEach(tables::add);
+                }
+                catch (Exception ignored) {
+                    log.debug("Unable to list tables for catalog [%s]", prefix.getCatalogName());
+                }
             }
         }
         return ImmutableList.copyOf(tables);
@@ -562,28 +575,32 @@ public final class MetadataManager
             SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-
-                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                for (Entry<SchemaTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(connectorSession, tablePrefix).entrySet()) {
-                    QualifiedObjectName tableName = new QualifiedObjectName(
-                            prefix.getCatalogName(),
-                            entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName());
-                    tableColumns.put(tableName, entry.getValue());
-                }
-
-                // if table and view names overlap, the view wins
-                for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : getViews(session, prefix).entrySet()) {
-                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
-                        try {
-                            columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
-                        }
-                        catch (TypeNotFoundException e) {
-                            throw new PrestoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
-                        }
+                try {
+                    ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                    for (Entry<SchemaTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(connectorSession, tablePrefix).entrySet()) {
+                        QualifiedObjectName tableName = new QualifiedObjectName(
+                                prefix.getCatalogName(),
+                                entry.getKey().getSchemaName(),
+                                entry.getKey().getTableName());
+                        tableColumns.put(tableName, entry.getValue());
                     }
-                    tableColumns.put(entry.getKey(), columns.build());
+
+                    // if table and view names overlap, the view wins
+                    for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : getViews(session, prefix).entrySet()) {
+                        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+                        for (ViewColumn column : entry.getValue().getColumns()) {
+                            try {
+                                columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
+                            }
+                            catch (TypeNotFoundException e) {
+                                throw new PrestoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
+                            }
+                        }
+                        tableColumns.put(entry.getKey(), columns.build());
+                    }
+                }
+                catch (Exception ignored) {
+                    log.debug("Unable to list columns for catalog [%s]", prefix.getCatalogName());
                 }
             }
         }
@@ -904,10 +921,15 @@ public final class MetadataManager
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
-                        .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(prefix::matches)
-                        .forEach(views::add);
+                try {
+                    metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
+                            .map(convertFromSchemaTableName(prefix.getCatalogName()))
+                            .filter(prefix::matches)
+                            .forEach(views::add);
+                }
+                catch (Exception ignored) {
+                    log.debug("Unable to list views for catalog [%s]", prefix.getCatalogName());
+                }
             }
         }
         return ImmutableList.copyOf(views);
@@ -928,23 +950,27 @@ public final class MetadataManager
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                try {
+                    Map<SchemaTableName, ConnectorViewDefinition> viewMap;
+                    if (tablePrefix.getTable().isPresent()) {
+                        viewMap = metadata.getView(connectorSession, tablePrefix.toSchemaTableName())
+                                .map(view -> ImmutableMap.of(tablePrefix.toSchemaTableName(), view))
+                                .orElse(ImmutableMap.of());
+                    }
+                    else {
+                        viewMap = metadata.getViews(connectorSession, tablePrefix.getSchema());
+                    }
 
-                Map<SchemaTableName, ConnectorViewDefinition> viewMap;
-                if (tablePrefix.getTable().isPresent()) {
-                    viewMap = metadata.getView(connectorSession, tablePrefix.toSchemaTableName())
-                            .map(view -> ImmutableMap.of(tablePrefix.toSchemaTableName(), view))
-                            .orElse(ImmutableMap.of());
+                    for (Entry<SchemaTableName, ConnectorViewDefinition> entry : viewMap.entrySet()) {
+                        QualifiedObjectName viewName = new QualifiedObjectName(
+                                prefix.getCatalogName(),
+                                entry.getKey().getSchemaName(),
+                                entry.getKey().getTableName());
+                        views.put(viewName, entry.getValue());
+                    }
                 }
-                else {
-                    viewMap = metadata.getViews(connectorSession, tablePrefix.getSchema());
-                }
-
-                for (Entry<SchemaTableName, ConnectorViewDefinition> entry : viewMap.entrySet()) {
-                    QualifiedObjectName viewName = new QualifiedObjectName(
-                            prefix.getCatalogName(),
-                            entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName());
-                    views.put(viewName, entry.getValue());
+                catch (Exception ignored) {
+                    log.debug("Unable to get views for catalog [%s]", prefix.getCatalogName());
                 }
             }
         }
@@ -1231,7 +1257,12 @@ public final class MetadataManager
                     .orElseGet(catalogMetadata::listConnectorIds);
             for (CatalogName catalogName : connectorIds) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-                grantInfos.addAll(metadata.listTablePrivileges(connectorSession, prefix.asSchemaTablePrefix()));
+                try {
+                    grantInfos.addAll(metadata.listTablePrivileges(connectorSession, prefix.asSchemaTablePrefix()));
+                }
+                catch (Exception ignored) {
+                    log.debug("Unable to list table privileges for catalog [%s]", prefix.getCatalogName());
+                }
             }
         }
         return ImmutableList.copyOf(grantInfos.build());
