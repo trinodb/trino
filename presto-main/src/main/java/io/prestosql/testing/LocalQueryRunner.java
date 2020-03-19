@@ -41,6 +41,7 @@ import io.prestosql.cost.CostCalculatorWithEstimatedExchanges;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.eventlistener.EventListenerConfig;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.CommentTask;
 import io.prestosql.execution.CommitTask;
@@ -101,6 +102,7 @@ import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.index.IndexJoinLookupStats;
+import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.PluginManager;
 import io.prestosql.server.PluginManagerConfig;
@@ -320,6 +322,7 @@ public class LocalQueryRunner
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
         this.accessControl = new TestingAccessControlManager(transactionManager);
+        accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         this.pageSourceManager = new PageSourceManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
@@ -363,7 +366,7 @@ public class LocalQueryRunner
                 new NoOpResourceGroupManager(),
                 accessControl,
                 new PasswordAuthenticatorManager(),
-                new EventListenerManager(),
+                new EventListenerManager(new EventListenerConfig()),
                 new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo));
 

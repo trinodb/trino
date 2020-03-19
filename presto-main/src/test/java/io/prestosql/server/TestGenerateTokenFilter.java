@@ -13,7 +13,6 @@
  */
 package io.prestosql.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -58,7 +57,9 @@ public class TestGenerateTokenFilter
     @BeforeClass
     public void setup()
     {
-        server = new TestingPrestoServer(ImmutableList.of(new TestGenerateTokenFilterModule()));
+        server = TestingPrestoServer.builder()
+                .setAdditionalModule(new TestGenerateTokenFilterModule())
+                .build();
         httpClient = (JettyHttpClient) server.getInstance(Key.get(HttpClient.class, GenerateTokenFilterTest.class));
 
         // extract the filter

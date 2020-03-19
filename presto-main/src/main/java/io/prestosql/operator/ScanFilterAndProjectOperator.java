@@ -32,13 +32,13 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.EmptySplit;
-import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -237,7 +237,7 @@ public class ScanFilterAndProjectOperator
 
             ConnectorPageSource source;
             if (split.getConnectorSplit() instanceof EmptySplit) {
-                source = new EmptySplitPageSource();
+                source = new EmptyPageSource();
             }
             else {
                 source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);

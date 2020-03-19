@@ -21,7 +21,6 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveInsertTableHandle;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.HiveTableHandle;
-import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.LocationService;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.PartitionUpdate;
@@ -104,10 +103,10 @@ public class CreateEmptyPartitionProcedure
 
     private void doCreateEmptyPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
     {
-        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(new HiveTransactionHandle());
+        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         if (tableHandle == null) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schemaName, tableName)));
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
         }
 
         List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()

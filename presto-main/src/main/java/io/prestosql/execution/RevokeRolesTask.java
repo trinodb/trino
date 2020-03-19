@@ -55,7 +55,7 @@ public class RevokeRolesTask
         Set<PrestoPrincipal> grantees = statement.getGrantees().stream()
                 .map(MetadataUtil::createPrincipal)
                 .collect(toImmutableSet());
-        boolean adminOptionFor = statement.isAdminOptionFor();
+        boolean adminOption = statement.isAdminOption();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         String catalog = getSessionCatalog(metadata, session, statement);
 
@@ -76,8 +76,8 @@ public class RevokeRolesTask
             }
         }
 
-        accessControl.checkCanRevokeRoles(session.toSecurityContext(), roles, grantees, adminOptionFor, grantor, catalog);
-        metadata.revokeRoles(session, roles, grantees, adminOptionFor, grantor, catalog);
+        accessControl.checkCanRevokeRoles(session.toSecurityContext(), roles, grantees, adminOption, grantor, catalog);
+        metadata.revokeRoles(session, roles, grantees, adminOption, grantor, catalog);
 
         return immediateFuture(null);
     }

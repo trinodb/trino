@@ -44,7 +44,7 @@ public class TestInvalidSelect
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
-                .failsWithMessage(format("Table %s does not exist", tableName));
+                .failsWithMessage(format("Table '%s' does not exist", tableName));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
@@ -52,7 +52,7 @@ public class TestInvalidSelect
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, "does_not_exist", "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
-                .failsWithMessage("Schema does_not_exist does not exist");
+                .failsWithMessage("Schema 'does_not_exist' does not exist");
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})

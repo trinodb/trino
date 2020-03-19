@@ -141,7 +141,7 @@ public abstract class AbstractOperatorBenchmark
         Metadata metadata = localQueryRunner.getMetadata();
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName)
-                .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
+                .orElseThrow(() -> new IllegalArgumentException(format("Table '%s' does not exist", qualifiedTableName)));
 
         Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
         return Arrays.stream(columnNames)
@@ -159,14 +159,14 @@ public abstract class AbstractOperatorBenchmark
         Metadata metadata = localQueryRunner.getMetadata();
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName).orElse(null);
-        checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
+        checkArgument(tableHandle != null, "Table '%s' does not exist", qualifiedTableName);
 
         // lookup the columns
         Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
             ColumnHandle columnHandle = allColumnHandles.get(columnName);
-            checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
+            checkArgument(columnHandle != null, "Table '%s' does not have a column '%s'", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
         }
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
@@ -279,6 +279,7 @@ public abstract class AbstractOperatorBenchmark
     {
         Session session = testSessionBuilder()
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
+                .setTransactionId(this.session.getRequiredTransactionId())
                 .build();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));

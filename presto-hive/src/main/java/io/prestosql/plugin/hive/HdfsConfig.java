@@ -23,18 +23,21 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
 
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class HdfsConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<File> resourceConfigFiles = ImmutableList.of();
+    private String newDirectoryPermissions = "0777";
     private boolean verifyChecksum = true;
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
@@ -64,6 +67,21 @@ public class HdfsConfig
     public HdfsConfig setResourceConfigFiles(List<File> files)
     {
         this.resourceConfigFiles = ImmutableList.copyOf(files);
+        return this;
+    }
+
+    @NotNull
+    @Pattern(regexp = "0[0-7]{3}", message = "must be octal number, with leading 0")
+    public String getNewDirectoryPermissions()
+    {
+        return newDirectoryPermissions;
+    }
+
+    @Config("hive.fs.new-directory-permissions")
+    @ConfigDescription("File system permissions for new directories")
+    public HdfsConfig setNewDirectoryPermissions(String newDirectoryPermissions)
+    {
+        this.newDirectoryPermissions = requireNonNull(newDirectoryPermissions, "newDirectoryPermissions is null");
         return this;
     }
 

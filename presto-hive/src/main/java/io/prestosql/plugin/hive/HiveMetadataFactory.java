@@ -21,7 +21,6 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
 import io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
@@ -164,7 +163,7 @@ public class HiveMetadataFactory
     }
 
     @Override
-    public TransactionalMetadata create(ConnectorTransactionHandle transactionHandle)
+    public TransactionalMetadata create()
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
@@ -192,6 +191,6 @@ public class HiveMetadataFactory
                 typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
-                accessControlMetadataFactory.create(transactionHandle, metastore));
+                accessControlMetadataFactory.create(metastore));
     }
 }

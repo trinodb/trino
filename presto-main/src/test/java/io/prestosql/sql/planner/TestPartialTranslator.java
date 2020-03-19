@@ -11,17 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.expression;
+package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.Expression;
@@ -31,7 +29,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.testing.TestingSession;
+import io.prestosql.transaction.TransactionId;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -39,21 +37,23 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.expression.ConnectorExpressionTranslator.translate;
-import static io.prestosql.spi.expression.PartialTranslator.extractPartialTranslations;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RowType.field;
 import static io.prestosql.spi.type.RowType.rowType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.planner.ConnectorExpressionTranslator.translate;
+import static io.prestosql.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
-@Test
 public class TestPartialTranslator
 {
-    private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
+    private static final Session TEST_SESSION = testSessionBuilder()
+            .setTransactionId(TransactionId.create())
+            .build();
     private static final Metadata METADATA = createTestMetadataManager();
     private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()

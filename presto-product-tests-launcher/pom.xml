@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>331-SNAPSHOT</version>
+        <version>332-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests-launcher</artifactId>
@@ -122,7 +122,8 @@
                 <groupId>org.skife.maven</groupId>
                 <artifactId>really-executable-jar-maven-plugin</artifactId>
                 <configuration>
-                    <flags>-Xmx1G</flags>
+                    <!-- Force Parallel GC to ensure MaxHeapFreeRatio is respected -->
+                    <flags>-Xmx512m -XX:+UseParallelGC -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=10</flags>
                     <classifier>executable</classifier>
                 </configuration>
                 <executions>

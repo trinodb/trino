@@ -111,7 +111,7 @@ public class PrestoServer
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
-                new ServerMainModule(sqlParserOptions),
+                new ServerMainModule(),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
 
@@ -140,7 +140,7 @@ public class PrestoServer
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
-            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+            injector.getInstance(EventListenerManager.class).loadConfiguredEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
 
             injector.getInstance(Announcer.class).start();

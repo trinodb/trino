@@ -374,14 +374,14 @@ public interface Metadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog);
+    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
 
     /**
      * Revokes the specified roles from the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog);
+    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
 
     /**
      * List applicable roles, including the transitive grants, for the specified principal

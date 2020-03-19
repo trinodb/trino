@@ -55,7 +55,7 @@ public class GrantRolesTask
         Set<PrestoPrincipal> grantees = statement.getGrantees().stream()
                 .map(MetadataUtil::createPrincipal)
                 .collect(toImmutableSet());
-        boolean withAdminOption = statement.isWithAdminOption();
+        boolean adminOption = statement.isAdminOption();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         String catalog = getSessionCatalog(metadata, session, statement);
 
@@ -76,8 +76,8 @@ public class GrantRolesTask
             }
         }
 
-        accessControl.checkCanGrantRoles(session.toSecurityContext(), roles, grantees, withAdminOption, grantor, catalog);
-        metadata.grantRoles(session, roles, grantees, withAdminOption, grantor, catalog);
+        accessControl.checkCanGrantRoles(session.toSecurityContext(), roles, grantees, adminOption, grantor, catalog);
+        metadata.grantRoles(session, roles, grantees, adminOption, grantor, catalog);
 
         return immediateFuture(null);
     }

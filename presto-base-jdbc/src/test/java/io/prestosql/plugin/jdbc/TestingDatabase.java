@@ -99,7 +99,7 @@ final class TestingDatabase
 
     public JdbcSplit getSplit(ConnectorSession session, JdbcTableHandle table)
     {
-        ConnectorSplitSource splits = jdbcClient.getSplits(JdbcIdentity.from(session), table);
+        ConnectorSplitSource splits = jdbcClient.getSplits(session, table);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
 

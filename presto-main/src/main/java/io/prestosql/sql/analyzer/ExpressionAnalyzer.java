@@ -29,7 +29,7 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.security.AccessControl;
-import io.prestosql.security.DenyAllAccessControl;
+import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
@@ -177,6 +177,7 @@ public class ExpressionAnalyzer
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
     private final Metadata metadata;
+    private final AccessControl accessControl;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
@@ -202,6 +203,7 @@ public class ExpressionAnalyzer
 
     public ExpressionAnalyzer(
             Metadata metadata,
+            AccessControl accessControl,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
             Session session,
             TypeProvider symbolTypes,
@@ -210,6 +212,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
@@ -932,7 +935,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = metadata.getType(signature.getArgumentTypes().get(i));
-                requireNonNull(expectedType, format("Type %s not found", signature.getArgumentTypes().get(i)));
+                requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
@@ -945,6 +948,8 @@ public class ExpressionAnalyzer
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), node.getName().toString());
+
             resolvedFunctions.put(NodeRef.of(node), function);
 
             FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
@@ -968,6 +973,7 @@ public class ExpressionAnalyzer
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         metadata,
+                                        accessControl,
                                         statementAnalyzerFactory,
                                         session,
                                         symbolTypes,
@@ -1533,6 +1539,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalysis analyzeExpressions(
             Session session,
             Metadata metadata,
+            AccessControl accessControl,
             SqlParser sqlParser,
             TypeProvider types,
             Iterable<Expression> expressions,
@@ -1540,10 +1547,8 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             boolean isDescribe)
     {
-        // expressions at this point cannot have sub queries so deny all access checks
-        // in the future, we will need a full access controller here to verify access to functions
         Analysis analysis = new Analysis(null, parameters, isDescribe);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());
         }
@@ -1610,6 +1615,7 @@ public class ExpressionAnalyzer
     {
         return new ExpressionAnalyzer(
                 metadata,
+                accessControl,
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
                 session,
                 types,
@@ -1618,10 +1624,16 @@ public class ExpressionAnalyzer
                 analysis.isDescribe());
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
+    public static ExpressionAnalyzer createConstantAnalyzer(
+            Metadata metadata,
+            AccessControl accessControl,
+            Session session,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
                 metadata,
+                accessControl,
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -1630,10 +1642,17 @@ public class ExpressionAnalyzer
                 false);
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
+    public static ExpressionAnalyzer createConstantAnalyzer(
+            Metadata metadata,
+            AccessControl accessControl,
+            Session session,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            WarningCollector warningCollector,
+            boolean isDescribe)
     {
         return createWithoutSubqueries(
                 metadata,
+                accessControl,
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -1644,6 +1663,7 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalyzer createWithoutSubqueries(
             Metadata metadata,
+            AccessControl accessControl,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
             ErrorCodeSupplier errorCode,
@@ -1653,6 +1673,7 @@ public class ExpressionAnalyzer
     {
         return createWithoutSubqueries(
                 metadata,
+                accessControl,
                 session,
                 TypeProvider.empty(),
                 parameters,
@@ -1663,6 +1684,7 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalyzer createWithoutSubqueries(
             Metadata metadata,
+            AccessControl accessControl,
             Session session,
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -1672,6 +1694,7 @@ public class ExpressionAnalyzer
     {
         return new ExpressionAnalyzer(
                 metadata,
+                accessControl,
                 node -> {
                     throw statementAnalyzerRejection.apply(node);
                 },

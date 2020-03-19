@@ -16,6 +16,7 @@ package io.prestosql.spi.connector;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
 import java.util.Collections;
 import java.util.List;
@@ -327,7 +328,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    default void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), tableName.toString());
     }
@@ -337,7 +338,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    default void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }
@@ -352,12 +353,12 @@ public interface ConnectorAccessControl
         denyDropRole(role);
     }
 
-    default void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    default void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyGrantRoles(roles, grantees);
     }
 
-    default void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    default void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyRevokeRoles(roles, grantees);
     }
@@ -422,7 +423,7 @@ public interface ConnectorAccessControl
      *
      * @return the mask, or {@link Optional#empty()} if not applicable
      */
-    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
     }

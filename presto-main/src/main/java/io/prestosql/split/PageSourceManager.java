@@ -20,6 +20,7 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -66,7 +67,7 @@ public class PageSourceManager
                     columns);
         }
         if (constraint.isNone()) {
-            return new EmptySplitPageSource();
+            return new EmptyPageSource();
         }
         return provider.createPageSource(
                 table.getTransaction(),

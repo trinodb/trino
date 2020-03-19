@@ -5,7 +5,7 @@ on: [push, pull_request]
 env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
 
 jobs:
   x:
@@ -26,16 +26,21 @@ jobs:
           suite-5,
           suite-6-non-generic,
           suite-7-non-generic,
+          suite-8-non-generic,
         ]
         exclude:
           - config: config-hdp3
             suite: suite-6-non-generic
           - config: config-hdp3
             suite: suite-7-non-generic
+          - config: config-hdp3
+            suite: suite-8-non-generic
           - config: config-cdh5
             suite: suite-6-non-generic
           - config: config-cdh5
             suite: suite-7-non-generic
+          - config: config-cdh5
+            suite: suite-8-non-generic
     steps:
       - uses: actions/checkout@v1
       - uses: actions/setup-java@v1

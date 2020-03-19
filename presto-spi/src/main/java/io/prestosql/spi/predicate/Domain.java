@@ -276,15 +276,20 @@ public final class Domain
      */
     public Domain simplify()
     {
+        return simplify(32);
+    }
+
+    public Domain simplify(int threshold)
+    {
         ValueSet simplifiedValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
                 ranges -> {
-                    if (ranges.getOrderedRanges().size() <= 32) {
+                    if (ranges.getRangeCount() <= threshold) {
                         return Optional.empty();
                     }
                     return Optional.of(ValueSet.ofRanges(ranges.getSpan()));
                 },
                 discreteValues -> {
-                    if (discreteValues.getValues().size() <= 32) {
+                    if (discreteValues.getValuesCount() <= threshold) {
                         return Optional.empty();
                     }
                     return Optional.of(ValueSet.all(values.getType()));

@@ -19,6 +19,7 @@ import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
@@ -28,14 +29,25 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertTrue;
 
-public class TestKuduIntegrationSmoke
+public abstract class AbstractKuduIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private TestingKuduServer kuduServer;
+
+    protected abstract Optional<String> getKuduSchemaEmulationPrefix();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunnerTpch(ORDERS);
+        kuduServer = new TestingKuduServer();
+        return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), ORDERS);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        kuduServer.close();
     }
 
     @Test
@@ -129,12 +141,5 @@ public class TestKuduIntegrationSmoke
     {
         assertTrue(Pattern.compile(key + "\\s*=\\s*" + regexValue + ",?\\s+").matcher(tableProperties).find(),
                 "Not found: " + key + " = " + regexValue + " in " + tableProperties);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        assertUpdate("DROP TABLE " + ORDERS.getTableName());
-        getQueryRunner().close();
     }
 }

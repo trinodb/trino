@@ -123,7 +123,7 @@ public class TestHivePartitionsTable
     public void testShowPartitionsFromUnpartitionedTable()
     {
         assertThat(() -> query("SELECT * FROM \"nation$partitions\""))
-                .failsWithMessageMatching(".*Table hive.default.nation\\$partitions does not exist");
+                .failsWithMessageMatching(".*Table 'hive.default.nation\\$partitions' does not exist");
     }
 
     @Test(groups = HIVE_PARTITIONING)

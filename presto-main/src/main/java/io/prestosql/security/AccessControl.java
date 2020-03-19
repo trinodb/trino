@@ -24,6 +24,7 @@ import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
 import java.util.List;
@@ -256,18 +257,25 @@ public interface AccessControl
     void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
 
     /**
+     * Check if identity is allowed to create a view that executes the function.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
+
+    /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption);
+    void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption);
 
     /**
      * Check if identity is allowed to revoke a privilege from the revokee on the specified table.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor);
+    void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOption);
 
     /**
      * Check if identity is allowed to set the specified system property.
@@ -309,14 +317,14 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName);
+    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName);
 
     /**
      * Check if identity is allowed to revoke the specified roles from the specified principals.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName);
+    void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName);
 
     /**
      * Check if identity is allowed to set role for specified catalog.
@@ -350,12 +358,19 @@ public interface AccessControl
      */
     void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName);
 
+    /**
+     * Check if identity is allowed to execute function
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanExecuteFunction(SecurityContext context, String functionName);
+
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return ImmutableList.of();
     }
 
-    default List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName)
+    default List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
         return ImmutableList.of();
     }

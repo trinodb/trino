@@ -115,9 +115,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return delegate.getSplits(identity, tableHandle);
+        return delegate.getSplits(session, tableHandle);
     }
 
     @Override

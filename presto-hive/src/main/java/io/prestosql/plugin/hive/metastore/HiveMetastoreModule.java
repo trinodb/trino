@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
 import io.prestosql.plugin.hive.metastore.file.FileMetastoreModule;
 import io.prestosql.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreModule;
@@ -44,6 +45,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
             bindMetastoreModule("file", new FileMetastoreModule());
             bindMetastoreModule("glue", new GlueMetastoreModule());
+            bindMetastoreModule("alluxio", new AlluxioMetastoreModule());
         }
     }
 

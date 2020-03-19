@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.HiveTableHandle;
-import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.TransactionalMetadata;
 import io.prestosql.plugin.hive.TransactionalMetadataFactory;
@@ -95,10 +94,10 @@ public class DropStatsProcedure
 
     private void doDropStats(ConnectorSession session, String schema, String table, List<?> partitionValues)
     {
-        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(new HiveTransactionHandle());
+        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schema, table)));
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));
         }
         Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
         List<String> partitionColumns = columns.values().stream()

@@ -755,7 +755,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public synchronized void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         Set<String> existingRoles = listRoles();
         Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
@@ -770,7 +770,7 @@ public class FileHiveMetastore
                 RoleGrant grantWithAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, true);
                 RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
 
-                if (withAdminOption) {
+                if (adminOption) {
                     modifiedGrants.remove(grantWithoutAdminOption);
                     modifiedGrants.add(grantWithAdminOption);
                 }
@@ -787,7 +787,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
         Set<RoleGrant> modifiedGrants = new HashSet<>(existingGrants);
@@ -797,7 +797,7 @@ public class FileHiveMetastore
                 RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
 
                 if (modifiedGrants.contains(grantWithAdminOption) || modifiedGrants.contains(grantWithoutAdminOption)) {
-                    if (adminOptionFor) {
+                    if (adminOption) {
                         modifiedGrants.remove(grantWithAdminOption);
                         modifiedGrants.add(grantWithoutAdminOption);
                     }

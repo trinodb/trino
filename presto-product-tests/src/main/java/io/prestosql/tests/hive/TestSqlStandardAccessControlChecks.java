@@ -223,6 +223,16 @@ public class TestSqlStandardAccessControlChecks
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlShowStatsFor()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot show stats for table default.%s", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName))).hasRowsCount(3);
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlFilterColumns()
     {
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasNoRows();

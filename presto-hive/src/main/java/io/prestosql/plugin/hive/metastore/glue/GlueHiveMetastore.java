@@ -146,6 +146,7 @@ public class GlueHiveMetastore
     private static final String WILDCARD_EXPRESSION = "";
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
+    private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 128;
     private static final Comparator<Partition> PARTITION_COMPARATOR =
             comparing(Partition::getValues, lexicographical(String.CASE_INSENSITIVE_ORDER));
 
@@ -749,7 +750,8 @@ public class GlueHiveMetastore
                             .withTableName(table.getTableName())
                             .withExpression(expression)
                             .withSegment(segment)
-                            .withNextToken(nextToken));
+                            .withNextToken(nextToken)
+                            .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS));
                     result.getPartitions()
                             .forEach(partition -> partitions.add(GlueToPrestoConverter.convertPartition(partition, table.getParameters())));
                     nextToken = result.getNextToken();
@@ -961,13 +963,13 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "grantRoles is not supported by Glue");
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "revokeRoles is not supported by Glue");
     }

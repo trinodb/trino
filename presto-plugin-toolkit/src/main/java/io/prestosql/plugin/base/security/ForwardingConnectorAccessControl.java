@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
@@ -204,15 +205,15 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
-        delegate().checkCanGrantTablePrivilege(context, privilege, tableName, grantee, withGrantOption);
+        delegate().checkCanGrantTablePrivilege(context, privilege, tableName, grantee, grantOption);
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
-        delegate().checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOptionFor);
+        delegate().checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
     }
 
     @Override
@@ -228,15 +229,15 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        delegate().checkCanGrantRoles(context, roles, grantees, withAdminOption, grantor, catalogName);
+        delegate().checkCanGrantRoles(context, roles, grantees, adminOption, grantor, catalogName);
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        delegate().checkCanRevokeRoles(context, roles, grantees, adminOptionFor, grantor, catalogName);
+        delegate().checkCanRevokeRoles(context, roles, grantees, adminOption, grantor, catalogName);
     }
 
     @Override
@@ -276,8 +277,8 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName)
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        return delegate().getColumnMask(context, tableName, columnName);
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 }

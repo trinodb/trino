@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.expression;
+package io.prestosql.sql.planner;
 
 import io.prestosql.Session;
+import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Constant;
+import io.prestosql.spi.expression.FieldDereference;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.LiteralEncoder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BinaryLiteral;
 import io.prestosql.sql.tree.BooleanLiteral;

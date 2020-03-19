@@ -34,6 +34,7 @@ public class TestHdfsConfig
     {
         assertRecordedDefaults(recordDefaults(HdfsConfig.class)
                 .setResourceConfigFiles("")
+                .setNewDirectoryPermissions("0777")
                 .setVerifyChecksum(true)
                 .setIpcPingInterval(new Duration(10, TimeUnit.SECONDS))
                 .setDfsTimeout(new Duration(60, TimeUnit.SECONDS))
@@ -51,6 +52,7 @@ public class TestHdfsConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
+                .put("hive.fs.new-directory-permissions", "0700")
                 .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.ipc-ping-interval", "34s")
                 .put("hive.dfs-timeout", "33s")
@@ -65,6 +67,7 @@ public class TestHdfsConfig
 
         HdfsConfig expected = new HdfsConfig()
                 .setResourceConfigFiles(ImmutableList.of(new File("/foo.xml"), new File("/bar.xml")))
+                .setNewDirectoryPermissions("0700")
                 .setVerifyChecksum(false)
                 .setIpcPingInterval(new Duration(34, TimeUnit.SECONDS))
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))

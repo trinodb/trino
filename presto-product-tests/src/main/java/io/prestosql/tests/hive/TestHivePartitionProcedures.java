@@ -108,7 +108,7 @@ public class TestHivePartitionProcedures
         createPartitionedTable(FIRST_TABLE);
 
         QueryAssert.assertThat(() -> dropPartition(FIRST_TABLE, "col", "f"))
-                .failsWithMessage("Partition col=f does not exist");
+                .failsWithMessage("Partition 'col=f' does not exist");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})

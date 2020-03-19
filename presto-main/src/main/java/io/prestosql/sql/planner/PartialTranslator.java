@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.expression;
+package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.LambdaExpression;
@@ -29,7 +28,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class PartialTranslator
+public final class PartialTranslator
 {
     private PartialTranslator() {}
 
