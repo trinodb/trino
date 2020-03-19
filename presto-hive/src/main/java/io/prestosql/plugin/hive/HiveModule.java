@@ -127,7 +127,6 @@ public class HiveModule
         newSetBinder(binder, SystemTable.class);
     }
 
-    @ForHive
     @Singleton
     @Provides
     public ExecutorService createHiveClientExecutor(HiveCatalogName catalogName)
