@@ -43,6 +43,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -179,7 +180,7 @@ public final class TestRun
                                         "--config", String.join(",", ImmutableList.<String>builder()
                                                 .add("tempto-configuration.yaml") // this comes from classpath
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
-                                                .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml")
+                                                .add(CONTAINER_TEMPTO_PROFILE_CONFIG)
                                                 .add(System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
                                                 .add(System.getenv().getOrDefault("TEMPTO_EXTRA_CONFIG_FILE", "/dev/null"))
                                                 .build()))
