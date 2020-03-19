@@ -105,7 +105,7 @@ public class HiveSplitManager
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
-            @ForHive ExecutorService executorService,
+            ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             CoercionPolicy coercionPolicy)
     {

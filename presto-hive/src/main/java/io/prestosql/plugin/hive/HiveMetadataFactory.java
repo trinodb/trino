@@ -69,7 +69,7 @@ public class HiveMetadataFactory
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            @ForHive ExecutorService executorService,
+            ExecutorService executorService,
             @ForHiveTransactionHeartbeats ScheduledExecutorService heartbeatService,
             TypeManager typeManager,
             LocationService locationService,
