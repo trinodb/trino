@@ -77,6 +77,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.prestosql.spi.connector.Constraint.alwaysTrue;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -112,7 +113,7 @@ public class ShowStatsRewrite
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
 
-        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, AccessControl accessControl, WarningCollector warningCollector)
+        private Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, AccessControl accessControl, WarningCollector warningCollector)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
@@ -142,12 +143,11 @@ public class ShowStatsRewrite
 
                 validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
-                Constraint constraint = getConstraint(plan);
-                return rewriteShowStats(node, table, specification.getSelect().getSelectItems(), constraint);
+                return rewriteShowStats(node, table, specification.getSelect().getSelectItems(), getConstraint(plan));
             }
             if (node.getRelation() instanceof Table) {
                 Table table = (Table) node.getRelation();
-                return rewriteShowStats(node, table, ImmutableList.of(new AllColumns()), Constraint.alwaysTrue());
+                return rewriteShowStats(node, table, ImmutableList.of(new AllColumns()), alwaysTrue());
             }
             throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
         }
@@ -187,23 +187,21 @@ public class ShowStatsRewrite
         {
             TableHandle tableHandle = getTableHandle(node, table.getName());
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
-            List<String> statsColumnNames = buildColumnsNames();
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(node, table.getName()));
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            Set<String> extractNamedResultColumns = extractStatsColumns(tableMetadata, selectItems);
+            Set<String> columnNames = extractStatsColumns(tableMetadata, selectItems);
 
             try {
-                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableMetadata.getQualifiedName(), extractNamedResultColumns);
+                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableMetadata.getQualifiedName(), columnNames);
             }
             catch (AccessDeniedException e) {
                 throw rewriteAccessDeniedException(e);
             }
 
-            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, extractNamedResultColumns, tableStatistics);
-            return simpleQuery(selectAll(buildSelectItems(buildColumnsNames())),
-                    aliased(new Values(resultRows),
-                            "table_stats_for_" + table.getName(),
-                            statsColumnNames));
+            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, columnNames, tableStatistics);
+            return simpleQuery(
+                    selectAll(buildSelectItems(buildColumnsNames())),
+                    aliased(new Values(resultRows), "table_stats_for_" + table.getName(), buildColumnsNames()));
         }
 
         private Set<String> extractStatsColumns(TableMetadata metadata, List<SelectItem> selectItems)
