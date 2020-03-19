@@ -192,6 +192,19 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithoutTableScanFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM (VALUES 1))", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithSubqueryFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation))", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation, (SELECT * FROM nation))", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+    }
+
+    @Test
     public void testShowStatsForNonExistingColumnFails()
     {
         assertQueryFails("SHOW STATS FOR (SELECT column_does_not_exist FROM nation_partitioned)", ".*Column 'column_does_not_exist' cannot be resolved");
@@ -224,13 +237,15 @@ public class TestShowStats
     @Test
     public void testShowStatsWithGroupByFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY orderkey)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY orderkey)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
     }
 
     @Test
     public void testShowStatsWithHavingFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT count(nationkey) FROM nation_partitioned GROUP BY regionkey HAVING regionkey > 0)", ".*HAVING is not supported in SHOW STATS SELECT clause");
+        assertQueryFails(
+                "SHOW STATS FOR (SELECT count(nationkey) FROM nation_partitioned GROUP BY regionkey HAVING regionkey > 0)",
+                ".*Only table columns names are supported in SHOW STATS SELECT clause");
     }
 
     @Test
