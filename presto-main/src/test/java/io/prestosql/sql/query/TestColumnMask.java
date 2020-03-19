@@ -351,4 +351,25 @@ public class TestColumnMask
             assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
         });
     }
+
+    @Test
+    public void testShowStats()
+    {
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.columnMask(
+                    new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                    "orderkey",
+                    USER,
+                    new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "7"));
+
+            assertions.assertFails("SHOW STATS FOR (SELECT * FROM orders)", "\\QSHOW STATS for table with column masking is not supported: orderkey");
+            assertions.assertFails("SHOW STATS FOR (SELECT orderkey FROM orders)", "\\QSHOW STATS for table with column masking is not supported: orderkey");
+            assertions.assertQuery(
+                    "SHOW STATS FOR (SELECT clerk FROM orders)",
+                    "VALUES " +
+                            "(cast('clerk' AS varchar), cast(15000 AS double), cast(1000 AS double), cast(0 AS double), cast(null AS double), cast(null AS varchar), cast(null AS varchar))," +
+                            "(null, null, null, null, 15000, null, null)");
+        });
+    }
 }

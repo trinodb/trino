@@ -22,6 +22,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Constraint;
@@ -53,7 +54,6 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
 import io.prestosql.sql.tree.Row;
@@ -140,9 +140,35 @@ public class ShowStatsRewrite
                 throw rewriteAccessDeniedException(e);
             }
 
+            Table table = getTable(node, specification);
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, table.getName());
+            TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' not found", table.getName()));
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            Set<String> columnNames = extractStatsColumns(tableMetadata, specification.getSelect().getSelectItems());
+
+            try {
+                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableName, columnNames);
+            }
+            catch (AccessDeniedException e) {
+                throw rewriteAccessDeniedException(e);
+            }
+
+            for (String columnName : columnNames) {
+                ColumnMetadata column = tableMetadata.getColumn(columnName);
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, columnName, column.getType()).isEmpty()) {
+                    throw new PrestoException(NOT_SUPPORTED, "SHOW STATS for table with column masking is not supported: " + columnName);
+                }
+            }
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+                // SHOW STATS could reveal min, max value which would be otherwise filtered out; or could reveal statistical properties of the data, like row count
+                throw new PrestoException(NOT_SUPPORTED, "SHOW STATS is not supported for a table with row filtering");
+            }
+
             validateShowStatsSubquery(node, query, specification, plan);
-            Table table = (Table) specification.getFrom().get();
-            return rewriteShowStats(node, table, specification.getSelect().getSelectItems(), getConstraint(plan));
+
+            return rewriteShowStats(table, tableHandle, tableMetadata, columnNames, columnHandles, getConstraint(plan));
         }
 
         private Query getRelationQuery(ShowStats node)
@@ -154,6 +180,14 @@ public class ShowStatsRewrite
                 return ((TableSubquery) node.getRelation()).getQuery();
             }
             throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
+        }
+
+        private Table getTable(ShowStats node, QuerySpecification specification)
+        {
+            check(specification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
+            check(specification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
+            check(specification.getFrom().get() instanceof Table, node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
+            return (Table) specification.getFrom().get();
         }
 
         private AccessDeniedException rewriteAccessDeniedException(AccessDeniedException original)
@@ -177,8 +211,6 @@ public class ShowStatsRewrite
                     .findSingle();
 
             check(!filterNode.isPresent(), node, "Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
-            check(querySpecification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
-            check(querySpecification.getFrom().get() instanceof Table, node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
             check(!query.getWith().isPresent(), node, "WITH is not supported by SHOW STATS SELECT clause");
             check(!querySpecification.getOrderBy().isPresent(), node, "ORDER BY is not supported in SHOW STATS SELECT clause");
             check(!querySpecification.getLimit().isPresent(), node, "LIMIT is not supported by SHOW STATS SELECT clause");
@@ -187,21 +219,15 @@ public class ShowStatsRewrite
             check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
         }
 
-        private Node rewriteShowStats(ShowStats node, Table table, List<SelectItem> selectItems, Constraint constraint)
+        private Node rewriteShowStats(
+                Table table,
+                TableHandle tableHandle,
+                TableMetadata tableMetadata,
+                Set<String> columnNames,
+                Map<String, ColumnHandle> columnHandles,
+                Constraint constraint)
         {
-            TableHandle tableHandle = getTableHandle(node, table.getName());
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            Set<String> columnNames = extractStatsColumns(tableMetadata, selectItems);
-
-            try {
-                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableMetadata.getQualifiedName(), columnNames);
-            }
-            catch (AccessDeniedException e) {
-                throw rewriteAccessDeniedException(e);
-            }
-
             List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, columnNames, tableStatistics);
             return simpleQuery(
                     selectAll(buildSelectItems(buildColumnsNames())),
@@ -260,13 +286,6 @@ public class ShowStatsRewrite
             }
 
             return new Constraint(metadata.getTableProperties(session, scanNode.get().getTable()).getPredicate());
-        }
-
-        private TableHandle getTableHandle(Node node, QualifiedName table)
-        {
-            QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
-            return metadata.getTableHandle(session, qualifiedTableName)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' not found", table));
         }
 
         private static List<String> buildColumnsNames()
