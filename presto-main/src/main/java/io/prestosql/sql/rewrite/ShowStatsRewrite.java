@@ -77,13 +77,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.prestosql.spi.connector.Constraint.alwaysTrue;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.QueryUtil.aliased;
 import static io.prestosql.sql.QueryUtil.query;
 import static io.prestosql.sql.QueryUtil.selectAll;
+import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -128,26 +128,30 @@ public class ShowStatsRewrite
         {
             checkState(queryExplainer.isPresent(), "Query explainer must be provided for SHOW STATS SELECT");
 
-            if (node.getRelation() instanceof TableSubquery) {
-                Query query = ((TableSubquery) node.getRelation()).getQuery();
-                QuerySpecification specification = (QuerySpecification) query.getQueryBody();
+            Query query = getRelationQuery(node);
+            QuerySpecification specification = (QuerySpecification) query.getQueryBody();
 
-                Plan plan;
+            Plan plan;
 
-                try {
-                    plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
-                }
-                catch (AccessDeniedException e) {
-                    throw rewriteAccessDeniedException(e);
-                }
-
-                validateShowStatsSubquery(node, query, specification, plan);
-                Table table = (Table) specification.getFrom().get();
-                return rewriteShowStats(node, table, specification.getSelect().getSelectItems(), getConstraint(plan));
+            try {
+                plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
             }
+            catch (AccessDeniedException e) {
+                throw rewriteAccessDeniedException(e);
+            }
+
+            validateShowStatsSubquery(node, query, specification, plan);
+            Table table = (Table) specification.getFrom().get();
+            return rewriteShowStats(node, table, specification.getSelect().getSelectItems(), getConstraint(plan));
+        }
+
+        private Query getRelationQuery(ShowStats node)
+        {
             if (node.getRelation() instanceof Table) {
-                Table table = (Table) node.getRelation();
-                return rewriteShowStats(node, table, ImmutableList.of(new AllColumns()), alwaysTrue());
+                return simpleQuery(selectList(new AllColumns()), node.getRelation());
+            }
+            if (node.getRelation() instanceof TableSubquery) {
+                return ((TableSubquery) node.getRelation()).getQuery();
             }
             throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
         }
