@@ -21,6 +21,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.prestosql.GroupByHashPageIndexerFactory;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.prestosql.plugin.hive.AbstractTestHive.Transaction;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -185,7 +186,7 @@ public abstract class AbstractTestHiveFileSystem
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
-                new HiveCatalogName("hive"),
+                new CatalogName("hive"),
                 config,
                 metastoreClient,
                 hdfsEnvironment,
