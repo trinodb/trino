@@ -303,4 +303,18 @@ public class TestRowFilter
             assertions.assertFails("SELECT count(*) FROM orders", "\\Qline 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
         });
     }
+
+    @Test
+    public void testShowStats()
+    {
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.rowFilter(
+                    new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                    USER,
+                    new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 0"));
+
+            assertions.assertFails("SHOW STATS FOR (SELECT * FROM tiny.orders)", "\\QSHOW STATS is not supported for a table with row filtering");
+        });
+    }
 }
