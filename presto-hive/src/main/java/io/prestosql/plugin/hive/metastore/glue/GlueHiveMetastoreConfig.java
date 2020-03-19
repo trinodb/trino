@@ -32,6 +32,7 @@ public class GlueHiveMetastoreConfig
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> iamRole = Optional.empty();
+    private Optional<String> externalId = Optional.empty();
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
     private Optional<String> awsCredentialsProvider = Optional.empty();
@@ -111,10 +112,23 @@ public class GlueHiveMetastoreConfig
     }
 
     @Config("hive.metastore.glue.iam-role")
-    @ConfigDescription("ARN of an IAM role to assume when connecting to the Hive Glue metastore")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to Glue")
     public GlueHiveMetastoreConfig setIamRole(String iamRole)
     {
         this.iamRole = Optional.ofNullable(iamRole);
+        return this;
+    }
+
+    public Optional<String> getExternalId()
+    {
+        return externalId;
+    }
+
+    @Config("hive.metastore.glue.external-id")
+    @ConfigDescription("External ID for the IAM role trust policy when connecting to Glue")
+    public GlueHiveMetastoreConfig setExternalId(String externalId)
+    {
+        this.externalId = Optional.ofNullable(externalId);
         return this;
     }
 

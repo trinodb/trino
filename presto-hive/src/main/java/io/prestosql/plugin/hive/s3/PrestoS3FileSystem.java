@@ -162,6 +162,7 @@ public class PrestoS3FileSystem
     public static final String S3_ACCESS_KEY = "presto.s3.access-key";
     public static final String S3_SESSION_TOKEN = "presto.s3.session-token";
     public static final String S3_IAM_ROLE = "presto.s3.iam-role";
+    public static final String S3_EXTERNAL_ID = "presto.s3.external-id";
     public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
@@ -189,6 +190,7 @@ public class PrestoS3FileSystem
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
     private String iamRole;
+    private String externalId;
     private boolean pinS3ClientToCurrentRegion;
     private boolean sseEnabled;
     private PrestoS3SseType sseType;
@@ -232,6 +234,7 @@ public class PrestoS3FileSystem
         this.multiPartUploadMinPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.isPathStyleAccess = conf.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
         this.iamRole = conf.get(S3_IAM_ROLE, defaults.getS3IamRole());
+        this.externalId = conf.get(S3_EXTERNAL_ID, defaults.getS3ExternalId());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         verify(!pinS3ClientToCurrentRegion || conf.get(S3_ENDPOINT) == null,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
@@ -797,7 +800,9 @@ public class PrestoS3FileSystem
         }
 
         if (iamRole != null) {
-            return new STSAssumeRoleSessionCredentialsProvider.Builder(this.iamRole, "presto-session").build();
+            return new STSAssumeRoleSessionCredentialsProvider.Builder(this.iamRole, "presto-session")
+                    .withExternalId(this.externalId)
+                    .build();
         }
 
         String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);

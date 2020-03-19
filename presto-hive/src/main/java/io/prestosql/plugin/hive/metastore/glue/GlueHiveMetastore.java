@@ -216,6 +216,7 @@ public class GlueHiveMetastore
         if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider
                     .Builder(config.getIamRole().get(), "presto-session")
+                    .withExternalId(config.getExternalId().orElse(null))
                     .build();
         }
         if (config.getAwsCredentialsProvider().isPresent()) {

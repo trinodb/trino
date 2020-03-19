@@ -60,6 +60,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROV
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_EXTERNAL_ID;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_IAM_ROLE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
@@ -142,7 +143,26 @@ public class TestPrestoS3FileSystem
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
-            assertInstanceOf(getAwsCredentialsProvider(fs), STSAssumeRoleSessionCredentialsProvider.class);
+            AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fs);
+            assertInstanceOf(awsCredentialsProvider, STSAssumeRoleSessionCredentialsProvider.class);
+            assertEquals(getFieldValue(awsCredentialsProvider, "roleArn", String.class), "role");
+        }
+    }
+
+    @Test
+    public void testAssumeRoleCredentialsWithExternalId()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+        config.set(S3_IAM_ROLE, "role");
+        config.set(S3_EXTERNAL_ID, "externalId");
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fs);
+            assertInstanceOf(awsCredentialsProvider, STSAssumeRoleSessionCredentialsProvider.class);
+            assertEquals(getFieldValue(awsCredentialsProvider, "roleArn", String.class), "role");
+            assertEquals(getFieldValue(awsCredentialsProvider, "roleExternalId", String.class), "externalId");
         }
     }
 
