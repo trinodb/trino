@@ -424,12 +424,22 @@ public final class TupleDomain<T>
 
     public TupleDomain<T> simplify()
     {
+        return transformDomains(Domain::simplify);
+    }
+
+    public TupleDomain<T> simplify(int threshold)
+    {
+        return transformDomains(domain -> domain.simplify(threshold));
+    }
+
+    private TupleDomain<T> transformDomains(Function<Domain, Domain> transformation)
+    {
         if (isNone()) {
             return this;
         }
 
         Map<T, Domain> simplified = domains.get().entrySet().stream()
-                .collect(toLinkedMap(Map.Entry::getKey, e -> e.getValue().simplify()));
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> transformation.apply(entry.getValue())));
 
         return TupleDomain.withColumnDomains(simplified);
     }
