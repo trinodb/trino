@@ -11,19 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.base;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class HiveCatalogName
+public final class CatalogName
 {
     private final String catalogName;
 
-    public HiveCatalogName(String catalogName)
+    public CatalogName(String catalogName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogName, "catalogName is null");
+        checkArgument(!catalogName.isEmpty(), "catalogName is empty");
+        this.catalogName = catalogName;
     }
 
+    /**
+     * Returns the catalog name.
+     */
     @Override
     public String toString()
     {

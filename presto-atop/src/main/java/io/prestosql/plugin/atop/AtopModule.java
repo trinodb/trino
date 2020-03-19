@@ -16,6 +16,7 @@ package io.prestosql.plugin.atop;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.type.TypeManager;
 
@@ -46,7 +47,7 @@ public class AtopModule
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(Environment.class).toInstance(new Environment(environment));
-        binder.bind(AtopCatalogName.class).toInstance(new AtopCatalogName(catalogName));
+        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
         binder.bind(AtopConnector.class).in(Scopes.SINGLETON);
         binder.bind(AtopMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AtopSplitManager.class).in(Scopes.SINGLETON);

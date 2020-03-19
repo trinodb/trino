@@ -17,8 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.ConfigurationInitializer;
-import io.prestosql.plugin.hive.HiveCatalogName;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
@@ -40,7 +40,7 @@ public class HiveS3Module
             configBinder(binder).bindConfig(HiveS3Config.class);
 
             binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
-            Provider<HiveCatalogName> catalogName = binder.getProvider(HiveCatalogName.class);
+            Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
             newExporter(binder).export(PrestoS3FileSystemStats.class)
                     .as(generator -> generator.generatedNameOf(PrestoS3FileSystem.class, catalogName.get().toString()));
         }

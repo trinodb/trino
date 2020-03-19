@@ -21,8 +21,8 @@ import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
@@ -83,7 +83,7 @@ public class GlueMetastoreModule
     @Provides
     @Singleton
     @ForGlueHiveMetastore
-    public Executor createExecutor(HiveCatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    public Executor createExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
     {
         if (hiveConfig.getGetPartitionThreads() == 1) {
             return directExecutor();
