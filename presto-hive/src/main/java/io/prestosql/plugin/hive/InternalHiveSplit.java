@@ -29,7 +29,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -204,19 +205,13 @@ public class InternalHiveSplit
 
     public int getEstimatedSizeInBytes()
     {
-        int result = INSTANCE_SIZE;
-        result += path.length() * Character.BYTES;
-        result += sizeOfObjectArray(partitionKeys.size());
-        for (HivePartitionKey partitionKey : partitionKeys) {
-            result += partitionKey.getEstimatedSizeInBytes();
-        }
-        result += sizeOfObjectArray(blocks.size());
-        for (InternalHiveBlock block : blocks) {
-            result += block.getEstimatedSizeInBytes();
-        }
-        result += partitionName.length() * Character.BYTES;
-        result += tableToPartitionMapping.getEstimatedSizeInBytes();
-        return result;
+        long result = INSTANCE_SIZE +
+                estimatedSizeOf(path) +
+                estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes) +
+                estimatedSizeOf(blocks, InternalHiveBlock::getEstimatedSizeInBytes) +
+                estimatedSizeOf(partitionName) +
+                tableToPartitionMapping.getEstimatedSizeInBytes();
+        return toIntExact(result);
     }
 
     public Optional<AcidInfo> getAcidInfo()
@@ -268,14 +263,9 @@ public class InternalHiveSplit
             return addresses;
         }
 
-        public int getEstimatedSizeInBytes()
+        public long getEstimatedSizeInBytes()
         {
-            int result = INSTANCE_SIZE;
-            result += sizeOfObjectArray(addresses.size());
-            for (HostAddress address : addresses) {
-                result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
-            }
-            return result;
+            return INSTANCE_SIZE + estimatedSizeOf(addresses, address -> HOST_ADDRESS_INSTANCE_SIZE + estimatedSizeOf(address.getHostText()));
         }
     }
 }
