@@ -129,7 +129,9 @@ public class HivePartitionManager
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(table, effectivePredicate);
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
+        TupleDomain<HiveColumnHandle> compactEffectivePredicate = effectivePredicate
+                .transform(HiveColumnHandle.class::cast)
+                .simplify(domainCompactionThreshold);
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
@@ -234,18 +236,6 @@ public class HivePartitionManager
     {
         return table.getPartitions().orElseGet(() ->
                 getPartitionsAsList(getPartitions(metastore, identity, table, new Constraint(table.getEnforcedConstraint()))));
-    }
-
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
-    {
-        ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
-        effectivePredicate.getDomains().ifPresent(domains -> {
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
-                builder.put(hiveColumnHandle, entry.getValue().simplify(threshold));
-            }
-        });
-        return TupleDomain.withColumnDomains(builder.build());
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(
