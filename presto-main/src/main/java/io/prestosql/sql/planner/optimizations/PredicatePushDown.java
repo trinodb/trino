@@ -1093,7 +1093,7 @@ public class PredicatePushDown
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
             // At this point in time, our join predicates need to be deterministic
-            if (isDeterministic(expression, metadata) && expression instanceof ComparisonExpression) {
+            if (expression instanceof ComparisonExpression && isDeterministic(expression, metadata)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
                 if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
                     Set<Symbol> symbols1 = SymbolsExtractor.extractUnique(comparison.getLeft());
