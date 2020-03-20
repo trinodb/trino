@@ -15,24 +15,20 @@ package io.prestosql.plugin.jdbc.credential;
 
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ConfigFileBasedCredentialProvider
+public class StaticCredentialProvider
         implements CredentialProvider
 {
     private final Optional<String> connectionUser;
     private final Optional<String> connectionPassword;
 
-    @Inject
-    public ConfigFileBasedCredentialProvider(CredentialConfig credentialsConfig)
+    public StaticCredentialProvider(Optional<String> user, Optional<String> password)
     {
-        requireNonNull(credentialsConfig, "credentialsConfig is null");
-        this.connectionUser = credentialsConfig.getConnectionUser();
-        this.connectionPassword = credentialsConfig.getConnectionPassword();
+        this.connectionUser = requireNonNull(user, "user is null");
+        this.connectionPassword = requireNonNull(password, "password is null");
     }
 
     @Override
