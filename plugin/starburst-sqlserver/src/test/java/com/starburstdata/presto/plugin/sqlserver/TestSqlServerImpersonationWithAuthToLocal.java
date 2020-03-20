@@ -66,7 +66,7 @@ public class TestSqlServerImpersonationWithAuthToLocal
         assertQueryFails(
                 createSession(CHARLIE_USER + "/hr@company.com"),
                 "SELECT * FROM user_context",
-                "line 1:15: Table sqlserver.dbo.user_context does not exist");
+                "line 1:15: Table 'sqlserver.dbo.user_context' does not exist");
         assertQueryFails(
                 createSession(UNKNOWN_USER + "/marketing@company.com"),
                 "SELECT * FROM user_context",
