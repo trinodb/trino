@@ -63,6 +63,7 @@ import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.TRACE_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -167,6 +168,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return CLIENT_TAGS.getValue(properties);
+    }
+
+    public Optional<String> getTraceToken()
+            throws SQLException
+    {
+        return TRACE_TOKEN.getValue(properties);
     }
 
     public Map<String, String> getSessionProperties()
