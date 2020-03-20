@@ -78,6 +78,8 @@ import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneUnionChildrenColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneUnionColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
@@ -250,7 +252,9 @@ public class PlanOptimizers
                 new PruneWindowColumns(),
                 new PruneOffsetColumns(),
                 new PruneLimitColumns(),
-                new PruneTableScanColumns());
+                new PruneTableScanColumns(),
+                new PruneUnionColumns(),
+                new PruneUnionChildrenColumns());
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
                 new PushProjectionIntoTableScan(metadata, typeAnalyzer),

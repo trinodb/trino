@@ -14,6 +14,8 @@
 package io.prestosql.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 
 import java.util.List;
 import java.util.function.Function;
@@ -42,6 +44,17 @@ public final class MoreLists
         return stream(elements)
                 .filter(predicate)
                 .collect(toImmutableList());
+    }
+
+    public static <T, R> ListMultimap<T, R> filteredCopy(ListMultimap<T, R> elements, Predicate<T> predicate)
+    {
+        requireNonNull(elements, "elements is null");
+        requireNonNull(predicate, "predicate is null");
+        ImmutableListMultimap.Builder<T, R> builder = ImmutableListMultimap.builder();
+        elements.entries().stream()
+                .filter(entry -> predicate.test(entry.getKey()))
+                .forEach(builder::put);
+        return builder.build();
     }
 
     public static <T, R> List<R> mappedCopy(Iterable<T> elements, Function<T, R> mapper)

@@ -92,6 +92,11 @@ final class Util
     @SafeVarargs
     public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol>... permittedChildOutputsArgs)
     {
+        return restrictChildOutputs(idAllocator, node, ImmutableList.copyOf(permittedChildOutputsArgs));
+    }
+
+    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, List<Set<Symbol>> permittedChildOutputsArgs)
+    {
         List<Set<Symbol>> permittedChildOutputs = ImmutableList.copyOf(permittedChildOutputsArgs);
 
         checkArgument(
