@@ -11,23 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.jdbc;
+package io.prestosql.plugin.jdbc.credential;
 
 import io.airlift.configuration.Config;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderType;
-
-import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
-import static java.util.Objects.requireNonNull;
-
-public class BaseJdbcAuthenticationConfig
+public class ExtraCredentialConfig
 {
     private String userCredentialName;
     private String passwordCredentialName;
-    private CredentialProviderType credentialProviderType = INLINE;
 
     public Optional<String> getUserCredentialName()
     {
@@ -35,7 +28,7 @@ public class BaseJdbcAuthenticationConfig
     }
 
     @Config("user-credential-name")
-    public BaseJdbcAuthenticationConfig setUserCredentialName(String userCredentialName)
+    public ExtraCredentialConfig setUserCredentialName(String userCredentialName)
     {
         this.userCredentialName = userCredentialName;
         return this;
@@ -47,22 +40,9 @@ public class BaseJdbcAuthenticationConfig
     }
 
     @Config("password-credential-name")
-    public BaseJdbcAuthenticationConfig setPasswordCredentialName(String passwordCredentialName)
+    public ExtraCredentialConfig setPasswordCredentialName(String passwordCredentialName)
     {
         this.passwordCredentialName = passwordCredentialName;
-        return this;
-    }
-
-    @NotNull
-    public CredentialProviderType getCredentialProviderType()
-    {
-        return credentialProviderType;
-    }
-
-    @Config("credential-provider.type")
-    public BaseJdbcAuthenticationConfig setCredentialProviderType(CredentialProviderType credentialProviderType)
-    {
-        this.credentialProviderType = requireNonNull(credentialProviderType, "credentialProviderType is null");
         return this;
     }
 }

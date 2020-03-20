@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.jdbc.credential.CredentialProviderTypeConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -24,14 +25,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.FILE;
 import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
 
-public class TestBaseJdbcAuthenticationConfig
+public class TestCredentialProviderTypeConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(BaseJdbcAuthenticationConfig.class)
-                .setUserCredentialName(null)
-                .setPasswordCredentialName(null)
+        assertRecordedDefaults(recordDefaults(CredentialProviderTypeConfig.class)
                 .setCredentialProviderType(INLINE));
     }
 
@@ -39,14 +38,10 @@ public class TestBaseJdbcAuthenticationConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("user-credential-name", "foo")
-                .put("password-credential-name", "bar")
                 .put("credential-provider.type", "FILE")
                 .build();
 
-        BaseJdbcAuthenticationConfig expected = new BaseJdbcAuthenticationConfig()
-                .setUserCredentialName("foo")
-                .setPasswordCredentialName("bar")
+        CredentialProviderTypeConfig expected = new CredentialProviderTypeConfig()
                 .setCredentialProviderType(FILE);
 
         assertFullMapping(properties, expected);
