@@ -24,6 +24,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
@@ -127,5 +128,85 @@ public final class JdbcTableHandle
         Joiner.on(".").skipNulls().appendTo(builder, catalogName, schemaName, tableName);
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         return builder.toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder builder(JdbcTableHandle handle)
+    {
+        return new Builder(handle);
+    }
+
+    public static final class Builder
+    {
+        private SchemaTableName schemaTableName;
+        private Optional<String> catalogName;
+        private Optional<String> schemaName;
+        private String tableName;
+        private TupleDomain<ColumnHandle> constraint = TupleDomain.all();
+        private OptionalLong limit = OptionalLong.empty();
+
+        public Builder() {}
+
+        private Builder(JdbcTableHandle handle)
+        {
+            requireNonNull(handle, "handle is null");
+            this.schemaTableName = handle.getSchemaTableName();
+            this.catalogName = Optional.ofNullable(handle.getCatalogName());
+            this.schemaName = Optional.ofNullable(handle.getSchemaName());
+            this.tableName = handle.getTableName();
+            this.constraint = handle.getConstraint();
+            this.limit = handle.getLimit();
+        }
+
+        public Builder setSchemaTableName(SchemaTableName schemaTableName)
+        {
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            return this;
+        }
+
+        public Builder setCatalogName(Optional<String> catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            return this;
+        }
+
+        public Builder setSchemaName(Optional<String> schemaName)
+        {
+            this.schemaName = requireNonNull(schemaName, "schemaName is null");
+            return this;
+        }
+
+        public Builder setTableName(String tableName)
+        {
+            this.tableName = requireNonNull(tableName, "tableName is null");
+            return this;
+        }
+
+        public Builder setConstraint(TupleDomain<ColumnHandle> constraint)
+        {
+            this.constraint = requireNonNull(constraint, "constraint is null");
+            return this;
+        }
+
+        public Builder setLimit(OptionalLong limit)
+        {
+            this.limit = requireNonNull(limit, "limit is null");
+            return this;
+        }
+
+        public JdbcTableHandle build()
+        {
+            return new JdbcTableHandle(
+                    schemaTableName,
+                    catalogName.orElse(null),
+                    schemaName.orElse(null),
+                    tableName,
+                    constraint,
+                    limit);
+        }
     }
 }

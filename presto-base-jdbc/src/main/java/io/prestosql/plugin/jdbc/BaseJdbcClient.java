@@ -221,11 +221,12 @@ public class BaseJdbcClient
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
-                    tableHandles.add(new JdbcTableHandle(
-                            schemaTableName,
-                            resultSet.getString("TABLE_CAT"),
-                            resultSet.getString("TABLE_SCHEM"),
-                            resultSet.getString("TABLE_NAME")));
+                    tableHandles.add(JdbcTableHandle.builder()
+                            .setSchemaTableName(schemaTableName)
+                            .setCatalogName(Optional.ofNullable(resultSet.getString("TABLE_CAT")))
+                            .setSchemaName(Optional.ofNullable(resultSet.getString("TABLE_SCHEM")))
+                            .setTableName(resultSet.getString("TABLE_NAME"))
+                            .build());
                 }
                 if (tableHandles.isEmpty()) {
                     return Optional.empty();
@@ -650,11 +651,12 @@ public class BaseJdbcClient
     @Override
     public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        dropTable(identity, new JdbcTableHandle(
-                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTemporaryTableName()));
+        dropTable(identity, JdbcTableHandle.builder()
+                .setSchemaTableName(new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()))
+                .setCatalogName(Optional.ofNullable(handle.getCatalogName()))
+                .setSchemaName(Optional.ofNullable(handle.getSchemaName()))
+                .setTableName(handle.getTemporaryTableName())
+                .build());
     }
 
     @Override
