@@ -63,6 +63,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
+    public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
@@ -88,6 +89,7 @@ final class ConnectionProperties
             .add(EXTRA_CREDENTIALS)
             .add(CLIENT_INFO)
             .add(CLIENT_TAGS)
+            .add(TRACE_TOKEN)
             .add(SESSION_PROPERTIES)
             .build();
 
@@ -219,6 +221,15 @@ final class ConnectionProperties
         public ClientTags()
         {
             super("clientTags", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class TraceToken
+            extends AbstractConnectionProperty<String>
+    {
+        public TraceToken()
+        {
+            super("traceToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
