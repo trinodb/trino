@@ -434,7 +434,7 @@ public final class TupleDomain<T>
 
     private TupleDomain<T> transformDomains(Function<Domain, Domain> transformation)
     {
-        if (isNone()) {
+        if (isNone() || isAll()) {
             return this;
         }
 
