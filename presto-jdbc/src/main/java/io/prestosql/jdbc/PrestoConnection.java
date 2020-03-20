@@ -106,6 +106,7 @@ public class PrestoConnection
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        uri.getClientInfo().ifPresent(tags -> clientInfo.put("ClientInfo", tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
 
         roles.putAll(uri.getRoles());
