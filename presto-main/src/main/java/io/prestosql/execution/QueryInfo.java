@@ -23,6 +23,7 @@ import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorType;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
@@ -67,6 +68,7 @@ public class QueryInfo
     private final boolean clearTransactionId;
     private final String updateType;
     private final Optional<StageInfo> outputStage;
+    private final List<TableInfo> referencedTables;
     private final ExecutionFailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
@@ -105,6 +107,7 @@ public class QueryInfo
             @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
+            @JsonProperty("referencedTables") List<TableInfo> referencedTables,
             @JsonProperty("completeInfo") boolean completeInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
     {
@@ -127,6 +130,7 @@ public class QueryInfo
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
+        requireNonNull(referencedTables, "referencedTables is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(warnings, "warnings is null");
 
@@ -158,6 +162,7 @@ public class QueryInfo
         this.warnings = ImmutableList.copyOf(warnings);
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
+        this.referencedTables = ImmutableList.copyOf(referencedTables);
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
     }
@@ -338,6 +343,12 @@ public class QueryInfo
     public Optional<Output> getOutput()
     {
         return output;
+    }
+
+    @JsonProperty
+    public List<TableInfo> getReferencedTables()
+    {
+        return referencedTables;
     }
 
     @JsonProperty

@@ -53,6 +53,11 @@ public class RelationId
         return !sourceNode.isPresent();
     }
 
+    public Optional<Node> getSourceNode()
+    {
+        return sourceNode.map(NodeRef::getNode);
+    }
+
     @Override
     public boolean equals(Object o)
     {
