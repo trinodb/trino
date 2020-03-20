@@ -43,6 +43,7 @@ import static io.prestosql.client.OkHttpUtil.setupSsl;
 import static io.prestosql.client.OkHttpUtil.tokenAuth;
 import static io.prestosql.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
+import static io.prestosql.jdbc.ConnectionProperties.CLIENT_INFO;
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
@@ -154,6 +155,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getClientInfo()
+            throws SQLException
+    {
+        return CLIENT_INFO.getValue(properties);
     }
 
     public Optional<String> getClientTags()

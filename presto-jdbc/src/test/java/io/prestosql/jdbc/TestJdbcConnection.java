@@ -306,6 +306,15 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testClientInfoParameter()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("clientInfo=hello%20world")) {
+            assertEquals(connection.getClientInfo("ClientInfo"), "hello world");
+        }
+    }
+
+    @Test
     public void testClientTags()
             throws SQLException
     {
