@@ -94,6 +94,6 @@ html_theme = 'presto'
 
 html_title = '%s %s Documentation' % (project, release)
 
-html_add_permalinks = ''
+html_add_permalinks = '#'
 html_show_copyright = False
 html_show_sphinx = False
