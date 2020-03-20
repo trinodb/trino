@@ -1027,26 +1027,29 @@ class StatementAnalyzer
 
             List<Field> outputFields = fields.build();
 
-            analyzeFiltersAndMasks(table, name, outputFields);
-
-            analysis.registerTable(table, tableHandle.get());
+            analyzeFiltersAndMasks(table, name, tableHandle, outputFields, session.getIdentity().getUser());
 
             return createAndAssignScope(table, scope, outputFields);
         }
 
-        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, List<Field> fields)
+        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
         {
             Scope accessControlScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
                     .build();
 
+            ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
             for (Field field : fields) {
-                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType())
-                        .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+                List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
+                columnMasks.put(field, masks);
+
+                masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
             }
 
-            accessControl.getRowFilters(session.toSecurityContext(), name)
-                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+            List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
+            filters.forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+
+            analysis.registerTable(table, tableHandle, name, filters, columnMasks.build(), authorization);
         }
 
         private Scope createScopeForCommonTableExpression(Table table, Optional<Scope> scope, WithQuery withQuery)
@@ -1136,7 +1139,7 @@ class StatementAnalyzer
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
-            analyzeFiltersAndMasks(table, name, outputFields);
+            analyzeFiltersAndMasks(table, name, Optional.empty(), outputFields, session.getIdentity().getUser());
 
             return createAndAssignScope(table, scope, outputFields);
         }

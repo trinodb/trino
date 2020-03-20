@@ -25,10 +25,12 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.ColumnInfo;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.QueryFailureInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
@@ -214,6 +216,32 @@ public class TestEventListener
 
         assertEquals(actualCompletedPositions, expectedCompletedPositions);
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), expectedCompletedPositions);
+    }
+
+    @Test
+    public void testReferencedTables()
+            throws Exception
+    {
+        // We expect the following events
+        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertEquals(tables.size(), 1);
+
+        TableInfo table = tables.get(0);
+        assertEquals(table.getCatalog(), "tpch");
+        assertEquals(table.getSchema(), "tiny");
+        assertEquals(table.getAuthorization(), "user");
+        assertTrue(table.getFilters().isEmpty());
+        assertEquals(table.getColumns().size(), 1);
+
+        ColumnInfo column = table.getColumns().get(0);
+        assertEquals(column.getColumn(), "linenumber");
+        assertTrue(column.getMasks().isEmpty());
     }
 
     @Test
