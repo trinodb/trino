@@ -24,12 +24,8 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableEntryException;
-import java.security.cert.CertificateException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.Map;
 
 import static com.google.inject.Scopes.SINGLETON;
@@ -108,7 +104,7 @@ public class CredentialProviderModule
 
         @Inject
         public KeyStoreBasedCredentialProviderFactory(KeyStoreBasedCredentialProviderConfig config)
-                throws IOException, CertificateException, NoSuchAlgorithmException, KeyStoreException, InvalidKeySpecException, UnrecoverableEntryException
+                throws IOException, GeneralSecurityException
         {
             requireNonNull(config, "config is null");
             KeyStore keyStore = loadKeyStore(config.getKeyStoreType(), config.getKeyStoreFilePath(), config.getKeyStorePassword());
