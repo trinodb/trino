@@ -83,9 +83,11 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAutho
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toSet;
 
 public class SqlStandardAccessControl
@@ -93,6 +95,7 @@ public class SqlStandardAccessControl
 {
     public static final String ADMIN_ROLE_NAME = "admin";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
+    private static final String SYS_SCHEMA_NAME = "sys";
     private static final SchemaTableName ROLES = new SchemaTableName(INFORMATION_SCHEMA_NAME, "roles");
 
     private final String catalogName;
@@ -147,7 +150,7 @@ public class SqlStandardAccessControl
     @Override
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
-        return schemaNames;
+        return schemaNames.stream().filter(schema -> INFORMATION_SCHEMA_NAME.equals(schema) || SYS_SCHEMA_NAME.equals(schema) || isDatabaseOwner(context, schema)).collect(toSet());
     }
 
     @Override
@@ -194,12 +197,19 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
+        if (!INFORMATION_SCHEMA_NAME.equals(schemaName) && !SYS_SCHEMA_NAME.equals(schemaName) && !isDatabaseOwner(context, schemaName)) {
+            denyShowTables(schemaName);
+        }
     }
 
     @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
-        return tableNames;
+        return tableNames.stream()
+                .collect(groupingBy(SchemaTableName::getSchemaName, toSet())).entrySet().stream()
+                .filter(schema -> INFORMATION_SCHEMA_NAME.equals(schema.getKey()) || SYS_SCHEMA_NAME.equals(schema.getKey()) || isDatabaseOwner(context, schema.getKey()))
+                .flatMap(schema -> schema.getValue().stream())
+                .collect(toSet());
     }
 
     @Override
