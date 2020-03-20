@@ -220,6 +220,7 @@ public class SqlQueryExecution
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 
         stateMachine.setUpdateType(analysis.getUpdateType());
+        stateMachine.setReferencedTables(analysis.getReferencedTables());
 
         stateMachine.endAnalysis();
 
