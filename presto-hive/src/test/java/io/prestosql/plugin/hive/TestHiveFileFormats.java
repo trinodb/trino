@@ -420,6 +420,19 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
+    public void testParquetPageSourceGzip(int rowCount)
+            throws Exception
+    {
+        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
+        assertThatFileFormat(PARQUET)
+                .withColumns(testColumns)
+                .withSession(PARQUET_SESSION)
+                .withCompressionCodec(HiveCompressionCodec.GZIP)
+                .withRowsCount(rowCount)
+                .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig()));
+    }
+
+    @Test(dataProvider = "rowCount")
     public void testParquetPageSourceSchemaEvolution(int rowCount)
             throws Exception
     {
