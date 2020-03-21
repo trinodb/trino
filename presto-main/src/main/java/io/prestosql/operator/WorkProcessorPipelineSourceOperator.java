@@ -112,7 +112,7 @@ public class WorkProcessorPipelineSourceOperator
                 .build();
     }
 
-    private static List<OperatorFactory> toOperatorFactories(List<OperatorFactoryWithTypes> operatorFactoryWithTypes)
+    public static List<OperatorFactory> toOperatorFactories(List<OperatorFactoryWithTypes> operatorFactoryWithTypes)
     {
         return operatorFactoryWithTypes.stream()
                 .map(OperatorFactoryWithTypes::getOperatorFactory)

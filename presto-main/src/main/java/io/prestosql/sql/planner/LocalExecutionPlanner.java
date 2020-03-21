@@ -249,6 +249,7 @@ import static io.prestosql.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static io.prestosql.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.prestosql.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.prestosql.operator.WindowFunctionDefinition.window;
+import static io.prestosql.operator.WorkProcessorPipelineSourceOperator.toOperatorFactories;
 import static io.prestosql.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -479,8 +480,6 @@ public class LocalExecutionPlanner
                 context.getDriverInstanceCount(),
                 physicalOperation.getPipelineExecutionStrategy());
 
-        addLookupOuterDrivers(context);
-
         // notify operator factories that planning has completed
         context.getDriverFactories().stream()
                 .map(DriverFactory::getOperatorFactories)
@@ -490,36 +489,6 @@ public class LocalExecutionPlanner
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder, stageExecutionDescriptor);
-    }
-
-    private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
-    {
-        // For an outer join on the lookup side (RIGHT or FULL) add an additional
-        // driver to output the unused rows in the lookup source
-        for (DriverFactory factory : context.getDriverFactories()) {
-            List<OperatorFactory> operatorFactories = factory.getOperatorFactories();
-            for (int i = 0; i < operatorFactories.size(); i++) {
-                OperatorFactory operatorFactory = operatorFactories.get(i);
-                if (!(operatorFactory instanceof JoinOperatorFactory)) {
-                    continue;
-                }
-
-                JoinOperatorFactory lookupJoin = (JoinOperatorFactory) operatorFactory;
-                Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult = lookupJoin.createOuterOperatorFactory();
-                if (outerOperatorFactoryResult.isPresent()) {
-                    // Add a new driver to output the unmatched rows in an outer join.
-                    // We duplicate all of the factories above the JoinOperator (the ones reading from the joins),
-                    // and replace the JoinOperator with the OuterOperator (the one that produces unmatched rows).
-                    ImmutableList.Builder<OperatorFactory> newOperators = ImmutableList.builder();
-                    newOperators.add(outerOperatorFactoryResult.get().getOuterOperatorFactory());
-                    operatorFactories.subList(i + 1, operatorFactories.size()).stream()
-                            .map(OperatorFactory::duplicate)
-                            .forEach(newOperators::add);
-
-                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy());
-                }
-            }
-        }
     }
 
     private static class LocalExecutionPlanContext
@@ -573,6 +542,7 @@ public class LocalExecutionPlanner
 
             validateFirstOperatorFactory(inputDriver, operatorFactoryWithTypes.get(0).getOperatorFactory(), pipelineExecutionStrategy);
 
+            addLookupOuterDrivers(outputDriver, toOperatorFactories(operatorFactoryWithTypes));
             List<OperatorFactory> operatorFactories = handleLateMaterialization(operatorFactoryWithTypes);
 
             driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
@@ -588,13 +558,38 @@ public class LocalExecutionPlanner
                         getFilterAndProjectMinOutputPageRowCount(taskContext.getSession()));
             }
             else {
-                return operatorFactoryWithTypes.stream()
-                        .map(OperatorFactoryWithTypes::getOperatorFactory)
-                        .collect(toImmutableList());
+                return toOperatorFactories(operatorFactoryWithTypes);
             }
         }
 
-        public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+        private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
+        {
+            // For an outer join on the lookup side (RIGHT or FULL) add an additional
+            // driver to output the unused rows in the lookup source
+            for (int i = 0; i < operatorFactories.size(); i++) {
+                OperatorFactory operatorFactory = operatorFactories.get(i);
+                if (!(operatorFactory instanceof JoinOperatorFactory)) {
+                    continue;
+                }
+
+                JoinOperatorFactory lookupJoin = (JoinOperatorFactory) operatorFactory;
+                Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult = lookupJoin.createOuterOperatorFactory();
+                if (outerOperatorFactoryResult.isPresent()) {
+                    // Add a new driver to output the unmatched rows in an outer join.
+                    // We duplicate all of the factories above the JoinOperator (the ones reading from the joins),
+                    // and replace the JoinOperator with the OuterOperator (the one that produces unmatched rows).
+                    ImmutableList.Builder<OperatorFactory> newOperators = ImmutableList.builder();
+                    newOperators.add(outerOperatorFactoryResult.get().getOuterOperatorFactory());
+                    operatorFactories.subList(i + 1, operatorFactories.size()).stream()
+                            .map(OperatorFactory::duplicate)
+                            .forEach(newOperators::add);
+
+                    addDriverFactory(false, isOutputDriver, newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy());
+                }
+            }
+        }
+
+        private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
         {
             validateFirstOperatorFactory(inputDriver, operatorFactories.get(0), pipelineExecutionStrategy);
             driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
