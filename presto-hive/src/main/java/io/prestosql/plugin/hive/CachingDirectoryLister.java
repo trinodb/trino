@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.weakref.jmx.Managed;
 
@@ -78,7 +79,7 @@ public class CachingDirectoryLister
     }
 
     @Override
-    public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+    public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path, PathFilter pathFilter)
             throws IOException
     {
         List<LocatedFileStatus> files = cache.getIfPresent(path);

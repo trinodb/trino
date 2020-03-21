@@ -17,12 +17,13 @@ import io.prestosql.plugin.hive.metastore.Table;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
 
 public interface DirectoryLister
 {
-    RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+    RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path, PathFilter pathFilter)
             throws IOException;
 }
