@@ -53,6 +53,7 @@ import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.Utils;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
@@ -77,6 +78,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.Closeable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -97,8 +99,10 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createIntsBlock;
+import static io.prestosql.block.BlockAssertions.createLongDecimalsBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createRowBlock;
+import static io.prestosql.block.BlockAssertions.createShortDecimalsBlock;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.block.BlockAssertions.createTimestampsWithTimezoneBlock;
@@ -109,6 +113,8 @@ import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -142,6 +148,8 @@ public final class FunctionAssertions
     private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
     private static final RowType TEST_ROW_TYPE = createTestRowType(TEST_ROW_NUMBER_OF_FIELDS);
     private static final Block TEST_ROW_DATA = createTestRowData(TEST_ROW_TYPE);
+    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(14);
+    private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(28);
 
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
@@ -154,7 +162,9 @@ public final class FunctionAssertions
             createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
             createIntsBlock(1234),
-            TEST_ROW_DATA);
+            TEST_ROW_DATA,
+            createShortDecimalsBlock("1234"),
+            createLongDecimalsBlock("1234"));
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
@@ -170,6 +180,8 @@ public final class FunctionAssertions
             .put(new Symbol("bound_binary_literal"), VARBINARY)
             .put(new Symbol("bound_integer"), INTEGER)
             .put(new Symbol("bound_row"), TEST_ROW_TYPE)
+            .put(new Symbol("bound_short_decimal"), SHORT_DECIMAL_TYPE)
+            .put(new Symbol("bound_long_decimal"), LONG_DECIMAL_TYPE)
             .build());
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
@@ -184,6 +196,8 @@ public final class FunctionAssertions
             .put(new Symbol("bound_binary_literal"), 8)
             .put(new Symbol("bound_integer"), 9)
             .put(new Symbol("bound_row"), 10)
+            .put(new Symbol("bound_short_decimal"), 11)
+            .put(new Symbol("bound_long_decimal"), 12)
             .build();
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
@@ -850,7 +864,7 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE))
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE, SHORT_DECIMAL_TYPE, LONG_DECIMAL_TYPE))
                         .addRow(
                                 1234L,
                                 "hello",
@@ -862,7 +876,9 @@ public final class FunctionAssertions
                                 packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")),
                                 Slices.wrappedBuffer((byte) 0xab),
                                 1234,
-                                TEST_ROW_DATA.getObject(0, Block.class))
+                                TEST_ROW_DATA.getObject(0, Block.class),
+                                new BigDecimal("1234").unscaledValue().longValue(),
+                                encodeScaledValue(new BigDecimal("1234")))
                         .build();
                 return new RecordPageSource(records);
             }
