@@ -552,7 +552,6 @@ public class LocalExecutionPlanner
         {
             if (isLateMaterializationEnabled(taskContext.getSession())) {
                 return WorkProcessorPipelineSourceOperator.convertOperators(
-                        getNextOperatorId(),
                         operatorFactoryWithTypes,
                         getFilterAndProjectMinOutputPageSize(taskContext.getSession()),
                         getFilterAndProjectMinOutputPageRowCount(taskContext.getSession()));

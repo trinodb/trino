@@ -105,7 +105,6 @@ public class TestWorkProcessorPipelineSourceOperator
         TestWorkProcessorOperatorFactory secondOperatorFactory = new TestWorkProcessorOperatorFactory(3, secondOperatorPages);
 
         SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
-                99,
                 ImmutableList.of(
                         new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
                         new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT)),
@@ -235,7 +234,6 @@ public class TestWorkProcessorPipelineSourceOperator
         TestWorkProcessorOperatorFactory firstOperatorFactory = new TestWorkProcessorOperatorFactory(2, firstOperatorPages);
 
         SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
-                99,
                 ImmutableList.of(
                         new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
                         new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT))),
