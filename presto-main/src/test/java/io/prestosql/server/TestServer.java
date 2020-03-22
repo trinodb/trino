@@ -13,6 +13,7 @@
  */
 package io.prestosql.server;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
@@ -72,7 +74,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -210,8 +211,11 @@ public class TestServer
 
         assertNull(queryResults.getNextUri());
         QueryError queryError = queryResults.getError();
-        assertThat(queryError.getFailureInfo().toException())
-                .hasStackTraceContaining("at io.prestosql.$gen.Presto_null__testversion____");
+        List<String> stackTrace = Splitter.on("\n").splitToList(getStackTraceAsString(queryError.getFailureInfo().toException()));
+        long versionLines = stackTrace.stream()
+                .filter(line -> line.contains("at io.prestosql.$gen.Presto_null__testversion____"))
+                .count();
+        assertEquals(versionLines, 1, "Number of times version is embedded in stacktrace");
     }
 
     @DataProvider
