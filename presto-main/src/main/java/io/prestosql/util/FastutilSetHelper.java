@@ -188,6 +188,9 @@ public final class FastutilSetHelper
         @Override
         public int hashCode(Object value)
         {
+            if (value == null) {
+                return 0;
+            }
             try {
                 return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
@@ -201,6 +204,9 @@ public final class FastutilSetHelper
         @Override
         public boolean equals(Object a, Object b)
         {
+            if (b == null || a == null) {
+                return a == null && b == null;
+            }
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 // FastutilHashSet is not intended be used for indeterminate values lookup
