@@ -607,7 +607,7 @@ public class LocalExecutionPlanner
             }
 
             if (isLateMaterializationEnabled(taskContext.getSession())) {
-                operatorFactories = WorkProcessorPipelineSourceOperator.convertOperators(getNextOperatorId(), operatorFactories);
+                operatorFactories = WorkProcessorPipelineSourceOperator.convertOperators(operatorFactories);
             }
 
             driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
