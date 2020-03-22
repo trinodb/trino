@@ -61,7 +61,7 @@ public class IcebergTableProperties
                         value -> value))
                 .add(stringProperty(
                         LOCATION_PROPERTY,
-                        "File system location URI for external table",
+                        "File system location URI for the table",
                         null,
                         false))
                 .build();
