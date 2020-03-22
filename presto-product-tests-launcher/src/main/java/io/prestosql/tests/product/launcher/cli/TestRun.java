@@ -183,7 +183,6 @@ public final class TestRun
                                                 .add(CONTAINER_TEMPTO_PROFILE_CONFIG)
                                                 .add(System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
                                                 .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))
-                                                .add(System.getenv().getOrDefault("TEMPTO_EXTRA_CONFIG_FILE", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)
                                 .build().toArray(new String[0]));
