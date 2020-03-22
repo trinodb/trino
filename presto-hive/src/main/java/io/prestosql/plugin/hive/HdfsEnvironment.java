@@ -56,6 +56,11 @@ public class HdfsEnvironment
         return hdfsConfiguration.getConfiguration(context, path.toUri());
     }
 
+    public Configuration getBaseConfiguration()
+    {
+        return hdfsConfiguration.getBaseConfiguration();
+    }
+
     public FileSystem getFileSystem(HdfsContext context, Path path)
             throws IOException
     {
