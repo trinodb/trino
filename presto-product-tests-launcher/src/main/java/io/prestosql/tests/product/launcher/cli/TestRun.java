@@ -15,6 +15,7 @@ package io.prestosql.tests.product.launcher.cli;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.airline.Arguments;
@@ -42,6 +43,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -151,6 +153,10 @@ public final class TestRun
 
             environment.configureContainer("tests", container -> {
                 container.addExposedPort(TESTS_READY_PORT);
+
+                List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
+                        container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
+
                 container
                         .withFileSystemBind(pathResolver.resolvePlaceholders(testJar).toString(), "/docker/test.jar", READ_ONLY)
                         .withEnv("TESTS_HIVE_VERSION_MAJOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MAJOR", "1"))
@@ -160,15 +166,23 @@ public final class TestRun
                                 .add(Integer.toString(TESTS_READY_PORT))
                                 .add(
                                         "java",
+                                        "-Xmx1g",
+                                        // Force Parallel GC to ensure MaxHeapFreeRatio is respected
+                                        "-XX:+UseParallelGC",
+                                        "-XX:MinHeapFreeRatio=10",
+                                        "-XX:MaxHeapFreeRatio=10",
                                         // "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007", // TODO implement sth like --debug switch
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
-                                        "-Duser.timezone=Asia/Kathmandu",
+                                        "-Duser.timezone=Asia/Kathmandu")
+                                .addAll(temptoJavaOptions)
+                                .add(
                                         "-jar", "/docker/test.jar",
                                         "--config", String.join(",", ImmutableList.<String>builder()
                                                 .add("tempto-configuration.yaml") // this comes from classpath
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
-                                                .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml")
+                                                .add(CONTAINER_TEMPTO_PROFILE_CONFIG)
                                                 .add(System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
+                                                .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))
                                                 .add(System.getenv().getOrDefault("TEMPTO_EXTRA_CONFIG_FILE", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)

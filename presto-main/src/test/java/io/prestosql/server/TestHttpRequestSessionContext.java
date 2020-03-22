@@ -15,6 +15,7 @@ package io.prestosql.server;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.prestosql.dispatcher.DispatcherConfig.HeaderSupport;
 import io.prestosql.spi.security.Identity;
@@ -74,7 +75,7 @@ public class TestHttpRequestSessionContext
                 .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
                 .build());
 
-        SessionContext context = new HttpRequestSessionContext(WARN, headers, "testRemote", Optional.empty());
+        SessionContext context = new HttpRequestSessionContext(WARN, headers, "testRemote", Optional.empty(), user -> ImmutableSet.of(user));
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
@@ -94,6 +95,7 @@ public class TestHttpRequestSessionContext
                 "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
                 "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
+        assertEquals(context.getIdentity().getGroups(), ImmutableSet.of("testUser"));
     }
 
     @Test
@@ -102,16 +104,21 @@ public class TestHttpRequestSessionContext
         MultivaluedMap<String, String> userHeaders = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(PRESTO_USER, "testUser"));
         MultivaluedMap<String, String> emptyHeaders = new MultivaluedHashMap<>();
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.empty());
-        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.empty(), user -> ImmutableSet.of(user));
+        assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
-        context = new HttpRequestSessionContext(WARN, emptyHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")));
-        assertEquals(context.getIdentity(), Identity.ofUser("mappedUser"));
+        context = new HttpRequestSessionContext(
+                WARN,
+                emptyHeaders,
+                "testRemote",
+                Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()),
+                user -> ImmutableSet.of(user));
+        assertEquals(context.getIdentity(), Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
 
-        context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")));
-        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+        context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")), user -> ImmutableSet.of(user));
+        assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
-        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, emptyHeaders, "testRemote", Optional.empty()))
+        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, emptyHeaders, "testRemote", Optional.empty(), user -> ImmutableSet.of()))
                 .isInstanceOf(WebApplicationException.class)
                 .matches(e -> ((WebApplicationException) e).getResponse().getStatus() == 400);
     }
@@ -131,7 +138,7 @@ public class TestHttpRequestSessionContext
                 .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                 .build());
 
-        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, headers, "testRemote", Optional.empty()))
+        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, headers, "testRemote", Optional.empty(), user -> ImmutableSet.of()))
                 .isInstanceOf(WebApplicationException.class)
                 .hasMessageMatching("Invalid X-Presto-Prepared-Statement header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
     }
@@ -154,7 +161,7 @@ public class TestHttpRequestSessionContext
         MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(PRESTO_USER, "testUser")
                 .build());
-        return new HttpRequestSessionContext(headerSupport, headers, "remote_address", Optional.empty());
+        return new HttpRequestSessionContext(headerSupport, headers, "remote_address", Optional.empty(), user -> ImmutableSet.of());
     }
 
     private static SessionContext requestWithXForwardedFor(HeaderSupport headerSupport)
@@ -163,6 +170,6 @@ public class TestHttpRequestSessionContext
                 .put(PRESTO_USER, "testUser")
                 .put(X_FORWARDED_FOR, "forwarded_client")
                 .build());
-        return new HttpRequestSessionContext(headerSupport, headers, "proxy_address", Optional.empty());
+        return new HttpRequestSessionContext(headerSupport, headers, "proxy_address", Optional.empty(), user -> ImmutableSet.of());
     }
 }

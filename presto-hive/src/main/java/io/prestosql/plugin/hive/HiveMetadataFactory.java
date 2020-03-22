@@ -17,6 +17,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
@@ -29,17 +30,16 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
-        implements Supplier<TransactionalMetadata>
+        implements TransactionalMetadataFactory
 {
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
-    private final HiveCatalogName catalogName;
+    private final CatalogName catalogName;
     private final boolean allowCorruptWritesForTesting;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
@@ -65,12 +65,12 @@ public class HiveMetadataFactory
     @Inject
     @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
-            HiveCatalogName catalogName,
+            CatalogName catalogName,
             HiveConfig hiveConfig,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            @ForHive ExecutorService executorService,
+            ExecutorService executorService,
             @ForHiveTransactionHeartbeats ScheduledExecutorService heartbeatService,
             TypeManager typeManager,
             LocationService locationService,
@@ -106,7 +106,7 @@ public class HiveMetadataFactory
     }
 
     public HiveMetadataFactory(
-            HiveCatalogName catalogName,
+            CatalogName catalogName,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -164,7 +164,7 @@ public class HiveMetadataFactory
     }
 
     @Override
-    public HiveMetadata get()
+    public TransactionalMetadata create()
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,

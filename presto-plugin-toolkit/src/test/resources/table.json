@@ -21,6 +21,12 @@
       "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
     },
     {
+      "group": "guests",
+      "schema": "bobschema",
+      "table": "bobtable",
+      "privileges": ["SELECT", "INSERT"]
+    },
+    {
       "privileges": ["SELECT"]
     }
   ]

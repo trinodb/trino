@@ -15,25 +15,36 @@ package io.prestosql.spi.security;
 
 import java.security.Principal;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class Identity
 {
     private final String user;
+    private final Set<String> groups;
     private final Optional<Principal> principal;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
     private final Optional<Runnable> onDestroy;
 
-    private Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials, Optional<Runnable> onDestroy)
+    private Identity(
+            String user,
+            Set<String> groups,
+            Optional<Principal> principal,
+            Map<String, SelectedRole> roles,
+            Map<String, String> extraCredentials,
+            Optional<Runnable> onDestroy)
     {
         this.user = requireNonNull(user, "user is null");
+        this.groups = unmodifiableSet(new HashSet<>(requireNonNull(groups, "groups is null")));
         this.principal = requireNonNull(principal, "principal is null");
         this.roles = unmodifiableMap(new HashMap<>(requireNonNull(roles, "roles is null")));
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
@@ -43,6 +54,11 @@ public class Identity
     public String getUser()
     {
         return user;
+    }
+
+    public Set<String> getGroups()
+    {
+        return groups;
     }
 
     public Optional<Principal> getPrincipal()
@@ -63,6 +79,7 @@ public class Identity
     public ConnectorIdentity toConnectorIdentity()
     {
         return ConnectorIdentity.forUser(user)
+                .withGroups(groups)
                 .withPrincipal(principal)
                 .withExtraCredentials(extraCredentials)
                 .build();
@@ -71,6 +88,7 @@ public class Identity
     public ConnectorIdentity toConnectorIdentity(String catalog)
     {
         return ConnectorIdentity.forUser(user)
+                .withGroups(groups)
                 .withPrincipal(principal)
                 .withRole(Optional.ofNullable(roles.get(catalog)))
                 .withExtraCredentials(extraCredentials)
@@ -106,6 +124,7 @@ public class Identity
     {
         StringBuilder sb = new StringBuilder("Identity{");
         sb.append("user='").append(user).append('\'');
+        sb.append(", groups=").append(groups);
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
         sb.append(", roles=").append(roles);
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
@@ -126,6 +145,7 @@ public class Identity
     public static Builder from(Identity identity)
     {
         return new Builder(identity.getUser())
+                .withGroups(identity.getGroups())
                 .withPrincipal(identity.getPrincipal())
                 .withRoles(identity.getRoles())
                 .withExtraCredentials(identity.getExtraCredentials());
@@ -134,6 +154,7 @@ public class Identity
     public static class Builder
     {
         private String user;
+        private Set<String> groups = new HashSet<>();
         private Optional<Principal> principal = Optional.empty();
         private Map<String, SelectedRole> roles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
@@ -204,9 +225,21 @@ public class Identity
             this.onDestroy = Optional.of(new InvokeOnceRunnable(onDestroy));
         }
 
+        public Builder withGroups(Set<String> groups)
+        {
+            this.groups = new HashSet<>(requireNonNull(groups, "groups is null"));
+            return this;
+        }
+
+        public Builder withAdditionalGroups(Set<String> groups)
+        {
+            this.groups.addAll(requireNonNull(groups, "groups is null"));
+            return this;
+        }
+
         public Identity build()
         {
-            return new Identity(user, principal, roles, extraCredentials, onDestroy);
+            return new Identity(user, groups, principal, roles, extraCredentials, onDestroy);
         }
     }
 

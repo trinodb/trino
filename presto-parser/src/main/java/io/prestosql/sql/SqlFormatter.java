@@ -86,6 +86,7 @@ import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
+import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
@@ -840,6 +841,17 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitSetSchemaAuthorization(SetSchemaAuthorization node, Integer context)
+        {
+            builder.append("ALTER SCHEMA ")
+                    .append(formatName(node.getSource()))
+                    .append(" SET AUTHORIZATION ")
+                    .append(formatPrincipal(node.getPrincipal()));
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
             builder.append("CREATE TABLE ");
@@ -1229,7 +1241,7 @@ public final class SqlFormatter
             builder.append(node.getGrantees().stream()
                     .map(Formatter::formatPrincipal)
                     .collect(joining(", ")));
-            if (node.isWithAdminOption()) {
+            if (node.isAdminOption()) {
                 builder.append(" WITH ADMIN OPTION");
             }
             if (node.getGrantor().isPresent()) {
@@ -1242,7 +1254,7 @@ public final class SqlFormatter
         protected Void visitRevokeRoles(RevokeRoles node, Integer context)
         {
             builder.append("REVOKE ");
-            if (node.isAdminOptionFor()) {
+            if (node.isAdminOption()) {
                 builder.append("ADMIN OPTION FOR ");
             }
             builder.append(node.getRoles().stream()

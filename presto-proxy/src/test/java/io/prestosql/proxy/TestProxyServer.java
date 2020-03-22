@@ -75,7 +75,7 @@ public class TestProxyServer
         Files.write(sharedSecretFile, sharedSecret);
 
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());

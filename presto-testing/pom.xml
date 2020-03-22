@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>331-SNAPSHOT</version>
+        <version>332-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-testing</artifactId>
@@ -45,6 +45,11 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-tpch</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -95,6 +100,11 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>

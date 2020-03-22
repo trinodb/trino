@@ -91,15 +91,15 @@ public class SqlStandardAccessControlMetadata
     }
 
     @Override
-    public void grantRoles(ConnectorSession session, Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, Optional<HivePrincipal> grantor)
+    public void grantRoles(ConnectorSession session, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, Optional<HivePrincipal> grantor)
     {
-        metastore.grantRoles(roles, grantees, withAdminOption, grantor.orElse(new HivePrincipal(USER, session.getUser())));
+        metastore.grantRoles(roles, grantees, adminOption, grantor.orElse(new HivePrincipal(USER, session.getUser())));
     }
 
     @Override
-    public void revokeRoles(ConnectorSession session, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, Optional<HivePrincipal> grantor)
+    public void revokeRoles(ConnectorSession session, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, Optional<HivePrincipal> grantor)
     {
-        metastore.revokeRoles(roles, grantees, adminOptionFor, grantor.orElse(new HivePrincipal(USER, session.getUser())));
+        metastore.revokeRoles(roles, grantees, adminOption, grantor.orElse(new HivePrincipal(USER, session.getUser())));
     }
 
     @Override

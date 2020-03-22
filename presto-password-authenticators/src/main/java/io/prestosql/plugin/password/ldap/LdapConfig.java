@@ -31,6 +31,7 @@ public class LdapConfig
     private String userBaseDistinguishedName;
     private String bindDistinguishedName;
     private String bindPassword;
+    private boolean ignoreReferrals;
     private Duration ldapCacheTtl = new Duration(1, TimeUnit.HOURS);
 
     @NotNull
@@ -111,6 +112,19 @@ public class LdapConfig
     public LdapConfig setBindPassword(String bindPassword)
     {
         this.bindPassword = bindPassword;
+        return this;
+    }
+
+    public boolean isIgnoreReferrals()
+    {
+        return ignoreReferrals;
+    }
+
+    @Config("ldap.ignore-referrals")
+    @ConfigDescription("Referrals allow finding entries across multiple LDAP servers. Ignore them to only search within 1 LDAP server")
+    public LdapConfig setIgnoreReferrals(boolean ignoreReferrals)
+    {
+        this.ignoreReferrals = ignoreReferrals;
         return this;
     }
 

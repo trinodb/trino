@@ -21,8 +21,6 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
@@ -119,6 +117,7 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
@@ -147,6 +146,7 @@ public class GlueHiveMetastore
     private static final String WILDCARD_EXPRESSION = "";
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
+    private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 128;
     private static final Comparator<Partition> PARTITION_COMPARATOR =
             comparing(Partition::getValues, lexicographical(String.CASE_INSENSITIVE_ORDER));
 
@@ -187,10 +187,7 @@ public class GlueHiveMetastore
             asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
-            Region currentRegion = Regions.getCurrentRegion();
-            if (currentRegion != null) {
-                asyncGlueClientBuilder.setRegion(currentRegion.getName());
-            }
+            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
         }
 
         asyncGlueClientBuilder.setCredentials(getAwsCredentialsProvider(config));
@@ -508,6 +505,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "setting the database owner is not supported by Glue");
+    }
+
+    @Override
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
         try {
@@ -747,7 +750,8 @@ public class GlueHiveMetastore
                             .withTableName(table.getTableName())
                             .withExpression(expression)
                             .withSegment(segment)
-                            .withNextToken(nextToken));
+                            .withNextToken(nextToken)
+                            .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS));
                     result.getPartitions()
                             .forEach(partition -> partitions.add(GlueToPrestoConverter.convertPartition(partition, table.getParameters())));
                     nextToken = result.getNextToken();
@@ -959,13 +963,13 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "grantRoles is not supported by Glue");
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "revokeRoles is not supported by Glue");
     }

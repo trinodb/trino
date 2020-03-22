@@ -392,7 +392,7 @@ public class TestRaptorIntegrationSmokeTest
                 "SELECT min(orderkey), max(orderkey) FROM orders");
 
         // No such table test
-        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*raptor\\.tpch\\.no_table\\$column_ranges does not exist.*");
+        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*'raptor\\.tpch\\.no_table\\$column_ranges' does not exist.*");
 
         // No range column for DOUBLE, INTEGER or VARCHAR
         assertQueryFails("SELECT totalprice_min FROM \"orders$column_ranges\"", ".*Column 'totalprice_min' cannot be resolved.*");
@@ -417,7 +417,7 @@ public class TestRaptorIntegrationSmokeTest
         // Drop table
         assertUpdate("DROP TABLE column_ranges_test");
         assertQueryFails("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"",
-                ".*raptor\\.tpch\\.column_ranges_test\\$column_ranges does not exist.*");
+                ".*'raptor\\.tpch\\.column_ranges_test\\$column_ranges' does not exist.*");
     }
 
     @Test

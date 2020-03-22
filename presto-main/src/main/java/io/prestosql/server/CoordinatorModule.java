@@ -22,6 +22,8 @@ import com.google.inject.multibindings.MapBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.client.QueryResults;
 import io.prestosql.cost.CostCalculator;
@@ -80,6 +82,7 @@ import io.prestosql.execution.RevokeTask;
 import io.prestosql.execution.RollbackTask;
 import io.prestosql.execution.SetPathTask;
 import io.prestosql.execution.SetRoleTask;
+import io.prestosql.execution.SetSchemaAuthorizationTask;
 import io.prestosql.execution.SetSessionTask;
 import io.prestosql.execution.SqlQueryManager;
 import io.prestosql.execution.StartTransactionTask;
@@ -140,6 +143,7 @@ import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
+import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.StartTransaction;
 import io.prestosql.sql.tree.Statement;
@@ -167,6 +171,7 @@ import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static io.prestosql.execution.QueryExecution.QueryExecutionFactory;
 import static io.prestosql.execution.SqlQueryExecution.SqlQueryExecutionFactory;
@@ -201,6 +206,12 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
+
+        // allow large prepared statements in headers
+        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, config -> {
+            config.setMaxRequestHeaderSize(DataSize.of(2, MEGABYTE));
+            config.setMaxResponseHeaderSize(DataSize.of(2, MEGABYTE));
+        });
 
         // failure detector
         binder.install(new FailureDetectorModule());
@@ -313,6 +324,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
         bindDataDefinitionTask(binder, executionBinder, RenameSchema.class, RenameSchemaTask.class);
+        bindDataDefinitionTask(binder, executionBinder, SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class);
         bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);

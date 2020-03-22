@@ -46,7 +46,7 @@ import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedSystemAccessControl
 {
-    private static final Identity alice = Identity.ofUser("alice");
+    private static final Identity alice = Identity.forUser("alice").withGroups(ImmutableSet.of("staff")).build();
     private static final Identity kerberosValidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")).build();
     private static final Identity kerberosValidNonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withPrincipal(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")).build();
     private static final Identity kerberosInvalidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")).build();
@@ -55,13 +55,16 @@ public class TestFileBasedSystemAccessControl
     private static final Identity validSpecialRegexWildDot = Identity.forUser(".*").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
     private static final Identity validSpecialRegexEndQuote = Identity.forUser("\\E").withPrincipal(new KerberosPrincipal("special/\\E@EXAMPLE.COM")).build();
     private static final Identity invalidSpecialRegex = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
-    private static final Identity bob = Identity.ofUser("bob");
-    private static final Identity admin = Identity.ofUser("admin");
-    private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
-    private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "\u0200\u0200\u0200");
+    private static final Identity bob = Identity.forUser("bob").withGroups(ImmutableSet.of("staff")).build();
+    private static final Identity admin = Identity.forUser("admin").withGroups(ImmutableSet.of("admin")).build();
+    private static final Identity nonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withGroups(ImmutableSet.of("\u0194\u0194\u0194")).build();
+    private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "\u0200\u0200\u0200", "staff-catalog");
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
+    private static final QualifiedObjectName staffTable = new QualifiedObjectName("staff-catalog", "schema2", "table");
+    private static final QualifiedObjectName staffView = new QualifiedObjectName("staff-catalog", "schema2", "view");
+    private static final CatalogSchemaName staffSchema = new CatalogSchemaName("staff-catalog", "schema2");
 
     @Test
     public void testCanImpersonateUserOperations()
@@ -178,9 +181,9 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     assertEquals(accessControlManager.filterCatalogs(admin, allCatalogs), allCatalogs);
-                    Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed");
+                    Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed", "staff-catalog");
                     assertEquals(accessControlManager.filterCatalogs(alice, allCatalogs), aliceCatalogs);
-                    Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed");
+                    Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "staff-catalog");
                     assertEquals(accessControlManager.filterCatalogs(bob, allCatalogs), bobCatalogs);
                     Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
                     assertEquals(accessControlManager.filterCatalogs(nonAsciiUser, allCatalogs), nonAsciiUserCatalogs);
@@ -268,20 +271,65 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     Set<SchemaTableName> aliceTables = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(new SecurityContext(transactionId, alice), "alice-catalog", aliceTables), aliceTables);
-                    assertEquals(accessControlManager.filterTables(new SecurityContext(transactionId, bob), "alice-catalog", aliceTables), ImmutableSet.of());
+                    SecurityContext aliceContext = new SecurityContext(transactionId, alice);
+                    SecurityContext bobContext = new SecurityContext(transactionId, bob);
+                    SecurityContext nonAsciiContext = new SecurityContext(transactionId, nonAsciiUser);
 
-                    accessControlManager.checkCanCreateTable(new SecurityContext(transactionId, alice), aliceTable);
-                    accessControlManager.checkCanDropTable(new SecurityContext(transactionId, alice), aliceTable);
-                    accessControlManager.checkCanSelectFromColumns(new SecurityContext(transactionId, alice), aliceTable, ImmutableSet.of());
-                    accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, alice), aliceTable);
-                    accessControlManager.checkCanDeleteFromTable(new SecurityContext(transactionId, alice), aliceTable);
-                    accessControlManager.checkCanAddColumns(new SecurityContext(transactionId, alice), aliceTable);
-                    accessControlManager.checkCanRenameColumn(new SecurityContext(transactionId, alice), aliceTable);
+                    assertEquals(accessControlManager.filterTables(aliceContext, "alice-catalog", aliceTables), aliceTables);
+                    assertEquals(accessControlManager.filterTables(aliceContext, "staff-catalog", aliceTables), aliceTables);
+                    assertEquals(accessControlManager.filterTables(bobContext, "alice-catalog", aliceTables), ImmutableSet.of());
+                    assertEquals(accessControlManager.filterTables(bobContext, "staff-catalog", aliceTables), aliceTables);
+                    assertEquals(accessControlManager.filterTables(nonAsciiContext, "alice-catalog", aliceTables), ImmutableSet.of());
+                    assertEquals(accessControlManager.filterTables(nonAsciiContext, "staff-catalog", aliceTables), ImmutableSet.of());
+
+                    accessControlManager.checkCanCreateTable(aliceContext, aliceTable);
+                    accessControlManager.checkCanDropTable(aliceContext, aliceTable);
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanInsertIntoTable(aliceContext, aliceTable);
+                    accessControlManager.checkCanDeleteFromTable(aliceContext, aliceTable);
+                    accessControlManager.checkCanAddColumns(aliceContext, aliceTable);
+                    accessControlManager.checkCanRenameColumn(aliceContext, aliceTable);
+
+                    accessControlManager.checkCanCreateTable(aliceContext, staffTable);
+                    accessControlManager.checkCanDropTable(aliceContext, staffTable);
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
+                    accessControlManager.checkCanInsertIntoTable(aliceContext, staffTable);
+                    accessControlManager.checkCanDeleteFromTable(aliceContext, staffTable);
+                    accessControlManager.checkCanAddColumns(aliceContext, staffTable);
+                    accessControlManager.checkCanRenameColumn(aliceContext, staffTable);
+
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateTable(bobContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropTable(bobContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(bobContext, aliceTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanInsertIntoTable(bobContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDeleteFromTable(bobContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanAddColumns(bobContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanRenameColumn(bobContext, aliceTable));
+
+                    accessControlManager.checkCanCreateTable(bobContext, staffTable);
+                    accessControlManager.checkCanDropTable(bobContext, staffTable);
+                    accessControlManager.checkCanSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
+                    accessControlManager.checkCanInsertIntoTable(bobContext, staffTable);
+                    accessControlManager.checkCanDeleteFromTable(bobContext, staffTable);
+                    accessControlManager.checkCanAddColumns(bobContext, staffTable);
+                    accessControlManager.checkCanRenameColumn(bobContext, staffTable);
+
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateTable(nonAsciiContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropTable(nonAsciiContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, aliceTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanAddColumns(nonAsciiContext, aliceTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanRenameColumn(nonAsciiContext, aliceTable));
+
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateTable(nonAsciiContext, staffTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropTable(nonAsciiContext, staffTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, staffTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, staffTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, staffTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanAddColumns(nonAsciiContext, staffTable));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanRenameColumn(nonAsciiContext, staffTable));
                 });
-        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateTable(new SecurityContext(transactionId, bob), aliceTable);
-        }));
     }
 
     @Test
@@ -336,19 +384,64 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    SecurityContext context = new SecurityContext(transactionId, alice);
-                    accessControlManager.checkCanCreateView(context, aliceView);
-                    accessControlManager.checkCanDropView(context, aliceView);
-                    accessControlManager.checkCanSelectFromColumns(context, aliceView, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(context, aliceTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(context, aliceView, ImmutableSet.of());
-                    accessControlManager.checkCanSetCatalogSessionProperty(context, "alice-catalog", "property");
-                    accessControlManager.checkCanGrantTablePrivilege(context, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
-                    accessControlManager.checkCanRevokeTablePrivilege(context, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
+                    SecurityContext aliceContext = new SecurityContext(transactionId, alice);
+                    SecurityContext bobContext = new SecurityContext(transactionId, bob);
+                    SecurityContext nonAsciiContext = new SecurityContext(transactionId, nonAsciiUser);
+
+                    accessControlManager.checkCanCreateView(aliceContext, aliceView);
+                    accessControlManager.checkCanDropView(aliceContext, aliceView);
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSetCatalogSessionProperty(aliceContext, "alice-catalog", "property");
+                    accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
+
+                    accessControlManager.checkCanCreateView(aliceContext, staffView);
+                    accessControlManager.checkCanDropView(aliceContext, staffView);
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, staffView, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffView, ImmutableSet.of());
+                    accessControlManager.checkCanSetCatalogSessionProperty(aliceContext, "alice-catalog", "property");
+                    accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, staffTable, new PrestoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, staffTable, new PrestoPrincipal(USER, "revokee"), true);
+
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateView(bobContext, aliceView));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropView(bobContext, aliceView));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(bobContext, aliceView, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceView, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSetCatalogSessionProperty(bobContext, "alice-catalog", "property"));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true));
+
+                    accessControlManager.checkCanCreateView(bobContext, staffView);
+                    accessControlManager.checkCanDropView(bobContext, staffView);
+                    accessControlManager.checkCanSelectFromColumns(bobContext, staffView, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffView, ImmutableSet.of());
+                    accessControlManager.checkCanSetCatalogSessionProperty(bobContext, "staff-catalog", "property");
+                    accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, staffTable, new PrestoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, staffTable, new PrestoPrincipal(USER, "revokee"), true);
+
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateView(nonAsciiContext, aliceView));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropView(nonAsciiContext, aliceView));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, aliceView, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceView, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSetCatalogSessionProperty(nonAsciiContext, "alice-catalog", "property"));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanGrantTablePrivilege(nonAsciiContext, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanRevokeTablePrivilege(nonAsciiContext, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true));
+
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateView(nonAsciiContext, staffView));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropView(nonAsciiContext, staffView));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, staffView, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffView, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSetCatalogSessionProperty(nonAsciiContext, "staff-catalog", "property"));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanGrantTablePrivilege(nonAsciiContext, SELECT, staffTable, new PrestoPrincipal(USER, "grantee"), true));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanRevokeTablePrivilege(nonAsciiContext, SELECT, staffTable, new PrestoPrincipal(USER, "revokee"), true));
                 });
-        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateView(new SecurityContext(transactionId, bob), aliceView);
-        }));
     }
 
     @Test

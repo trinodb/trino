@@ -87,7 +87,7 @@ public class TestGoogleSheets
     @Test
     public void testQueryingUnknownSchemaAndTable()
     {
-        assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema foo does not exist");
+        assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema 'foo' does not exist");
         assertQueryFails("select * from gsheets.default.foo_bar_table", "Sheet expression not found for table foo_bar_table");
     }
 

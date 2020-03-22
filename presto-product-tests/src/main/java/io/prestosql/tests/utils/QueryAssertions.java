@@ -20,29 +20,15 @@ import io.prestosql.tempto.query.QueryResult;
 
 import java.util.function.Supplier;
 
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.fail;
 
 public final class QueryAssertions
 {
     public static void assertContainsEventually(Supplier<QueryResult> all, QueryResult expectedSubset, Duration timeout)
     {
-        long start = System.nanoTime();
-        while (!Thread.currentThread().isInterrupted()) {
-            try {
-                assertContains(all.get(), expectedSubset);
-                return;
-            }
-            catch (AssertionError e) {
-                if (nanosSince(start).compareTo(timeout) > 0) {
-                    throw e;
-                }
-            }
-            sleepUninterruptibly(50, MILLISECONDS);
-        }
+        assertEventually(timeout, () -> assertContains(all.get(), expectedSubset));
     }
 
     public static void assertContains(QueryResult all, QueryResult expectedSubset)

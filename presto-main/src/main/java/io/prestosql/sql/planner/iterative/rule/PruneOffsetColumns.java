@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -33,8 +32,8 @@ public class PruneOffsetColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, OffsetNode offsetNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, OffsetNode offsetNode, Set<Symbol> referencedOutputs)
     {
-        return restrictChildOutputs(idAllocator, offsetNode, referencedOutputs);
+        return restrictChildOutputs(context.getIdAllocator(), offsetNode, referencedOutputs);
     }
 }

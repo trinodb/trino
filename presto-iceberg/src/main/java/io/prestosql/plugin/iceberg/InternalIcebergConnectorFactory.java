@@ -19,13 +19,13 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.base.security.AllowAllAccessControl;
-import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -68,7 +68,7 @@ public final class InternalIcebergConnectorFactory
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(HiveCatalogName.class).toInstance(new HiveCatalogName(catalogName));
+                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                     });
 
             Injector injector = app

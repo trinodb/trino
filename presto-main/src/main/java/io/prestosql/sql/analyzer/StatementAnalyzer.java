@@ -134,6 +134,7 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetOperation;
+import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.SimpleGroupBy;
 import io.prestosql.sql.tree.SingleColumn;
@@ -345,16 +346,20 @@ class StatementAnalyzer
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-            List<String> tableColumns = tableMetadata.getColumns().stream()
+
+            List<ColumnMetadata> columns = tableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
-                    .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
-            for (String column : tableColumns) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column).isEmpty()) {
+            for (ColumnMetadata column : columns) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks");
                 }
             }
+
+            List<String> tableColumns = columns.stream()
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableList());
 
             // analyze target table layout, table columns should contain all partition columns
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
@@ -498,12 +503,8 @@ class StatementAnalyzer
                     .orElseThrow(() -> new TableNotFoundException(tableName.asSchemaTableName()));
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            List<String> columns = tableMetadata.getColumns().stream()
-                    .map(ColumnMetadata::getName)
-                    .collect(toImmutableList());
-
-            for (String tableColumn : columns) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn).isEmpty()) {
+            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
             }
@@ -532,7 +533,7 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    analysis.getParameters());
+                    accessControl, analysis.getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
@@ -615,7 +616,7 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    analysis.getParameters());
+                    accessControl, analysis.getParameters());
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
@@ -706,6 +707,12 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitSetSchemaAuthorization(SetSchemaAuthorization node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
             validateProperties(node.getProperties(), scope);
@@ -716,7 +723,7 @@ class StatementAnalyzer
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
-            createConstantAnalyzer(metadata, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
+            createConstantAnalyzer(metadata, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -993,12 +1000,12 @@ class StatementAnalyzer
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
             if (!tableHandle.isPresent()) {
                 if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
-                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog %s does not exist", name.getCatalogName());
+                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog '%s' does not exist", name.getCatalogName());
                 }
                 if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
-                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema %s does not exist", name.getSchemaName());
+                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", name.getSchemaName());
                 }
-                throw semanticException(TABLE_NOT_FOUND, table, "Table %s does not exist", name);
+                throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", name);
             }
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
@@ -1027,7 +1034,7 @@ class StatementAnalyzer
                     .build();
 
             for (Field field : outputFields) {
-                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get())
+                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType())
                         .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
             }
 
@@ -1131,7 +1138,7 @@ class StatementAnalyzer
                     .build();
 
             for (Field field : outputFields) {
-                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get())
+                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType())
                         .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
             }
 
@@ -1177,6 +1184,7 @@ class StatementAnalyzer
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
                     session,
                     metadata,
+                    accessControl,
                     sqlParser,
                     TypeProvider.empty(),
                     ImmutableList.of(relation.getSamplePercentage()),
@@ -2326,7 +2334,7 @@ class StatementAnalyzer
                 AccessControl viewAccessControl;
                 if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
                     identity = Identity.ofUser(owner.get());
-                    viewAccessControl = new ViewAccessControl(accessControl);
+                    viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
                 }
                 else {
                     identity = session.getIdentity();

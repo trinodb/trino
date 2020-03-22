@@ -376,7 +376,8 @@ public class HashGenerationOptimizer
                             rightHashSymbol,
                             node.getDistributionType(),
                             node.isSpillable(),
-                            node.getDynamicFilters()),
+                            node.getDynamicFilters(),
+                            node.getReorderJoinStatsAndCost()),
                     hashSymbolsWithParentPreferences);
         }
 

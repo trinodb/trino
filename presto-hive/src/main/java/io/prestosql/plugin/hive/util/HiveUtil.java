@@ -26,7 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
-import io.prestosql.plugin.hive.HiveCatalogName;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveType;
@@ -675,7 +675,7 @@ public final class HiveUtil
         return VIEW_CODEC.fromJson(bytes);
     }
 
-    public static ConnectorViewDefinition buildHiveViewConnectorDefinition(HiveCatalogName catalogName, Table view)
+    public static ConnectorViewDefinition buildHiveViewConnectorDefinition(CatalogName catalogName, Table view)
     {
         String viewText = view.getViewExpandedText()
                 .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view expanded text: " + view.getSchemaTableName()));

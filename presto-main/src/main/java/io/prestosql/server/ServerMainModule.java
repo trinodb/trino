@@ -153,7 +153,6 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -162,14 +161,6 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class ServerMainModule
         extends AbstractConfigurationAwareModule
 {
-    private final SqlParserOptions sqlParserOptions;
-
-    public ServerMainModule(SqlParserOptions sqlParserOptions)
-    {
-        requireNonNull(sqlParserOptions, "sqlParserOptions is null");
-        this.sqlParserOptions = SqlParserOptions.copyOf(sqlParserOptions);
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -191,8 +182,9 @@ public class ServerMainModule
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
-        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
+        SqlParserOptions sqlParserOptions = new SqlParserOptions();
         sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
+        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 

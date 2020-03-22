@@ -17,6 +17,7 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
@@ -107,6 +108,11 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return catalogs;
@@ -125,7 +131,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SystemSecurityContext context, CatalogSchemaTableName table)
+    public void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
@@ -147,6 +153,11 @@ public class ReadOnlySystemAccessControl
 
     @Override
     public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
     }
 }

@@ -66,7 +66,7 @@ public class TestTable
         sqlExecutor.execute("DROP TABLE " + name);
     }
 
-    private static String randomTableSuffix()
+    public static String randomTableSuffix()
     {
         String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
         return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));

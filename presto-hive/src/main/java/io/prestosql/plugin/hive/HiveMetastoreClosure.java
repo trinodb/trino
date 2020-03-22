@@ -129,6 +129,11 @@ public class HiveMetastoreClosure
         delegate.renameDatabase(identity, databaseName, newDatabaseName);
     }
 
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        delegate.setDatabaseOwner(identity, databaseName, principal);
+    }
+
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
         delegate.createTable(identity, table, principalPrivileges);
@@ -235,14 +240,14 @@ public class HiveMetastoreClosure
         return delegate.listRoles();
     }
 
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+        delegate.grantRoles(roles, grantees, adminOption, grantor);
     }
 
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+        delegate.revokeRoles(roles, grantees, adminOption, grantor);
     }
 
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)

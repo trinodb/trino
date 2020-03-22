@@ -40,9 +40,12 @@ The following file types are supported for the Hive connector:
 * CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
 * TextFile
 
+Metastore Configuration for Avro and CSV
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 In order to enable first-class support for Avro tables and CSV files when using
-Hive 3.x, you need to add the following property definition to the Hive
-metastore configuration file ``hive-site.xml``:
+Hive 3.x, you need to add the following property definition to the Hive metastore
+configuration file ``hive-site.xml`` (and restart the metastore service):
 
 .. code-block:: xml
 
@@ -51,6 +54,25 @@ metastore configuration file ``hive-site.xml``:
         <name>metastore.storage.schema.reader.impl</name>
         <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
     </property>
+
+Supported Table Types
+---------------------
+
+Transactional and ACID Tables
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When connecting to a Hive metastore version 3.x, the Hive connector supports reading
+from insert-only and ACID tables, with full support for partitioning and bucketing.
+Writing to and creation of transactional tables is not supported.
+
+ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
+are not supported.
+
+Materialized Views
+------------------
+
+The Hive connector supports reading from Hive materialized views.
+In Presto, these views are presented as regular, read-only tables.
 
 Configuration
 -------------
@@ -326,6 +348,10 @@ Property Name                                Description
                                              of AWS. When using v4 signatures, it is recommended to
                                              set this to the AWS region-specific endpoint
                                              (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
+
+``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
+                                             ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
+                                             Default storage class is ``STANDARD``
 
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
@@ -768,12 +794,50 @@ Procedures
 
     Registers existing location as a new partition in the metastore for the specified table.
 
+    Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
+    is set to ``true``.
+
 .. _unregister_partition:
 
 * ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``
 
     Unregisters given, existing partition in the metastore for the specified table.
     The partition data is not deleted.
+
+Special Columns
+---------------
+
+In addition to the defined columns, the Hive connector automatically exposes
+metadata in a number of hidden columns in each table. You can use these columns
+in your SQL statements like any other column, e.g., they can be selected
+directly or used in conditional statements.
+
+* ``$bucket``
+    Bucket number for this row.
+
+* ``$path``
+    Full file system path name of the file for this row.
+
+* ``$file_modified_time``
+    Date and time of the last modification of the file for this row.
+
+* ``$file_size``
+    Size of the file for this row.
+
+Special Tables
+----------------
+
+Table Properties
+^^^^^^^^^^^^^^^^
+
+The raw Hive table properties are available as a hidden table, containing a
+separate column per table property, with a single row containing the property
+values. The properties table name is the same as the table name with
+``$properties`` appended.
+
+You can inspect the property names and values with a simple query::
+
+    SELECT * FROM hive.web."page_views$properties";
 
 Examples
 --------
@@ -874,3 +938,15 @@ Hive Connector Limitations
 * :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
 
+Hive 3 Related Limitations
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* For security reasons, the ``sys`` system catalog is not accessible.
+* Hive's ``timestamp with local zone`` data type is not supported.
+  It is possible to read from a table with a column of this type, but the column
+  data is not accessible. Writing to such a table is not supported.
+* Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_
+  and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Presto does
+  not correctly read ``timestamp`` values from Parquet, RCBinary, or Avro
+  file formats created by Hive 3.1 or later. When reading from these file formats,
+  Presto returns different results than Hive.

@@ -75,7 +75,7 @@ public class AtopConnectorFactory
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.FILE,
                             binder -> {
-                                binder.install(new FileBasedAccessControlModule());
+                                binder.install(new FileBasedAccessControlModule(catalogName));
                                 binder.install(new JsonModule());
                             }));
 

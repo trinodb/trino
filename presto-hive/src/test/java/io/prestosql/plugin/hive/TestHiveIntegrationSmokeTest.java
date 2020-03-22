@@ -126,6 +126,7 @@ import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -156,7 +157,10 @@ public class TestHiveIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER);
+        return HiveQueryRunner.builder()
+                .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .build();
     }
 
     @Test
@@ -431,6 +435,49 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testAnalyzeWithPartitionsAllowed()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "CREATE TABLE partition_test14(id integer, a varchar, b varchar, ds varchar) "
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO partition_test14(id,a,ds) VALUES(1, 'a','a')", 1);
+        String query = "ANALYZE partition_test14 WITH (PARTITIONS=ARRAY[ARRAY['a']])";
+        computeActual(session, query);
+        computeActual(session, "EXPLAIN " + query);
+        assertUpdate(session, "DROP TABLE partition_test14");
+    }
+
+    @Test
+    public void testAnalyzeFullTableDisallowed()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "CREATE TABLE partition_test15(id integer, a varchar, b varchar, ds varchar) "
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO partition_test15(id,a,ds) VALUES(1, 'a','a')", 1);
+        String query = "ANALYZE partition_test15";
+        String regExpMessage = "Filter required on tpch\\.partition_test15 for at least one partition column:.*";
+        assertQueryFails(session, query, regExpMessage);
+        assertQueryFails(session, "explain " + query, regExpMessage);
+        assertUpdate(session, "DROP TABLE partition_test15");
+    }
+
+    @Test
     public void testSchemaOperations()
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -448,6 +495,93 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE new_schema.test");
 
         assertUpdate(session, "DROP SCHEMA new_schema");
+    }
+
+    @Test
+    public void testSchemaAuthorizationForUser()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization_user");
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_user")
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        // ordinary users cannot drop a schema or create a table in a schema the do not own
+        assertQueryFails(user, "DROP SCHEMA test_schema_authorization_user", "Access Denied: Cannot drop schema test_schema_authorization_user");
+        assertQueryFails(user, "CREATE TABLE test_schema_authorization_user.test (x bigint)", "Access Denied: Cannot create table test_schema_authorization_user.test");
+
+        // change owner to user
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_user SET AUTHORIZATION user");
+
+        assertUpdate(user, "CREATE TABLE test_schema_authorization_user.test (x bigint)");
+        assertUpdate(user, "DROP TABLE test_schema_authorization_user.test");
+        assertUpdate(user, "DROP SCHEMA test_schema_authorization_user");
+    }
+
+    @Test
+    public void testSchemaAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization_role");
+
+        // make sure role-grants only work on existing roles
+        assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+
+        assertUpdate(admin, "CREATE ROLE authorized_users");
+        assertUpdate(admin, "GRANT authorized_users TO user");
+
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE authorized_users");
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_role")
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        assertUpdate(user, "CREATE TABLE test_schema_authorization_role.test (x bigint)");
+        assertUpdate(user, "DROP TABLE test_schema_authorization_role.test");
+        assertUpdate(user, "DROP SCHEMA test_schema_authorization_role");
+
+        assertUpdate(admin, "DROP ROLE authorized_users");
+    }
+
+    @Test
+    public void testSchemaAuthorization()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization")
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
+        assertUpdate(admin, "CREATE ROLE admin");
+
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
+        assertUpdate(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin");
+        assertQueryFails(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin", "Access Denied: Cannot set authorization for schema test_schema_authorization to ROLE admin");
+
+        assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
+        assertUpdate(admin, "DROP ROLE admin");
     }
 
     @Test
@@ -1460,7 +1594,7 @@ public class TestHiveIntegrationSmokeTest
 
         String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
 
-        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition part=empty does not exist");
+        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition 'part=empty' does not exist");
         assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName));
 
         assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
@@ -1507,7 +1641,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertQueryFails(
                 format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, "non_existing_table", "empty"),
-                format("Table %s.%s does not exist", TPCH_SCHEMA, "non_existing_table"));
+                format("Table '%s.%s' does not exist", TPCH_SCHEMA, "non_existing_table"));
     }
 
     @Test
@@ -2095,12 +2229,12 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"test_partitions_invalid$partitions$partitions\"",
-                ".*Table .*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions does not exist");
+                ".*Table '.*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"non_existent$partitions\"",
-                ".*Table .*\\.tpch\\.non_existent\\$partitions does not exist");
+                ".*Table '.*\\.tpch\\.non_existent\\$partitions' does not exist");
     }
 
     @Test
@@ -3236,7 +3370,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * FROM view_rename.rename_view_new", "SELECT COUNT(*) FROM orders");
 
-        assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original does not exist");
+        assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original' does not exist");
 
         assertUpdate("DROP VIEW view_rename.rename_view_new");
     }
@@ -3298,11 +3432,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testAvroTypeValidation()
     {
-        assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column x has a non-varchar map key, which is not supported by Avro");
-        assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column x is tinyint, which is not supported by Avro. Use integer instead.");
-        assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column x is smallint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column 'x' has a non-varchar map key, which is not supported by Avro");
+        assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column 'x' is tinyint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column 'x' is smallint, which is not supported by Avro. Use integer instead.");
 
-        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column z is smallint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column 'z' is smallint, which is not supported by Avro. Use integer instead.");
     }
 
     @Test
@@ -5280,7 +5414,7 @@ public class TestHiveIntegrationSmokeTest
                 "Partition '.*' not found");
         assertQueryFails(
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, "non_existing_table"),
-                format("Table %s.non_existing_table does not exist", TPCH_SCHEMA));
+                format("Table '%s.non_existing_table' does not exist", TPCH_SCHEMA));
 
         assertUpdate("DROP TABLE " + unpartitionedTableName);
         assertUpdate("DROP TABLE " + partitionedTableName);
@@ -5605,6 +5739,84 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testColumnPruning()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "orc_use_column_names", "true")
+                .setCatalogSessionProperty("hive", "parquet_use_column_names", "true")
+                .build();
+
+        testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.ORC), this::testColumnPruning);
+        testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.PARQUET), this::testColumnPruning);
+    }
+
+    private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH);
+        String evolvedTableName = tableName + "_evolved";
+
+        assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        assertUpdate(session, "DROP TABLE IF EXISTS " + evolvedTableName);
+
+        assertUpdate(session, format(
+                "CREATE TABLE %s(" +
+                        "  a bigint, " +
+                        "  b varchar, " +
+                        "  c row(" +
+                        "    f1 row(" +
+                        "      g1 bigint," +
+                        "      g2 bigint), " +
+                        "    f2 varchar, " +
+                        "    f3 varbinary), " +
+                        "  d integer) " +
+                        "WITH (format='%s')",
+                tableName,
+                storageFormat));
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (42, 'ala', ROW(ROW(177, 873321), 'ma kota', X'abcdef'), 12345678)", 1);
+
+        // All data
+        assertQuery(
+                session,
+                "SELECT a, b, c.f1.g1, c.f1.g2, c.f2, c.f3, d FROM " + tableName,
+                "VALUES (42, 'ala', 177, 873321, 'ma kota', X'abcdef', 12345678)");
+
+        // Pruning
+        assertQuery(
+                session,
+                "SELECT b, c.f1.g2, c.f3, d FROM " + tableName,
+                "VALUES ('ala', 873321, X'abcdef', 12345678)");
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+
+        assertUpdate(session, format(
+                "CREATE TABLE %s(" +
+                        "  e tinyint, " + // added
+                        "  a bigint, " +
+                        "  bxx varchar, " + // renamed
+                        "  c row(" +
+                        "    f1 row(" +
+                        "      g1xx bigint," + // renamed
+                        "      g2 bigint), " +
+                        "    f2xx varchar, " + // renamed
+                        "    f3 varbinary), " +
+                        "  d integer, " +
+                        "  f smallint) " + // added
+                        "WITH (format='%s', external_location='%s')",
+                evolvedTableName,
+                storageFormat,
+                tableLocation));
+
+        // Pruning being an effected of renamed fields (schema evolution)
+        assertQuery(
+                session,
+                "SELECT a, bxx, c.f1.g1xx, c.f1.g2, c.f2xx, c.f3,  d, e, f FROM " + evolvedTableName + " t",
+                "VALUES (42, NULL, NULL, 873321, NULL, X'abcdef', 12345678, NULL, NULL)");
+
+        assertUpdate(session, "DROP TABLE " + evolvedTableName);
+        assertUpdate(session, "DROP TABLE " + tableName);
     }
 
     @Test

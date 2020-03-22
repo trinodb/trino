@@ -303,6 +303,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setSchemaAuthorization(ConnectorSession session, String source, PrestoPrincipal principal)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setSchemaAuthorization(session, source, principal);
+        }
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -559,18 +567,18 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
+    public void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.grantRoles(connectorSession, roles, grantees, withAdminOption, grantor);
+            delegate.grantRoles(connectorSession, roles, grantees, adminOption, grantor);
         }
     }
 
     @Override
-    public void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
+    public void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.revokeRoles(connectorSession, roles, grantees, adminOptionFor, grantor);
+            delegate.revokeRoles(connectorSession, roles, grantees, adminOption, grantor);
         }
     }
 

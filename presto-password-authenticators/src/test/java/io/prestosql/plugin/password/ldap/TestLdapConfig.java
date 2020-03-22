@@ -42,6 +42,7 @@ public class TestLdapConfig
                 .setGroupAuthorizationSearchPattern(null)
                 .setBindDistingushedName(null)
                 .setBindPassword(null)
+                .setIgnoreReferrals(false)
                 .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS)));
     }
 
@@ -55,6 +56,7 @@ public class TestLdapConfig
                 .put("ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
                 .put("ldap.bind-dn", "CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
                 .put("ldap.bind-password", "password1234")
+                .put("ldap.ignore-referrals", "true")
                 .put("ldap.cache-ttl", "2m")
                 .build();
 
@@ -65,6 +67,7 @@ public class TestLdapConfig
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
                 .setBindDistingushedName("CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
                 .setBindPassword("password1234")
+                .setIgnoreReferrals(true)
                 .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);

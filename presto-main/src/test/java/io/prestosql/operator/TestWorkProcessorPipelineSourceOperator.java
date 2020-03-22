@@ -65,7 +65,7 @@ public class TestWorkProcessorPipelineSourceOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testWorkProcessorPipelineSourceOperator()
             throws InterruptedException
     {

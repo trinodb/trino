@@ -82,7 +82,7 @@ public class RaptorConnectorFactory
                 new BackupModule(backupProviders),
                 new StorageModule(),
                 new RaptorModule(catalogName),
-                new RaptorSecurityModule());
+                new RaptorSecurityModule(catalogName));
 
         Injector injector = app
                 .strictConfig()

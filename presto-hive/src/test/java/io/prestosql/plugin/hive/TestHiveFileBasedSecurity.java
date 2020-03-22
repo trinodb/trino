@@ -22,9 +22,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
-import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tpch.TpchTable.NATION;
 
@@ -37,7 +34,12 @@ public class TestHiveFileBasedSecurity
             throws Exception
     {
         String path = this.getClass().getResource("security.json").getPath();
-        queryRunner = createQueryRunner(ImmutableList.of(NATION), ImmutableMap.of(), "file", ImmutableMap.of("security.config-file", path), Optional.empty());
+        queryRunner = HiveQueryRunner.builder()
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.security", "file",
+                        "security.config-file", path))
+                .setInitialTables(ImmutableList.of(NATION))
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

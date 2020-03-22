@@ -30,6 +30,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableProperties;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -75,6 +76,7 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.TestingTransactionHandle;
+import io.prestosql.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -102,6 +104,7 @@ import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
 
@@ -582,16 +585,11 @@ public class TestEffectivePredicateExtractor
 
         // non-deterministic
         ResolvedFunction rand = metadata.resolveFunction(QualifiedName.of("rand"), ImmutableList.of());
-        assertEquals(effectivePredicateExtractor.extract(
-                SESSION,
-                new ValuesNode(
-                        newId(),
-                        ImmutableList.of(A, B),
-                        ImmutableList.of(
-                                ImmutableList.of(bigintLiteral(1), new FunctionCall(rand.toQualifiedName(), ImmutableList.of())))),
-                types,
-                typeAnalyzer),
-                new ComparisonExpression(EQUAL, AE, bigintLiteral(1)));
+        ValuesNode node = new ValuesNode(
+                newId(),
+                ImmutableList.of(A, B),
+                ImmutableList.of(ImmutableList.of(bigintLiteral(1), new FunctionCall(rand.toQualifiedName(), ImmutableList.of()))));
+        assertEquals(extract(types, node), new ComparisonExpression(EQUAL, AE, bigintLiteral(1)));
 
         // non-constant
         assertEquals(effectivePredicateExtractor.extract(
@@ -605,6 +603,15 @@ public class TestEffectivePredicateExtractor
                 types,
                 typeAnalyzer),
                 TRUE_LITERAL);
+    }
+
+    private Expression extract(TypeProvider types, PlanNode node)
+    {
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(SESSION, transactionSession -> {
+                    return effectivePredicateExtractor.extract(transactionSession, node, types, typeAnalyzer);
+                });
     }
 
     @Test
@@ -664,7 +671,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
 
@@ -704,7 +712,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
 
@@ -736,7 +745,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
 
@@ -780,7 +790,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
 
@@ -825,7 +836,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
 
@@ -873,7 +885,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
 
@@ -917,7 +930,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
 
