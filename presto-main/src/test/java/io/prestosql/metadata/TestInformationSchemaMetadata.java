@@ -77,6 +77,7 @@ public class TestInformationSchemaMetadata
                             Optional.of("test_catalog"),
                             Optional.of("test_schema"),
                             ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                            Optional.of("comment"),
                             Optional.empty(),
                             true);
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");

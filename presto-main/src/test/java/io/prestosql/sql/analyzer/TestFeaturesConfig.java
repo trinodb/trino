@@ -20,6 +20,8 @@ import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -31,8 +33,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
@@ -51,17 +51,18 @@ public class TestFeaturesConfig
                 .setMemoryCostWeight(10)
                 .setNetworkCostWeight(15)
                 .setDistributedIndexJoinsEnabled(false)
-                .setJoinDistributionType(PARTITIONED)
-                .setJoinMaxBroadcastTableSize(null)
+                .setJoinMaxBroadcastTableSize(new DataSize(100, MEGABYTE))
+                .setJoinDistributionType(JoinDistributionType.AUTOMATIC)
                 .setGroupedExecutionEnabled(false)
                 .setDynamicScheduleForGroupedExecutionEnabled(false)
                 .setConcurrentLifespansPerTask(0)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(true)
-                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
+                .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
                 .setMaxReorderedJoins(9)
                 .setRedistributeWrites(true)
+                .setUsePreferredWritePartitioning(false)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
                 .setOptimizeMetadataQueries(false)
@@ -141,6 +142,7 @@ public class TestFeaturesConfig
                 .put("optimizer.join-reordering-strategy", "NONE")
                 .put("optimizer.max-reordered-joins", "5")
                 .put("redistribute-writes", "false")
+                .put("use-preferred-write-partitioning", "true")
                 .put("scale-writers", "true")
                 .put("writer-min-size", "42GB")
                 .put("optimizer.optimize-metadata-queries", "true")
@@ -209,6 +211,7 @@ public class TestFeaturesConfig
                 .setJoinReorderingStrategy(NONE)
                 .setMaxReorderedJoins(5)
                 .setRedistributeWrites(false)
+                .setUsePreferredWritePartitioning(true)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
                 .setOptimizeMetadataQueries(true)

@@ -44,6 +44,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
@@ -66,6 +67,12 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMeta
 public class DenyAllAccessControl
         implements AccessControl
 {
+    @Override
+    public void canImpersonateUser(Identity identity, String userName)
+    {
+        denyImpersonateUser(identity.getUser(), userName);
+    }
+
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {

@@ -181,9 +181,9 @@ public class StatisticsAwareJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        return stats.beginInsertTable.wrap(() -> delegate().beginInsertTable(session, tableHandle));
+        return stats.beginInsertTable.wrap(() -> delegate().beginInsertTable(session, tableHandle, columns));
     }
 
     @Override

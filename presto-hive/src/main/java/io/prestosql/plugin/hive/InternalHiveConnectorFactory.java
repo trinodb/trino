@@ -15,13 +15,20 @@ package io.prestosql.plugin.hive;
 
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
+import io.prestosql.plugin.hive.azure.HiveAzureModule;
 import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
@@ -41,11 +48,6 @@ import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorAccessControl;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
@@ -60,7 +62,12 @@ public final class InternalHiveConnectorFactory
 {
     private InternalHiveConnectorFactory() {}
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Optional<HiveMetastore> metastore)
+    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
+    {
+        return createConnector(catalogName, config, context, module, Optional.empty());
+    }
+
+    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module, Optional<HiveMetastore> metastore)
     {
         requireNonNull(config, "config is null");
 
@@ -74,6 +81,7 @@ public final class InternalHiveConnectorFactory
                     new HiveModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
+                    new HiveAzureModule(),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
@@ -87,7 +95,8 @@ public final class InternalHiveConnectorFactory
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(HiveCatalogName.class).toInstance(new HiveCatalogName(catalogName));
-                    });
+                    },
+                    module);
 
             Injector injector = app
                     .strictConfig()

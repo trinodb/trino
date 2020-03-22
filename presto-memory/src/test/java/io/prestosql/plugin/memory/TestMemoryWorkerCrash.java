@@ -17,6 +17,7 @@ import io.airlift.units.Duration;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertLessThan;
@@ -28,9 +29,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class TestMemoryWorkerCrash
         extends AbstractTestQueryFramework
 {
-    protected TestMemoryWorkerCrash()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(MemoryQueryRunner::createQueryRunner);
+        return MemoryQueryRunner.createQueryRunner();
     }
 
     @Test

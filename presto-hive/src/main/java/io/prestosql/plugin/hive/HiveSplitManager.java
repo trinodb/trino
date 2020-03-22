@@ -63,6 +63,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
@@ -219,6 +220,7 @@ public class HiveSplitManager
                 executor,
                 splitLoaderConcurrency,
                 recursiveDfsWalkerEnabled,
+                !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
                 metastore.getValidWriteIds(session, hiveTable)
                         .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())));
 

@@ -13,37 +13,36 @@
  */
 package io.prestosql.plugin.redis;
 
-import io.prestosql.plugin.redis.util.EmbeddedRedis;
+import io.prestosql.plugin.redis.util.RedisServer;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
-import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 
 @Test
 public class TestRedisIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedRedis embeddedRedis;
+    private RedisServer redisServer;
 
-    public TestRedisIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedRedis());
-    }
-
-    public TestRedisIntegrationSmokeTest(EmbeddedRedis embeddedRedis)
-    {
-        super(() -> createRedisQueryRunner(embeddedRedis, "string", ORDERS));
-        this.embeddedRedis = embeddedRedis;
+        redisServer = new RedisServer();
+        return createRedisQueryRunner(redisServer, "string", ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
+            throws Exception
     {
-        embeddedRedis.close();
+        redisServer.close();
     }
 
     @Override
@@ -56,5 +55,11 @@ public class TestRedisIntegrationSmokeTest
     protected boolean canDropSchema()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Redis connector does not support column default values");
     }
 }

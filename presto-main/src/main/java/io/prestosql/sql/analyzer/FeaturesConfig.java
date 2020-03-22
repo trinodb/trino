@@ -39,8 +39,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -68,17 +67,18 @@ public class FeaturesConfig
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
-    private JoinDistributionType joinDistributionType = PARTITIONED;
-    private DataSize joinMaxBroadcastTableSize;
+    private DataSize joinMaxBroadcastTableSize = new DataSize(100, MEGABYTE);
+    private JoinDistributionType joinDistributionType = JoinDistributionType.AUTOMATIC;
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionEnabled;
     private boolean dynamicScheduleForGroupedExecution;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
-    private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
+    private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
+    private boolean usePreferredWritePartitioning;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
@@ -231,6 +231,7 @@ public class FeaturesConfig
         return this;
     }
 
+    @NotNull
     public DataSize getJoinMaxBroadcastTableSize()
     {
         return joinMaxBroadcastTableSize;
@@ -360,6 +361,18 @@ public class FeaturesConfig
     public FeaturesConfig setRedistributeWrites(boolean redistributeWrites)
     {
         this.redistributeWrites = redistributeWrites;
+        return this;
+    }
+
+    public boolean isUsePreferredWritePartitioning()
+    {
+        return usePreferredWritePartitioning;
+    }
+
+    @Config("use-preferred-write-partitioning")
+    public FeaturesConfig setUsePreferredWritePartitioning(boolean usePreferredWritePartitioning)
+    {
+        this.usePreferredWritePartitioning = usePreferredWritePartitioning;
         return this;
     }
 

@@ -13,24 +13,45 @@
  */
 package io.prestosql.server.security;
 
+import javax.inject.Inject;
+import javax.security.auth.x500.X500Principal;
 import javax.servlet.http.HttpServletRequest;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
+
+import static io.prestosql.server.security.UserExtraction.createUserExtraction;
+import static java.util.Objects.requireNonNull;
 
 public class CertificateAuthenticator
         implements Authenticator
 {
     private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
 
+    private final UserExtraction userExtraction;
+
+    @Inject
+    public CertificateAuthenticator(CertificateConfig config)
+    {
+        requireNonNull(config, "config is null");
+        this.userExtraction = createUserExtraction(config.getUserExtractionPattern(), config.getUserExtractionFile());
+    }
+
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public AuthenticatedPrincipal authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         X509Certificate[] certs = (X509Certificate[]) request.getAttribute(X509_ATTRIBUTE);
         if ((certs == null) || (certs.length == 0)) {
             throw new AuthenticationException(null);
         }
-        return certs[0].getSubjectX500Principal();
+        X500Principal principal = certs[0].getSubjectX500Principal();
+        try {
+            String authenticatedUser = userExtraction.extractUser(((Principal) principal).toString());
+            return new AuthenticatedPrincipal(authenticatedUser, principal);
+        }
+        catch (UserExtractionException e) {
+            throw new AuthenticationException(e.getMessage());
+        }
     }
 }

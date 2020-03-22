@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.Map;
 

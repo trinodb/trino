@@ -85,7 +85,7 @@ public class RcFileFileWriterFactory
     }
 
     @Override
-    public Optional<HiveFileWriter> createFileWriter(
+    public Optional<FileWriter> createFileWriter(
             Path path,
             List<String> inputColumnNames,
             StorageFormat storageFormat,

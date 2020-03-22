@@ -14,6 +14,7 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,6 +22,9 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.prestosql.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.prestosql.plugin.iceberg.IcebergFileFormat.PARQUET;
 
 public class TestIcebergConfig
 {
@@ -28,7 +32,9 @@ public class TestIcebergConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
-                .setMetastoreTransactionCacheSize(1000));
+                .setMetastoreTransactionCacheSize(1000)
+                .setFileFormat(ORC)
+                .setCompressionCodec(GZIP));
     }
 
     @Test
@@ -36,10 +42,14 @@ public class TestIcebergConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("iceberg.metastore.transaction-cache.size", "999")
+                .put("iceberg.file-format", "Parquet")
+                .put("iceberg.compression-codec", "NONE")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
-                .setMetastoreTransactionCacheSize(999);
+                .setMetastoreTransactionCacheSize(999)
+                .setFileFormat(PARQUET)
+                .setCompressionCodec(HiveCompressionCodec.NONE);
 
         assertFullMapping(properties, expected);
     }

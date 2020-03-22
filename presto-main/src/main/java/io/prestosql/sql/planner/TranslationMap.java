@@ -273,7 +273,7 @@ class TranslationMap
             public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
-                return coerceIfNecessary(node, analysis.getParameters().get(NodeRef.of(node)));
+                return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null));
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)

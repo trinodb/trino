@@ -25,14 +25,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestAggregations
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestAggregations(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestAggregations() {}
-
     @Test
     public void testCountBoolean()
     {

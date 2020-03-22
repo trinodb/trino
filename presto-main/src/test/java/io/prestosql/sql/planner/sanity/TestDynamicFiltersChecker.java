@@ -77,7 +77,7 @@ public class TestDynamicFiltersChecker
         ordersTableScanNode = builder.tableScan(ordersTableHandle, ImmutableList.of(ordersOrderKeySymbol), ImmutableMap.of(ordersOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters present in join were not fully consumed by it's probe side.")
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[DF\\] present in join were not fully consumed by it's probe side.")
     public void testUnconsumedDynamicFilterInJoin()
     {
         PlanNode root = builder.join(
@@ -93,7 +93,7 @@ public class TestDynamicFiltersChecker
         validatePlan(root);
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters present in join were consumed by it's build side.")
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[DF\\] present in join were consumed by it's build side.")
     public void testDynamicFilterConsumedOnBuildSide()
     {
         PlanNode root = builder.join(

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Method;
 import java.util.function.Function;
 
+import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -48,8 +49,8 @@ public final class InterfaceTestUtils
         for (Method actualMethod : iface.getDeclaredMethods()) {
             Object[] actualArguments = new Object[actualMethod.getParameterCount()];
             for (int i = 0; i < actualArguments.length; i++) {
-                if (actualMethod.getParameterTypes()[i] == boolean.class) {
-                    actualArguments[i] = false;
+                if (actualMethod.getParameterTypes()[i].isPrimitive()) {
+                    actualArguments[i] = defaultValue(actualMethod.getParameterTypes()[i]);
                 }
             }
             C forwardingInstance = forwardingInstanceFactory.apply(
@@ -57,8 +58,8 @@ public final class InterfaceTestUtils
                         assertEquals(actualMethod.getName(), expectedMethod.getName());
                         // TODO assert arguments
 
-                        if (actualMethod.getReturnType() == boolean.class) {
-                            return false;
+                        if (actualMethod.getReturnType().isPrimitive()) {
+                            return defaultValue(actualMethod.getReturnType());
                         }
                         return null;
                     }));

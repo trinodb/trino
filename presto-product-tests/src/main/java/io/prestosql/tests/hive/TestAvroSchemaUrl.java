@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.hive;
 
-import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
@@ -27,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -35,6 +35,7 @@ import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
+import static java.nio.file.Files.newInputStream;
 
 public class TestAvroSchemaUrl
         extends ProductTest
@@ -46,6 +47,8 @@ public class TestAvroSchemaUrl
     public void setup()
             throws Exception
     {
+        // TODO move Avro schema files to classpath
+
         hdfsClient.createDirectory("/user/hive/warehouse/TestAvroSchemaUrl/schemas");
         saveResourceOnHdfs("avro/original_schema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc");
         saveResourceOnHdfs("avro/column_with_long_type_definition_schema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/column_with_long_type_definition_schema.avsc");
@@ -64,7 +67,7 @@ public class TestAvroSchemaUrl
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = Resources.asByteSource(Resources.getResource(resource)).openStream()) {
+        try (InputStream inputStream = newInputStream(Paths.get("/docker/presto-product-tests", resource))) {
             hdfsClient.saveFile(location, inputStream);
         }
     }
@@ -73,7 +76,7 @@ public class TestAvroSchemaUrl
     public Object[][] avroSchemaLocations()
     {
         return new Object[][] {
-                {"file:///docker/avro/original_schema.avsc"}, // mounted in hadoop and presto containers
+                {"file:///docker/presto-product-tests/avro/original_schema.avsc"}, // mounted in hadoop and presto containers
                 {"hdfs://hadoop-master:9000/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"hdfs:///user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"}, // `avro.schema.url` can actually be path on HDFS (not URL)

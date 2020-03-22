@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>329-SNAPSHOT</version>
+        <version>330-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive-hadoop2</artifactId>
@@ -120,6 +120,10 @@
                                 <exclude>**/TestHive.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
+                                <exclude>**/TestHiveFileSystemWasb.java</exclude>
+                                <exclude>**/TestHiveFileSystemAbfs.java</exclude>
+                                <exclude>**/TestHiveFileSystemAdl.java</exclude>
+                                <exclude>**/TestHiveAzure.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -153,6 +157,70 @@
                             <includes>
                                 <include>**/TestHiveFileSystemS3.java</include>
                                 <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-wasb</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFileSystemWasb.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-abfs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFileSystemAbfs.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-adl</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFileSystemAdl.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-hdinsight</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveAzure.java</include>
                             </includes>
                         </configuration>
                     </plugin>
