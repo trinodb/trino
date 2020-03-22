@@ -299,7 +299,8 @@ public class StreamingAggregationOperator
                     startPosition = nextGroupStart;
                 }
                 else {
-                    currentGroup = page.getRegion(page.getPositionCount() - 1, 1);
+                    // late materialization requires that page being locally stored is materialized before the next one is fetched
+                    currentGroup = page.getRegion(page.getPositionCount() - 1, 1).getLoadedPage();
                     return;
                 }
             }
