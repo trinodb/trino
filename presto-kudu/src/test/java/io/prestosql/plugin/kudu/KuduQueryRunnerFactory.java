@@ -27,10 +27,8 @@ import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.util.Locale.ENGLISH;
 
 public final class KuduQueryRunnerFactory
 {
@@ -111,8 +109,6 @@ public final class KuduQueryRunnerFactory
         return testSessionBuilder()
                 .setCatalog("kudu")
                 .setSchema(schema)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 }
