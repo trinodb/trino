@@ -570,9 +570,7 @@ public class LocalExecutionPlanner
         private List<OperatorFactory> handleLateMaterialization(List<OperatorFactory> operatorFactories)
         {
             if (isLateMaterializationEnabled(taskContext.getSession())) {
-                return WorkProcessorPipelineSourceOperator.convertOperators(
-                        getNextOperatorId(),
-                        operatorFactories);
+                return WorkProcessorPipelineSourceOperator.convertOperators(operatorFactories);
             }
 
             return operatorFactories;
