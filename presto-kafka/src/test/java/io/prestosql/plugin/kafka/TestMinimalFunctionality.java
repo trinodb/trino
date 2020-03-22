@@ -46,6 +46,9 @@ public class TestMinimalFunctionality
                 .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                         .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
                         .build())
+                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
+                        .put("kafka.messages-per-split", "100")
+                        .build())
                 .build();
         testingKafka.createTopics(topicName);
         return queryRunner;

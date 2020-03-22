@@ -139,13 +139,18 @@ public class KafkaRecordSet
                 records = kafkaConsumer.poll(CONSUMER_POLL_TIMEOUT).iterator();
                 return advanceNextPosition();
             }
-            nextRow(records.next());
-            return true;
+
+            return nextRow(records.next());
         }
 
         private boolean nextRow(ConsumerRecord<byte[], byte[]> message)
         {
             requireNonNull(message, "message is null");
+
+            if (message.offset() >= split.getMessagesRange().getEnd()) {
+                return false;
+            }
+
             completedBytes += max(message.serializedKeySize(), 0) + max(message.serializedValueSize(), 0);
 
             byte[] keyData = EMPTY_BYTE_ARRAY;
