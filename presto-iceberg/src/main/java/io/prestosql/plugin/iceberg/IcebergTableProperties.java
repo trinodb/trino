@@ -34,7 +34,7 @@ public class IcebergTableProperties
 {
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
-    public static final String EXTERNAL_LOCATION_PROPERTY = "external_location";
+    public static final String LOCATION_PROPERTY = "location";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -60,7 +60,7 @@ public class IcebergTableProperties
                                 .collect(toImmutableList()),
                         value -> value))
                 .add(stringProperty(
-                        EXTERNAL_LOCATION_PROPERTY,
+                        LOCATION_PROPERTY,
                         "File system location URI for external table",
                         null,
                         false))
@@ -84,8 +84,8 @@ public class IcebergTableProperties
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
     }
 
-    public static String getExternalLocation(Map<String, Object> tableProperties)
+    public static String getLocation(Map<String, Object> tableProperties)
     {
-        return (String) tableProperties.get(EXTERNAL_LOCATION_PROPERTY);
+        return (String) tableProperties.get(LOCATION_PROPERTY);
     }
 }

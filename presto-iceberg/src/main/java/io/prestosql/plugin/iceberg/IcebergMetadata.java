@@ -20,6 +20,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveSchemaProperties;
 import io.prestosql.plugin.hive.HiveWrittenPartitions;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -79,14 +80,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.plugin.hive.HiveSchemaProperties.getLocation;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
-import static io.prestosql.plugin.iceberg.IcebergTableProperties.getExternalLocation;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getFileFormat;
+import static io.prestosql.plugin.iceberg.IcebergTableProperties.getLocation;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getDataPath;
@@ -248,7 +248,7 @@ public class IcebergMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        Optional<String> location = getLocation(properties).map(uri -> {
+        Optional<String> location = HiveSchemaProperties.getLocation(properties).map(uri -> {
             try {
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
             }
@@ -308,7 +308,7 @@ public class IcebergMetadata
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
         HiveIdentity identity = new HiveIdentity(session);
-        String targetPath = getExternalLocation(tableMetadata.getProperties());
+        String targetPath = getLocation(tableMetadata.getProperties());
         if (targetPath == null) {
             targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
         }
