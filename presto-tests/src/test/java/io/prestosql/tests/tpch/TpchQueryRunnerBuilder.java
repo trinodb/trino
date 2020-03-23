@@ -21,7 +21,6 @@ import io.prestosql.testing.DistributedQueryRunner;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -33,7 +32,6 @@ public final class TpchQueryRunnerBuilder
             .setSource("test")
             .setCatalog("tpch")
             .setSchema("tiny")
-            .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
             .build();
 
     private Optional<Integer> maxRowsPerPage = Optional.empty();
