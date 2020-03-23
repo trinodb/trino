@@ -23,7 +23,6 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -48,7 +47,6 @@ public class TestLocalQueries
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .build();
 
         LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
