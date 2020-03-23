@@ -14,19 +14,26 @@
 package io.prestosql.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
+import org.apache.kudu.client.KeyEncoderAccessor;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
+import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 
+import static io.prestosql.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -49,16 +56,20 @@ public class KuduRecordCursor
 
     private final KuduScanner scanner;
     private final List<Type> columnTypes;
+    private final KuduTable table;
+    private final Map<Integer, Integer> fieldMapping;
     private RowResultIterator nextRows;
-    protected RowResult currentRow;
+    private RowResult currentRow;
 
     private long totalBytes;
     private boolean started;
 
-    public KuduRecordCursor(KuduScanner scanner, List<Type> columnTypes)
+    public KuduRecordCursor(KuduScanner scanner, KuduTable table, List<Type> columnTypes, Map<Integer, Integer> fieldMapping)
     {
         this.scanner = requireNonNull(scanner, "scanner is null");
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+        this.table = requireNonNull(table, "table is null");
+        this.fieldMapping = ImmutableMap.copyOf(requireNonNull(fieldMapping, "fieldMapping is null"));
     }
 
     @Override
@@ -79,9 +90,9 @@ public class KuduRecordCursor
         return columnTypes.get(field);
     }
 
-    protected int mapping(int field)
+    private int mapping(int field)
     {
-        return field;
+        return fieldMapping.get(field);
     }
 
     /**
@@ -166,6 +177,10 @@ public class KuduRecordCursor
     public Slice getSlice(int field)
     {
         int index = mapping(field);
+        if (index == ROW_ID_POSITION) {
+            PartialRow partialRow = buildPrimaryKey();
+            return Slices.wrappedBuffer(KeyEncoderAccessor.encodePrimaryKey(partialRow));
+        }
         return TypeHelper.getSlice(columnTypes.get(field), currentRow, index);
     }
 
@@ -181,6 +196,13 @@ public class KuduRecordCursor
     {
         int mappedField = mapping(field);
         return mappedField >= 0 && currentRow.isNull(mappedField);
+    }
+
+    private PartialRow buildPrimaryKey()
+    {
+        PartialRow row = new PartialRow(table.getSchema());
+        RowHelper.copyPrimaryKey(table.getSchema(), currentRow, row);
+        return row;
     }
 
     @Override
