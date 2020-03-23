@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
-import static io.prestosql.SystemSessionProperties.isPushAggregationThroughJoin;
+import static io.prestosql.SystemSessionProperties.isPushPartialAggregationThroughJoin;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -76,7 +76,7 @@ public class PushPartialAggregationThroughJoin
     @Override
     public boolean isEnabled(Session session)
     {
-        return isPushAggregationThroughJoin(session);
+        return isPushPartialAggregationThroughJoin(session);
     }
 
     @Override
