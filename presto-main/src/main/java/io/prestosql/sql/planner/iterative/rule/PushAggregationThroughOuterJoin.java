@@ -47,7 +47,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.SystemSessionProperties.shouldPushAggregationThroughJoin;
+import static io.prestosql.SystemSessionProperties.isPushAggregationThroughOuterJoin;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.prestosql.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
@@ -112,7 +112,7 @@ public class PushAggregationThroughOuterJoin
     @Override
     public boolean isEnabled(Session session)
     {
-        return shouldPushAggregationThroughJoin(session);
+        return isPushAggregationThroughOuterJoin(session);
     }
 
     @Override

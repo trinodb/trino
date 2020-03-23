@@ -114,7 +114,7 @@ public class FeaturesConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
     private boolean enableForcedExchangeBelowGroupId = true;
-    private boolean pushAggregationThroughJoin = true;
+    private boolean pushAggregationThroughOuterJoin = true;
     private boolean pushPartialAggregationThoughJoin;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -833,15 +833,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isPushAggregationThroughJoin()
+    public boolean isPushAggregationThroughOuterJoin()
     {
-        return pushAggregationThroughJoin;
+        return pushAggregationThroughOuterJoin;
     }
 
-    @Config("optimizer.push-aggregation-through-join")
-    public FeaturesConfig setPushAggregationThroughJoin(boolean value)
+    @Config("optimizer.push-aggregation-through-outer-join")
+    @LegacyConfig("optimizer.push-aggregation-through-join")
+    public FeaturesConfig setPushAggregationThroughOuterJoin(boolean pushAggregationThroughOuterJoin)
     {
-        this.pushAggregationThroughJoin = value;
+        this.pushAggregationThroughOuterJoin = pushAggregationThroughOuterJoin;
         return this;
     }
 
