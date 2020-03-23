@@ -51,7 +51,6 @@ public class TestDynamicFilter
 
     public TestDynamicFilter()
     {
-        // in order to test testUncorrelatedSubqueries with Dynamic Filtering, enable it
         super(ImmutableMap.of(
                 ENABLE_DYNAMIC_FILTERING, "true",
                 JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name(),
