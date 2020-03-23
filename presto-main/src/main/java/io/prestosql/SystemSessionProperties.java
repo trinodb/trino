@@ -431,7 +431,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
-                        false,
+                        featuresConfig.isPushPartialAggregationThoughJoin(),
                         false),
                 booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
