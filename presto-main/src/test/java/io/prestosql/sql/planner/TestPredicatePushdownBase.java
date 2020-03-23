@@ -47,12 +47,12 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 
-public class TestPredicatePushdown
+public class TestPredicatePushdownBase
         extends BasePlanTest
 {
     private final Metadata metadata = createTestMetadataManager();
 
-    public TestPredicatePushdown()
+    public TestPredicatePushdownBase()
     {
         super(ImmutableMap.of(
                 ENABLE_DYNAMIC_FILTERING, "true"));
