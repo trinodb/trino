@@ -13,33 +13,32 @@
  */
 package io.prestosql.tests;
 
-import io.prestosql.sql.analyzer.FeaturesConfig;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestJoinQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Verify.verify;
-
 /**
- * @see TestJoinQueriesWithoutDynamicFiltering for tests with dynamic filtering disabled
+ * @see TestJoinQueries for tests with dynamic filtering enabled
  */
-public class TestJoinQueries
+public class TestJoinQueriesWithoutDynamicFiltering
         extends AbstractTestJoinQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(new FeaturesConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        return TpchQueryRunnerBuilder.builder().build();
+        return TpchQueryRunnerBuilder.builder()
+                .setExtraProperties(ImmutableMap.of("enable-dynamic-filtering", "false"))
+                .build();
     }
 
     @Test
-    public void verifyDynamicFilteringEnabled()
+    public void verifyDynamicFilteringDisabled()
     {
         assertQuery(
                 "SHOW SESSION LIKE 'enable_dynamic_filtering'",
-                "VALUES ('enable_dynamic_filtering', 'true', 'true', 'boolean', 'Enable dynamic filtering')");
+                "VALUES ('enable_dynamic_filtering', 'false', 'false', 'boolean', 'Enable dynamic filtering')");
     }
 }
