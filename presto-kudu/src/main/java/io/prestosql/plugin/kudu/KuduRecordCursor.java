@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.kudu;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
@@ -27,6 +28,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.util.Objects.requireNonNull;
 
 public class KuduRecordCursor
         implements RecordCursor
@@ -55,8 +57,8 @@ public class KuduRecordCursor
 
     public KuduRecordCursor(KuduScanner scanner, List<Type> columnTypes)
     {
-        this.scanner = scanner;
-        this.columnTypes = columnTypes;
+        this.scanner = requireNonNull(scanner, "scanner is null");
+        this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
     }
 
     @Override
