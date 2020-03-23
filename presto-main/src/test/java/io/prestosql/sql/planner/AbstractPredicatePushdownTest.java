@@ -16,7 +16,6 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
@@ -27,10 +26,9 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -47,61 +45,16 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 
-public class TestPredicatePushdownBase
+public abstract class AbstractPredicatePushdownTest
         extends BasePlanTest
 {
-    private final Metadata metadata = createTestMetadataManager();
-
-    public TestPredicatePushdownBase()
+    protected AbstractPredicatePushdownTest(Map<String, String> sessionProperties)
     {
-        super(ImmutableMap.of(
-                ENABLE_DYNAMIC_FILTERING, "true"));
+        super(sessionProperties);
     }
 
     @Test
-    public void testCoercions()
-    {
-        // Ensure constant equality predicate is pushed to the other side of the join
-        // when type coercions are involved
-
-        // values have the same type (varchar(4)) in both tables
-        assertPlan(
-                "WITH " +
-                        "    t(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation)," +
-                        "    u(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation) " +
-                        "SELECT 1 " +
-                        "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
-                        "WHERE t.v = 'x'",
-                anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
-                                ImmutableMap.of("t_k", "u_k"),
-                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
-                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
-                                anyTree(
-                                        project(
-                                                filter(
-                                                        "CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
-                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))), metadata)));
-
-        // values have different types (varchar(4) vs varchar(5)) in each table
-        assertPlan(
-                "WITH " +
-                        "    t(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation)," +
-                        "    u(k, v) AS (SELECT nationkey, CAST(name AS varchar(5)) FROM nation) " +
-                        "SELECT 1 " +
-                        "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
-                        "WHERE t.v = 'x'",
-                anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
-                                ImmutableMap.of("t_k", "u_k"),
-                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
-                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
-                                anyTree(
-                                        project(
-                                                filter(
-                                                        "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
-                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))), metadata)));
-    }
+    public abstract void testCoercions();
 
     @Test
     public void testNonStraddlingJoinExpression()
@@ -113,9 +66,9 @@ public class TestPredicatePushdownBase
                         join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 anyTree(
                                         filter("cast(LINEITEM_LINENUMBER as varchar) = cast('2' as varchar)",
-                                            tableScan("lineitem", ImmutableMap.of(
-                                            "LINEITEM_OK", "orderkey",
-                                            "LINEITEM_LINENUMBER", "linenumber")))),
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINEITEM_OK", "orderkey",
+                                                        "LINEITEM_LINENUMBER", "linenumber")))),
                                 anyTree(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
