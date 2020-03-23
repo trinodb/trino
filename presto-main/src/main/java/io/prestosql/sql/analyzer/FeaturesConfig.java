@@ -115,6 +115,7 @@ public class FeaturesConfig
     private boolean defaultFilterFactorEnabled;
     private boolean enableForcedExchangeBelowGroupId = true;
     private boolean pushAggregationThroughJoin = true;
+    private boolean pushPartialAggregationThoughJoin;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
@@ -841,6 +842,18 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
+        return this;
+    }
+
+    public boolean isPushPartialAggregationThoughJoin()
+    {
+        return pushPartialAggregationThoughJoin;
+    }
+
+    @Config("optimizer.push-partial-aggregation-through-join")
+    public FeaturesConfig setPushPartialAggregationThoughJoin(boolean pushPartialAggregationThoughJoin)
+    {
+        this.pushPartialAggregationThoughJoin = pushPartialAggregationThoughJoin;
         return this;
     }
 
