@@ -36,7 +36,6 @@ import static io.prestosql.execution.buffer.PagesSerdeUtil.readRawPage;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 @NotThreadSafe
 public class PagesSerde
@@ -68,8 +67,8 @@ public class PagesSerde
         if (compressor.isPresent()) {
             byte[] compressed = new byte[compressor.get().maxCompressedLength(uncompressedSize)];
             int compressedSize = compressor.get().compress(
-                    (byte[]) slice.getBase(),
-                    (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
+                    slice.byteArray(),
+                    slice.byteArrayOffset(),
                     uncompressedSize,
                     compressed,
                     0,
@@ -84,8 +83,8 @@ public class PagesSerde
         if (spillCipher.isPresent()) {
             byte[] encrypted = new byte[spillCipher.get().encryptedMaxLength(slice.length())];
             int encryptedSize = spillCipher.get().encrypt(
-                    (byte[]) slice.getBase(),
-                    (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
+                    slice.byteArray(),
+                    slice.byteArrayOffset(),
                     slice.length(),
                     encrypted,
                     0);
@@ -112,8 +111,8 @@ public class PagesSerde
 
             byte[] decrypted = new byte[spillCipher.get().decryptedMaxLength(slice.length())];
             int decryptedSize = spillCipher.get().decrypt(
-                    (byte[]) slice.getBase(),
-                    (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
+                    slice.byteArray(),
+                    slice.byteArrayOffset(),
                     slice.length(),
                     decrypted,
                     0);
@@ -127,8 +126,8 @@ public class PagesSerde
             int uncompressedSize = serializedPage.getUncompressedSizeInBytes();
             byte[] decompressed = new byte[uncompressedSize];
             checkState(decompressor.get().decompress(
-                    (byte[]) slice.getBase(),
-                    (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
+                    slice.byteArray(),
+                    slice.byteArrayOffset(),
                     slice.length(),
                     decompressed,
                     0,

@@ -31,10 +31,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class ParquetCompressionUtils
 {
@@ -139,8 +137,8 @@ public final class ParquetCompressionUtils
 
     private static int decompress(Decompressor decompressor, Slice input, int inputOffset, int inputLength, byte[] output, int outputOffset)
     {
-        byte[] byteArray = (byte[]) input.getBase();
-        int byteArrayOffset = inputOffset + toIntExact(input.getAddress() - ARRAY_BYTE_BASE_OFFSET);
+        byte[] byteArray = input.byteArray();
+        int byteArrayOffset = inputOffset + input.byteArrayOffset();
         return decompressor.decompress(byteArray, byteArrayOffset, inputLength, output, outputOffset, output.length - outputOffset);
     }
 }
