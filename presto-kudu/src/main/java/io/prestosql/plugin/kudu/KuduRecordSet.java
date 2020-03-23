@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.kudu;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
+import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduTable;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
@@ -33,14 +33,12 @@ public class KuduRecordSet
     private final KuduClientSession clientSession;
     private final KuduSplit kuduSplit;
     private final List<? extends ColumnHandle> columns;
-    private final boolean containsVirtualRowId;
 
     public KuduRecordSet(KuduClientSession clientSession, KuduSplit kuduSplit, List<? extends ColumnHandle> columns)
     {
         this.clientSession = clientSession;
         this.kuduSplit = kuduSplit;
         this.columns = columns;
-        this.containsVirtualRowId = columns.contains(KuduColumnHandle.ROW_ID_HANDLE);
     }
 
     @Override
@@ -55,24 +53,19 @@ public class KuduRecordSet
     public RecordCursor cursor()
     {
         KuduScanner scanner = clientSession.createScanner(kuduSplit);
-        if (!containsVirtualRowId) {
-            return new KuduRecordCursor(scanner, getColumnTypes());
-        }
-        else {
-            Map<Integer, Integer> fieldMapping = new HashMap<>();
-            for (int i = 0; i < columns.size(); i++) {
-                KuduColumnHandle handle = (KuduColumnHandle) columns.get(i);
-                if (!handle.isVirtualRowId()) {
-                    fieldMapping.put(i, handle.getOrdinalPosition());
-                }
-                else {
-                    fieldMapping.put(i, ROW_ID_POSITION);
-                }
+        Schema projectedSchema = scanner.getProjectionSchema();
+        ImmutableMap.Builder<Integer, Integer> builder = ImmutableMap.builder();
+        for (int i = 0; i < columns.size(); i++) {
+            KuduColumnHandle handle = (KuduColumnHandle) columns.get(i);
+            if (handle.isVirtualRowId()) {
+                builder.put(i, ROW_ID_POSITION);
             }
-
-            KuduTable table = getTable();
-            return new KuduRecordCursorWithVirtualRowId(scanner, table, getColumnTypes(), fieldMapping);
+            else {
+                builder.put(i, projectedSchema.getColumnIndex(handle.getName()));
+            }
         }
+
+        return new KuduRecordCursor(scanner, getTable(), getColumnTypes(), builder.build());
     }
 
     KuduTable getTable()
