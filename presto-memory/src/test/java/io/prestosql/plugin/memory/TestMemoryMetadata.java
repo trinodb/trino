@@ -199,6 +199,19 @@ public class TestMemoryMetadata
     }
 
     @Test
+    public void testCreatedViewShouldBeListedAsTable()
+    {
+        String schemaName = "test";
+        SchemaTableName viewName = new SchemaTableName(schemaName, "test_view");
+
+        metadata.createSchema(SESSION, schemaName, ImmutableMap.of());
+        metadata.createView(SESSION, viewName, testingViewDefinition("aaa"), true);
+
+        assertThat(metadata.listTables(SESSION, Optional.of(schemaName)))
+                .contains(viewName);
+    }
+
+    @Test
     public void testViews()
     {
         SchemaTableName test1 = new SchemaTableName("test", "test_view1");
