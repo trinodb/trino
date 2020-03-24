@@ -112,7 +112,7 @@ public class EventListenerManager
                 listener.queryCompleted(queryCompletedEvent);
             }
             catch (Throwable e) {
-                log.warn("Failed to publish QueryCompletedEvent for query %s", queryCompletedEvent.getMetadata().getQueryId(), e);
+                log.warn(e, "Failed to publish QueryCompletedEvent for query %s", queryCompletedEvent.getMetadata().getQueryId());
             }
         }
     }
@@ -124,7 +124,7 @@ public class EventListenerManager
                 listener.queryCreated(queryCreatedEvent);
             }
             catch (Throwable e) {
-                log.warn("Failed to publish QueryCreatedEvent for query %s", queryCreatedEvent.getMetadata().getQueryId(), e);
+                log.warn(e, "Failed to publish QueryCreatedEvent for query %s", queryCreatedEvent.getMetadata().getQueryId());
             }
         }
     }
@@ -136,7 +136,7 @@ public class EventListenerManager
                 listener.splitCompleted(splitCompletedEvent);
             }
             catch (Throwable e) {
-                log.warn("Failed to publish SplitCompletedEvent for query %s", splitCompletedEvent.getQueryId(), e);
+                log.warn(e, "Failed to publish SplitCompletedEvent for query %s", splitCompletedEvent.getQueryId());
             }
         }
     }
