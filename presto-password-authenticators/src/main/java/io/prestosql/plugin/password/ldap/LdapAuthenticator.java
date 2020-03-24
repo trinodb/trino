@@ -188,7 +188,7 @@ public class LdapAuthenticator
             NamingEnumeration<SearchResult> search = searchGroupMembership(user, context);
             try {
                 if (!search.hasMore()) {
-                    String message = format("User [%s] not a member of the authorized group", user);
+                    String message = format("User [%s] not a member of an authorized group", user);
                     log.debug(message);
                     throw new AccessDeniedException(message);
                 }
@@ -224,7 +224,7 @@ public class LdapAuthenticator
         NamingEnumeration<SearchResult> search = searchGroupMembership(user, context);
         try {
             if (!search.hasMore()) {
-                String message = format("User [%s] not a member of the authorized group", user);
+                String message = format("User [%s] not a member of an authorized group", user);
                 log.debug(message);
                 throw new AccessDeniedException(message);
             }
