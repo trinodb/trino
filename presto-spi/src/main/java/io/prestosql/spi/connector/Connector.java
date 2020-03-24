@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -153,6 +154,14 @@ public interface Connector
     default ConnectorAccessControl getAccessControl()
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @return the event listeners provided by this connector
+     */
+    default Iterable<EventListener> getEventListeners()
+    {
+        return emptySet();
     }
 
     /**

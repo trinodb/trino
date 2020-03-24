@@ -45,6 +45,12 @@ public class TestingEventListenerManager
     }
 
     @Override
+    public void addEventListener(EventListener eventListener)
+    {
+        this.configuredEventListeners.add(eventListener);
+    }
+
+    @Override
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         for (EventListener listener : configuredEventListeners) {
