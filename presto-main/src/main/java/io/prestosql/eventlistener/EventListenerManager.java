@@ -25,6 +25,8 @@ import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,7 @@ public class EventListenerManager
     private static final String EVENT_LISTENER_NAME_PROPERTY = "event-listener.name";
     private final List<File> configFiles;
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
+    private final List<EventListener> providedEventListeners = Collections.synchronizedList(new ArrayList<>());
     private final AtomicReference<List<EventListener>> configuredEventListeners = new AtomicReference<>(ImmutableList.of());
     private final AtomicBoolean loading = new AtomicBoolean(false);
 
@@ -65,21 +68,35 @@ public class EventListenerManager
         }
     }
 
-    public void loadConfiguredEventListeners()
+    public void addEventListener(EventListener eventListener)
+    {
+        requireNonNull(eventListener, "EventListener is null");
+
+        providedEventListeners.add(eventListener);
+    }
+
+    public void loadEventListeners()
     {
         checkState(loading.compareAndSet(false, true), "Event listeners already loaded");
 
+        this.configuredEventListeners.set(ImmutableList.<EventListener>builder()
+                .addAll(providedEventListeners)
+                .addAll(configuredEventListeners())
+                .build());
+    }
+
+    private List<EventListener> configuredEventListeners()
+    {
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
-                return;
+                return ImmutableList.of();
             }
             configFiles = ImmutableList.of(CONFIG_FILE);
         }
-        List<EventListener> eventListeners = configFiles.stream()
+        return configFiles.stream()
                 .map(this::createEventListener)
                 .collect(toImmutableList());
-        this.configuredEventListeners.set(eventListeners);
     }
 
     private EventListener createEventListener(File configFile)
