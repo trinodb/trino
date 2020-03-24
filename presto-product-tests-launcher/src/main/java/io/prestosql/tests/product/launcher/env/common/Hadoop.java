@@ -70,7 +70,7 @@ public final class Hadoop
                 .withStartupTimeout(Duration.ofMinutes(5));
 
         exposePort(container, 1180); // socks proxy
-        exposePort(container, 5006); // debug port
+        // TODO exposePort(container, 5006); // debug port
         exposePort(container, 8020);
         exposePort(container, 8042);
         exposePort(container, 8088);
