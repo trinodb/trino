@@ -44,7 +44,6 @@ public class ServerIT
     @Parameters("rpm")
     @Test
     public void testWithJava8(String rpm)
-            throws Exception
     {
         testServer("prestodev/centos7-oj8", rpm, "1.8");
     }
@@ -52,13 +51,11 @@ public class ServerIT
     @Parameters("rpm")
     @Test
     public void testWithJava11(String rpm)
-            throws Exception
     {
         testServer("prestodev/centos7-oj11", rpm, "11");
     }
 
     private static void testServer(String baseImage, String rpmHostPath, String expectedJavaVersion)
-            throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
 
