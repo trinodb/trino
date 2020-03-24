@@ -6,6 +6,7 @@
         <groupId>io.prestosql</groupId>
         <artifactId>presto-bom</artifactId>
         <version>332-SNAPSHOT</version>
+        <relativePath>presto-bom</relativePath>
     </parent>
 
     <groupId>io.prestosql</groupId>

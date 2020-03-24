@@ -28,7 +28,7 @@
         <dep.tempto.version>174</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
-        <rubix.version>0.3.6</rubix.version>
+        <dep.rubix.version>0.3.6</dep.rubix.version>
     </properties>
 
     <dependencyManagement>
@@ -1110,7 +1110,7 @@
             <dependency>
                 <groupId>com.qubole.rubix</groupId>
                 <artifactId>rubix-presto-shaded</artifactId>
-                <version>${rubix.version}</version>
+                <version>${dep.rubix.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
