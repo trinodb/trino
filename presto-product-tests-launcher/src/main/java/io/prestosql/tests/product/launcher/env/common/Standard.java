@@ -72,7 +72,7 @@ public final class Standard
     {
         DockerContainer container =
                 createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
+                        .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
 
         exposePort(container, 8080); // Presto default port
         exposePort(container, 5005); // debug port
