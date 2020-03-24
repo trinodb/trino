@@ -276,7 +276,7 @@ public class HiveSplitManager
         if (hivePartitions.size() == 1) {
             HivePartition firstPartition = getOnlyElement(hivePartitions);
             if (firstPartition.getPartitionId().equals(UNPARTITIONED_ID)) {
-                return ImmutableList.of(new HivePartitionMetadata(firstPartition, Optional.empty(), ImmutableMap.of()));
+                return ImmutableList.of(new HivePartitionMetadata(firstPartition, Optional.empty(), TableToPartitionMapping.empty()));
             }
         }
 
@@ -372,7 +372,7 @@ public class HiveSplitManager
                     }
                 }
 
-                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), columnCoercions.build()));
+                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), new TableToPartitionMapping(columnCoercions.build())));
             }
 
             return results.build();

@@ -349,7 +349,7 @@ public class BackgroundHiveSplitLoader
                         schema,
                         partitionKeys,
                         effectivePredicate,
-                        partition.getColumnCoercions(),
+                        partition.getTableToPartitionMapping(),
                         Optional.empty(),
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled);
@@ -386,7 +386,7 @@ public class BackgroundHiveSplitLoader
                 schema,
                 partitionKeys,
                 effectivePredicate,
-                partition.getColumnCoercions(),
+                partition.getTableToPartitionMapping(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled);
