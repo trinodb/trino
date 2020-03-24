@@ -26,7 +26,6 @@ import static java.lang.Math.toIntExact;
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
-@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
 public class LagFunction
         extends ValueWindowFunction
 {
@@ -48,9 +47,6 @@ public class LagFunction
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
         this.ignoreNulls = ignoreNulls;
-        if (this.ignoreNulls) {
-            this.lastNonNull = 0;
-        }
     }
 
     @Override

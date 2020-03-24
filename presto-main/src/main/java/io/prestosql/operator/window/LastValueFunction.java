@@ -54,12 +54,9 @@ public class LastValueFunction
             return;
         }
 
-        int returnInd;
+        int returnInd = frameEnd;
         if (ignoreNulls) {
             returnInd = searchWindowAndUpdateIndices(frameStart, frameEnd);
-        }
-        else {
-            returnInd = frameEnd;
         }
         windowIndex.appendTo(argumentChannel, returnInd, output);
     }

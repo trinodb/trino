@@ -51,13 +51,10 @@ public class FirstValueFunction
             output.appendNull();
             return;
         }
-        int returnInd;
+        int returnInd = frameStart;
 
         if (ignoreNulls) {
             returnInd = searchWindowAndUpdateIndices(frameStart, frameEnd);
-        }
-        else {
-            returnInd = frameStart;
         }
         windowIndex.appendTo(argumentChannel, returnInd, output);
     }
