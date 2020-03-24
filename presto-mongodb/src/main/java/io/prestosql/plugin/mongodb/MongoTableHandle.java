@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,19 +30,22 @@ public class MongoTableHandle
 {
     private final SchemaTableName schemaTableName;
     private final TupleDomain<ColumnHandle> constraint;
+    private final OptionalLong limit;
 
     public MongoTableHandle(SchemaTableName schemaTableName)
     {
-        this(schemaTableName, TupleDomain.all());
+        this(schemaTableName, TupleDomain.all(), OptionalLong.empty());
     }
 
     @JsonCreator
     public MongoTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     @JsonProperty
@@ -56,6 +60,11 @@ public class MongoTableHandle
         return constraint;
     }
 
+    @JsonProperty
+    public OptionalLong getLimit() {
+ 	return limit;
+    }
+    
     @Override
     public int hashCode()
     {

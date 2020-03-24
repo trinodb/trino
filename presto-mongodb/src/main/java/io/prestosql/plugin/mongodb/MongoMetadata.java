@@ -31,6 +31,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.NotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -39,11 +40,13 @@ import io.prestosql.spi.connector.SortingProperty;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
+import io.zontal.datahub.prestosql.plugin.mongodb.MongoDBTableHandle;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -245,6 +248,20 @@ public class MongoMetadata
     }
 
     @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session,
+	    ConnectorTableHandle table, long limit) {
+	MongoTableHandle handle = (MongoTableHandle) table;
+
+	if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+	    return Optional.empty();
+	}
+
+	handle = new MongoTableHandle(handle.getSchemaTableName(), handle.getConstraint(), OptionalLong.of(limit));
+
+	return Optional.of(new LimitApplicationResult<>(handle, true));
+    }
+    
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         MongoTableHandle handle = (MongoTableHandle) table;
@@ -257,7 +274,7 @@ public class MongoMetadata
 
         handle = new MongoTableHandle(
                 handle.getSchemaTableName(),
-                newDomain);
+                newDomain, handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }

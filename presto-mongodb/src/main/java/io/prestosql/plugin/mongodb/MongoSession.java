@@ -245,7 +245,11 @@ public class MongoSession
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
         FindIterable<Document> iterable = collection.find(buildQuery(tableHandle.getConstraint())).projection(output);
-
+	
+        if (tableHandle.getLimit().isPresent()) {
+	    iterable.limit((int) hantableHandledle.getLimit().getAsLong());
+	}
+	
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
         }
