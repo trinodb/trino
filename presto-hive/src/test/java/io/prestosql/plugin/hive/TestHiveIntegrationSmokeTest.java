@@ -846,24 +846,24 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 admin,
-                "create table io_explain_test(\n"
+                "create table io_explain_test_no_filter(\n"
                 + "id integer,\n"
                 + "a varchar,\n"
                 + "b varchar,\n"
                 + "ds varchar)"
                 + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
-        assertUpdate(admin, "insert into io_explain_test(id,a,ds) values(1, 'a','a')", 1);
+        assertUpdate(admin, "insert into io_explain_test_no_filter(id,a,ds) values(1, 'a','a')", 1);
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 22.0, 22.0, 0.0, 0.0);
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(1.0, 22.0, 22.0, 0.0, 22.0);
         MaterializedResult result =
-                computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM io_explain_test");
+                computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM io_explain_test_no_filter");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                             new TableColumnInfo(
-                                    new CatalogSchemaTableName(catalog, "tpch", "io_explain_test"),
+                                    new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
                                     ImmutableSet.of(
                                             new ColumnConstraint(
                                                     "ds",
@@ -877,7 +877,7 @@ public class TestHiveIntegrationSmokeTest
                         estimate)),
                 Optional.empty(),
                 finalEstimate));
-        assertUpdate("DROP TABLE io_explain_test");
+        assertUpdate("DROP TABLE io_explain_test_no_filter");
     }
 
     @Test
@@ -891,24 +891,24 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 admin,
-                "create table io_explain_test(\n"
+                "create table io_explain_test_filter_on_agg(\n"
                 + "id integer,\n"
                 + "a varchar,\n"
                 + "b varchar,\n"
                 + "ds varchar)"
                 + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
-        assertUpdate(admin, "insert into io_explain_test(id,a,ds) values(1, 'a','a')", 1);
+        assertUpdate(admin, "insert into io_explain_test_filter_on_agg(id,a,ds) values(1, 'a','a')", 1);
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 5.0, 5.0, 0.0, 0.0);
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
         MaterializedResult result =
-                computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM (SELECT COUNT(*) cnt FROM io_explain_test WHERE b = 'b') WHERE cnt > 0");
+                computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM (SELECT COUNT(*) cnt FROM io_explain_test_filter_on_agg WHERE b = 'b') WHERE cnt > 0");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "io_explain_test"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_filter_on_agg"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "ds",
@@ -931,7 +931,7 @@ public class TestHiveIntegrationSmokeTest
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
-        assertUpdate("DROP TABLE io_explain_test");
+        assertUpdate("DROP TABLE io_explain_test_filter_on_agg");
     }
 
     @Test
