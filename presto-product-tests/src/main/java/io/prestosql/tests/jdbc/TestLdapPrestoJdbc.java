@@ -134,6 +134,6 @@ public class TestLdapPrestoJdbc
 
     private void expectQueryToFailForUserNotInGroup(String user)
     {
-        expectQueryToFail(user, ldapUserPassword, format("Authentication failed: Access Denied: User [%s] not a member of the authorized group", user));
+        expectQueryToFail(user, ldapUserPassword, format("Authentication failed: Access Denied: User [%s] not a member of an authorized group", user));
     }
 }

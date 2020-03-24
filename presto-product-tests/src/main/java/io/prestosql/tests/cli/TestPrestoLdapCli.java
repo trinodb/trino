@@ -145,7 +145,7 @@ public class TestPrestoLdapCli
         ldapUserName = CHILD_GROUP_USER.getAttributes().get("cn");
         launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains(format("User [%s] not a member of the authorized group", ldapUserName)));
+                assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -155,7 +155,7 @@ public class TestPrestoLdapCli
         ldapUserName = PARENT_GROUP_USER.getAttributes().get("cn");
         launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains(format("User [%s] not a member of the authorized group", ldapUserName)));
+                assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -165,7 +165,7 @@ public class TestPrestoLdapCli
         ldapUserName = ORPHAN_USER.getAttributes().get("cn");
         launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains(format("User [%s] not a member of the authorized group", ldapUserName)));
+                assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
