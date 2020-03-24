@@ -34,7 +34,7 @@ check_if_correct_java_version() {
   fi
 }
 
-# if Java version of $JAVA_HOME is not 1.8 update 161 (8u161) and is not Oracle Java, then try to find it again below
+# if Java version of $JAVA_HOME is not correct, then try to find it again below
 if ! check_if_correct_java_version "$JAVA_HOME"; then
   java_found=false
   for candidate in \
@@ -64,10 +64,13 @@ if [ "$java_found" = false ]; then
 +======================================================================+
 |      Error: Required Java version could not be found                 |
 +----------------------------------------------------------------------+
-| Please download the latest Oracle JDK/JRE from the Java web site     |
-|       > http://www.oracle.com/technetwork/java/javase/downloads <    |
+| Please install JDK 11. On RHEL/CentOS, use java-11-openjdk-devel.    |
 |                                                                      |
-| Presto requires Java 1.8 update 161 (8u161)                          |
+| You can also download an OpenJDK 11 build, such as Zulu Community:   |
+|       >>> https://www.azul.com/downloads/zulu-community/ <<<         |
+|                                                                      |
+| Presto requires at least Java 1.8 update 161 (8u161), but Java 11    |
+| is strongly recommend (and will be required in the future).          |
 | NOTE: This script will attempt to find Java whether you install      |
 |       using the binary or the RPM based installer.                   |
 +======================================================================+
