@@ -112,17 +112,17 @@ public final class DockerFiles
             throws IOException
     {
         // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
-        Path dockerFilesHostPath = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
+        Path temporaryDirectoryForDocker = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
 
         // Best-effort cleanup
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
-                deleteRecursively(dockerFilesHostPath, ALLOW_INSECURE);
+                deleteRecursively(temporaryDirectoryForDocker, ALLOW_INSECURE);
             }
             catch (IOException e) {
-                log.warn(e, "Failed to clean up docker files temporary directory '%s'", dockerFilesHostPath);
+                log.warn(e, "Failed to clean up docker files temporary directory '%s'", temporaryDirectoryForDocker);
             }
         }));
-        return dockerFilesHostPath;
+        return temporaryDirectoryForDocker;
     }
 }
