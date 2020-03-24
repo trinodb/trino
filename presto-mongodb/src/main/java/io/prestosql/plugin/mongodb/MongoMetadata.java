@@ -40,7 +40,6 @@ import io.prestosql.spi.connector.SortingProperty;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
-import io.zontal.datahub.prestosql.plugin.mongodb.MongoDBTableHandle;
 
 import java.util.Collection;
 import java.util.List;
