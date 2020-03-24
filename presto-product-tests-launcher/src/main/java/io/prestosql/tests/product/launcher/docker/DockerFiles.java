@@ -81,7 +81,7 @@ public final class DockerFiles
     private static Path unpackDockerFilesFromClasspath()
     {
         try {
-            Path dockerFilesHostPath = temporaryDirectory();
+            Path dockerFilesHostPath = createTemporaryDirectoryForDocker();
             ClassPath.from(Thread.currentThread().getContextClassLoader())
                     .getResources().stream()
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith("docker/presto-product-tests/"))
@@ -108,7 +108,7 @@ public final class DockerFiles
         }
     }
 
-    public static Path temporaryDirectory()
+    public static Path createTemporaryDirectoryForDocker()
             throws IOException
     {
         // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
