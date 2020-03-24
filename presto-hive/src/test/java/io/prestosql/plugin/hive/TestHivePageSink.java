@@ -233,7 +233,7 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 false,
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());

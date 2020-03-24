@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -26,11 +28,13 @@ public final class HiveTypeName
 
     private final String value;
 
+    @JsonCreator
     public HiveTypeName(String value)
     {
         this.value = requireNonNull(value, "value is null");
     }
 
+    @JsonValue
     @Override
     public String toString()
     {

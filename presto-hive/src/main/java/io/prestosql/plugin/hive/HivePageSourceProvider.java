@@ -122,7 +122,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
-                hiveSplit.getColumnCoercions(),
+                hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
                 hiveSplit.getDeleteDeltaLocations());
@@ -149,7 +149,7 @@ public class HivePageSourceProvider
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            Map<Integer, HiveType> columnCoercions,
+            TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
             Optional<DeleteDeltaLocations> deleteDeltaLocations)
@@ -162,7 +162,7 @@ public class HivePageSourceProvider
                 partitionKeys,
                 hiveColumns,
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
-                columnCoercions,
+                tableToPartitionMapping,
                 path,
                 bucketNumber,
                 fileSize,
@@ -334,7 +334,7 @@ public class HivePageSourceProvider
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
                 List<HiveColumnHandle> requiredInterimColumns,
-                Map<Integer, HiveType> columnCoercions,
+                TableToPartitionMapping tableToPartitionMapping,
                 Path path,
                 OptionalInt bucketNumber,
                 long fileSize,
@@ -345,7 +345,7 @@ public class HivePageSourceProvider
             Set<Integer> regularColumnIndices = new HashSet<>();
             ImmutableList.Builder<ColumnMapping> columnMappings = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
-                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
+                Optional<HiveType> coercionFrom = tableToPartitionMapping.getCoercion(column.getHiveColumnIndex());
                 if (column.getColumnType() == REGULAR) {
                     checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
                     columnMappings.add(regular(column, regularIndex, coercionFrom));
