@@ -92,7 +92,8 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatInterval(null)
                 .setHiveTransactionHeartbeatThreads(5)
                 .setAllowRegisterPartition(false)
-                .setQueryPartitionFilterRequired(false));
+                .setQueryPartitionFilterRequired(false)
+                .setPartitionUseColumnNames(false));
     }
 
     @Test
@@ -158,6 +159,7 @@ public class TestHiveConfig
                 .put("hive.transaction-heartbeat-threads", "10")
                 .put("hive.allow-register-partition-procedure", "true")
                 .put("hive.query-partition-filter-required", "true")
+                .put("hive.partition-use-column-names", "true")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -219,7 +221,8 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
                 .setHiveTransactionHeartbeatThreads(10)
                 .setAllowRegisterPartition(true)
-                .setQueryPartitionFilterRequired(true);
+                .setQueryPartitionFilterRequired(true)
+                .setPartitionUseColumnNames(true);
 
         assertFullMapping(properties, expected);
     }

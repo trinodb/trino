@@ -15,10 +15,12 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -29,40 +31,85 @@ public class TableToPartitionMapping
 {
     public static TableToPartitionMapping empty()
     {
-        return new TableToPartitionMapping(ImmutableMap.of());
+        return new TableToPartitionMapping(Optional.empty(), ImmutableMap.of());
+    }
+
+    public static TableToPartitionMapping mapColumnsByIndex(Map<Integer, HiveTypeName> columnCoercions)
+    {
+        return new TableToPartitionMapping(Optional.empty(), columnCoercions);
     }
 
     // Overhead of ImmutableMap is not accounted because of its complexity.
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TableToPartitionMapping.class).instanceSize();
     private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
+    private static final int OPTIONAL_INSTANCE_SIZE = ClassLayout.parseClass(Optional.class).instanceSize();
 
-    private final Map<Integer, HiveTypeName> columnCoercions;
+    private final Optional<Map<Integer, Integer>> tableToPartitionColumns;
+    private final Map<Integer, HiveTypeName> partitionColumnCoercions;
 
     @JsonCreator
     public TableToPartitionMapping(
-            @JsonProperty("columnCoercions") Map<Integer, HiveTypeName> columnCoercions)
+            @JsonProperty("tableToPartitionColumns") Optional<Map<Integer, Integer>> tableToPartitionColumns,
+            @JsonProperty("partitionColumnCoercions") Map<Integer, HiveTypeName> partitionColumnCoercions)
     {
-        this.columnCoercions = ImmutableMap.copyOf(requireNonNull(columnCoercions, "columnCoercions is null"));
+        if (tableToPartitionColumns.map(TableToPartitionMapping::isIdentityMapping).orElse(true)) {
+            this.tableToPartitionColumns = Optional.empty();
+        }
+        else {
+            this.tableToPartitionColumns = requireNonNull(tableToPartitionColumns, "tableToPartitionColumns is null")
+                    .map(ImmutableMap::copyOf);
+        }
+        this.partitionColumnCoercions = ImmutableMap.copyOf(requireNonNull(partitionColumnCoercions, "partitionColumnCoercions is null"));
+    }
+
+    @VisibleForTesting
+    static boolean isIdentityMapping(Map<Integer, Integer> map)
+    {
+        for (int i = 0; i < map.size(); i++) {
+            if (!Objects.equals(map.get(i), i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @JsonProperty
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public Map<Integer, HiveTypeName> getPartitionColumnCoercions()
     {
-        return columnCoercions;
+        return partitionColumnCoercions;
     }
 
-    public Optional<HiveType> getCoercion(int columnIndex)
+    @JsonProperty
+    public Optional<Map<Integer, Integer>> getTableToPartitionColumns()
     {
-        return Optional.ofNullable(columnCoercions.get(columnIndex))
+        return tableToPartitionColumns;
+    }
+
+    public Optional<HiveType> getCoercion(int tableColumnIndex)
+    {
+        return getPartitionColumnIndex(tableColumnIndex)
+                .flatMap(partitionColumnIndex -> Optional.ofNullable(partitionColumnCoercions.get(partitionColumnIndex)))
                 .map(HiveTypeName::toHiveType);
+    }
+
+    private Optional<Integer> getPartitionColumnIndex(int tableColumnIndex)
+    {
+        if (!tableToPartitionColumns.isPresent()) {
+            return Optional.of(tableColumnIndex);
+        }
+        return Optional.ofNullable(tableToPartitionColumns.get().get(tableColumnIndex));
     }
 
     public int getEstimatedSizeInBytes()
     {
         int result = INSTANCE_SIZE;
-        result += sizeOfObjectArray(columnCoercions.size());
-        for (HiveTypeName hiveTypeName : columnCoercions.values()) {
+        result += sizeOfObjectArray(partitionColumnCoercions.size());
+        for (HiveTypeName hiveTypeName : partitionColumnCoercions.values()) {
             result += INTEGER_INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
+        }
+        result += OPTIONAL_INSTANCE_SIZE;
+        if (tableToPartitionColumns.isPresent()) {
+            result += sizeOfObjectArray(tableToPartitionColumns.get().size()) + 2 * tableToPartitionColumns.get().size() * INTEGER_INSTANCE_SIZE;
         }
         return result;
     }
@@ -71,7 +118,8 @@ public class TableToPartitionMapping
     public String toString()
     {
         return toStringHelper(this)
-                .add("columnCoercions", columnCoercions)
+                .add("columnCoercions", partitionColumnCoercions)
+                .add("tableToPartitionColumns", tableToPartitionColumns)
                 .toString();
     }
 }
