@@ -21,6 +21,7 @@ import io.prestosql.tests.hive.util.TemporaryHiveTable;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
+import java.util.function.Supplier;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
@@ -41,13 +42,25 @@ public class TestHivePartitionSchemaEvolution
             throws SQLException
     {
         setSessionProperty(onPresto().getConnection(), "hive.parquet_use_column_names", "true");
+        setSessionProperty(onPresto().getConnection(), "hive.orc_use_column_names", "true");
         setSessionProperty(onPresto().getConnection(), "hive.partition_use_column_names", "true");
     }
 
     @Test
     public void testParquet()
     {
-        try (TemporaryHiveTable table = parquetTable()) {
+        test(() -> createTable("PARQUET"));
+    }
+
+    @Test
+    public void testOrc()
+    {
+        test(() -> createTable("ORC"));
+    }
+
+    private void test(Supplier<TemporaryHiveTable> temporaryHiveTableSupplier)
+    {
+        try (TemporaryHiveTable table = temporaryHiveTableSupplier.get()) {
             // dropping column on table, simulates creating a column on partition
             // adding column on table, simulates dropping a column on partition
 
@@ -102,8 +115,9 @@ public class TestHivePartitionSchemaEvolution
         }
         catch (QueryExecutionException e) {
             String message = e.getMessage();
-            if (message.contains("Unable to alter table. The following columns have types incompatible with the existing columns in their respective positions") ||
-                    message.contains("Replacing columns cannot drop columns")) {
+            if (message.contains("Unable to alter table. The following columns have types incompatible with the existing columns in their respective positions")
+                    || message.contains("Replacing columns cannot drop columns")
+                    || message.contains("Replace columns is not supported for")) {
                 log.warn("Unable to execute: %s, due: %s", sql, message);
                 return false;
             }
@@ -111,7 +125,7 @@ public class TestHivePartitionSchemaEvolution
         }
     }
 
-    private static TemporaryHiveTable parquetTable()
+    private static TemporaryHiveTable createTable(String format)
     {
         String tableName = "schema_evolution_" + randomTableSuffix();
         tryExecuteOnHive(format(
@@ -121,8 +135,9 @@ public class TestHivePartitionSchemaEvolution
                         "  varchar_column varchar(20)" +
                         ") " +
                         "PARTITIONED BY (partition_column bigint) " +
-                        "STORED AS PARQUET",
-                tableName));
+                        "STORED AS %s",
+                tableName,
+                format));
         TemporaryHiveTable temporaryHiveTable = temporaryHiveTable(tableName);
         try {
             onPresto().executeQuery(format("INSERT INTO %s VALUES (1, 1.1, 'jeden', 1)", tableName));

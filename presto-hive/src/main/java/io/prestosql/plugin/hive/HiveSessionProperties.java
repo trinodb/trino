@@ -469,7 +469,13 @@ public final class HiveSessionProperties
 
     public static boolean isUseOrcColumnNames(ConnectorSession session)
     {
-        return session.getProperty(ORC_USE_COLUMN_NAME, Boolean.class);
+        Boolean useOrcColumnNames = session.getProperty(ORC_USE_COLUMN_NAME, Boolean.class);
+        if (isPartitionUseColumnNames(session) && !useOrcColumnNames) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be set when %s is set", ORC_USE_COLUMN_NAME, PARTITION_USE_COLUMN_NAMES));
+        }
+        return useOrcColumnNames;
     }
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
