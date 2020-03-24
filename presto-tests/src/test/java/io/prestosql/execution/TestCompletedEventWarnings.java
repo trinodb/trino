@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session.SessionBuilder;
-import io.prestosql.execution.TestEventListener.EventsBuilder;
 import io.prestosql.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.spi.PrestoWarning;
