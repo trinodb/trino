@@ -36,7 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -98,7 +98,7 @@ public class EventListenerManager
     private Map<String, String> loadEventListenerProperties(File configFile)
     {
         try {
-            return new HashMap<>(loadProperties(configFile));
+            return new HashMap<>(loadPropertiesFrom(configFile.getPath()));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);

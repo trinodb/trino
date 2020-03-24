@@ -55,8 +55,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -139,7 +139,7 @@ public final class InternalResourceGroupManager<C>
             return;
         }
 
-        Map<String, String> properties = new HashMap<>(loadProperties(configFile));
+        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
 
         String name = properties.remove(NAME_PROPERTY);
         checkState(!isNullOrEmpty(name), "Resource groups configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
