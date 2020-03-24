@@ -42,6 +42,7 @@ import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.transaction.IsolationLevel;
 
@@ -51,6 +52,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -69,6 +71,7 @@ public class MockConnectorFactory
     private final ApplyProjection applyProjection;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
+    private final Supplier<Iterable<EventListener>> eventListeners;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -78,7 +81,8 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
-            BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout)
+            BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
+            Supplier<Iterable<EventListener>> eventListeners)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -88,6 +92,7 @@ public class MockConnectorFactory
         this.applyProjection = applyProjection;
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
+        this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
     }
 
     @Override
@@ -105,7 +110,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners);
     }
 
     public static Builder builder()
@@ -131,6 +136,7 @@ public class MockConnectorFactory
         private final ApplyProjection applyProjection;
         private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
         private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
+        private final Supplier<Iterable<EventListener>> eventListeners;
 
         private MockConnector(
                 ConnectorContext context,
@@ -141,7 +147,8 @@ public class MockConnectorFactory
                 Function<SchemaTableName, List<ColumnMetadata>> getColumns,
                 ApplyProjection applyProjection,
                 BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
-                BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout)
+                BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
+                Supplier<Iterable<EventListener>> eventListeners)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -152,6 +159,7 @@ public class MockConnectorFactory
             this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
             this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
             this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
+            this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         }
 
         @Override
@@ -176,6 +184,12 @@ public class MockConnectorFactory
         public ConnectorRecordSetProvider getRecordSetProvider()
         {
             return new TpchRecordSetProvider();
+        }
+
+        @Override
+        public Iterable<EventListener> getEventListeners()
+        {
+            return eventListeners.get();
         }
 
         private class MockConnectorMetadata
@@ -350,6 +364,7 @@ public class MockConnectorFactory
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
+        private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -399,9 +414,25 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withEventListener(EventListener listener)
+        {
+            requireNonNull(listener, "listener is null");
+
+            withEventListener(() -> listener);
+            return this;
+        }
+
+        public Builder withEventListener(Supplier<EventListener> listenerFactory)
+        {
+            requireNonNull(listenerFactory, "listenerFactory is null");
+
+            this.eventListeners = () -> ImmutableList.of(listenerFactory.get());
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout);
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
