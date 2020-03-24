@@ -63,7 +63,8 @@ public class TestHiveS3Config
                 .setS3UserAgentPrefix("")
                 .setS3AclType(PrestoS3AclType.PRIVATE)
                 .setSkipGlacierObjects(false)
-                .setRequesterPaysEnabled(false));
+                .setRequesterPaysEnabled(false)
+                .setUsePseudoDirectories(true));
     }
 
     @Test
@@ -100,6 +101,7 @@ public class TestHiveS3Config
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
                 .put("hive.s3.skip-glacier-objects", "true")
                 .put("hive.s3.requester-pays.enabled", "true")
+                .put("hive.s3.use-pseudo-directories", "false")
                 .build();
 
         HiveS3Config expected = new HiveS3Config()
@@ -132,7 +134,8 @@ public class TestHiveS3Config
                 .setS3UserAgentPrefix("user-agent-prefix")
                 .setS3AclType(PrestoS3AclType.PUBLIC_READ)
                 .setSkipGlacierObjects(true)
-                .setRequesterPaysEnabled(true);
+                .setRequesterPaysEnabled(true)
+                .setUsePseudoDirectories(false);
 
         assertFullMapping(properties, expected);
     }

@@ -166,6 +166,7 @@ public class PrestoS3FileSystem
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
     public static final String S3_STORAGE_CLASS = "presto.s3.storage-class";
+    public static final String S3_USE_PSEUDO_DIRECTORIES = "presto.s3.use-pseudo-directories";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
@@ -201,6 +202,7 @@ public class PrestoS3FileSystem
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
     private PrestoS3StorageClass s3StorageClass;
+    private boolean usePseudoDirectories;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -247,6 +249,7 @@ public class PrestoS3FileSystem
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.usePseudoDirectories = conf.getBoolean(S3_USE_PSEUDO_DIRECTORIES, defaults.isUsePseudoDirectories());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -527,11 +530,15 @@ public class PrestoS3FileSystem
         ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
-                .withDelimiter(PATH_SEPARATOR)
                 .withRequesterPays(requesterPaysEnabled);
+        if (usePseudoDirectories) {
+            request.setDelimiter(PATH_SEPARATOR);
+        }
 
         STATS.newListObjectsCall();
-        Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<ListObjectsV2Result>(s3.listObjectsV2(request))
+        ListObjectsV2Result listObjectsV2 = s3.listObjectsV2(request);
+        log.debug(listObjectsV2.getObjectSummaries().toString());
+        Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<ListObjectsV2Result>(listObjectsV2)
         {
             @Override
             protected ListObjectsV2Result computeNext(ListObjectsV2Result previous)
@@ -539,13 +546,10 @@ public class PrestoS3FileSystem
                 if (!previous.isTruncated()) {
                     return null;
                 }
-
                 request.setContinuationToken(previous.getNextContinuationToken());
-
                 return s3.listObjectsV2(request);
             }
         };
-
         return Iterators.concat(Iterators.transform(listings, this::statusFromListing));
     }
 
