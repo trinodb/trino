@@ -20,6 +20,7 @@ import io.airlift.http.server.HttpServerConfig;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class ProxyModule
@@ -28,6 +29,7 @@ public class ProxyModule
     @Override
     public void configure(Binder binder)
     {
+        httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
             httpServerConfig.setAdminEnabled(false);
         });

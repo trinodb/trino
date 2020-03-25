@@ -22,10 +22,12 @@ import com.google.common.hash.HashFunction;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.proxy.ProxyResponseHandler.ProxyResponse;
+import io.prestosql.spi.QueryId;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -34,6 +36,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
@@ -125,6 +128,73 @@ public class ProxyResource
     {
         Request.Builder request = prepareGet()
                 .setUri(uriBuilderFrom(remoteUri).replacePath("/v1/info").build());
+
+        performRequest(servletRequest, asyncResponse, request, response ->
+                responseWithHeaders(Response.ok(response.getBody()), response));
+    }
+
+    @GET
+    @Path("/ui/api/cluster")
+    @Produces(APPLICATION_JSON)
+    public void getCluster(
+            @Context HttpServletRequest servletRequest,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        Request.Builder request = prepareGet()
+                .setUri(uriBuilderFrom(remoteUri).replacePath("/ui/api/cluster").build());
+
+        performRequest(servletRequest, asyncResponse, request, response ->
+                responseWithHeaders(Response.ok(response.getBody()), response));
+    }
+
+    @GET
+    @Path("/ui/api/stats")
+    @Produces(APPLICATION_JSON)
+    public void getStats(
+            @Context HttpServletRequest servletRequest,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        Request.Builder request = prepareGet()
+                .setUri(uriBuilderFrom(remoteUri).replacePath("/ui/api/stats").build());
+
+        performRequest(servletRequest, asyncResponse, request, response ->
+                responseWithHeaders(Response.ok(response.getBody()), response));
+    }
+
+    @GET
+    @Path("/ui/api/query")
+    @Produces(APPLICATION_JSON)
+    public void getQuery(
+            @QueryParam("state") String stateFilter,
+            @Context HttpServletRequest servletRequest,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        HttpUriBuilder uri = uriBuilderFrom(remoteUri)
+                .replacePath("/ui/api/query");
+        if (stateFilter != null) {
+            uri.addParameter("state", stateFilter);
+        }
+        Request.Builder request = prepareGet().setUri(uri.build());
+
+        performRequest(servletRequest, asyncResponse, request, response ->
+                responseWithHeaders(Response.ok(response.getBody()), response));
+    }
+
+    @GET
+    @Path("/ui/api/query/{queryId}")
+    @Produces(APPLICATION_JSON)
+    public void getQuery(
+            @QueryParam("pretty") String pretty,
+            @PathParam("queryId") QueryId queryId,
+            @Context HttpServletRequest servletRequest,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        Request.Builder request = prepareGet()
+                .setUri(uriBuilderFrom(remoteUri)
+                    .replacePath("/ui/api/query/")
+                    .appendPath(queryId.toString())
+                    .addParameter("pretty", pretty)
+                .build());
 
         performRequest(servletRequest, asyncResponse, request, response ->
                 responseWithHeaders(Response.ok(response.getBody()), response));
@@ -287,7 +357,9 @@ public class ProxyResource
         response.getHeaders().asMap().forEach((headerName, value) -> {
             String name = headerName.toString();
             if (isPrestoHeader(name) || name.equalsIgnoreCase(SET_COOKIE)) {
-                builder.header(name, value);
+                for (String v : value) {
+                    builder.header(name, v);
+                }
             }
         });
         return builder.build();
