@@ -360,6 +360,14 @@ public final class ValidateDependenciesChecker
                         allInputs);
             });
 
+            if (node.isCrossJoin()) {
+                Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
+                        .addAll(node.getLeft().getOutputSymbols())
+                        .addAll(node.getRight().getOutputSymbols())
+                        .build();
+                checkDependencies(node.getOutputSymbols(), inputs, "Cross join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), inputs);
+            }
+
             return null;
         }
 
