@@ -247,7 +247,7 @@ public class MongoSession
         FindIterable<Document> iterable = collection.find(buildQuery(tableHandle.getConstraint())).projection(output);
 	
         if (tableHandle.getLimit().isPresent()) {
-	    iterable.limit((int) hantableHandledle.getLimit().getAsLong());
+	    iterable.limit((int) tableHandle.getLimit().getAsLong());
 	}
 	
         if (cursorBatchSize != 0) {
