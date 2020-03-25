@@ -84,12 +84,17 @@ import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
+import io.prestosql.spi.connector.ProjectionApplicationResult.Assignment;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.connector.ViewNotFoundException;
+import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.FieldDereference;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.Range;
@@ -141,6 +146,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
@@ -2960,6 +2966,147 @@ public abstract class AbstractTestHive
         finally {
             dropTable(tableName);
         }
+    }
+
+    @Test
+    public void testApplyProjection()
+            throws Exception
+    {
+        ColumnMetadata bigIntColumn0 = new ColumnMetadata("int0", BIGINT);
+        ColumnMetadata bigIntColumn1 = new ColumnMetadata("int1", BIGINT);
+
+        RowType oneLevelRowType = toRowType(ImmutableList.of(bigIntColumn0, bigIntColumn1));
+        ColumnMetadata oneLevelRow0 = new ColumnMetadata("onelevelrow0", oneLevelRowType);
+
+        RowType twoLevelRowType = toRowType(ImmutableList.of(oneLevelRow0, bigIntColumn0, bigIntColumn1));
+        ColumnMetadata twoLevelRow0 = new ColumnMetadata("twolevelrow0", twoLevelRowType);
+
+        List<ColumnMetadata> columnsForApplyProjectionTest = ImmutableList.of(bigIntColumn0, bigIntColumn1, oneLevelRow0, twoLevelRow0);
+
+        SchemaTableName tableName = temporaryTable("apply_projection_tester");
+        doCreateEmptyTable(tableName, ORC, columnsForApplyProjectionTest);
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
+                    .filter(columnHandle -> !((HiveColumnHandle) columnHandle).isHidden())
+                    .collect(toList());
+            assertEquals(columnHandles.size(), columnsForApplyProjectionTest.size());
+
+            Map<String, ColumnHandle> columnHandleMap = columnHandles.stream()
+                    .collect(toImmutableMap(handle -> ((HiveColumnHandle) handle).getBaseColumnName(), Function.identity()));
+
+            // Emulate symbols coming from the query plan and map them to column handles
+            Map<String, ColumnHandle> columnHandlesWithSymbols = ImmutableMap.of(
+                    "symbol_0", columnHandleMap.get("int0"),
+                    "symbol_1", columnHandleMap.get("int1"),
+                    "symbol_2", columnHandleMap.get("onelevelrow0"),
+                    "symbol_3", columnHandleMap.get("twolevelrow0"));
+
+            // Create variables for the emulated symbols
+            Map<String, Variable> symbolVariableMapping = columnHandlesWithSymbols.entrySet().stream()
+                    .collect(toImmutableMap(
+                            e -> e.getKey(),
+                            e -> new Variable(
+                                    e.getKey(),
+                                    ((HiveColumnHandle) e.getValue()).getBaseType())));
+
+            // Create dereference expressions for testing
+            FieldDereference symbol2Field0 = new FieldDereference(BIGINT, symbolVariableMapping.get("symbol_2"), 0);
+            FieldDereference symbol3Field0 = new FieldDereference(oneLevelRowType, symbolVariableMapping.get("symbol_3"), 0);
+            FieldDereference symbol3Field0Field0 = new FieldDereference(BIGINT, symbol3Field0, 0);
+            FieldDereference symbol3Field1 = new FieldDereference(BIGINT, symbolVariableMapping.get("symbol_3"), 1);
+
+            Map<String, ColumnHandle> inputAssignments;
+            List<ConnectorExpression> inputProjections;
+            Optional<ProjectionApplicationResult<ConnectorTableHandle>> projectionResult;
+            List<ConnectorExpression> expectedProjections;
+            Map<String, Type> expectedAssignments;
+
+            // Test no projection pushdown in case of all variable references
+            inputAssignments = getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_0", "symbol_1"));
+            inputProjections = ImmutableList.of(symbolVariableMapping.get("symbol_0"), symbolVariableMapping.get("symbol_1"));
+            projectionResult = metadata.applyProjection(session, tableHandle, inputProjections, inputAssignments);
+            assertProjectionResult(projectionResult, true, ImmutableList.of(), ImmutableMap.of());
+
+            // Test projection pushdown for dereferences
+            inputAssignments = getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_2", "symbol_3"));
+            inputProjections = ImmutableList.of(symbol2Field0, symbol3Field0Field0, symbol3Field1);
+            expectedAssignments = ImmutableMap.of(
+                    "onelevelrow0#f_int0", BIGINT,
+                    "twolevelrow0#f_onelevelrow0#f_int0", BIGINT,
+                    "twolevelrow0#f_int0", BIGINT);
+            expectedProjections = ImmutableList.of(
+                    new Variable("onelevelrow0#f_int0", BIGINT),
+                    new Variable("twolevelrow0#f_onelevelrow0#f_int0", BIGINT),
+                    new Variable("twolevelrow0#f_int0", BIGINT));
+            projectionResult = metadata.applyProjection(session, tableHandle, inputProjections, inputAssignments);
+            assertProjectionResult(projectionResult, false, expectedProjections, expectedAssignments);
+
+            // Test reuse of virtual column handles
+            // Round-1: input projections [symbol_2, symbol_2.int0]. virtual handle is created for symbol_2.int0.
+            inputAssignments = getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_2"));
+            inputProjections = ImmutableList.of(symbol2Field0, symbolVariableMapping.get("symbol_2"));
+            projectionResult = metadata.applyProjection(session, tableHandle, inputProjections, inputAssignments);
+            expectedProjections = ImmutableList.of(new Variable("onelevelrow0#f_int0", BIGINT), symbolVariableMapping.get("symbol_2"));
+            expectedAssignments = ImmutableMap.of("onelevelrow0#f_int0", BIGINT, "symbol_2", oneLevelRowType);
+            assertProjectionResult(projectionResult, false, expectedProjections, expectedAssignments);
+
+            // Round-2: input projections [symbol_2.int0 and onelevelrow0#f_int0]. Virtual handle is reused.
+            ProjectionApplicationResult.Assignment newlyCreatedColumn = getOnlyElement(projectionResult.get().getAssignments().stream()
+                    .filter(handle -> handle.getVariable().equals("onelevelrow0#f_int0"))
+                    .collect(toList()));
+            inputAssignments = ImmutableMap.<String, ColumnHandle>builder()
+                    .putAll(getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_2")))
+                    .put(newlyCreatedColumn.getVariable(), newlyCreatedColumn.getColumn())
+                    .build();
+            inputProjections = ImmutableList.of(symbol2Field0, new Variable("onelevelrow0#f_int0", BIGINT));
+            projectionResult = metadata.applyProjection(session, tableHandle, inputProjections, inputAssignments);
+            expectedProjections = ImmutableList.of(new Variable("onelevelrow0#f_int0", BIGINT), new Variable("onelevelrow0#f_int0", BIGINT));
+            expectedAssignments = ImmutableMap.of("onelevelrow0#f_int0", BIGINT);
+            assertProjectionResult(projectionResult, false, expectedProjections, expectedAssignments);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private static Map<String, ColumnHandle> getColumnHandlesFor(Map<String, ColumnHandle> columnHandles, List<String> symbols)
+    {
+        return columnHandles.entrySet().stream()
+                .filter(e -> symbols.contains(e.getKey()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private static void assertProjectionResult(Optional<ProjectionApplicationResult<ConnectorTableHandle>> projectionResult, boolean shouldBeEmpty, List<ConnectorExpression> expectedProjections, Map<String, Type> expectedAssignments)
+    {
+        if (shouldBeEmpty) {
+            assertTrue(!projectionResult.isPresent(), "expected projectionResult to be empty");
+            return;
+        }
+
+        assertTrue(projectionResult.isPresent(), "expected non-empty projection result");
+
+        ProjectionApplicationResult result = projectionResult.get();
+
+        // Verify projections
+        assertEquals(expectedProjections, result.getProjections());
+
+        // Verify assignments
+        List<Assignment> assignments = result.getAssignments();
+        Map<String, Assignment> actualAssignments = uniqueIndex(assignments, Assignment::getVariable);
+
+        for (String variable : expectedAssignments.keySet()) {
+            Type expectedType = expectedAssignments.get(variable);
+            assertTrue(actualAssignments.containsKey(variable));
+            assertEquals(actualAssignments.get(variable).getType(), expectedType);
+            assertEquals(((HiveColumnHandle) actualAssignments.get(variable).getColumn()).getType(), expectedType);
+        }
+
+        assertEquals(actualAssignments.size(), expectedAssignments.size());
     }
 
     private ConnectorSession sampleSize(int sampleSize)
