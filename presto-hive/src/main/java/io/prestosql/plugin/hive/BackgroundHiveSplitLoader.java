@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.plugin.hive.util.HiveFileIterator;
@@ -308,6 +309,7 @@ public class BackgroundHiveSplitLoader
         TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transform(HiveColumnHandle.class::cast);
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
+        hdfsEnvironment.getConfiguration(hdfsContext, path).setBoolean(PrestoS3FileSystem.S3_USE_PSEUDO_DIRECTORIES, !recursiveDirWalkerEnabled);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
         FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
@@ -509,7 +511,8 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
-        return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions))
+        return Streams.stream(
+            new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, (recursiveDirWalkerEnabled && !(fileSystem instanceof PrestoS3FileSystem)) ? RECURSE : IGNORED, ignoreAbsentPartitions))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable, deleteDeltaLocations))
                 .filter(Optional::isPresent)
                 .map(Optional::get)

@@ -249,7 +249,7 @@ public class PrestoS3FileSystem
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
-        this.usePseudoDirectories = conf.getBoolean(S3_USE_PSEUDO_DIRECTORIES, defaults.isUsePseudoDirectories());
+        this.usePseudoDirectories = conf.getBoolean(S3_USE_PSEUDO_DIRECTORIES, true);
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
