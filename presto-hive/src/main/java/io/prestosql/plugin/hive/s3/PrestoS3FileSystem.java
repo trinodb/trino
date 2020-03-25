@@ -537,7 +537,6 @@ public class PrestoS3FileSystem
 
         STATS.newListObjectsCall();
         ListObjectsV2Result listObjectsV2 = s3.listObjectsV2(request);
-        log.debug(listObjectsV2.getObjectSummaries().toString());
         Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<ListObjectsV2Result>(listObjectsV2)
         {
             @Override
