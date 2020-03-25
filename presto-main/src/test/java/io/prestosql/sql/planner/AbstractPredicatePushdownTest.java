@@ -61,7 +61,6 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan(
                 "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
-                disableDynamicFiltering(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 anyTree(
@@ -469,7 +468,6 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan(
                 "SELECT * FROM orders, nation WHERE orderstatus = CAST(nation.name AS varchar(1)) AND orderstatus BETWEEN 'A' AND 'O'",
-                disableDynamicFiltering(),
                 anyTree(
                         node(JoinNode.class,
                                 anyTree(
@@ -481,12 +479,5 @@ public abstract class AbstractPredicatePushdownTest
                                         tableScan(
                                                 "orders",
                                                 ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
-    }
-
-    private Session disableDynamicFiltering()
-    {
-        return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                .build();
     }
 }
