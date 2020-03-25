@@ -494,7 +494,8 @@ public class MongoSession
         String tableName = schemaTableName.getTableName();
 
         MongoDatabase db = client.getDatabase(schemaName);
-        if (!collectionExists(db, tableName)) {
+        if (!collectionExists(db, tableName) &&
+                db.getCollection(schemaCollection).find(new Document(TABLE_NAME_KEY, tableName)).first().isEmpty()) {
             return false;
         }
 
