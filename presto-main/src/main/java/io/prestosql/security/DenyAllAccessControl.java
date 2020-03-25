@@ -340,7 +340,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(SecurityContext context, String catalogName, PrestoPrincipal principal)
     {
         denyShowRoleGrants(catalogName);
     }

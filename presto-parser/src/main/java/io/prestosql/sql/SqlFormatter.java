@@ -1392,6 +1392,11 @@ public final class SqlFormatter
                         .append(node.getCatalog().get());
             }
 
+            if (node.getPrincipal().isPresent()) {
+                builder.append(" TO ")
+                    .append(formatPrincipal(node.getPrincipal().get()));
+            }
+
             return null;
         }
 

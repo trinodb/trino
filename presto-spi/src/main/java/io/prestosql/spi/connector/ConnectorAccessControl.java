@@ -393,7 +393,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName, PrestoPrincipal principal)
     {
         denyShowRoleGrants(catalogName);
     }

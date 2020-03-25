@@ -66,6 +66,7 @@ import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
 import io.prestosql.sql.tree.ShowFunctions;
 import io.prestosql.sql.tree.ShowGrants;
+import io.prestosql.sql.tree.ShowPrincipals;
 import io.prestosql.sql.tree.ShowRoleGrants;
 import io.prestosql.sql.tree.ShowRoles;
 import io.prestosql.sql.tree.ShowSchemas;
@@ -95,6 +96,7 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.TA
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
+import static io.prestosql.metadata.MetadataUtil.createPrincipal;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -102,6 +104,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -269,6 +272,26 @@ final class ShowQueriesRewrite
         }
 
         @Override
+        protected Node visitShowPrincipals(ShowPrincipals node, Void context)
+        {
+            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+            }
+
+            /*
+            -- WIP: something like this:
+            accessControl.checkCanShowPrincipals(session.toSecurityContext(), catalog, ...);
+            List<Expression> rows = metadata.listPrincipals(session, catalog, role).stream()
+                    .map(principal -> row(new StringLiteral(principal.getType(), new StringLiteral(principal.getName())))
+                    .collect(toList());
+             */
+            return simpleQuery(
+                    selectList(new AllColumns()),
+                    aliased(new Values(Collections.singletonList(new StringLiteral("Not yet implemented"))), "principals", ImmutableList.of("Principals")),
+                    ordering(ascending("Principals")));
+        }
+
+        @Override
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
             if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
@@ -299,17 +322,36 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
-            PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
+            PrestoPrincipal principal = getCreatePrincipal(node, catalog);
 
-            accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);
+            accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog, principal);
             List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
                     .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
                     .collect(toList());
+
+            if (rows.isEmpty()) {
+                rows = ImmutableList.of(new StringLiteral(""));
+            }
 
             return simpleQuery(
                     selectList(new AllColumns()),
                     aliased(new Values(rows), "role_grants", ImmutableList.of("Role Grants")),
                     ordering(ascending("Role Grants")));
+        }
+
+        private PrestoPrincipal getCreatePrincipal(ShowRoleGrants statement, String catalog)
+        {
+            if (statement.getPrincipal().isPresent()) {
+                PrestoPrincipal principal = createPrincipal(statement.getPrincipal().get());
+                if (principal.getType() == PrincipalType.ROLE
+                        && !metadata.listRoles(session, catalog).contains(principal.getName())) {
+                    throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
+                }
+                return principal;
+            }
+            else {
+                return new PrestoPrincipal(PrincipalType.USER, session.getUser());
+            }
         }
 
         @Override

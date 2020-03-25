@@ -754,14 +754,15 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanShowRoleGrants(SecurityContext securityContext, String catalogName)
+    public void checkCanShowRoleGrants(SecurityContext securityContext, String catalogName, PrestoPrincipal principal)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(principal, "principal is null");
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleGrants(context, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleGrants(context, catalogName, principal));
     }
 
     @Override

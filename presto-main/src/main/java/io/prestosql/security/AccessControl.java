@@ -349,7 +349,7 @@ public interface AccessControl
      * Check if identity is allowed to show its own role grants on the specified catalog.
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowRoleGrants(SecurityContext context, String catalogName);
+    void checkCanShowRoleGrants(SecurityContext context, String catalogName, PrestoPrincipal principal);
 
     /**
      * Check if identity is allowed to execute procedure

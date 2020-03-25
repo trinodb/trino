@@ -20,34 +20,28 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
-public class ShowRoleGrants
+public class ShowPrincipals
         extends Statement
 {
+    private final Identifier role;
     private final Optional<Identifier> catalog;
-    private final Optional<PrincipalSpecification> principal;
 
-    public ShowRoleGrants(Optional<Identifier> catalog)
+    public ShowPrincipals(NodeLocation location, Identifier role, Optional<Identifier> catalog)
     {
-        this(Optional.empty(), catalog);
+        this(Optional.of(location), role, catalog);
     }
 
-    public ShowRoleGrants(NodeLocation location, Optional<Identifier> catalog, Optional<PrincipalSpecification> principal)
-    {
-        this(Optional.of(location), catalog, principal);
-    }
-
-    public ShowRoleGrants(Optional<NodeLocation> location, Optional<Identifier> catalog)
-    {
-        this(location, catalog, Optional.empty());
-    }
-
-    public ShowRoleGrants(Optional<NodeLocation> location, Optional<Identifier> catalog, Optional<PrincipalSpecification> principal)
+    public ShowPrincipals(Optional<NodeLocation> location, Identifier role, Optional<Identifier> catalog)
     {
         super(location);
-        this.catalog = requireNonNull(catalog, "catalog is null");
-        this.principal = requireNonNull(principal, "principal is null");
+        this.role = role;
+        this.catalog = catalog;
+    }
+
+    public Identifier getRole()
+    {
+        return role;
     }
 
     public Optional<Identifier> getCatalog()
@@ -55,27 +49,22 @@ public class ShowRoleGrants
         return catalog;
     }
 
-    public Optional<PrincipalSpecification> getPrincipal()
-    {
-        return principal;
-    }
-
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowRoleGrants(this, context);
-    }
-
-    @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
         return ImmutableList.of();
     }
 
     @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitShowPrincipals(this, context);
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hash(catalog);
+        return Objects.hash(role);
     }
 
     @Override
@@ -87,15 +76,15 @@ public class ShowRoleGrants
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        ShowRoleGrants o = (ShowRoleGrants) obj;
-        return Objects.equals(catalog, o.catalog);
+        ShowPrincipals o = (ShowPrincipals) obj;
+        return Objects.equals(role, o.role);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("catalog", catalog)
+                .add("role", role)
                 .toString();
     }
 }

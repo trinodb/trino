@@ -82,6 +82,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -402,8 +403,26 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName, PrestoPrincipal principal)
     {
+        if (isAdmin(context)) {
+            return;
+        }
+
+        // Follow what Hive is doing:
+        //   users can find out about themselves...
+        ConnectorIdentity identity = context.getIdentity();
+        if (principal.getType() == USER && identity.getUser().equals(principal.getName())) {
+            return;
+        }
+
+        //   ... and about roles granted to them (but not necessary enabled)
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
+        if (principal.getType() == ROLE && isRoleApplicable(metastore, HivePrincipal.from(identity), principal.getName())) {
+            return;
+        }
+
+        denyShowRoleGrants(catalogName);
     }
 
     @Override

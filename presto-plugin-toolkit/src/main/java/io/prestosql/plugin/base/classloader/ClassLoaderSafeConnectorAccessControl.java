@@ -326,10 +326,10 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName, PrestoPrincipal principal)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanShowRoleGrants(context, catalogName);
+            delegate.checkCanShowRoleGrants(context, catalogName, principal);
         }
     }
 

@@ -195,7 +195,7 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName, PrestoPrincipal principal)
     {
         // allow
     }

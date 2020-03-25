@@ -152,6 +152,7 @@ import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
 import io.prestosql.sql.tree.ShowFunctions;
 import io.prestosql.sql.tree.ShowGrants;
+import io.prestosql.sql.tree.ShowPrincipals;
 import io.prestosql.sql.tree.ShowRoleGrants;
 import io.prestosql.sql.tree.ShowRoles;
 import io.prestosql.sql.tree.ShowSchemas;
@@ -1044,6 +1045,15 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowPrincipals(SqlBaseParser.ShowPrincipalsContext context)
+    {
+        return new ShowPrincipals(
+                getLocation(context),
+                (Identifier) visit(context.role),
+                getIdentifierIfPresent(context.catalog));
+    }
+
+    @Override
     public Node visitShowRoles(SqlBaseParser.ShowRolesContext context)
     {
         return new ShowRoles(
@@ -1057,7 +1067,8 @@ class AstBuilder
     {
         return new ShowRoleGrants(
                 getLocation(context),
-                getIdentifierIfPresent(context.identifier()));
+                getIdentifierIfPresent(context.identifier()),
+                getPrincipalSpecificationIfPresent(context.principal()));
     }
 
     @Override
@@ -2432,6 +2443,11 @@ class AstBuilder
         else {
             throw new IllegalArgumentException("Unsupported grantor: " + context);
         }
+    }
+
+    private Optional<PrincipalSpecification> getPrincipalSpecificationIfPresent(SqlBaseParser.PrincipalContext context)
+    {
+        return Optional.ofNullable(context).map(c -> getPrincipalSpecification(c));
     }
 
     private PrincipalSpecification getPrincipalSpecification(SqlBaseParser.PrincipalContext context)

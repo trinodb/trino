@@ -316,9 +316,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(SecurityContext context, String catalogName, PrestoPrincipal principal)
     {
-        delegate().checkCanShowRoleGrants(context, catalogName);
+        delegate().checkCanShowRoleGrants(context, catalogName, principal);
     }
 
     @Override

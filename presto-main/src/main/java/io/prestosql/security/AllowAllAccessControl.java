@@ -256,7 +256,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(SecurityContext context, String catalogName, PrestoPrincipal principal)
     {
     }
 
