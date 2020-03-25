@@ -1,6 +1,9 @@
 name: product-tests
 
-on: [push, pull_request]
+on:
+  pull_request:
+    branches:
+    - master
 
 env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
