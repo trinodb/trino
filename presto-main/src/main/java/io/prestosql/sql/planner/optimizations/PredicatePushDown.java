@@ -407,7 +407,6 @@ public class PredicatePushDown
             switch (node.getType()) {
                 case INNER:
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
-                            metadata,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -421,7 +420,6 @@ public class PredicatePushDown
                     break;
                 case LEFT:
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
-                            metadata,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -435,7 +433,6 @@ public class PredicatePushDown
                     break;
                 case RIGHT:
                     OuterJoinPushDownResult rightOuterJoinPushDownResult = processLimitedOuterJoin(
-                            metadata,
                             inheritedPredicate,
                             rightEffectivePredicate,
                             leftEffectivePredicate,
@@ -637,7 +634,6 @@ public class PredicatePushDown
             switch (node.getType()) {
                 case INNER:
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
-                            metadata,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -651,7 +647,6 @@ public class PredicatePushDown
                     break;
                 case LEFT:
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
-                            metadata,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -719,8 +714,7 @@ public class PredicatePushDown
             return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression));
         }
 
-        private static OuterJoinPushDownResult processLimitedOuterJoin(
-                Metadata metadata,
+        private OuterJoinPushDownResult processLimitedOuterJoin(
                 Expression inheritedPredicate,
                 Expression outerEffectivePredicate,
                 Expression innerEffectivePredicate,
@@ -855,8 +849,7 @@ public class PredicatePushDown
             }
         }
 
-        private static InnerJoinPushDownResult processInnerJoin(
-                Metadata metadata,
+        private InnerJoinPushDownResult processInnerJoin(
                 Expression inheritedPredicate,
                 Expression leftEffectivePredicate,
                 Expression rightEffectivePredicate,
