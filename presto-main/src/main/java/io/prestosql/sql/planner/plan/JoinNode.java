@@ -112,13 +112,6 @@ public class JoinNode
         checkArgument(leftSymbols.containsAll(leftOutputSymbols), "Left source inputs do not contain all left output symbols");
         checkArgument(rightSymbols.containsAll(rightOutputSymbols), "Right source inputs do not contain all right output symbols");
 
-        if (isCrossJoin()) {
-            checkArgument(
-                    ImmutableSet.copyOf(leftOutputSymbols).containsAll(leftSymbols) &&
-                            ImmutableSet.copyOf(rightOutputSymbols).containsAll(rightSymbols),
-                    "Cross join does not support output symbols pruning");
-        }
-
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
 
