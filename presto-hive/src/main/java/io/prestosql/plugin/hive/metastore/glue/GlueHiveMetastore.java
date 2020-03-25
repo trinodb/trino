@@ -21,6 +21,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
@@ -112,6 +113,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -182,8 +184,13 @@ public class GlueHiveMetastore
         ClientConfiguration clientConfig = new ClientConfiguration().withMaxConnections(config.getMaxGlueConnections());
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
                 .withClientConfiguration(clientConfig);
-
-        if (config.getGlueRegion().isPresent()) {
+        if (config.getGlueEndpointUrl().isPresent()) {
+            checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
+            asyncGlueClientBuilder.setEndpointConfiguration(new EndpointConfiguration(
+                    config.getGlueEndpointUrl().get(),
+                    config.getGlueRegion().get()));
+        }
+        else if (config.getGlueRegion().isPresent()) {
             asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {

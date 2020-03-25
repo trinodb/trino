@@ -25,6 +25,7 @@ import java.util.Optional;
 public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
+    private Optional<String> glueEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
@@ -47,6 +48,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGlueRegion(String region)
     {
         this.glueRegion = Optional.ofNullable(region);
+        return this;
+    }
+
+    public Optional<String> getGlueEndpointUrl()
+    {
+        return glueEndpointUrl;
+    }
+
+    @Config("hive.metastore.glue.endpoint-url")
+    @ConfigDescription("Glue API endpoint URL")
+    public GlueHiveMetastoreConfig setGlueEndpointUrl(String glueEndpointUrl)
+    {
+        this.glueEndpointUrl = Optional.ofNullable(glueEndpointUrl);
         return this;
     }
 
