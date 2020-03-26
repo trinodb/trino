@@ -126,6 +126,7 @@ public class QueryMonitor
                                 queryInfo.getPreparedQuery(),
                                 QUEUED.toString(),
                                 ImmutableList.of(),
+                                ImmutableList.of(),
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty())));
@@ -140,6 +141,7 @@ public class QueryMonitor
                         queryInfo.getQuery(),
                         queryInfo.getPreparedQuery(),
                         queryInfo.getState().toString(),
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         queryInfo.getSelf(),
                         Optional.empty(),
@@ -210,6 +212,7 @@ public class QueryMonitor
                 queryInfo.getPreparedQuery(),
                 queryInfo.getState().toString(),
                 queryInfo.getReferencedTables(),
+                queryInfo.getRoutines(),
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
                 queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
