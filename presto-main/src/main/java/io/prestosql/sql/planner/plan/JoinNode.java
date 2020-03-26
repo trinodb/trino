@@ -132,7 +132,7 @@ public class JoinNode
                     distributionType.get());
             // It does not make sense to PARTITION when there is nothing to partition on
             checkArgument(
-                    !(distributionType.get() == PARTITIONED && criteria.isEmpty() && type != RIGHT && type != FULL),
+                    !criteria.isEmpty() || !requiresEquiJoinClauses(distributionType.get(), type),
                     "Equi criteria are empty, so %s join should not have %s distribution type",
                     type,
                     distributionType.get());
@@ -141,6 +141,11 @@ public class JoinNode
         for (Symbol symbol : dynamicFilters.values()) {
             checkArgument(rightSymbols.contains(symbol), "Right join input doesn't contain symbol for dynamic filter: %s", symbol);
         }
+    }
+
+    public static boolean requiresEquiJoinClauses(DistributionType distributionType, Type type)
+    {
+        return distributionType == PARTITIONED && type != RIGHT && type != FULL;
     }
 
     public JoinNode flipChildren()

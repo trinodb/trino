@@ -498,6 +498,13 @@ public class PredicatePushDown
                 }
             }
 
+            if (node.getDistributionType().isPresent()
+                    && JoinNode.requiresEquiJoinClauses(node.getDistributionType().get(), node.getType())
+                    && equiJoinClauses.isEmpty()) {
+                verify(!node.getCriteria().isEmpty(), "Original criteria was empty");
+                equiJoinClauses.add(node.getCriteria().get(0));
+            }
+
             DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, session, idAllocator);
             Map<String, Symbol> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
             leftPredicate = combineConjuncts(metadata, leftPredicate, combineConjuncts(metadata, dynamicFiltersResult.getPredicates()));
