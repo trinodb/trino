@@ -249,7 +249,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+            Object fieldValue = getPrimitiveObjectValue(column, fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
             booleans[column] = (Boolean) fieldValue;
             nulls[column] = false;
@@ -278,10 +278,15 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
-            checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
-            nulls[column] = false;
+            try {
+                Object fieldValue = getPrimitiveObjectValue(column, fieldData);
+                checkState(fieldValue != null, "fieldValue should not be null");
+                longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
+                nulls[column] = false;
+            }
+            catch (IllegalArgumentException e) {
+                throw new PrestoException(HIVE_BAD_DATA, String.format("Error parsing field value '%s' for field %s: %s", fieldData, column, e.getMessage()), e);
+            }
         }
     }
 
@@ -338,7 +343,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+            Object fieldValue = getPrimitiveObjectValue(column, fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
             doubles[column] = ((Number) fieldValue).doubleValue();
             nulls[column] = false;
@@ -367,7 +372,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveWritableObject(fieldData);
+            Object fieldValue = getPrimitiveObjectValue(column, fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
             BinaryComparable hiveValue;
             if (fieldValue instanceof Text) {
@@ -383,7 +388,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
                 hiveValue = ((HiveCharWritable) fieldValue).getTextValue();
             }
             else {
-                throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
+                throw new PrestoException(HIVE_BAD_DATA, String.format("unsupported string field type '%s' for field %s", fieldValue.getClass().getName(), column));
             }
 
             // create a slice view over the hive value and trim to character limits
@@ -412,7 +417,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+            Object fieldValue = getPrimitiveObjectValue(column, fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
 
             HiveDecimal decimal = (HiveDecimal) fieldValue;
@@ -514,11 +519,21 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         }
     }
 
+    private Object getPrimitiveObjectValue(int column, Object fieldData)
+    {
+        try {
+            return ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(HIVE_BAD_DATA, String.format("Error parsing field value '%s' for field %s: %s", fieldData, column, e.getMessage()), e);
+        }
+    }
+
     private void validateType(int fieldId, Class<?> type)
     {
         if (!types[fieldId].getJavaType().equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
+            throw new PrestoException(HIVE_BAD_DATA, String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }
     }
 
