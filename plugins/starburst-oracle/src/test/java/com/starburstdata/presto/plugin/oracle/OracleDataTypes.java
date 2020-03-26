@@ -1,0 +1,333 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.starburstdata.presto.plugin.oracle;
+
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.tests.datatype.DataType;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.tests.datatype.DataType.stringDataType;
+import static java.lang.Math.max;
+import static java.lang.String.format;
+
+public final class OracleDataTypes
+{
+    private OracleDataTypes() {}
+
+    // Oracle data type limits
+    public static final int MAX_CHAR = 2000;
+    public static final int MAX_VARCHAR2 = 4000;
+    public static final int MAX_NCHAR = 1000;
+    public static final int MAX_NVARCHAR2 = 2000;
+
+    public enum CharacterSemantics
+    {
+        BYTE,
+        CHAR,
+    }
+
+    /* Binary types */
+
+    public static DataType<byte[]> blobDataType()
+    {
+        return dataType("blob", VarbinaryType.VARBINARY,
+                // hextoraw('') is NULL, but you can create an empty BLOB directly
+                bytes -> bytes.length == 0
+                        ? "empty_blob()"
+                        : format("hextoraw('%s')", base16().encode(bytes)));
+    }
+
+    public static DataType<byte[]> rawDataType(int size)
+    {
+        return dataType(format("raw(%d)", size), VarbinaryType.VARBINARY,
+                bytes -> format("hextoraw('%s')", base16().encode(bytes)));
+    }
+
+    /* Character LOBs */
+
+    public static DataType<String> clobDataType()
+    {
+        return dataType("clob", createUnboundedVarcharType(),
+                s -> s.isEmpty() ? "empty_clob()" : format("'%s'", s.replace("'", "''")));
+    }
+
+    public static DataType<String> nclobDataType()
+    {
+        return dataType("nclob", createUnboundedVarcharType(),
+                s -> s.isEmpty() ? "empty_clob()" : format("'%s'", s.replace("'", "''")));
+    }
+
+    public static DataType<String> tooLargeVarcharDataType()
+    {
+        return stringDataType(format("varchar(%d)", MAX_VARCHAR2 + 1),
+                createUnboundedVarcharType());
+    }
+
+    public static DataType<String> tooLargeCharDataType()
+    {
+        return stringDataType(format("char(%d)", MAX_CHAR + 1),
+                createUnboundedVarcharType());
+        // Creating an NCLOB column with a too-large CHAR does not include
+        // trailing spaces, so these values do not need to be padded.
+    }
+
+    /* Character types */
+
+    public static DataType<String> varchar2DataType(int length, CharacterSemantics semantics)
+    {
+        return stringDataType(format("varchar2(%d %s)", length, semantics), createVarcharType(length));
+    }
+
+    public static DataType<String> nvarchar2DataType(int length)
+    {
+        return stringDataType(format("nvarchar2(%d)", length), createVarcharType(length));
+    }
+
+    public static DataType<String> charDataType(int length, CharacterSemantics semantics)
+    {
+        return DataType.charDataType(format("char(%d %s)", length, semantics), length);
+    }
+
+    public static DataType<String> ncharDataType(int length)
+    {
+        return DataType.charDataType(format("nchar(%d)", length), length);
+    }
+
+    // Easier access to character types without specified length
+
+    public static IntFunction<DataType<String>> varchar2DataType(CharacterSemantics semantics)
+    {
+        return length -> varchar2DataType(length, semantics);
+    }
+
+    public static IntFunction<DataType<String>> nvarchar2DataType()
+    {
+        return OracleDataTypes::nvarchar2DataType;
+    }
+
+    public static IntFunction<DataType<String>> charDataType(CharacterSemantics semantics)
+    {
+        return length -> charDataType(length, semantics);
+    }
+
+    public static IntFunction<DataType<String>> ncharDataType()
+    {
+        return OracleDataTypes::ncharDataType;
+    }
+
+    /* Datetime types */
+
+    public static DataType<LocalDate> dateDataType()
+    {
+        return dataType("DATE", TimestampType.TIMESTAMP,
+                DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
+                LocalDate::atStartOfDay);
+    }
+
+    public static DataType<LocalDateTime> prestoTimestampDataType()
+    {
+        return dataType("TIMESTAMP", TimestampType.TIMESTAMP,
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS''")::format);
+    }
+
+    public static DataType<LocalDateTime> oracleTimestamp3DataType()
+    {
+        return dataType("TIMESTAMP(3)", TimestampType.TIMESTAMP,
+                DateTimeFormatter.ofPattern("'to_timestamp('" +
+                        "''yyyy-MM-dd HH:mm:ss.SSS''" +
+                        "', ''YYYY-MM-DD HH24:MI:SS.FF3'')'")::format);
+    }
+
+    public static DataType<ZonedDateTime> prestoTimestampTimeZoneDataType()
+    {
+        return dataType("TIMESTAMP WITH TIME ZONE", TIMESTAMP_WITH_TIME_ZONE,
+                DateTimeFormatter.ofPattern("'TIMESTAMP'''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
+                // Normalize to UTC instead of Z.
+                zdt -> zdt.withZoneSameInstant(
+                        ZoneId.of(zdt.getZone().normalized().getId(),
+                                ImmutableMap.of("Z", "UTC"))));
+    }
+
+    public static DataType<ZonedDateTime> oracleTimestamp3TimeZoneDataType()
+    {
+        return dataType("TIMESTAMP(3) WITH TIME ZONE", TIMESTAMP_WITH_TIME_ZONE,
+                DateTimeFormatter.ofPattern("'to_timestamp_tz('" +
+                        "''yyyy-MM-dd HH:mm:ss.SSS VV''" +
+                        "', ''YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM'')'")::format,
+                // Normalize to UTC instead of Z.
+                zdt -> zdt.withZoneSameInstant(
+                        ZoneId.of(zdt.getZone().normalized().getId(),
+                                ImmutableMap.of("Z", "UTC"))));
+    }
+
+    /* Fixed-point numeric types */
+
+    public static DataType<BigDecimal> unspecifiedNumberDataType(int expectedScaleInPresto)
+    {
+        return numberDataType(38, expectedScaleInPresto, "number");
+    }
+
+    public static DataType<BigDecimal> numberDataType(int precision)
+    {
+        return numberDataType(precision, 0, format("number(%d)", precision));
+    }
+
+    /**
+     * Create a number type using the same transformation as
+     * OracleClient.toPrestoType to handle negative scale.
+     */
+    public static DataType<BigDecimal> numberDataType(int precision, int scale)
+    {
+        return numberDataType(precision, scale, format("number(%d, %d)", precision, scale));
+    }
+
+    private static DataType<BigDecimal> numberDataType(int precision, int scale, String oracleInsertType)
+    {
+        int prestoPrecision = precision + max(-scale, 0);
+        int prestoScale = max(scale, 0);
+        return dataType(
+                oracleInsertType,
+                createDecimalType(prestoPrecision, prestoScale),
+                BigDecimal::toString,
+                // Round to Oracle's scale if necessary, then return to the scale Presto will use.
+                i -> i.setScale(scale, RoundingMode.HALF_UP).setScale(prestoScale));
+    }
+
+    public static DataType<Long> integerDataType(String name, int precision)
+    {
+        return dataType(name, createDecimalType(precision), Object::toString, BigDecimal::valueOf);
+    }
+
+    /* Floating point types */
+
+    public static DataType<Double> binaryDoubleDataType()
+    {
+        return dataType("binary_double", DoubleType.DOUBLE,
+                d -> {
+                    if (Double.isFinite(d)) {
+                        return d.toString();
+                    }
+                    else if (Double.isNaN(d)) {
+                        return "binary_double_nan";
+                    }
+                    else {
+                        return format("%sbinary_double_infinity", d > 0 ? "+" : "-");
+                    }
+                });
+    }
+
+    public static DataType<Float> binaryFloatDataType()
+    {
+        return dataType("binary_float", RealType.REAL,
+                f -> {
+                    if (Float.isFinite(f)) {
+                        return f.toString();
+                    }
+                    else if (Float.isNaN(f)) {
+                        return "binary_float_nan";
+                    }
+                    else {
+                        return format("%sbinary_float_infinity", f > 0 ? "+" : "-");
+                    }
+                });
+    }
+
+    public static DataType<Double> doubleDataType()
+    {
+        return dataType("double", DoubleType.DOUBLE,
+                d -> {
+                    if (Double.isFinite(d)) {
+                        return d.toString();
+                    }
+                    else if (Double.isNaN(d)) {
+                        return "nan()";
+                    }
+                    else {
+                        return format("%sinfinity()", d > 0 ? "+" : "-");
+                    }
+                });
+    }
+
+    public static DataType<Float> realDataType()
+    {
+        return dataType("real", RealType.REAL,
+                f -> {
+                    if (Float.isFinite(f)) {
+                        return f.toString();
+                    }
+                    else if (Float.isNaN(f)) {
+                        return "nan()";
+                    }
+                    else {
+                        return format("%sinfinity()", f > 0 ? "+" : "-");
+                    }
+                });
+    }
+
+    public static DataType<Double> oracleFloatDataType()
+    {
+        return oracleFloatDataType(Optional.empty());
+    }
+
+    public static DataType<Double> oracleFloatDataType(int precision)
+    {
+        return oracleFloatDataType(Optional.of(precision));
+    }
+
+    public static DataType<Double> oracleFloatDataType(Optional<Integer> precision)
+    {
+        String insertType = "float" + (precision.isPresent() ? format("(%s)", precision.get()) : "");
+        return dataType(insertType, DoubleType.DOUBLE,
+                d -> {
+                    // we don't support infinity since is has no representation in Oracle's FLOAT type
+                    checkArgument(Double.isFinite(d), "Invalid value: %s", d);
+                    return d.toString();
+                });
+    }
+
+    /* Utility */
+
+    private static <T> DataType<T> dataType(String insertType, Type prestoResultType,
+            Function<T, String> toLiteral, Function<T, ?> toPrestoQueryResult)
+    {
+        return DataType.dataType(insertType, prestoResultType, toLiteral, toPrestoQueryResult);
+    }
+
+    private static <T> DataType<T> dataType(String insertType, Type prestoResultType,
+            Function<T, String> toLiteral)
+    {
+        return dataType(insertType, prestoResultType, toLiteral, Function.identity());
+    }
+}

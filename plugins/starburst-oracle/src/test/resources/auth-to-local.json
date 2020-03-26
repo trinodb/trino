@@ -1,0 +1,10 @@
+{
+  "rules": [
+    {
+      "match": "USER",
+      "case": "LOWER",
+      "pattern": "([^/]*)(/.*)?@company.com",
+      "substitution": "$1"
+    }
+  ]
+}
