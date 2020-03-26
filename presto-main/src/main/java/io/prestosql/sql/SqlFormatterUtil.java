@@ -37,7 +37,7 @@ public final class SqlFormatterUtil
             parsed = sqlParser.createStatement(sql, parsingOptions);
         }
         catch (ParsingException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Formatted query does not parse: " + statement);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Formatted query does not parse: " + statement, e);
         }
         if (!statement.equals(parsed)) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Query does not round-trip: " + statement);
