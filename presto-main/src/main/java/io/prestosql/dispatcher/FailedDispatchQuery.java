@@ -227,6 +227,7 @@ public class FailedDispatchQuery
                 ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 true,
                 resourceGroupId);
 

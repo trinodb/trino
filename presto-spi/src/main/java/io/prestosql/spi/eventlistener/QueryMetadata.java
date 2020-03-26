@@ -33,6 +33,7 @@ public class QueryMetadata
     private final URI uri;
 
     private final List<TableInfo> tables;
+    private final List<RoutineInfo> routines;
 
     private final Optional<String> plan;
 
@@ -45,6 +46,7 @@ public class QueryMetadata
             Optional<String> preparedQuery,
             String queryState,
             List<TableInfo> tables,
+            List<RoutineInfo> routines,
             URI uri,
             Optional<String> plan,
             Optional<String> payload)
@@ -55,6 +57,7 @@ public class QueryMetadata
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryState = requireNonNull(queryState, "queryState is null");
         this.tables = requireNonNull(tables, "tables is null");
+        this.routines = requireNonNull(routines, "routines is null");
         this.uri = requireNonNull(uri, "uri is null");
         this.plan = requireNonNull(plan, "plan is null");
         this.payload = requireNonNull(payload, "payload is null");
@@ -94,6 +97,12 @@ public class QueryMetadata
     public List<TableInfo> getTables()
     {
         return tables;
+    }
+
+    @JsonProperty
+    public List<RoutineInfo> getRoutines()
+    {
+        return routines;
     }
 
     @JsonProperty
