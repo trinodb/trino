@@ -13,6 +13,34 @@
  */
 package io.prestosql.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import static java.util.Objects.requireNonNull;
+
 public class RoutineInfo
 {
+    private final String routine;
+    private final String authorization;
+
+    @JsonCreator
+    public RoutineInfo(
+            @JsonProperty("routine") String routine,
+            @JsonProperty("authorization") String authorization)
+    {
+        this.routine = requireNonNull(routine, "routine is null");
+        this.authorization = requireNonNull(authorization, "authorization is null");
+    }
+
+    @JsonProperty
+    public String getRoutine()
+    {
+        return routine;
+    }
+
+    @JsonProperty
+    public String getAuthorization()
+    {
+        return authorization;
+    }
 }
