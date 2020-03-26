@@ -150,6 +150,8 @@ The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
 
     Returns ``x`` truncated to ``unit``.
 
+.. _datetime-interval-functions:
+
 Interval Functions
 ------------------
 

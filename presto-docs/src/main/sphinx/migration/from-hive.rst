@@ -109,3 +109,26 @@ Presto query::
     SELECT student, score
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
+
+Caution with datediff
+---------------------
+
+The Hive ``datediff`` function returns the difference between the two dates in
+days and is declared as:
+
+.. code-block:: none
+
+    datediff(string enddate, string startdate)  -> integer
+
+The equivalent Presto function :ref:`date_diff<datetime-interval-functions>`
+uses a reverse order for the two date parameters and requires a unit. This has
+to be taken into account when migrating:
+
+Hive query::
+
+    datediff(enddate, startdate)
+
+Presto query::
+
+    date_diff('day', startdate, enddate)
+
