@@ -171,19 +171,19 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test1(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test1(id,a,ds) values(1, 'a','a')", 1);
         String query = "select id from partition_test1 where a = 'a'";
         String msgRegExp = "Filter required on tpch\\.partition_test1 for at least one partition column:.*";
@@ -197,19 +197,19 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test2(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test2(id,a,ds) values(1, 'a','a')", 1);
         assertQueryFails(session, "select id from partition_test2 where ds is not null or true", "Filter required on tpch\\.partition_test2 for at least one partition column:.*");
         assertUpdate(session, "DROP TABLE partition_test2");
@@ -220,19 +220,19 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test3(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test3(id,a,ds) values(1, 'a','a')", 1);
         String query = "select id from partition_test3 where ds = 'a'";
         assertQuery(session, query, "select 1");
@@ -245,19 +245,19 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test4(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test4(id,a,ds) values(1, 'a','a')", 1);
         assertQuery(session, "select id from partition_test4 where ds is not null", "select 1");
         assertUpdate(session, "DROP TABLE partition_test4");
@@ -268,27 +268,27 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test5(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(
                 session,
                 "create table partition_test6(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test5(id,a,ds) values(1, 'a','a')", 1);
         assertUpdate(session, "insert into partition_test6(id,a,ds) values(1, 'a','a')", 1);
         assertQuery(session, "select a.id, b.id from partition_test5 a join partition_test6 b on (a.ds = b.ds) where a.ds = 'a'", "select 1,1");
@@ -301,27 +301,27 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test7(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(
                 session,
                 "create table partition_test8(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test7(id,a,ds) values(1, 'a','a')", 1);
         assertUpdate(session, "insert into partition_test8(id,a,ds) values(1, 'a','a')", 1);
         assertQueryFails(session, "select a.id, b.id from partition_test7 a join partition_test8 b on (a.id = b.id) where a.ds = 'a'", "Filter required on tpch\\.partition_test8 for at least one partition column:.*");
@@ -334,27 +334,27 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test9(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(
                 session,
                 "create table partition_test10(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET')");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET')");
         assertUpdate(session, "insert into partition_test9(id,a,ds) values(1, 'a','a')", 1);
         assertUpdate(session, "insert into partition_test10(id,a,ds) values(1, 'a','a')", 1);
         assertQuery(session, "select a.id, b.id from partition_test9 a join partition_test10 b on (a.id = b.id) where a.ds = 'a'", "SELECT 1, 1");
@@ -363,23 +363,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPartitionPredicateAllowed() throws Exception
+    public void testPartitionPredicateAllowed()
+            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test11(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test11(id,a,ds) values(1, '1','1')", 1);
         String query = "select id from partition_test11 where cast(ds as integer) = 1";
         assertQuery(session, query, "select 1");
@@ -388,7 +389,8 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testNestedQueryWithInnerPartitionPredicate() throws Exception
+    public void testNestedQueryWithInnerPartitionPredicate()
+            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -413,23 +415,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPartitionPredicateDisallowed() throws Exception
+    public void testPartitionPredicateDisallowed()
+            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                    .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
-                    .build())
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
 
         assertUpdate(
                 session,
                 "create table partition_test12(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(session, "insert into partition_test12(id,a,ds) values(1, '1','1')", 1);
         String query = "select id from partition_test12 where cast(b as integer) = 1";
         assertQueryFails(session, query, "Filter required on tpch\\.partition_test12 for at least one partition column:.*");
@@ -515,16 +518,16 @@ public class TestHiveIntegrationSmokeTest
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_schema_authorization_user")
                 .setIdentity(Identity.forUser("user")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         Session anotherUser = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_schema_authorization_user")
                 .setIdentity(Identity.forUser("anotheruser")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         // ordinary users cannot drop a schema or create a table in a schema the do not own
@@ -571,16 +574,16 @@ public class TestHiveIntegrationSmokeTest
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_schema_authorization_role")
                 .setIdentity(Identity.forUser("user")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         Session anotherUser = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_schema_authorization_role")
                 .setIdentity(Identity.forUser("anotheruser")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         assertUpdate(user, "CREATE TABLE test_schema_authorization_role.test (x bigint)");
@@ -609,16 +612,16 @@ public class TestHiveIntegrationSmokeTest
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_createschema_authorization_user")
                 .setIdentity(Identity.forUser("user")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         Session anotherUser = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_createschema_authorization_user")
                 .setIdentity(Identity.forUser("anotheruser")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_user AUTHORIZATION user");
@@ -646,24 +649,24 @@ public class TestHiveIntegrationSmokeTest
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("user")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         Session userWithoutRole = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("user")
-                     .withRoles(Collections.emptyMap())
-                     .build())
+                        .withRoles(Collections.emptyMap())
+                        .build())
                 .build();
 
         Session anotherUser = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("anotheruser")
-                     .withPrincipal(getSession().getIdentity().getPrincipal())
-                     .build())
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
                 .build();
 
         assertUpdate(admin, "CREATE ROLE authorized_users");
@@ -812,21 +815,21 @@ public class TestHiveIntegrationSmokeTest
                                                         "orderkey",
                                                         BIGINT,
                                                         new FormattedDomain(
-                                                                 false,
+                                                                false,
                                                                 ImmutableSet.of(
-                                                                         new FormattedRange(
-                                                                                 new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                 new FormattedMarker(Optional.of("100"), EXACTLY))))),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY))))),
                                                 new ColumnConstraint(
                                                         "orderkey",
                                                         BIGINT,
                                                         new FormattedDomain(
                                                                 false,
-                                                                 ImmutableSet.of(
+                                                                ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("100"), EXACTLY),
                                                                                 new FormattedMarker(Optional.of("100"), EXACTLY)))))),
-                                estimate)),
+                                        estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         finalEstimate));
 
@@ -974,11 +977,11 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(
                 admin,
                 "create table io_explain_test_no_filter(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(admin, "insert into io_explain_test_no_filter(id,a,ds) values(1, 'a','a')", 1);
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 22.0, 22.0, 0.0, 0.0);
@@ -989,21 +992,21 @@ public class TestHiveIntegrationSmokeTest
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
-                            new TableColumnInfo(
-                                    new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
-                                    ImmutableSet.of(
-                                            new ColumnConstraint(
-                                                    "ds",
-                                                    VARCHAR,
-                                                    new FormattedDomain(
-                                                            false,
-                                                            ImmutableSet.of(
-                                                                    new FormattedRange(
-                                                                            new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                            new FormattedMarker(Optional.of("a"), EXACTLY)))))),
-                        estimate)),
-                Optional.empty(),
-                finalEstimate));
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "ds",
+                                                        VARCHAR,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.empty(),
+                        finalEstimate));
         assertUpdate("DROP TABLE io_explain_test_no_filter");
     }
 
@@ -1019,11 +1022,11 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(
                 admin,
                 "create table io_explain_test_filter_on_agg(\n"
-                + "id integer,\n"
-                + "a varchar,\n"
-                + "b varchar,\n"
-                + "ds varchar)"
-                + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
         assertUpdate(admin, "insert into io_explain_test_filter_on_agg(id,a,ds) values(1, 'a','a')", 1);
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 5.0, 5.0, 0.0, 0.0);
