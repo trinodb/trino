@@ -53,17 +53,6 @@ public final class MemoryPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
-    {
-        return createPageSource(transaction, session, split, table, columns, TupleDomain.all());
-    }
-
-    @Override
-    public ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorSplit split,
-            ConnectorTableHandle table,
             List<ColumnHandle> columns,
             TupleDomain<ColumnHandle> dynamicFilter)
     {
