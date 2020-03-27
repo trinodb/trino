@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -78,6 +79,7 @@ public class PrestoServer
         verifySystemTimeIsReasonable();
 
         Logger log = Logger.get(PrestoServer.class);
+        log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
 
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
