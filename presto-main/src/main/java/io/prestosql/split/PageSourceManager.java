@@ -58,14 +58,6 @@ public class PageSourceManager
 
         ConnectorPageSourceProvider provider = getPageSourceProvider(catalogName);
         TupleDomain<ColumnHandle> constraint = dynamicFilter.get();
-        if (constraint.isAll()) {
-            return provider.createPageSource(
-                    table.getTransaction(),
-                    session.toConnectorSession(catalogName),
-                    split.getConnectorSplit(),
-                    table.getConnectorHandle(),
-                    columns);
-        }
         if (constraint.isNone()) {
             return new EmptyPageSource();
         }
