@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>331</version>
+    <version>332-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>

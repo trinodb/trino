@@ -49,7 +49,7 @@ Multiple Generic JDBC Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Generic JDBC connector can only access a single database within
-a SGeneric JDBC server. Thus, if you have multiple Generic JDBC databases,
+a Generic JDBC server. Thus, if you have multiple Generic JDBC databases,
 or want to connect to multiple instances of the Generic JDBC, you must configure
 multiple catalogs, one for each instance.
 

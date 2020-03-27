@@ -230,9 +230,9 @@
         </artifact>
     </artifactSet>
 
-        <artifactSet to="plugin/genericjdbc">
-            <artifact id="${project.groupId}:presto-genericjdbc:zip:${project.version}">
-                <unpack />
-            </artifact>
-        </artifactSet>
+    <artifactSet to="plugin/genericjdbc">
+        <artifact id="${project.groupId}:presto-genericjdbc:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
