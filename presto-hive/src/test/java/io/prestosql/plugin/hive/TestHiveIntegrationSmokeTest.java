@@ -717,16 +717,16 @@ public class TestHiveIntegrationSmokeTest
     public void testIoExplain()
     {
         // Test IO explain with small number of discrete components.
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
+        computeActual("CREATE TABLE test_io_explain WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(2.0, 40.0, 40.0, 0.0, 0.0);
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders WHERE custkey <= 10");
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey, processing FROM test_io_explain WHERE custkey <= 10");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -759,22 +759,22 @@ public class TestHiveIntegrationSmokeTest
                                                                                 new FormattedMarker(Optional.empty(), ABOVE),
                                                                                 new FormattedMarker(Optional.of("10"), EXACTLY)))))),
                                         estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
 
-        assertUpdate("DROP TABLE test_orders");
+        assertUpdate("DROP TABLE test_io_explain");
 
         // Test IO explain with large number of discrete components where Domain::simpify comes into play.
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WHERE orderkey < 200");
+        computeActual("CREATE TABLE test_io_explain WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WHERE orderkey < 200");
 
         estimate = new EstimatedStatsAndCost(55.0, 990.0, 990.0, 0.0, 0.0);
-        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders WHERE custkey <= 10");
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey + 10 FROM test_io_explain WHERE custkey <= 10");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -795,18 +795,18 @@ public class TestHiveIntegrationSmokeTest
                                                                                 new FormattedMarker(Optional.empty(), ABOVE),
                                                                                 new FormattedMarker(Optional.of("10"), EXACTLY)))))),
                                         estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
 
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
         estimate = new EstimatedStatsAndCost(1.0, 18.0, 18, 0.0, 0.0);
-        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM test_orders WHERE orderkey = 100");
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey FROM test_io_explain WHERE orderkey = 100");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -827,27 +827,27 @@ public class TestHiveIntegrationSmokeTest
                                                                                 new FormattedMarker(Optional.of("100"), EXACTLY),
                                                                                 new FormattedMarker(Optional.of("100"), EXACTLY)))))),
                                 estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         finalEstimate));
 
-        assertUpdate("DROP TABLE test_orders");
+        assertUpdate("DROP TABLE test_io_explain");
     }
 
     @Test
     public void testIoExplainColumnFilters()
     {
         // Test IO explain with small number of discrete components.
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderstatus, orderkey FROM orders WHERE orderkey < 3");
+        computeActual("CREATE TABLE test_io_explain_column_filters WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderstatus, orderkey FROM orders WHERE orderkey < 3");
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(2.0, 48.0, 48.0, 0.0, 0.0);
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(0.0, 0.0, 96.0, 0.0, 0.0);
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_orders WHERE custkey <= 10 and orderstatus='P'");
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and orderstatus='P'");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -882,13 +882,13 @@ public class TestHiveIntegrationSmokeTest
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
-        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_orders WHERE custkey <= 10 and (orderstatus='P' or orderstatus='S')");
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and (orderstatus='P' or orderstatus='S')");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -926,13 +926,13 @@ public class TestHiveIntegrationSmokeTest
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
-        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_orders WHERE custkey <= 10 and cast(orderstatus as integer) = 5");
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and cast(orderstatus as integer) = 5");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -959,7 +959,7 @@ public class TestHiveIntegrationSmokeTest
                         Optional.empty(),
                         finalEstimate));
 
-        assertUpdate("DROP TABLE test_orders");
+        assertUpdate("DROP TABLE test_io_explain_column_filters");
     }
 
     @Test
