@@ -528,7 +528,7 @@ public class KuduClientSession
                             }
                             Marker high = span.getHigh();
                             if (!high.isUpperUnbounded()) {
-                                KuduPredicate.ComparisonOp op = (low.getBound() == BELOW) ? LESS : LESS_EQUAL;
+                                KuduPredicate.ComparisonOp op = (high.getBound() == BELOW) ? LESS : LESS_EQUAL;
                                 KuduPredicate predicate = createComparisonPredicate(columnSchema, op, high.getValue());
                                 builder.addPredicate(predicate);
                             }
