@@ -522,10 +522,8 @@ public class PrestoS3FileSystem
 
     private Iterator<LocatedFileStatus> listPrefix(Path path)
     {
-        String key = keyFromPath(path);
-        if (!key.isEmpty()) {
-            key += PATH_SEPARATOR;
-        }
+        String keyFromPath = keyFromPath(path);
+        String key = keyFromPath + (keyFromPath.isEmpty() ? "" : PATH_SEPARATOR);
 
         ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
@@ -549,20 +547,24 @@ public class PrestoS3FileSystem
                 return s3.listObjectsV2(request);
             }
         };
-        return Iterators.concat(Iterators.transform(listings, this::statusFromListing));
+        return Iterators.concat((Iterators.transform(listings, (listing) -> (statusFromListing(listing, key)))));
     }
 
-    private Iterator<LocatedFileStatus> statusFromListing(ListObjectsV2Result listing)
+    private Iterator<LocatedFileStatus> statusFromListing(ListObjectsV2Result listing, String key)
     {
         return Iterators.concat(
-                statusFromPrefixes(listing.getCommonPrefixes()),
-                statusFromObjects(listing.getObjectSummaries()));
+                statusFromPrefixes(listing.getCommonPrefixes(), key),
+                statusFromObjects(listing.getObjectSummaries(), key));
     }
 
-    private Iterator<LocatedFileStatus> statusFromPrefixes(List<String> prefixes)
+    private Iterator<LocatedFileStatus> statusFromPrefixes(List<String> prefixes, String key)
     {
         List<LocatedFileStatus> list = new ArrayList<>();
         for (String prefix : prefixes) {
+            String subpath = prefix.substring(prefix.indexOf(key) + key.length());
+            if (subpath.contains("/.") || subpath.contains("/_")) {
+                continue;
+            }
             Path path = qualifiedPath(new Path(PATH_SEPARATOR + prefix));
             FileStatus status = new FileStatus(0, true, 1, 0, 0, path);
             list.add(createLocatedFileStatus(status));
@@ -570,7 +572,7 @@ public class PrestoS3FileSystem
         return list.iterator();
     }
 
-    private Iterator<LocatedFileStatus> statusFromObjects(List<S3ObjectSummary> objects)
+    private Iterator<LocatedFileStatus> statusFromObjects(List<S3ObjectSummary> objects, String key)
     {
         // NOTE: for encrypted objects, S3ObjectSummary.size() used below is NOT correct,
         // however, to get the correct size we'd need to make an additional request to get
@@ -578,6 +580,8 @@ public class PrestoS3FileSystem
         return objects.stream()
                 .filter(object -> !object.getKey().endsWith(PATH_SEPARATOR))
                 .filter(object -> !skipGlacierObjects || !isGlacierObject(object))
+                .filter(object -> !object.getKey().substring(object.getKey().indexOf(key) + key.length()).contains("/.") &&
+                    !object.getKey().substring(object.getKey().indexOf(key) + key.length()).contains("/_"))
                 .map(object -> new FileStatus(
                         object.getSize(),
                         false,
