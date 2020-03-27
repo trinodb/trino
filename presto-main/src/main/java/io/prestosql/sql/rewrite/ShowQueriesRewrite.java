@@ -510,6 +510,9 @@ final class ShowQueriesRewrite
                 }
 
                 PropertyMetadata<?> property = allProperties.get(propertyName);
+                if (property == null) {
+                    throw new PrestoException(errorCode, "No PropertyMetadata for property: " + propertyName);
+                }
                 if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
                     throw new PrestoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",
