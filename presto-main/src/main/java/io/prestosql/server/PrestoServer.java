@@ -45,7 +45,6 @@ import io.prestosql.security.AccessControlModule;
 import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -61,7 +60,6 @@ import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncemen
 import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.util.Objects.requireNonNull;
 
 public class PrestoServer
         implements Runnable
@@ -71,18 +69,6 @@ public class PrestoServer
         // We use builtin version. This is used for system startup only.
         EmbedVersion embedVersion = new EmbedVersion(new ServerConfig());
         embedVersion.embedVersion(new PrestoServer()::run).run();
-    }
-
-    private final SqlParserOptions sqlParserOptions;
-
-    public PrestoServer()
-    {
-        this(new SqlParserOptions());
-    }
-
-    public PrestoServer(SqlParserOptions sqlParserOptions)
-    {
-        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
     }
 
     @Override
