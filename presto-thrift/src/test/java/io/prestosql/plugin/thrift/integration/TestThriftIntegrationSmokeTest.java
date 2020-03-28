@@ -30,7 +30,7 @@ public class TestThriftIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createThriftQueryRunner(2, 2, false, ImmutableMap.of());
+        return createThriftQueryRunner(2, false, ImmutableMap.of());
     }
 
     @Override

@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
@@ -26,6 +27,17 @@ public abstract class AbstractTestIntegrationSmokeTest
     protected boolean isParameterizedVarcharSupported()
     {
         return true;
+    }
+
+    /**
+     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
+     * shortcuts, not exercising certain aspects.
+     */
+    @Test
+    public void ensureDistributedQueryRunner()
+    {
+        assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
+                .isGreaterThanOrEqualTo(3);
     }
 
     @Test

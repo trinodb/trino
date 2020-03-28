@@ -94,6 +94,17 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    /**
+     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
+     * shortcuts, not exercising certain aspects.
+     */
+    @Test
+    public void ensureDistributedQueryRunner()
+    {
+        assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
+                .isGreaterThanOrEqualTo(3);
+    }
+
     @Test
     public void testSetSession()
     {
