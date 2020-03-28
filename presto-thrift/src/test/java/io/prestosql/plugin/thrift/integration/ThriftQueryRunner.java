@@ -60,14 +60,14 @@ public final class ThriftQueryRunner
 
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, int nodeCount, boolean enableIndexJoin, Map<String, String> properties)
+    public static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> properties)
             throws Exception
     {
         List<DriftServer> servers = null;
         DistributedQueryRunner runner = null;
         try {
             servers = startThriftServers(thriftServers, enableIndexJoin);
-            runner = createThriftQueryRunnerInternal(servers, nodeCount, properties);
+            runner = createThriftQueryRunnerInternal(servers, properties);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
         catch (Throwable t) {
@@ -87,7 +87,7 @@ public final class ThriftQueryRunner
     {
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true, properties);
+        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, true, properties);
         Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
@@ -111,7 +111,7 @@ public final class ThriftQueryRunner
         return servers;
     }
 
-    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, int nodeCount, Map<String, String> properties)
+    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> properties)
             throws Exception
     {
         String addresses = servers.stream()
@@ -124,7 +124,6 @@ public final class ThriftQueryRunner
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setNodeCount(nodeCount)
                 .setExtraProperties(properties)
                 .build();
 
