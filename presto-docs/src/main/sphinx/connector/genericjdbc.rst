@@ -1,6 +1,6 @@
-====================
+=======================
 Generic JDBC Connector
-====================
+=======================
 
 The Generic JDBC connector allows querying tables in an
 external database (using the database's native JDBC driver). This can be used to join data between
@@ -46,10 +46,10 @@ Some examples:
     case-insensitive-name-matching=true
 
 Multiple Generic JDBC Databases or Servers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Generic JDBC connector can only access a single database within
-a Generic JDBC server. Thus, if you have multiple Generic JDBC databases,
+a SGeneric JDBC server. Thus, if you have multiple Generic JDBC databases,
 or want to connect to multiple instances of the Generic JDBC, you must configure
 multiple catalogs, one for each instance.
 
@@ -59,12 +59,12 @@ if you name the property file ``sales.properties``, Presto creates a
 catalog named ``sales`` using the configured connector.
 
 Specific driver jars
--------------------
+--------------------
 
 You must place the specific JAR for your database (ie ojdbc6.jar, jconn4.jar etc) containing the driver-class into the plugin/genericjdbc folder.
 
 Generic JDBC Connector Limitations
---------------------------------
+----------------------------------
 
 Read-only access
 Not all data types can be mapped
