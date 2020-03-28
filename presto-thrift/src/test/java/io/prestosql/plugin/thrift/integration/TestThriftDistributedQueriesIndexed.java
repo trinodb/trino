@@ -26,7 +26,7 @@ public class TestThriftDistributedQueriesIndexed
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createThriftQueryRunner(2, 2, true, ImmutableMap.of());
+        return createThriftQueryRunner(2, true, ImmutableMap.of());
     }
 
     @Override
