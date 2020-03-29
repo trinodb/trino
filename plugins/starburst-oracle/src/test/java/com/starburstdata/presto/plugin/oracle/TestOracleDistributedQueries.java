@@ -116,7 +116,7 @@ public class TestOracleDistributedQueries
         // custom_sum does not support decimal arguments
     }
 
-    @Test
+    @Override
     public void testDescribeInput()
     {
         Session session = Session.builder(getSession())

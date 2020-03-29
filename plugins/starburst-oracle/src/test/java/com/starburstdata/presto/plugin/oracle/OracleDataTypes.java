@@ -158,6 +158,7 @@ public final class OracleDataTypes
                 DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS''")::format);
     }
 
+    @SuppressWarnings("MisusedWeekYear")
     public static DataType<LocalDateTime> oracleTimestamp3DataType()
     {
         return dataType("TIMESTAMP(3)", TimestampType.TIMESTAMP,
@@ -176,6 +177,7 @@ public final class OracleDataTypes
                                 ImmutableMap.of("Z", "UTC"))));
     }
 
+    @SuppressWarnings("MisusedWeekYear")
     public static DataType<ZonedDateTime> oracleTimestamp3TimeZoneDataType()
     {
         return dataType("TIMESTAMP(3) WITH TIME ZONE", TIMESTAMP_WITH_TIME_ZONE,
