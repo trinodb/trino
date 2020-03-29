@@ -34,6 +34,8 @@ public class OracleClientModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(OracleSplitManager.class).in(Scopes.SINGLETON);
+
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(OracleClient.class).in(Scopes.SINGLETON);
 
         bindProcedure(binder, AnalyzeProcedure.class);

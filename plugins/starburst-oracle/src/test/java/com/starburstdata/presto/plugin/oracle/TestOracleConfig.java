@@ -16,6 +16,9 @@ import org.testng.annotations.Test;
 import java.math.RoundingMode;
 import java.util.Map;
 
+import static com.starburstdata.presto.plugin.oracle.OracleConcurrencyType.NO_CONCURRENCY;
+import static com.starburstdata.presto.plugin.oracle.OracleConcurrencyType.PARTITIONS;
+
 public class TestOracleConfig
 {
     @Test
@@ -27,7 +30,9 @@ public class TestOracleConfig
                 .setConnectionPoolingEnabled(true)
                 .setNumberRoundingMode(RoundingMode.UNNECESSARY)
                 .setDefaultNumberScale(null)
-                .setAuthenticationType(OracleAuthenticationType.USER_PASSWORD));
+                .setConcurrencyType(NO_CONCURRENCY)
+                .setAuthenticationType(OracleAuthenticationType.USER_PASSWORD)
+                .setMaxSplitsPerScan(10));
     }
 
     @Test
@@ -40,6 +45,8 @@ public class TestOracleConfig
                 .put("oracle.number.rounding-mode", "HALF_EVEN")
                 .put("oracle.number.default-scale", "0")
                 .put("oracle.authentication.type", "KERBEROS")
+                .put("oracle.concurrency-type", "PARTITIONS")
+                .put("oracle.concurrent.max-splits-per-scan", "42")
                 .build();
 
         OracleConfig expected = new OracleConfig()
@@ -48,7 +55,9 @@ public class TestOracleConfig
                 .setConnectionPoolingEnabled(false)
                 .setNumberRoundingMode(RoundingMode.HALF_EVEN)
                 .setDefaultNumberScale(0)
-                .setAuthenticationType(OracleAuthenticationType.KERBEROS);
+                .setAuthenticationType(OracleAuthenticationType.KERBEROS)
+                .setConcurrencyType(PARTITIONS)
+                .setMaxSplitsPerScan(42);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

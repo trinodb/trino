@@ -26,10 +26,12 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
+import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -53,6 +55,7 @@ import javax.inject.Inject;
 import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -68,6 +71,8 @@ import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getConcurrencyType;
+import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getMaxSplitsPerScan;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getNumberDefaultScale;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getNumberRoundingMode;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -118,6 +123,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
 
 public class OracleClient
         extends BaseJdbcClient
@@ -149,6 +155,7 @@ public class OracleClient
             .build();
 
     private final boolean synonymsEnabled;
+    private final OracleSplitManager splitManager;
     private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
@@ -156,11 +163,40 @@ public class OracleClient
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
             OracleConfig oracleConfig,
+            OracleSplitManager oracleSplitManager,
             ConnectionFactory connectionFactory)
     {
         super(config, "\"", connectionFactory);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
+        splitManager = oracleSplitManager;
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return splitManager.getSplitSource(
+                JdbcIdentity.from(session),
+                tableHandle,
+                getConcurrencyType(session),
+                getMaxSplitsPerScan(session));
+    }
+
+    @Override
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+            throws SQLException
+    {
+        return new OracleQueryBuilder(identifierQuote, (OracleSplit) split).buildSql(
+                this,
+                session,
+                connection,
+                table.getCatalogName(),
+                table.getSchemaName(),
+                table.getTableName(),
+                columns,
+                table.getConstraint(),
+                split.getAdditionalPredicate(),
+                tryApplyLimit(table.getLimit()));
     }
 
     @Override
@@ -668,6 +704,29 @@ public class OracleClient
         Optional<Long> getAverageColumnLength()
         {
             return averageColumnLength;
+        }
+    }
+
+    private static class OracleQueryBuilder
+            extends QueryBuilder
+    {
+        private final OracleSplit split;
+
+        public OracleQueryBuilder(String identifierQuote, OracleSplit split)
+        {
+            super(identifierQuote);
+            this.split = requireNonNull(split, "split is null");
+        }
+
+        @Override
+        protected String getRelation(String catalog, String schema, String table)
+        {
+            String tableName = super.getRelation(catalog, schema, table);
+            return split.getPartitionNames()
+                    .map(batch -> batch.stream()
+                            .map(partitionName -> format("SELECT * FROM %s PARTITION (%s)", tableName, partitionName))
+                            .collect(joining(" UNION ALL ", "(", ")"))) // wrap subquery in parentheses
+                    .orElse(tableName);
         }
     }
 }

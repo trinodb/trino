@@ -9,16 +9,15 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.plugin.jdbc.JdbcHandleResolver;
+import io.prestosql.spi.connector.ConnectorSplit;
 
-public class OraclePlugin
-        implements Plugin
+public class OracleHandleResolver
+        extends JdbcHandleResolver
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
-        return ImmutableList.of(new OracleConnectorFactory());
+        return OracleSplit.class;
     }
 }

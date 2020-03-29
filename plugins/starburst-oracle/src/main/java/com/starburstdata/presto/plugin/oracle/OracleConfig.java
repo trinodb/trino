@@ -20,6 +20,7 @@ import java.math.RoundingMode;
 import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.USER_PASSWORD;
+import static com.starburstdata.presto.plugin.oracle.OracleConcurrencyType.NO_CONCURRENCY;
 
 public class OracleConfig
 {
@@ -29,6 +30,8 @@ public class OracleConfig
     private Integer defaultNumberScale;
     private boolean connectionPoolingEnabled = true;
     private OracleAuthenticationType authenticationType = USER_PASSWORD;
+    private OracleConcurrencyType concurrencyType = NO_CONCURRENCY;
+    private int maxSplitsPerScan = 10; // Oracle always has a limit for number of concurrent connections
 
     public boolean isImpersonationEnabled()
     {
@@ -105,6 +108,34 @@ public class OracleConfig
     public OracleConfig setAuthenticationType(OracleAuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
+        return this;
+    }
+
+    @NotNull
+    public OracleConcurrencyType getConcurrencyType()
+    {
+        return concurrencyType;
+    }
+
+    @Config("oracle.concurrency-type")
+    @ConfigDescription("Concurrency strategy for reads")
+    public OracleConfig setConcurrencyType(OracleConcurrencyType concurrencyType)
+    {
+        this.concurrencyType = concurrencyType;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxSplitsPerScan()
+    {
+        return maxSplitsPerScan;
+    }
+
+    @Config("oracle.concurrent.max-splits-per-scan")
+    @ConfigDescription("Maximum number of splits for a table scan")
+    public OracleConfig setMaxSplitsPerScan(int maxSplits)
+    {
+        this.maxSplitsPerScan = maxSplits;
         return this;
     }
 }
