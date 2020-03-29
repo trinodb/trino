@@ -30,6 +30,8 @@ import java.util.List;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.Decimals.isLongDecimal;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -242,6 +244,14 @@ public class InMemoryRecordSet
                 else if (type instanceof RowType) {
                     checkArgument(value instanceof Block,
                             "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (isShortDecimal(type)) {
+                    checkArgument(value instanceof Long,
+                            "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (isLongDecimal(type)) {
+                    checkArgument(value instanceof Slice,
+                            "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));
