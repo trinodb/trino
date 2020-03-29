@@ -33,6 +33,7 @@
     "executionTime": "13.00ms",
     "analysisTime": "1.47ms",
     "planningTime": "9.99ms",
+    "planningCpuTime": "1s",
     "finishingTime": "17.00ms",
     "totalTasks": 1,
     "runningTasks": 0,
