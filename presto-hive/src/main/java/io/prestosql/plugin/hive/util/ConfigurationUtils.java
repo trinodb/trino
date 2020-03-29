@@ -75,7 +75,7 @@ public final class ConfigurationUtils
             checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
 
             Configuration resourceProperties = new Configuration(false);
-            resourceProperties.addResource(new Path(resourcePath.toString()));
+            resourceProperties.addResource(new Path(resourcePath.toURI()));
             copy(resourceProperties, result);
         }
 
