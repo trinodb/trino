@@ -87,7 +87,6 @@ import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.createPartitionValues;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -561,12 +560,12 @@ public class HiveWriterFactory
                 .collect(toMap(DataColumn::getName, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
-            throw new PrestoException(NOT_FOUND, format("Table '%s.%s' does not have columns '%s'", schema, tableName, missingColumns));
+            throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
         }
         if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
             throw new PrestoException(HIVE_INVALID_METADATA, format(
                     "Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
-                    partitionName,
+                    partitionName.orElse(""), // TODO: this should exist
                     schemaName,
                     tableName));
         }
@@ -589,7 +588,7 @@ public class HiveWriterFactory
                         schemaName,
                         tableName,
                         inputHiveType,
-                        partitionName,
+                        partitionName.orElse(""), // TODO: this should exist
                         columnName,
                         fileColumnHiveType));
             }
