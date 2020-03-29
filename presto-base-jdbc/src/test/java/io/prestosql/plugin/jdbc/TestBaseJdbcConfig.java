@@ -38,7 +38,8 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setJdbcTypesMappedToVarchar("")
                 .setMetadataCacheTtl(Duration.valueOf("0m"))
-                .setCacheMissing(false));
+                .setCacheMissing(false)
+                .setDriverClass(null));
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestBaseJdbcConfig
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.cache-missing", "true")
+                .put("driver-class", "com.sybase.jdbc4.jdbc.SybDriver")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -59,7 +61,8 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1")
                 .setMetadataCacheTtl(Duration.valueOf("1s"))
-                .setCacheMissing(true);
+                .setCacheMissing(true)
+                .setDriverClass("com.sybase.jdbc4.jdbc.SybDriver");
 
         assertFullMapping(properties, expected);
 
