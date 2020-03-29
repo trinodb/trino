@@ -75,7 +75,7 @@ public class TestPrestoDriverAuth
         server = TestingPrestoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.authentication.type", "JWT")
-                        .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").toString())
+                        .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
                         .put("http-server.https.keystore.key", "changeit")
