@@ -1,0 +1,9 @@
+{
+  "rules": [
+    {
+      "match": "USER",
+      "pattern": ".+",
+      "substitution": "test_role"
+    }
+  ]
+}
