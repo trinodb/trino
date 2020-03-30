@@ -144,12 +144,7 @@ public class PhoenixClient
 
     public void execute(ConnectorSession session, String statement)
     {
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
-            execute(connection, statement);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(PHOENIX_QUERY_ERROR, "Error while executing statement", e);
-        }
+        execute(JdbcIdentity.from(session), statement);
     }
 
     @Override
