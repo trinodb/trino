@@ -190,10 +190,12 @@ public final class StandardColumnMappings
     public static ColumnMapping charColumnMapping(CharType charType)
     {
         requireNonNull(charType, "charType is null");
-        return ColumnMapping.sliceMapping(
-                charType,
-                (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))),
-                charWriteFunction());
+        return ColumnMapping.sliceMapping(charType, charReadFunction(), charWriteFunction());
+    }
+
+    public static SliceReadFunction charReadFunction()
+    {
+        return (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex)));
     }
 
     public static SliceWriteFunction charWriteFunction()
