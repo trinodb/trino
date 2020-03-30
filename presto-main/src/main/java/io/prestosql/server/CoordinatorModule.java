@@ -41,6 +41,8 @@ import io.prestosql.dispatcher.DispatcherConfig;
 import io.prestosql.dispatcher.FailedDispatchQueryFactory;
 import io.prestosql.dispatcher.LocalDispatchQueryFactory;
 import io.prestosql.dispatcher.QueuedStatementResource;
+import io.prestosql.event.EventLogConfig;
+import io.prestosql.event.EventLogProcessor;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.event.QueryMonitorConfig;
 import io.prestosql.execution.AddColumnTask;
@@ -223,6 +225,10 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(StatsAndCosts.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
+
+        // event log
+        configBinder(binder).bindConfig(EventLogConfig.class);
+        binder.bind(EventLogProcessor.class).in(Scopes.SINGLETON);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);

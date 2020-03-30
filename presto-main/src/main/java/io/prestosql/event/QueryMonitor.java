@@ -85,6 +85,7 @@ public class QueryMonitor
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
     private final Metadata metadata;
+    private final EventLogProcessor eventLogProcessor;
     private final int maxJsonLimit;
 
     @Inject
@@ -98,7 +99,8 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
-            QueryMonitorConfig config)
+            QueryMonitorConfig config,
+            EventLogProcessor eventLogProcessor)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -111,6 +113,7 @@ public class QueryMonitor
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
+        this.eventLogProcessor = requireNonNull(eventLogProcessor, "eventLogProcessor is null");
     }
 
     public void queryCreatedEvent(BasicQueryInfo queryInfo)
@@ -199,6 +202,10 @@ public class QueryMonitor
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));
 
         logQueryTimeline(queryInfo);
+
+        if (eventLogProcessor != null && eventLogProcessor.isEnableEventLog()) {
+            eventLogProcessor.writeEventLog(queryInfo);
+        }
     }
 
     private QueryMetadata createQueryMetadata(QueryInfo queryInfo)

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Collections;
@@ -30,6 +31,7 @@ public class TableInfo
     private final List<String> filters;
     private final List<ColumnInfo> columns;
 
+    @JsonCreator
     public TableInfo(String catalog, String schema, String table, String authorization, List<String> filters, List<ColumnInfo> columns)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
