@@ -251,7 +251,8 @@ public class PostgreSqlClient
                             Optional.of(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
-                            Optional.ofNullable(arrayColumnDimensions.get(columnName)));
+                            Optional.ofNullable(arrayColumnDimensions.get(columnName)),
+                            true);
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                     // skip unsupported column types
@@ -629,7 +630,8 @@ public class PostgreSqlClient
                     Optional.of(typeInfo.getPGType(pgElementOid)),
                     arrayTypeHandle.getColumnSize(),
                     arrayTypeHandle.getDecimalDigits(),
-                    arrayTypeHandle.getArrayDimensions());
+                    arrayTypeHandle.getArrayDimensions(),
+                    arrayTypeHandle.isCaseSensitive());
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);

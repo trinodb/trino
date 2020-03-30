@@ -337,7 +337,8 @@ public class PhoenixClient
                 Optional.of(arrayTypeName),
                 arrayTypeHandle.getColumnSize(),
                 arrayTypeHandle.getDecimalDigits(),
-                arrayTypeHandle.getArrayDimensions());
+                arrayTypeHandle.getArrayDimensions(),
+                arrayTypeHandle.isCaseSensitive());
     }
 
     public QueryPlan getQueryPlan(PhoenixPreparedStatement inputQuery)

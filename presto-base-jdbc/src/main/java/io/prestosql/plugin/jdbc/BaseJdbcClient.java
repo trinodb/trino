@@ -256,7 +256,8 @@ public class BaseJdbcClient
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
                         resultSet.getInt("COLUMN_SIZE"),
                         resultSet.getInt("DECIMAL_DIGITS"),
-                        Optional.empty());
+                        Optional.empty(),
+                        true);
                 Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                 // skip unsupported column types

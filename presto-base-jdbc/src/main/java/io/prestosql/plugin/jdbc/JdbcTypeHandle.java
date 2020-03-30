@@ -29,6 +29,7 @@ public final class JdbcTypeHandle
     private final int columnSize;
     private final int decimalDigits;
     private final Optional<Integer> arrayDimensions;
+    private final boolean caseSensitive;
 
     @JsonCreator
     public JdbcTypeHandle(
@@ -36,13 +37,15 @@ public final class JdbcTypeHandle
             @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
             @JsonProperty("columnSize") int columnSize,
             @JsonProperty("decimalDigits") int decimalDigits,
-            @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions)
+            @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions,
+            @JsonProperty("caseSensitive") boolean caseSensitive)
     {
         this.jdbcType = jdbcType;
         this.jdbcTypeName = requireNonNull(jdbcTypeName, "jdbcTypeName is null");
         this.columnSize = columnSize;
         this.decimalDigits = decimalDigits;
         this.arrayDimensions = requireNonNull(arrayDimensions, "arrayDimensions is null");
+        this.caseSensitive = caseSensitive;
     }
 
     @JsonProperty
@@ -75,10 +78,16 @@ public final class JdbcTypeHandle
         return arrayDimensions;
     }
 
+    @JsonProperty
+    public boolean isCaseSensitive()
+    {
+        return caseSensitive;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions);
+        return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, caseSensitive);
     }
 
     @Override
@@ -95,7 +104,8 @@ public final class JdbcTypeHandle
                 columnSize == that.columnSize &&
                 decimalDigits == that.decimalDigits &&
                 Objects.equals(jdbcTypeName, that.jdbcTypeName) &&
-                Objects.equals(arrayDimensions, that.arrayDimensions);
+                Objects.equals(arrayDimensions, that.arrayDimensions) &&
+                Objects.equals(caseSensitive, that.caseSensitive);
     }
 
     @Override
