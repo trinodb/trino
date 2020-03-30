@@ -49,8 +49,11 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveProjectionPushdownIntoTableScan
@@ -90,14 +93,38 @@ public class TestHiveProjectionPushdownIntoTableScan
     }
 
     @Test
+    public void testPushdownDisabled()
+    {
+        String testTable = "test_disabled_pushdown";
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG_NAME, "projection_pushdown_enabled", "false")
+                .build();
+
+        getQueryRunner().execute(format(
+                "CREATE TABLE %s (col0) AS" +
+                        " SELECT cast(row(5, 6) as row(a bigint, b bigint)) AS col0 WHERE false",
+                testTable));
+
+        assertPlan(
+                format("SELECT col0.a expr_a, col0.b expr_b FROM %s", testTable),
+                session,
+                any(
+                        project(
+                                ImmutableMap.of("expr", expression("col0.a"), "expr_2", expression("col0.b")),
+                                tableScan(testTable, ImmutableMap.of("col0", "col0")))));
+    }
+
+    @Test
     public void testProjectionPushdown()
     {
         String testTable = "test_simple_projection_pushdown";
         QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable);
 
-        String tableName = HIVE_CATALOG_NAME + "." + SCHEMA_NAME + "." + testTable;
-        getQueryRunner().execute("CREATE TABLE " + tableName + " " + "(col0) AS" +
-                " SELECT cast(row(5, 6) as row(a bigint, b bigint)) as col0 where false");
+        getQueryRunner().execute(format(
+                "CREATE TABLE %s (col0) AS" +
+                        " SELECT cast(row(5, 6) as row(a bigint, b bigint)) AS col0 WHERE false",
+                testTable));
 
         Session session = getQueryRunner().getDefaultSession();
 
@@ -110,7 +137,7 @@ public class TestHiveProjectionPushdownIntoTableScan
         HiveColumnHandle baseColumnHandle = (HiveColumnHandle) columns.get("col0");
 
         assertPlan(
-                "SELECT col0.a expr_a, col0.b expr_b FROM " + tableName,
+                "SELECT col0.a expr_a, col0.b expr_b FROM " + testTable,
                 any(tableScan(
                     equalTo(tableHandle.get().getConnectorHandle()),
                     TupleDomain.all(),
