@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
@@ -484,10 +485,8 @@ public class KuduClientSession
                 int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
                 ColumnSchema columnSchema = schema.getColumnByIndex(position);
                 Domain domain = columnDomain.getDomain();
-                if (domain.isNone()) {
-                    return false;
-                }
-                else if (domain.isAll()) {
+                verify(!domain.isNone(), "Domain is none");
+                if (domain.isAll()) {
                     // no restriction
                 }
                 else if (domain.isOnlyNull()) {
