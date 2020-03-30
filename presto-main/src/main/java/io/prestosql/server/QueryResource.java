@@ -14,7 +14,9 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.event.EventLogProcessor;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.security.AccessControl;
@@ -37,6 +39,7 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
@@ -56,16 +59,20 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/query")
 public class QueryResource
 {
+    private static final Logger logger = Logger.get(QueryResource.class);
+
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
+    private final EventLogProcessor eventLogProcessor;
 
     @Inject
-    public QueryResource(DispatchManager dispatchManager, AccessControl accessControl, GroupProvider groupProvider)
+    public QueryResource(DispatchManager dispatchManager, AccessControl accessControl, GroupProvider groupProvider, EventLogProcessor eventLogProcessor)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.eventLogProcessor = requireNonNull(eventLogProcessor, "eventLogProcessor is null");
     }
 
     @GET
@@ -92,6 +99,18 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
+        if (eventLogProcessor.isEnableEventLog()) {
+            if (!queryInfo.isPresent() ||
+                    !queryInfo.get().getOutputStage().isPresent() ||
+                    queryInfo.get().getOutputStage().get().getPlan() == null) {
+                try {
+                    queryInfo = Optional.of(eventLogProcessor.readQueryInfo(queryId.getId()));
+                }
+                catch (IOException e) {
+                    logger.error(e, e.getMessage());
+                }
+            }
+        }
         if (!queryInfo.isPresent()) {
             return Response.status(Status.GONE).build();
         }
