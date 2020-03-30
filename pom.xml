@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>98</version>
+        <version>99</version>
     </parent>
 
     <groupId>io.prestosql</groupId>
@@ -51,6 +51,7 @@
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.drift.version>1.14</dep.drift.version>
         <dep.tempto.version>174</dep.tempto.version>
+        <dep.testcontainers.version>1.13.0</dep.testcontainers.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
         <rubix.version>0.3.6</rubix.version>
@@ -1194,7 +1195,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.12.4</version>
+                <version>${dep.testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
