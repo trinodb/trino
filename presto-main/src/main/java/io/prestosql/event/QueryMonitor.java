@@ -128,6 +128,7 @@ public class QueryMonitor
                                 queryInfo.getQuery(),
                                 queryInfo.getPreparedQuery(),
                                 QUEUED.toString(),
+                                ImmutableList.of(),
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty())));
@@ -142,6 +143,7 @@ public class QueryMonitor
                         queryInfo.getQuery(),
                         queryInfo.getPreparedQuery(),
                         queryInfo.getState().toString(),
+                        ImmutableList.of(),
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty()),
@@ -214,6 +216,7 @@ public class QueryMonitor
                 queryInfo.getQuery(),
                 queryInfo.getPreparedQuery(),
                 queryInfo.getState().toString(),
+                queryInfo.getReferencedTables(),
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
                 queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
@@ -305,7 +308,7 @@ public class QueryMonitor
         ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
         for (Input input : queryInfo.getInputs()) {
             inputs.add(new QueryInputMetadata(
-                    input.getCatalogName().getCatalogName(),
+                    input.getCatalogName(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
@@ -323,7 +326,7 @@ public class QueryMonitor
 
             output = Optional.of(
                     new QueryOutputMetadata(
-                            queryInfo.getOutput().get().getCatalogName().getCatalogName(),
+                            queryInfo.getOutput().get().getCatalogName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),

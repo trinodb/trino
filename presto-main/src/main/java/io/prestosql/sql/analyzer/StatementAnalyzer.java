@@ -336,7 +336,7 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = analyze(insert.getQuery(), createScope(scope));
 
-            analysis.setUpdateType("INSERT");
+            analysis.setUpdateType("INSERT", targetTable);
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -491,7 +491,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyze(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
-            analysis.setUpdateType("DELETE");
+            analysis.setUpdateType("DELETE", tableName);
 
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
@@ -515,8 +515,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("ANALYZE");
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+            analysis.setUpdateType("ANALYZE", tableName);
 
             // verify the target table exists and it's not a view
             if (metadata.getView(session, tableName).isPresent()) {
@@ -558,10 +558,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE TABLE");
-
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
+            analysis.setUpdateType("CREATE TABLE", targetTable);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent()) {
@@ -653,9 +652,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE VIEW");
-
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            analysis.setUpdateType("CREATE VIEW", viewName);
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
@@ -888,7 +886,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
             }
             process(node.getStatement(), scope);
-            analysis.setUpdateType(null);
+            analysis.resetUpdateType();
             return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
         }
 
@@ -1029,21 +1027,29 @@ class StatementAnalyzer
 
             List<Field> outputFields = fields.build();
 
-            Scope accessControlScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
-                    .build();
-
-            for (Field field : outputFields) {
-                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType())
-                        .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
-            }
-
-            accessControl.getRowFilters(session.toSecurityContext(), name)
-                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
-
-            analysis.registerTable(table, tableHandle.get());
+            analyzeFiltersAndMasks(table, name, tableHandle, outputFields, session.getIdentity().getUser());
 
             return createAndAssignScope(table, scope, outputFields);
+        }
+
+        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
+        {
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(fields))
+                    .build();
+
+            ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
+            for (Field field : fields) {
+                List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
+                columnMasks.put(field, masks);
+
+                masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+            }
+
+            List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
+            filters.forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+
+            analysis.registerTable(table, tableHandle, name, filters, columnMasks.build(), authorization);
         }
 
         private Scope createScopeForCommonTableExpression(Table table, Optional<Scope> scope, WithQuery withQuery)
@@ -1133,17 +1139,7 @@ class StatementAnalyzer
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
-            Scope accessControlScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
-                    .build();
-
-            for (Field field : outputFields) {
-                accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType())
-                        .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
-            }
-
-            accessControl.getRowFilters(session.toSecurityContext(), name)
-                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+            analyzeFiltersAndMasks(table, name, Optional.empty(), outputFields, session.getIdentity().getUser());
 
             return createAndAssignScope(table, scope, outputFields);
         }

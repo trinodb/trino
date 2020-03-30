@@ -16,6 +16,7 @@ package io.prestosql.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -31,6 +32,8 @@ public class QueryMetadata
 
     private final URI uri;
 
+    private final List<TableInfo> tables;
+
     private final Optional<String> plan;
 
     private final Optional<String> payload;
@@ -41,6 +44,7 @@ public class QueryMetadata
             String query,
             Optional<String> preparedQuery,
             String queryState,
+            List<TableInfo> tables,
             URI uri,
             Optional<String> plan,
             Optional<String> payload)
@@ -50,6 +54,7 @@ public class QueryMetadata
         this.query = requireNonNull(query, "query is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryState = requireNonNull(queryState, "queryState is null");
+        this.tables = requireNonNull(tables, "tables is null");
         this.uri = requireNonNull(uri, "uri is null");
         this.plan = requireNonNull(plan, "plan is null");
         this.payload = requireNonNull(payload, "payload is null");
@@ -83,6 +88,12 @@ public class QueryMetadata
     public String getQueryState()
     {
         return queryState;
+    }
+
+    @JsonProperty
+    public List<TableInfo> getTables()
+    {
+        return tables;
     }
 
     @JsonProperty

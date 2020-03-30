@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -45,7 +46,6 @@ import io.prestosql.security.AccessControlModule;
 import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -61,7 +61,6 @@ import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncemen
 import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.util.Objects.requireNonNull;
 
 public class PrestoServer
         implements Runnable
@@ -73,18 +72,6 @@ public class PrestoServer
         embedVersion.embedVersion(new PrestoServer()::run).run();
     }
 
-    private final SqlParserOptions sqlParserOptions;
-
-    public PrestoServer()
-    {
-        this(new SqlParserOptions());
-    }
-
-    public PrestoServer(SqlParserOptions sqlParserOptions)
-    {
-        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
-    }
-
     @Override
     public void run()
     {
@@ -92,6 +79,7 @@ public class PrestoServer
         verifySystemTimeIsReasonable();
 
         Logger log = Logger.get(PrestoServer.class);
+        log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
 
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
@@ -140,7 +128,7 @@ public class PrestoServer
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
-            injector.getInstance(EventListenerManager.class).loadConfiguredEventListeners();
+            injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
 
             injector.getInstance(Announcer.class).start();

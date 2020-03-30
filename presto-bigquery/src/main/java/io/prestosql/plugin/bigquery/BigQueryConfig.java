@@ -14,7 +14,6 @@
 package io.prestosql.plugin.bigquery;
 
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.bigquery.BigQueryOptions;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
@@ -98,9 +97,9 @@ public class BigQueryConfig
         return this;
     }
 
-    public String getParentProjectId()
+    public Optional<String> getParentProjectId()
     {
-        return parentProjectId.orElseGet(() -> BigQueryOptions.getDefaultInstance().getProjectId());
+        return parentProjectId;
     }
 
     @Config("bigquery.parent-project-id")
@@ -185,7 +184,6 @@ public class BigQueryConfig
     ReadSessionCreatorConfig createReadSessionCreatorConfig()
     {
         return new ReadSessionCreatorConfig(
-                getParentProjectId(),
                 isViewsEnabled(),
                 getViewMaterializationProject(),
                 getViewMaterializationProject(),

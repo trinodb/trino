@@ -25,6 +25,13 @@
     </violation>
 
     <violation>
+        <!-- File.getPath() is the canonical way to convert File to its String representation suitable for passing to new File() -->
+        <name>java/io/File.toString:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Prefer File.getPath()</comment>
+    </violation>
+
+    <violation>
         <name>com/google/common/primitives/Ints.checkedCast:(J)I</name>
         <version>1.8</version>
         <comment>Prefer Math.toIntExact(long)</comment>

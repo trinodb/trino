@@ -61,6 +61,19 @@ public class TestStatementBuilder
         printStatement("select x[1][2] from my_table");
         printStatement("select x[cast(10 * sin(x) as bigint)] from my_table");
 
+        printStatement("select * from (select * from (select * from t) x) y");
+        printStatement("select * from (select * from (table t) x) y");
+
+        printStatement("select * from t x tablesample system (10)");
+        printStatement("select * from (t x tablesample system (10)) y");
+        printStatement("select * from (t tablesample system (10)) tablesample system (10)");
+        printStatement("select * from (t x tablesample system (10)) y tablesample system (10)");
+
+        printStatement("select * from (((select q)))");
+        printStatement("select * from (select q) x");
+        printStatement("select * from ((select q) x) y");
+        printStatement("select * from (((select q) x) y) z");
+
         printStatement("select * from unnest(t.my_array)");
         printStatement("select * from unnest(array[1, 2, 3])");
         printStatement("select x from unnest(array[1, 2, 3]) t(x)");

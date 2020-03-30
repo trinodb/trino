@@ -39,9 +39,11 @@ import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.Output;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.transaction.TransactionId;
@@ -147,6 +149,7 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<List<TableInfo>> referencedTables = new AtomicReference<>(ImmutableList.of());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final WarningCollector warningCollector;
@@ -420,6 +423,7 @@ public class QueryStateMachine
                 warningCollector.getWarnings(),
                 inputs.get(),
                 output.get(),
+                referencedTables.get(),
                 completeInfo,
                 Optional.of(resourceGroup));
     }
@@ -624,6 +628,12 @@ public class QueryStateMachine
     {
         requireNonNull(output, "output is null");
         this.output.set(output);
+    }
+
+    public void setReferencedTables(List<TableInfo> tables)
+    {
+        requireNonNull(tables, "tables is null");
+        referencedTables.set(ImmutableList.copyOf(tables));
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -1030,6 +1040,7 @@ public class QueryStateMachine
                 queryInfo.getWarnings(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
+                queryInfo.getReferencedTables(),
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupId());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));

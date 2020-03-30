@@ -61,7 +61,7 @@ public class InputExtractor
     {
         SchemaTableName schemaTable = metadata.getTableMetadata(session, table).getTable();
         Optional<Object> inputMetadata = metadata.getInfo(session, table);
-        return new Input(table.getCatalogName(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
+        return new Input(table.getCatalogName().getCatalogName(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
     }
 
     private class Visitor

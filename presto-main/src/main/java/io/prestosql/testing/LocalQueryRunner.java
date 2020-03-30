@@ -218,6 +218,8 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class LocalQueryRunner
         implements QueryRunner
 {
+    private final EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
+
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -345,7 +347,8 @@ public class LocalQueryRunner
                 new EmbedVersion(new ServerConfig()),
                 pageSorter,
                 pageIndexerFactory,
-                transactionManager);
+                transactionManager,
+                eventListenerManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -366,7 +369,7 @@ public class LocalQueryRunner
                 new NoOpResourceGroupManager(),
                 accessControl,
                 new PasswordAuthenticatorManager(),
-                new EventListenerManager(new EventListenerConfig()),
+                eventListenerManager,
                 new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo));
 
@@ -436,6 +439,11 @@ public class LocalQueryRunner
         connectorManager.stop();
         finalizerService.destroy();
         singleStreamSpillerFactory.destroy();
+    }
+
+    public void loadEventListeners()
+    {
+        this.eventListenerManager.loadEventListeners();
     }
 
     @Override

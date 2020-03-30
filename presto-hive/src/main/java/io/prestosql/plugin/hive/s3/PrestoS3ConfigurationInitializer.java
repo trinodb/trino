@@ -169,7 +169,7 @@ public class PrestoS3ConfigurationInitializer
         config.set(S3_MAX_RETRY_TIME, maxRetryTime.toString());
         config.set(S3_CONNECT_TIMEOUT, connectTimeout.toString());
         config.set(S3_SOCKET_TIMEOUT, socketTimeout.toString());
-        config.set(S3_STAGING_DIRECTORY, stagingDirectory.toString());
+        config.set(S3_STAGING_DIRECTORY, stagingDirectory.getPath());
         config.setInt(S3_MAX_CONNECTIONS, maxConnections);
         config.setLong(S3_MULTIPART_MIN_FILE_SIZE, multipartMinFileSize.toBytes());
         config.setLong(S3_MULTIPART_MIN_PART_SIZE, multipartMinPartSize.toBytes());

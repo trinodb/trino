@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution;
+package io.prestosql.sql.analyzer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.CatalogName;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -26,13 +25,13 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class Output
 {
-    private final CatalogName catalogName;
+    private final String catalogName;
     private final String schema;
     private final String table;
 
     @JsonCreator
     public Output(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table)
     {
@@ -42,7 +41,7 @@ public final class Output
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public String getCatalogName()
     {
         return catalogName;
     }

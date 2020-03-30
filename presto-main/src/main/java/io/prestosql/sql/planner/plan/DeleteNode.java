@@ -69,6 +69,9 @@ public class DeleteNode
         return rowId;
     }
 
+    /**
+     * Aggregate information about deleted data
+     */
     @JsonProperty("outputs")
     @Override
     public List<Symbol> getOutputSymbols()
