@@ -163,6 +163,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isBucketExecutionEn
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isProjectionPushdownEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -1968,6 +1969,10 @@ public class HiveMetadata
             List<ConnectorExpression> projections,
             Map<String, ColumnHandle> assignments)
     {
+        if (!isProjectionPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
         // Create projected column representations for supported sub expressions. Simple column references and chain of
         // dereferences on a variable are supported right now.
         Set<ConnectorExpression> projectedExpressions = projections.stream()

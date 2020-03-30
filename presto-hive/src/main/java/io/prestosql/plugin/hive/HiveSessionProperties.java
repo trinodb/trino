@@ -89,6 +89,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -357,6 +358,11 @@ public final class HiveSessionProperties
                         QUERY_PARTITION_FILTER_REQUIRED,
                         "Require filter on partition column",
                         hiveConfig.isQueryPartitionFilterRequired(),
+                        false),
+                booleanProperty(
+                        PROJECTION_PUSHDOWN_ENABLED,
+                        "Projection push down enabled for hive",
+                        hiveConfig.isProjectionPushdownEnabled(),
                         false));
     }
 
@@ -612,5 +618,10 @@ public final class HiveSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isProjectionPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
     }
 }
