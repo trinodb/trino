@@ -221,6 +221,7 @@ public class SqlQueryExecution
 
         stateMachine.setUpdateType(analysis.getUpdateType());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
+        stateMachine.setRoutines(analysis.getRoutines());
 
         stateMachine.endAnalysis();
 

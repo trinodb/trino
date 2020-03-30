@@ -23,6 +23,7 @@ import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorType;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -69,6 +70,7 @@ public class QueryInfo
     private final String updateType;
     private final Optional<StageInfo> outputStage;
     private final List<TableInfo> referencedTables;
+    private final List<RoutineInfo> routines;
     private final ExecutionFailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
@@ -108,6 +110,7 @@ public class QueryInfo
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("referencedTables") List<TableInfo> referencedTables,
+            @JsonProperty("routines") List<RoutineInfo> routines,
             @JsonProperty("completeInfo") boolean completeInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
     {
@@ -131,6 +134,7 @@ public class QueryInfo
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(referencedTables, "referencedTables is null");
+        requireNonNull(routines, "routines is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(warnings, "warnings is null");
 
@@ -163,6 +167,7 @@ public class QueryInfo
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
         this.referencedTables = ImmutableList.copyOf(referencedTables);
+        this.routines = ImmutableList.copyOf(routines);
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
     }
@@ -349,6 +354,12 @@ public class QueryInfo
     public List<TableInfo> getReferencedTables()
     {
         return referencedTables;
+    }
+
+    @JsonProperty
+    public List<RoutineInfo> getRoutines()
+    {
+        return routines;
     }
 
     @JsonProperty

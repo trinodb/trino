@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -52,7 +53,8 @@ public class ThriftPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         return new ThriftPageSource(client, thriftHeaderProvider.getHeaders(session), (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
     }

@@ -29,6 +29,7 @@ import io.prestosql.spi.eventlistener.ColumnInfo;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.QueryFailureInfo;
+import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -219,7 +220,7 @@ public class TestEventListener
     }
 
     @Test
-    public void testReferencedTables()
+    public void testReferencedTablesAndRoutines()
             throws Exception
     {
         // We expect the following events
@@ -242,6 +243,13 @@ public class TestEventListener
         ColumnInfo column = table.getColumns().get(0);
         assertEquals(column.getColumn(), "linenumber");
         assertTrue(column.getMasks().isEmpty());
+
+        List<RoutineInfo> routines = event.getMetadata().getRoutines();
+        assertEquals(tables.size(), 1);
+
+        RoutineInfo routine = routines.get(0);
+        assertEquals(routine.getRoutine(), "sum");
+        assertEquals(routine.getAuthorization(), "user");
     }
 
     @Test

@@ -1249,10 +1249,10 @@ public abstract class AbstractTestDistributedQueries
         String tableName = "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
 
         Runnable setup = () -> {
-            String createTable = format("CREATE TABLE %s(id bigint, value %s)", tableName, prestoTypeName);
+            String createTable = format("CREATE TABLE %s(id varchar, value %s)", tableName, prestoTypeName);
             assertUpdate(createTable);
             assertUpdate(
-                    format("INSERT INTO %s VALUES (10000, NULL), (10001, %s), (99999, %s)", tableName, sampleValueLiteral, highValueLiteral),
+                    format("INSERT INTO %s VALUES ('null value', NULL), ('sample value', %s), ('high value', %s)", tableName, sampleValueLiteral, highValueLiteral),
                     3);
         };
         if (dataMappingTestSetup.isUnsupportedType()) {
@@ -1266,18 +1266,18 @@ public abstract class AbstractTestDistributedQueries
         setup.run();
 
         // without pushdown, i.e. test read data mapping
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 10000");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES (10001), (99999)");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 10001");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 99999");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
 
-        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL", "VALUES 10000");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES (10001), (99999)");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 10001");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 99999");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 10001");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 99999");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES (10001), (99999)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES ('sample value'), ('high value')");
 
         assertUpdate("DROP TABLE " + tableName);
     }

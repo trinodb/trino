@@ -30,6 +30,7 @@ import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.eventlistener.ColumnInfo;
+import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
@@ -134,7 +135,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
-    private final Map<NodeRef<FunctionCall>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -514,12 +515,12 @@ public class Analysis
 
     public ResolvedFunction getResolvedFunction(FunctionCall function)
     {
-        return resolvedFunctions.get(NodeRef.of(function));
+        return resolvedFunctions.get(NodeRef.of(function)).getFunction();
     }
 
-    public void addResolvedFunction(Map<NodeRef<FunctionCall>, ResolvedFunction> infos)
+    public void addResolvedFunction(FunctionCall node, ResolvedFunction function, String authorization)
     {
-        resolvedFunctions.putAll(infos);
+        resolvedFunctions.put(NodeRef.of(node), new RoutineEntry(function, authorization));
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()
@@ -791,6 +792,13 @@ public class Analysis
                                     .collect(toImmutableList()),
                             columns);
                 })
+                .collect(toImmutableList());
+    }
+
+    public List<RoutineInfo> getRoutines()
+    {
+        return resolvedFunctions.entrySet().stream()
+                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
                 .collect(toImmutableList());
     }
 
@@ -1129,6 +1137,28 @@ public class Analysis
         public Map<Field, List<ViewExpression>> getColumnMasks()
         {
             return columnMasks;
+        }
+
+        public String getAuthorization()
+        {
+            return authorization;
+        }
+    }
+
+    private static class RoutineEntry
+    {
+        private final ResolvedFunction function;
+        private final String authorization;
+
+        public RoutineEntry(ResolvedFunction function, String authorization)
+        {
+            this.function = requireNonNull(function, "function is null");
+            this.authorization = requireNonNull(authorization, "authorization is null");
+        }
+
+        public ResolvedFunction getFunction()
+        {
+            return function;
         }
 
         public String getAuthorization()
