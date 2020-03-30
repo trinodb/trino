@@ -93,7 +93,8 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(5)
                 .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false)
-                .setPartitionUseColumnNames(false));
+                .setPartitionUseColumnNames(false)
+                .setProjectionPushdownEnabled(true));
     }
 
     @Test
@@ -160,6 +161,7 @@ public class TestHiveConfig
                 .put("hive.allow-register-partition-procedure", "true")
                 .put("hive.query-partition-filter-required", "true")
                 .put("hive.partition-use-column-names", "true")
+                .put("hive.projection-pushdown-enabled", "false")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -222,7 +224,8 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(10)
                 .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true)
-                .setPartitionUseColumnNames(true);
+                .setPartitionUseColumnNames(true)
+                .setProjectionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }
