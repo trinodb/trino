@@ -164,7 +164,6 @@
         <dependency>
             <groupId>io.prestosql.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
-            <version>2.7.7-1</version>
         </dependency>
 
         <dependency>
@@ -310,6 +309,12 @@
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.prestosql.hadoop</groupId>
+                    <artifactId>hadoop-apache</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
