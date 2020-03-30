@@ -664,8 +664,8 @@ public class BaseJdbcClient
                 "INSERT INTO %s (%s) VALUES (%s)",
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getColumnNames().stream()
-                    .map(this::quoted)
-                    .collect(joining(", ")),
+                        .map(this::quoted)
+                        .collect(joining(", ")),
                 join(",", nCopies(handle.getColumnNames().size(), "?")));
     }
 
