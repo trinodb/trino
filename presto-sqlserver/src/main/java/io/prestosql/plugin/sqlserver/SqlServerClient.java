@@ -23,7 +23,6 @@ import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.WriteMapping;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
@@ -34,14 +33,12 @@ import io.prestosql.spi.type.VarcharType;
 import javax.inject.Inject;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -79,32 +76,21 @@ public class SqlServerClient
                 "sp_rename %s, %s",
                 singleQuote(catalogName, schemaName, tableName),
                 singleQuote(newTable.getTableName()));
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        execute(identity, sql);
     }
 
     @Override
     public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            String sql = format(
-                    "sp_rename %s, %s, 'COLUMN'",
-                    singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
-                    singleQuote(newColumnName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        String sql = format(
+                "sp_rename %s, %s, 'COLUMN'",
+                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
+                singleQuote(newColumnName));
+        execute(identity, sql);
     }
 
     @Override
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
-            throws SQLException
     {
         String sql = format(
                 "SELECT %s INTO %s FROM %s WHERE 0 = 1",
