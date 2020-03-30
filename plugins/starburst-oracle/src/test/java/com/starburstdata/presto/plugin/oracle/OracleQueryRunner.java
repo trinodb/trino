@@ -57,7 +57,7 @@ public final class OracleQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createOracleQueryRunner(connectorProperties, sessionModifier, tables, 2, ImmutableMap.of());
+        return createOracleQueryRunner(connectorProperties, sessionModifier, tables, 3, ImmutableMap.of());
     }
 
     public static QueryRunner createOracleQueryRunner(
