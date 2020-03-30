@@ -34,18 +34,19 @@ public final class OracleSessionProperties
     @Inject
     public OracleSessionProperties(OracleConfig oracleConfig)
     {
-        sessionProperties = ImmutableList.of(
-                enumProperty(
+        sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(enumProperty(
                         NUMBER_ROUNDING_MODE,
                         "Rounding mode for Oracle NUMBER data type",
                         RoundingMode.class,
                         oracleConfig.getNumberRoundingMode(),
-                        false),
-                integerProperty(
+                        false))
+                .add(integerProperty(
                         NUMBER_DEFAULT_SCALE,
                         "Default scale for Oracle Number data type",
                         oracleConfig.getDefaultNumberScale().orElse(null),
-                        false));
+                        false))
+                .build();
     }
 
     @Override
