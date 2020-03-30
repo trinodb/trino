@@ -35,12 +35,11 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public class QueryBuilder
 {
@@ -50,11 +49,16 @@ public class QueryBuilder
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
 
-    private final String identifierQuote;
+    private final SqlCustomization customization;
 
     public QueryBuilder(String identifierQuote)
     {
-        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+        this(new DefaultSqlCustomization(identifierQuote));
+    }
+
+    public QueryBuilder(SqlCustomization customization)
+    {
+        this.customization = requireNonNull(customization, "customization is null");
     }
 
     public PreparedStatement buildSql(
@@ -72,10 +76,7 @@ public class QueryBuilder
     {
         StringBuilder sql = new StringBuilder();
 
-        String columnNames = columns.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .map(this::quote)
-                .collect(joining(", "));
+        String columnNames = join(", ", customization.columnNames(columns));
 
         sql.append("SELECT ");
         sql.append(columnNames);
@@ -84,13 +85,7 @@ public class QueryBuilder
         }
 
         sql.append(" FROM ");
-        if (!isNullOrEmpty(catalog)) {
-            sql.append(quote(catalog)).append('.');
-        }
-        if (!isNullOrEmpty(schema)) {
-            sql.append(quote(schema)).append('.');
-        }
-        sql.append(quote(table));
+        sql.append(customization.fromRelation(catalog, schema, table));
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
@@ -253,7 +248,7 @@ public class QueryBuilder
 
     private String quote(String name)
     {
-        return identifierQuote + name.replace(identifierQuote, identifierQuote + identifierQuote) + identifierQuote;
+        return customization.quote(name);
     }
 
     private static void bindValue(Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
