@@ -830,11 +830,15 @@ public class BaseJdbcClient
     }
 
     protected void execute(Connection connection, String query)
-            throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
             log.debug("Execute: %s", query);
             statement.execute(query);
+        }
+        catch (SQLException e) {
+            PrestoException exception = new PrestoException(JDBC_ERROR, e);
+            exception.addSuppressed(new RuntimeException("Query: " + query));
+            throw exception;
         }
     }
 
