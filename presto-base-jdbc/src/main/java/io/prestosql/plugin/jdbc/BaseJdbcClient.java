@@ -501,7 +501,6 @@ public class BaseJdbcClient
     }
 
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
-            throws SQLException
     {
         String sql = format(
                 "CREATE TABLE %s AS SELECT %s FROM %s WHERE 0 = 1",
@@ -622,29 +621,18 @@ public class BaseJdbcClient
     @Override
     public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            String sql = format(
-                    "ALTER TABLE %s DROP COLUMN %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    column.getColumnName());
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        String sql = format(
+                "ALTER TABLE %s DROP COLUMN %s",
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                column.getColumnName());
+        execute(identity, sql);
     }
 
     @Override
     public void dropTable(JdbcIdentity identity, JdbcTableHandle handle)
     {
         String sql = "DROP TABLE " + quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
-
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        execute(identity, sql);
     }
 
     @Override
@@ -664,8 +652,8 @@ public class BaseJdbcClient
                 "INSERT INTO %s (%s) VALUES (%s)",
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getColumnNames().stream()
-                    .map(this::quoted)
-                    .collect(joining(", ")),
+                        .map(this::quoted)
+                        .collect(joining(", ")),
                 join(",", nCopies(handle.getColumnNames().size(), "?")));
     }
 
@@ -808,19 +796,19 @@ public class BaseJdbcClient
     @Override
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, "CREATE SCHEMA " + quoted(schemaName));
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        execute(identity, "CREATE SCHEMA " + quoted(schemaName));
     }
 
     @Override
     public void dropSchema(JdbcIdentity identity, String schemaName)
     {
+        execute(identity, "DROP SCHEMA " + quoted(schemaName));
+    }
+
+    protected void execute(JdbcIdentity identity, String query)
+    {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, "DROP SCHEMA " + quoted(schemaName));
+            execute(connection, query);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);

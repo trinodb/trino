@@ -268,7 +268,6 @@ public class MySqlClient
 
     @Override
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
-            throws SQLException
     {
         String sql = format(
                 "CREATE TABLE %s LIKE %s",
