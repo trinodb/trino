@@ -101,25 +101,11 @@ public class QueryBuilder
     {
         StringBuilder sql = new StringBuilder();
 
-        String columnNames = columns.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .map(this::quote)
-                .collect(joining(", "));
-
         sql.append("SELECT ");
-        sql.append(columnNames);
-        if (columns.isEmpty()) {
-            sql.append("null");
-        }
+        sql.append(getProjection(columns));
 
         sql.append(" FROM ");
-        if (!isNullOrEmpty(catalog)) {
-            sql.append(quote(catalog)).append('.');
-        }
-        if (!isNullOrEmpty(schema)) {
-            sql.append(quote(schema)).append('.');
-        }
-        sql.append(quote(table));
+        sql.append(getRelation(catalog, schema, table));
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
@@ -169,6 +155,29 @@ public class QueryBuilder
         }
 
         return statement;
+    }
+
+    protected String getProjection(List<JdbcColumnHandle> columns)
+    {
+        if (columns.isEmpty()) {
+            return "null";
+        }
+        return columns.stream()
+                .map(JdbcColumnHandle::getColumnName)
+                .map(this::quote)
+                .collect(joining(", "));
+    }
+
+    protected String getRelation(String catalog, String schema, String table)
+    {
+        StringBuilder sql = new StringBuilder();
+        if (!isNullOrEmpty(catalog)) {
+            sql.append(quote(catalog)).append('.');
+        }
+        if (!isNullOrEmpty(schema)) {
+            sql.append(quote(schema)).append('.');
+        }
+        return sql.append(quote(table)).toString();
     }
 
     private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
@@ -280,7 +289,7 @@ public class QueryBuilder
         return quote(columnName) + " " + operator + " ?";
     }
 
-    private String quote(String name)
+    protected String quote(String name)
     {
         return identifierQuote + name.replace(identifierQuote, identifierQuote + identifierQuote) + identifierQuote;
     }
