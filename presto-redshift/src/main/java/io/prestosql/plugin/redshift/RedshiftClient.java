@@ -44,7 +44,7 @@ public class RedshiftClient
     protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in Redshift");
+            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
         }
 
         String sql = format(
