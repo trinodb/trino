@@ -59,7 +59,8 @@ public class RemoveRedundantDistinctLimit
             return Result.ofPlanNode(node.getSource());
         }
         if (isAtMost(node.getSource(), context.getLookup(), node.getLimit())) {
-            return Result.ofPlanNode(new AggregationNode(node.getId(),
+            return Result.ofPlanNode(new AggregationNode(
+                    node.getId(),
                     node.getSource(),
                     ImmutableMap.of(),
                     singleGroupingSet(node.getDistinctSymbols()),
