@@ -52,35 +52,6 @@ public class QueryBuilder
 
     private final String identifierQuote;
 
-    private static class TypeAndValue
-    {
-        private final Type type;
-        private final JdbcTypeHandle typeHandle;
-        private final Object value;
-
-        public TypeAndValue(Type type, JdbcTypeHandle typeHandle, Object value)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.typeHandle = requireNonNull(typeHandle, "typeHandle is null");
-            this.value = requireNonNull(value, "value is null");
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public JdbcTypeHandle getTypeHandle()
-        {
-            return typeHandle;
-        }
-
-        public Object getValue()
-        {
-            return value;
-        }
-    }
-
     public QueryBuilder(String identifierQuote)
     {
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
@@ -289,5 +260,34 @@ public class QueryBuilder
     {
         Type type = column.getColumnType();
         accumulator.add(new TypeAndValue(type, column.getJdbcTypeHandle(), value));
+    }
+
+    private static class TypeAndValue
+    {
+        private final Type type;
+        private final JdbcTypeHandle typeHandle;
+        private final Object value;
+
+        public TypeAndValue(Type type, JdbcTypeHandle typeHandle, Object value)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.typeHandle = requireNonNull(typeHandle, "typeHandle is null");
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public JdbcTypeHandle getTypeHandle()
+        {
+            return typeHandle;
+        }
+
+        public Object getValue()
+        {
+            return value;
+        }
     }
 }
