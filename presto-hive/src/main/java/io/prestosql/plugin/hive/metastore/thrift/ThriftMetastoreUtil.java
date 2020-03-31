@@ -584,7 +584,7 @@ public final class ThriftMetastoreUtil
      *
      * @see <a href="https://issues.apache.org/jira/browse/IMPALA-7497">IMPALA-7497</a>
      */
-    private static OptionalLong fromMetastoreNullsCount(long nullsCount)
+    public static OptionalLong fromMetastoreNullsCount(long nullsCount)
     {
         if (nullsCount == -1L) {
             return OptionalLong.empty();
@@ -600,7 +600,7 @@ public final class ThriftMetastoreUtil
         return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale()));
     }
 
-    private static OptionalLong getTotalSizeInBytes(OptionalDouble averageColumnLength, OptionalLong rowCount, OptionalLong nullsCount)
+    public static OptionalLong getTotalSizeInBytes(OptionalDouble averageColumnLength, OptionalLong rowCount, OptionalLong nullsCount)
     {
         if (averageColumnLength.isPresent() && rowCount.isPresent() && nullsCount.isPresent()) {
             long nonNullsCount = rowCount.getAsLong() - nullsCount.getAsLong();
@@ -615,7 +615,7 @@ public final class ThriftMetastoreUtil
     /**
      * Hive calculates NDV considering null as a distinct value
      */
-    private static OptionalLong fromMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount, OptionalLong rowCount)
+    public static OptionalLong fromMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount, OptionalLong rowCount)
     {
         if (distinctValuesCount.isPresent() && nullsCount.isPresent() && rowCount.isPresent()) {
             return OptionalLong.of(fromMetastoreDistinctValuesCount(distinctValuesCount.getAsLong(), nullsCount.getAsLong(), rowCount.getAsLong()));
@@ -974,7 +974,7 @@ public final class ThriftMetastoreUtil
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
-    private static boolean isNumericType(Type type)
+    public static boolean isNumericType(Type type)
     {
         return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
                 type.equals(DOUBLE) || type.equals(REAL) ||

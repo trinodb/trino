@@ -82,7 +82,7 @@ public class ReadSessionCreator
 
             Storage.ReadSession readSession = bigQueryStorageClient.createReadSession(
                     Storage.CreateReadSessionRequest.newBuilder()
-                            .setParent("projects/" + config.parentProjectId)
+                            .setParent("projects/" + bigQueryClient.getProjectId())
                             .setFormat(Storage.DataFormat.AVRO)
                             .setRequestedStreams(parallelism)
                             .setReadOptions(readOptions)

@@ -38,6 +38,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -207,7 +208,7 @@ public class KuduMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         clientSession.createSchema(schemaName);
     }

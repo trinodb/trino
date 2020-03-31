@@ -127,6 +127,8 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         ImmutableSet.of(),
                         Optional.empty(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
                         false,
                         Optional.empty()));
 

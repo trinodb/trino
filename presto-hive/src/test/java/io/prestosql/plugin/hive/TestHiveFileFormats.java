@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
@@ -420,6 +419,19 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
+    public void testParquetPageSourceGzip(int rowCount)
+            throws Exception
+    {
+        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
+        assertThatFileFormat(PARQUET)
+                .withColumns(testColumns)
+                .withSession(PARQUET_SESSION)
+                .withCompressionCodec(HiveCompressionCodec.GZIP)
+                .withRowsCount(rowCount)
+                .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig()));
+    }
+
+    @Test(dataProvider = "rowCount")
     public void testParquetPageSourceSchemaEvolution(int rowCount)
             throws Exception
     {
@@ -610,7 +622,7 @@ public class TestHiveFileFormats
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());
@@ -669,7 +681,7 @@ public class TestHiveFileFormats
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());

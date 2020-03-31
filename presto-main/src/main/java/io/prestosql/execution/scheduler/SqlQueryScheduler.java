@@ -624,7 +624,7 @@ public class SqlQueryScheduler
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
             SqlStageExecution sqlStageExecution = stages.get(stageId);
-            SqlStageExecution stage = requireNonNull(sqlStageExecution, () -> format("Stage %s does not exist", stageId));
+            SqlStageExecution stage = requireNonNull(sqlStageExecution, () -> format("Stage '%s' does not exist", stageId));
             stage.cancel();
         }
     }

@@ -81,7 +81,7 @@ public final class DockerFiles
     private static Path unpackDockerFilesFromClasspath()
     {
         try {
-            Path dockerFilesHostPath = temporaryDirectory();
+            Path dockerFilesHostPath = createTemporaryDirectoryForDocker();
             ClassPath.from(Thread.currentThread().getContextClassLoader())
                     .getResources().stream()
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith("docker/presto-product-tests/"))
@@ -108,21 +108,21 @@ public final class DockerFiles
         }
     }
 
-    public static Path temporaryDirectory()
+    public static Path createTemporaryDirectoryForDocker()
             throws IOException
     {
         // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
-        Path dockerFilesHostPath = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
+        Path temporaryDirectoryForDocker = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
 
         // Best-effort cleanup
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
-                deleteRecursively(dockerFilesHostPath, ALLOW_INSECURE);
+                deleteRecursively(temporaryDirectoryForDocker, ALLOW_INSECURE);
             }
             catch (IOException e) {
-                log.warn(e, "Failed to clean up docker files temporary directory '%s'", dockerFilesHostPath);
+                log.warn(e, "Failed to clean up docker files temporary directory '%s'", temporaryDirectoryForDocker);
             }
         }));
-        return dockerFilesHostPath;
+        return temporaryDirectoryForDocker;
     }
 }

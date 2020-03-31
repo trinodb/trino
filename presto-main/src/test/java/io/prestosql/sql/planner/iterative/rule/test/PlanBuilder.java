@@ -462,13 +462,7 @@ public class PlanBuilder
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
     {
-        DeleteTarget deleteTarget = new DeleteTarget(
-                new TableHandle(
-                        new CatalogName("testConnector"),
-                        new TestingTableHandle(),
-                        TestingTransactionHandle.create(),
-                        Optional.of(TestingHandle.INSTANCE)),
-                schemaTableName);
+        DeleteTarget deleteTarget = deleteTarget(schemaTableName);
         return new TableFinishNode(
                 idAllocator.getNextId(),
                 exchange(e -> e
@@ -484,6 +478,27 @@ public class PlanBuilder
                 deleteRowId,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    public DeleteNode delete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId, List<Symbol> outputs)
+    {
+        return new DeleteNode(
+                idAllocator.getNextId(),
+                deleteSource,
+                deleteTarget(schemaTableName),
+                deleteRowId,
+                ImmutableList.copyOf(outputs));
+    }
+
+    private DeleteTarget deleteTarget(SchemaTableName schemaTableName)
+    {
+        return new DeleteTarget(
+                new TableHandle(
+                        new CatalogName("testConnector"),
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.of(TestingHandle.INSTANCE)),
+                schemaTableName);
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
@@ -664,19 +679,17 @@ public class PlanBuilder
                 left,
                 right,
                 ImmutableList.copyOf(criteria),
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 filter,
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of());
     }
 
-    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> outputSymbols, Optional<Expression> filter)
+    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<Expression> filter)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, Optional.empty(), Optional.empty());
+        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), Optional.empty());
     }
 
     public JoinNode join(
@@ -684,12 +697,13 @@ public class PlanBuilder
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
-            List<Symbol> outputSymbols,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), ImmutableMap.of());
+        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), ImmutableMap.of());
     }
 
     public JoinNode join(
@@ -697,13 +711,14 @@ public class PlanBuilder
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
-            List<Symbol> outputSymbols,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
             Map<String, Symbol> dynamicFilters)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilters);
+        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilters);
     }
 
     public JoinNode join(
@@ -711,14 +726,29 @@ public class PlanBuilder
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
-            List<Symbol> outputSymbols,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType,
             Map<String, Symbol> dynamicFilters)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.empty(), dynamicFilters, Optional.empty());
+        return new JoinNode(
+                idAllocator.getNextId(),
+                type,
+                left,
+                right,
+                criteria,
+                leftOutputSymbols,
+                rightOutputSymbols,
+                filter,
+                leftHashSymbol,
+                rightHashSymbol,
+                distributionType,
+                Optional.empty(),
+                dynamicFilters,
+                Optional.empty());
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)

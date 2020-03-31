@@ -25,10 +25,13 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.ColumnInfo;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.QueryFailureInfo;
+import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
@@ -39,19 +42,14 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.execution.TestQueues.createResourceGroupId;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestEventListener
@@ -61,6 +59,7 @@ public class TestEventListener
 
     private DistributedQueryRunner queryRunner;
     private Session session;
+    private EventsAwaitingQueries queries;
 
     @BeforeClass
     private void setUp()
@@ -94,6 +93,7 @@ public class TestEventListener
         queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         queryRunner.getCoordinator().getResourceGroupManager().get()
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
+        queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
     }
 
     private String getResourceFilePath(String fileName)
@@ -111,38 +111,7 @@ public class TestEventListener
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
             throws Exception
     {
-        return runQueryAndWaitForEvents(sql, numEventsExpected, session);
-    }
-
-    private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession)
-            throws Exception
-    {
-        return runQueryAndWaitForEvents(sql, numEventsExpected, alternateSession, Optional.empty());
-    }
-
-    private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession, Optional<String> expectedExceptionRegEx)
-            throws Exception
-    {
-        generatedEvents.initialize(numEventsExpected);
-        MaterializedResult result = null;
-        try {
-            result = queryRunner.execute(alternateSession, sql);
-        }
-        catch (RuntimeException exception) {
-            if (expectedExceptionRegEx.isPresent()) {
-                String regex = expectedExceptionRegEx.get();
-                if (!nullToEmpty(exception.getMessage()).matches(regex)) {
-                    fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
-                }
-            }
-            else {
-                throw exception;
-            }
-        }
-
-        generatedEvents.waitForEvents(10);
-
-        return result;
+        return queries.runQueryAndWaitForEvents(sql, numEventsExpected, session);
     }
 
     @Test
@@ -190,7 +159,7 @@ public class TestEventListener
     private void assertFailedQuery(@Language("SQL") String sql, String expectedFailure)
             throws Exception
     {
-        runQueryAndWaitForEvents(sql, 2, session, Optional.of(expectedFailure));
+        queries.runQueryAndWaitForEvents(sql, 2, session, Optional.of(expectedFailure));
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertEquals(sql, queryCompletedEvent.getMetadata().getQuery());
@@ -251,6 +220,39 @@ public class TestEventListener
     }
 
     @Test
+    public void testReferencedTablesAndRoutines()
+            throws Exception
+    {
+        // We expect the following events
+        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertEquals(tables.size(), 1);
+
+        TableInfo table = tables.get(0);
+        assertEquals(table.getCatalog(), "tpch");
+        assertEquals(table.getSchema(), "tiny");
+        assertEquals(table.getAuthorization(), "user");
+        assertTrue(table.getFilters().isEmpty());
+        assertEquals(table.getColumns().size(), 1);
+
+        ColumnInfo column = table.getColumns().get(0);
+        assertEquals(column.getColumn(), "linenumber");
+        assertTrue(column.getMasks().isEmpty());
+
+        List<RoutineInfo> routines = event.getMetadata().getRoutines();
+        assertEquals(tables.size(), 1);
+
+        RoutineInfo routine = routines.get(0);
+        assertEquals(routine.getRoutine(), "sum");
+        assertEquals(routine.getAuthorization(), "user");
+    }
+
+    @Test
     public void testPrepareAndExecute()
             throws Exception
     {
@@ -284,7 +286,7 @@ public class TestEventListener
         // We expect the following events
         // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
         int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
-        runQueryAndWaitForEvents("EXECUTE stmt USING 'SHIP'", expectedEvents, sessionWithPrepare);
+        queries.runQueryAndWaitForEvents("EXECUTE stmt USING 'SHIP'", expectedEvents, sessionWithPrepare);
 
         queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
@@ -334,62 +336,5 @@ public class TestEventListener
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
         assertEquals(1L, queryStats.getOutputPositions());
         assertEquals(1L, queryCompletedEvent.getStatistics().getOutputRows());
-    }
-
-    static class EventsBuilder
-    {
-        private ImmutableList.Builder<QueryCreatedEvent> queryCreatedEvents;
-        private ImmutableList.Builder<QueryCompletedEvent> queryCompletedEvents;
-        private ImmutableList.Builder<SplitCompletedEvent> splitCompletedEvents;
-
-        private CountDownLatch eventsLatch;
-
-        public synchronized void initialize(int numEvents)
-        {
-            queryCreatedEvents = ImmutableList.builder();
-            queryCompletedEvents = ImmutableList.builder();
-            splitCompletedEvents = ImmutableList.builder();
-
-            eventsLatch = new CountDownLatch(numEvents);
-        }
-
-        public void waitForEvents(int timeoutSeconds)
-                throws InterruptedException
-        {
-            eventsLatch.await(timeoutSeconds, TimeUnit.SECONDS);
-        }
-
-        public synchronized void addQueryCreated(QueryCreatedEvent event)
-        {
-            queryCreatedEvents.add(event);
-            eventsLatch.countDown();
-        }
-
-        public synchronized void addQueryCompleted(QueryCompletedEvent event)
-        {
-            queryCompletedEvents.add(event);
-            eventsLatch.countDown();
-        }
-
-        public synchronized void addSplitCompleted(SplitCompletedEvent event)
-        {
-            splitCompletedEvents.add(event);
-            eventsLatch.countDown();
-        }
-
-        public List<QueryCreatedEvent> getQueryCreatedEvents()
-        {
-            return queryCreatedEvents.build();
-        }
-
-        public List<QueryCompletedEvent> getQueryCompletedEvents()
-        {
-            return queryCompletedEvents.build();
-        }
-
-        public List<SplitCompletedEvent> getSplitCompletedEvents()
-        {
-            return splitCompletedEvents.build();
-        }
     }
 }

@@ -422,7 +422,7 @@ public class RcFileReader
     public Block readBlock(int columnIndex)
             throws IOException
     {
-        checkArgument(readColumns.containsKey(columnIndex), "Column %s is not being read", columnIndex);
+        checkArgument(readColumns.containsKey(columnIndex), "Column '%s' is not being read", columnIndex);
         checkState(currentChunkRowCount > 0, "No more data");
 
         if (columnIndex >= columns.length) {

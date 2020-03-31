@@ -31,6 +31,7 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
@@ -233,7 +234,7 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 false,
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());
@@ -245,7 +246,7 @@ public class TestHivePageSink
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
                 new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
-        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
+        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), TupleDomain.all());
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)

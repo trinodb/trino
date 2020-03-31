@@ -14,7 +14,7 @@
 package io.prestosql.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveCatalogName;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -100,7 +100,7 @@ public class SqlStandardAccessControl
 
     @Inject
     public SqlStandardAccessControl(
-            HiveCatalogName catalogName,
+            CatalogName catalogName,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();

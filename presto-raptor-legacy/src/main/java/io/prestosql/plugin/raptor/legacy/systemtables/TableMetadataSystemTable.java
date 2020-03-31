@@ -215,7 +215,7 @@ public class TableMetadataSystemTable
                 return i;
             }
         }
-        throw new IllegalArgumentException(format("Column %s not found", columnName));
+        throw new IllegalArgumentException(format("Column '%s' not found", columnName));
     }
 
     static String getStringValue(NullableValue value)

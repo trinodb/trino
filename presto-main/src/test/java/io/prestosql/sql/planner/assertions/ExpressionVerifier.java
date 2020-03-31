@@ -280,24 +280,26 @@ public final class ExpressionVerifier
 
         InPredicate expected = (InPredicate) expectedExpression;
 
-        if (actual.getValueList() instanceof InListExpression) {
+        if (actual.getValueList() instanceof InListExpression || !(expected.getValueList() instanceof InListExpression)) {
             return process(actual.getValue(), expected.getValue()) &&
                     process(actual.getValueList(), expected.getValueList());
         }
 
-        checkState(expected.getValueList() instanceof InListExpression, "ExpressionVerifier doesn't support unpacked expected values. Feel free to add support if needed");
-
         /*
-         * If the expected value is a value list, but the actual is e.g. a SymbolReference,
-         * we need to unpack the value from the list so that when we hit visitSymbolReference, the
-         * expected.toString() call returns something that the symbolAliases actually contains.
-         * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
+         * In some cases, actual.getValueList() and expected.getValueList() might be of different types,
+         * although they originated from identical single-element InListExpression.
          *
-         * This is required because actual passes through the analyzer, planner, and possibly optimizers,
+         * This happens because actual passes through the analyzer, planner, and possibly optimizers,
          * one of which sometimes takes the liberty of unpacking the InListExpression.
          *
          * Since the expected value doesn't go through all of that, we have to deal with the case
          * of the actual value being unpacked, but the expected value being an InListExpression.
+         *
+         * If the expected value is a value list, but the actual is e.g. a SymbolReference,
+         * we need to unpack the value from the list to enable comparison: so that when we hit
+         * visitSymbolReference, the expected.toString() call returns something that the symbolAliases
+         * actually contains.
+         * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
          */
         List<Expression> values = ((InListExpression) expected.getValueList()).getValues();
         checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list", values, actual.getValue());

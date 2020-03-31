@@ -82,7 +82,9 @@ Name                                   Description
 ``password``                           Password to use for LDAP authentication.
 ``socksProxy``                         SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                          HTTP proxy host and port. Example: ``localhost:8888``
+``clientInfo``                         Extra information about the client.
 ``clientTags``                         Client tags for selecting resource groups. Example: ``abc,xyz``
+``traceToken``                         Trace token for correlating requests across systems.
 ``applicationNamePrefix``              Prefix to append to any specified ``ApplicationName`` client info
                                        property, which is used to set the source name for the Presto query.
                                        If neither this property nor ``ApplicationName`` are set, the source

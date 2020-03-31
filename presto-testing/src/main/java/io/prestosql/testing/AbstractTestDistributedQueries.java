@@ -78,7 +78,6 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestDistributedQueries
@@ -92,6 +91,17 @@ public abstract class AbstractTestDistributedQueries
     protected boolean supportsArrays()
     {
         return true;
+    }
+
+    /**
+     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
+     * shortcuts, not exercising certain aspects.
+     */
+    @Test
+    public void ensureDistributedQueryRunner()
+    {
+        assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
+                .isGreaterThanOrEqualTo(3);
     }
 
     @Test
@@ -351,13 +361,12 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
-        MaterializedResult materializedRows = computeActual("SELECT x FROM test_rename_new");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertQuery("SELECT x FROM test_rename_new", "VALUES 123");
 
-        // provide new table name in uppercase
-        assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME");
-        materializedRows = computeActual("SELECT x FROM test_rename");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME"); // 'TEST_RENAME' is upper-case, not delimited
+        assertQuery(
+                "SELECT x FROM test_rename", // 'test_rename' is lower-case, not delimited
+                "VALUES 123");
 
         assertUpdate("DROP TABLE test_rename");
 
@@ -388,18 +397,20 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameColumn()
     {
-        assertUpdate("CREATE TABLE test_rename_column AS SELECT 123 x", 1);
+        assertUpdate("CREATE TABLE test_rename_column AS SELECT 'some value' x", 1);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
-        MaterializedResult materializedRows = computeActual("SELECT y FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertQuery("SELECT y FROM test_rename_column", "VALUES 'some value'");
 
-        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN y TO Z");
-        materializedRows = computeActual("SELECT z FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
+        assertQuery(
+                "SELECT z FROM test_rename_column", // 'z' is lower-case, not delimited
+                "VALUES 'some value'");
+
+        // There should be exactly one column
+        assertQuery("SELECT * FROM test_rename_column", "VALUES 'some value'");
 
         assertUpdate("DROP TABLE test_rename_column");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_column"));
     }
 
     @Test
@@ -416,41 +427,25 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testAddColumn()
     {
-        assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
-        assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
-        assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3E0 b", 1);
+        assertUpdate("CREATE TABLE test_add_column AS SELECT CAST('first' AS varchar) x", 1);
 
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN x bigint", ".* Column 'x' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
-        assertUpdate("ALTER TABLE test_add_column ADD COLUMN a bigint");
-        assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_a", 1);
-        MaterializedResult materializedRows = computeActual("SELECT x, a FROM test_add_column ORDER BY x");
-        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123);
-        assertNull(materializedRows.getMaterializedRows().get(0).getField(1));
-        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234);
-        assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 111L);
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN a varchar");
+        assertUpdate("INSERT INTO test_add_column SELECT 'second', 'xxx'", 1);
+        assertQuery(
+                "SELECT x, a FROM test_add_column",
+                "VALUES ('first', NULL), ('second', 'xxx')");
 
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b double");
-        assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_ab", 1);
-        materializedRows = computeActual("SELECT x, a, b FROM test_add_column ORDER BY x");
-        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123);
-        assertNull(materializedRows.getMaterializedRows().get(0).getField(1));
-        assertNull(materializedRows.getMaterializedRows().get(0).getField(2));
-        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234);
-        assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 111L);
-        assertNull(materializedRows.getMaterializedRows().get(1).getField(2));
-        assertEquals(materializedRows.getMaterializedRows().get(2).getField(0), 345);
-        assertEquals(materializedRows.getMaterializedRows().get(2).getField(1), 222L);
-        assertEquals(materializedRows.getMaterializedRows().get(2).getField(2), 33.3);
+        assertUpdate("INSERT INTO test_add_column SELECT 'third', 'yyy', 33.3E0", 1);
+        assertQuery(
+                "SELECT x, a, b FROM test_add_column",
+                "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
 
         assertUpdate("DROP TABLE test_add_column");
-        assertUpdate("DROP TABLE test_add_column_a");
-        assertUpdate("DROP TABLE test_add_column_ab");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column"));
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column_a"));
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column_ab"));
     }
 
     @Test
@@ -1238,10 +1233,10 @@ public abstract class AbstractTestDistributedQueries
         String tableName = "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
 
         Runnable setup = () -> {
-            String createTable = format("CREATE TABLE %s(id bigint, value %s)", tableName, prestoTypeName);
+            String createTable = format("CREATE TABLE %s(id varchar, value %s)", tableName, prestoTypeName);
             assertUpdate(createTable);
             assertUpdate(
-                    format("INSERT INTO %s VALUES (10000, NULL), (10001, %s), (99999, %s)", tableName, sampleValueLiteral, highValueLiteral),
+                    format("INSERT INTO %s VALUES ('null value', NULL), ('sample value', %s), ('high value', %s)", tableName, sampleValueLiteral, highValueLiteral),
                     3);
         };
         if (dataMappingTestSetup.isUnsupportedType()) {
@@ -1255,18 +1250,18 @@ public abstract class AbstractTestDistributedQueries
         setup.run();
 
         // without pushdown, i.e. test read data mapping
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 10000");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES (10001), (99999)");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 10001");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 99999");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
 
-        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL", "VALUES 10000");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES (10001), (99999)");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 10001");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 99999");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 10001");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 99999");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES (10001), (99999)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES ('sample value'), ('high value')");
 
         assertUpdate("DROP TABLE " + tableName);
     }

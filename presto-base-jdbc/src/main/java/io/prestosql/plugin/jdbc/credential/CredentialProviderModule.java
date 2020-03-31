@@ -15,23 +15,19 @@ package io.prestosql.plugin.jdbc.credential;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationFactory;
-import io.prestosql.plugin.jdbc.BaseJdbcAuthenticationConfig;
 import io.prestosql.plugin.jdbc.credential.file.ConfigFileBasedCredentialProviderConfig;
 import io.prestosql.plugin.jdbc.credential.keystore.KeyStoreBasedCredentialProviderConfig;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
+import javax.inject.Singleton;
 
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableEntryException;
-import java.security.cert.CertificateException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
@@ -42,7 +38,6 @@ import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.KEYSTORE;
 import static io.prestosql.plugin.jdbc.credential.keystore.KeyStoreUtils.loadKeyStore;
 import static io.prestosql.plugin.jdbc.credential.keystore.KeyStoreUtils.readEntity;
-import static java.util.Objects.requireNonNull;
 
 public class CredentialProviderModule
         extends AbstractConfigurationAwareModule
@@ -50,78 +45,80 @@ public class CredentialProviderModule
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(BaseJdbcAuthenticationConfig.class);
-        bindCredentialProviderModule(
-                INLINE,
-                internalBinder -> {
-                    configBinder(internalBinder).bindConfig(CredentialConfig.class);
-                    internalBinder.bind(CredentialProvider.class).annotatedWith(ForExtraCredentialProvider.class).to(ConfigFileBasedCredentialProvider.class).in(SINGLETON);
-                });
-        bindCredentialProviderModule(
-                FILE,
-                internalBinder -> {
-                    configBinder(binder).bindConfig(ConfigFileBasedCredentialProviderConfig.class);
-                    internalBinder.bind(CredentialProvider.class).annotatedWith(ForExtraCredentialProvider.class).toProvider(ConfigFileBasedCredentialProviderFactory.class).in(SINGLETON);
-                });
-        bindCredentialProviderModule(
-                KEYSTORE,
-                internalBinder -> {
-                    configBinder(binder).bindConfig(KeyStoreBasedCredentialProviderConfig.class);
-                    internalBinder.bind(CredentialProvider.class).annotatedWith(ForExtraCredentialProvider.class).toProvider(KeyStoreBasedCredentialProviderFactory.class);
-                });
+        bindCredentialProviderModule(INLINE, new InlineCredentialProviderModule());
+        bindCredentialProviderModule(FILE, new ConfigFileBasedCredentialProviderModule());
+        bindCredentialProviderModule(KEYSTORE, new KeyStoreBasedCredentialProviderModule());
+
+        configBinder(binder).bindConfig(ExtraCredentialConfig.class);
         binder.bind(CredentialProvider.class).to(ExtraCredentialProvider.class).in(SINGLETON);
     }
 
     private void bindCredentialProviderModule(CredentialProviderType name, Module module)
     {
         install(installModuleIf(
-                BaseJdbcAuthenticationConfig.class,
+                CredentialProviderTypeConfig.class,
                 config -> name == config.getCredentialProviderType(),
                 module));
     }
 
-    private static class ConfigFileBasedCredentialProviderFactory
-            implements Provider<CredentialProvider>
+    private static class InlineCredentialProviderModule
+            implements Module
     {
-        private final CredentialConfig credentialsConfig;
-
-        @Inject
-        public ConfigFileBasedCredentialProviderFactory(ConfigFileBasedCredentialProviderConfig config)
-                throws IOException
+        @Override
+        public void configure(Binder binder)
         {
-            requireNonNull(config, "config is null");
-            Map<String, String> properties = loadPropertiesFrom(config.getCredentialFile());
-            credentialsConfig = new ConfigurationFactory(properties).build(CredentialConfig.class);
+            configBinder(binder).bindConfig(CredentialConfig.class);
         }
 
-        @Override
-        public CredentialProvider get()
+        @Provides
+        @Singleton
+        @ForExtraCredentialProvider
+        public CredentialProvider getCredentialProvider(CredentialConfig config)
         {
-            return new ConfigFileBasedCredentialProvider(credentialsConfig);
+            return new StaticCredentialProvider(config.getConnectionUser(), config.getConnectionPassword());
         }
     }
 
-    private static class KeyStoreBasedCredentialProviderFactory
-            implements Provider<CredentialProvider>
+    private static class ConfigFileBasedCredentialProviderModule
+            implements Module
     {
-        private final CredentialConfig credentialsConfig;
-
-        @Inject
-        public KeyStoreBasedCredentialProviderFactory(KeyStoreBasedCredentialProviderConfig config)
-                throws IOException, CertificateException, NoSuchAlgorithmException, KeyStoreException, InvalidKeySpecException, UnrecoverableEntryException
+        @Override
+        public void configure(Binder binder)
         {
-            requireNonNull(config, "config is null");
-            KeyStore keyStore = loadKeyStore(config.getKeyStoreType(), config.getKeyStoreFilePath(), config.getKeyStorePassword());
-
-            credentialsConfig = new CredentialConfig()
-                    .setConnectionUser(readEntity(keyStore, config.getUserCredentialName(), config.getPasswordForUserCredentialName()))
-                    .setConnectionPassword(readEntity(keyStore, config.getPasswordCredentialName(), config.getPasswordForPasswordCredentialName()));
+            configBinder(binder).bindConfig(ConfigFileBasedCredentialProviderConfig.class);
         }
 
-        @Override
-        public CredentialProvider get()
+        @Provides
+        @Singleton
+        @ForExtraCredentialProvider
+        public CredentialProvider getCredentialProvider(ConfigFileBasedCredentialProviderConfig fileConfig)
+                throws IOException
         {
-            return new ConfigFileBasedCredentialProvider(credentialsConfig);
+            Map<String, String> properties = loadPropertiesFrom(fileConfig.getCredentialFile());
+            CredentialConfig config = new ConfigurationFactory(properties).build(CredentialConfig.class);
+            return new StaticCredentialProvider(config.getConnectionUser(), config.getConnectionPassword());
+        }
+    }
+
+    private static class KeyStoreBasedCredentialProviderModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            configBinder(binder).bindConfig(KeyStoreBasedCredentialProviderConfig.class);
+        }
+
+        @Provides
+        @Singleton
+        @ForExtraCredentialProvider
+        public CredentialProvider getCredentialProvider(KeyStoreBasedCredentialProviderConfig config)
+                throws IOException, GeneralSecurityException
+        {
+            KeyStore keyStore = loadKeyStore(config.getKeyStoreType(), config.getKeyStoreFilePath(), config.getKeyStorePassword());
+            String user = readEntity(keyStore, config.getUserCredentialName(), config.getPasswordForUserCredentialName());
+            String password = readEntity(keyStore, config.getPasswordCredentialName(), config.getPasswordForPasswordCredentialName());
+            return new StaticCredentialProvider(Optional.of(user), Optional.of(password));
         }
     }
 }

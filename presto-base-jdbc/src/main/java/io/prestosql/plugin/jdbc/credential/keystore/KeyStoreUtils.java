@@ -18,22 +18,17 @@ import javax.crypto.spec.PBEKeySpec;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.KeyStore.PasswordProtection;
 import java.security.KeyStore.SecretKeyEntry;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableEntryException;
-import java.security.cert.CertificateException;
-import java.security.spec.InvalidKeySpecException;
 
-public class KeyStoreUtils
+public final class KeyStoreUtils
 {
-    private KeyStoreUtils()
-    {}
+    private KeyStoreUtils() {}
 
     public static KeyStore loadKeyStore(String keyStoreType, String keyStorePath, String keyStorePassword)
-            throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException
+            throws IOException, GeneralSecurityException
     {
         KeyStore keyStore = KeyStore.getInstance(keyStoreType);
         keyStore.load(new FileInputStream(keyStorePath), keyStorePassword.toCharArray());
@@ -41,7 +36,7 @@ public class KeyStoreUtils
     }
 
     public static String readEntity(KeyStore keyStore, String entityAlias, String entityPassword)
-            throws UnrecoverableEntryException, NoSuchAlgorithmException, KeyStoreException, InvalidKeySpecException
+            throws GeneralSecurityException
     {
         SecretKeyEntry secretKeyEntry = (SecretKeyEntry) keyStore.getEntry(entityAlias, new PasswordProtection(entityPassword.toCharArray()));
 

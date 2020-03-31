@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -67,7 +67,7 @@ public class GroupProviderManager
         if (configuredGroupProvider.get().isPresent() || !groupProviderFile.exists()) {
             return;
         }
-        Map<String, String> properties = new HashMap<>(loadProperties(groupProviderFile));
+        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(groupProviderFile.getPath()));
 
         String groupProviderName = properties.remove(GROUP_PROVIDER_PROPERTY_NAME);
         checkArgument(!isNullOrEmpty(groupProviderName),

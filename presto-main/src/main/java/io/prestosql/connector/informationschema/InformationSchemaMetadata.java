@@ -129,7 +129,7 @@ public class InformationSchemaMetadata
         String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
-        checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
+        checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
         return columnMetadata;
     }
 

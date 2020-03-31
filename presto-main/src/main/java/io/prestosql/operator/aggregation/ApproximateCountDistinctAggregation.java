@@ -14,7 +14,6 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.prestosql.operator.aggregation.state.BooleanDistinctState;
 import io.prestosql.operator.aggregation.state.HyperLogLogState;
@@ -105,14 +104,14 @@ public final class ApproximateCountDistinctAggregation
     public static void input(
             @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
-            @SqlType("T") Slice value,
+            @SqlType("T") Object value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         long hash;
         try {
-            hash = (long) methodHandle.invokeExact(value);
+            hash = (long) methodHandle.invoke(value);
         }
         catch (Throwable t) {
             throw internalError(t);

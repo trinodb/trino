@@ -27,6 +27,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -223,7 +224,6 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
-import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -263,7 +263,7 @@ public class HiveMetadata
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
 
     private final boolean allowCorruptWritesForTesting;
-    private final HiveCatalogName catalogName;
+    private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -280,7 +280,7 @@ public class HiveMetadata
     private final AccessControlMetadata accessControlMetadata;
 
     public HiveMetadata(
-            HiveCatalogName catalogName,
+            CatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -299,7 +299,7 @@ public class HiveMetadata
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
-        this.catalogName = requireNonNull(catalogName, "hiveCatalogName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -520,7 +520,7 @@ public class HiveMetadata
     private ConnectorTableMetadata doGetTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
-        if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (!table.isPresent() || (!translateHiveViews && isHiveOrPrestoView(table.get()))) {
             throw new TableNotFoundException(tableName);
         }
 
@@ -736,7 +736,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
@@ -751,8 +751,8 @@ public class HiveMetadata
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
-                .setOwnerType(USER)
-                .setOwnerName(session.getUser())
+                .setOwnerType(owner.getType())
+                .setOwnerName(owner.getName())
                 .build();
 
         metastore.createDatabase(new HiveIdentity(session), database);

@@ -153,6 +153,9 @@ public class TestHiveViews
 
         assertThat(query("SELECT view_definition FROM information_schema.views WHERE table_schema = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
                 row("SELECT \"nation\".\"n_nationkey\", \"nation\".\"n_name\", \"nation\".\"n_regionkey\", \"nation\".\"n_comment\" FROM \"default\".\"nation\""));
+
+        assertThat(query("DESCRIBE test_schema.hive_test_view"))
+                .contains(row("n_nationkey", "bigint", "", ""));
     }
 
     @Test(groups = HIVE_VIEWS)

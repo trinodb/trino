@@ -131,7 +131,7 @@ public class LdapAuthenticator
             String userDistinguishedName = createUserDistinguishedName(user);
             if (groupAuthorizationSearchPattern.isPresent()) {
                 // user password is also validated as user DN and password is used for querying LDAP
-                validateGroupMembership(user, userDistinguishedName, credentials.getPassword());
+                checkGroupMembership(user, userDistinguishedName, credentials.getPassword());
             }
             else {
                 validatePassword(userDistinguishedName, credentials.getPassword());
@@ -180,6 +180,28 @@ public class LdapAuthenticator
         }
     }
 
+    private void checkGroupMembership(String user, String contextUserDistinguishedName, String contextPassword)
+            throws NamingException
+    {
+        DirContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
+        try {
+            NamingEnumeration<SearchResult> search = searchGroupMembership(user, context);
+            try {
+                if (!search.hasMore()) {
+                    String message = format("User [%s] not a member of an authorized group", user);
+                    log.debug(message);
+                    throw new AccessDeniedException(message);
+                }
+            }
+            finally {
+                search.close();
+            }
+        }
+        finally {
+            context.close();
+        }
+    }
+
     /**
      * Returns {@code true} when parameter contains a character that has a special meaning in
      * LDAP search or bind name (DN).
@@ -199,15 +221,10 @@ public class LdapAuthenticator
     private String validateGroupMembership(String user, DirContext context)
             throws NamingException
     {
-        String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
-        String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
-        SearchControls searchControls = new SearchControls();
-        searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-
-        NamingEnumeration<SearchResult> search = context.search(userBase, searchFilter, searchControls);
+        NamingEnumeration<SearchResult> search = searchGroupMembership(user, context);
         try {
             if (!search.hasMore()) {
-                String message = format("User [%s] not a member of the authorized group", user);
+                String message = format("User [%s] not a member of an authorized group", user);
                 log.debug(message);
                 throw new AccessDeniedException(message);
             }
@@ -227,6 +244,16 @@ public class LdapAuthenticator
         finally {
             search.close();
         }
+    }
+
+    private NamingEnumeration<SearchResult> searchGroupMembership(String user, DirContext context)
+            throws NamingException
+    {
+        String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
+        String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
+        SearchControls searchControls = new SearchControls();
+        searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+        return context.search(userBase, searchFilter, searchControls);
     }
 
     private void validatePassword(String userDistinguishedName, String password)

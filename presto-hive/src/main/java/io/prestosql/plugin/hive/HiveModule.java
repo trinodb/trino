@@ -21,6 +21,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
@@ -127,10 +128,9 @@ public class HiveModule
         newSetBinder(binder, SystemTable.class);
     }
 
-    @ForHive
     @Singleton
     @Provides
-    public ExecutorService createHiveClientExecutor(HiveCatalogName catalogName)
+    public ExecutorService createHiveClientExecutor(CatalogName catalogName)
     {
         return newCachedThreadPool(daemonThreadsNamed("hive-" + catalogName + "-%s"));
     }
@@ -138,7 +138,7 @@ public class HiveModule
     @ForHiveTransactionHeartbeats
     @Singleton
     @Provides
-    public ScheduledExecutorService createHiveTransactionHeartbeatExecutor(HiveCatalogName catalogName, HiveConfig hiveConfig)
+    public ScheduledExecutorService createHiveTransactionHeartbeatExecutor(CatalogName catalogName, HiveConfig hiveConfig)
     {
         return newScheduledThreadPool(
                 hiveConfig.getHiveTransactionHeartbeatThreads(),

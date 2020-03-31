@@ -127,6 +127,7 @@ public class HiveConfig
 
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
+    private boolean partitionUseColumnNames;
 
     public int getMaxInitialSplits()
     {
@@ -907,5 +908,18 @@ public class HiveConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    public boolean getPartitionUseColumnNames()
+    {
+        return partitionUseColumnNames;
+    }
+
+    @Config("hive.partition-use-column-names")
+    @ConfigDescription("Access partition columns by names")
+    public HiveConfig setPartitionUseColumnNames(boolean partitionUseColumnNames)
+    {
+        this.partitionUseColumnNames = partitionUseColumnNames;
+        return this;
     }
 }

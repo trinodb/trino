@@ -25,7 +25,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -86,12 +86,6 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
-    {
-        return createPageSource(transaction, session, split, table, columns, TupleDomain.all());
-    }
-
-    @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, TupleDomain<ColumnHandle> dynamicFilter)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) table;
@@ -122,7 +116,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
-                hiveSplit.getColumnCoercions(),
+                hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
                 hiveSplit.getDeleteDeltaLocations());
@@ -149,20 +143,20 @@ public class HivePageSourceProvider
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            Map<Integer, HiveType> columnCoercions,
+            TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
             Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         if (effectivePredicate.isNone()) {
-            return Optional.of(new FixedPageSource(ImmutableList.of()));
+            return Optional.of(new EmptyPageSource());
         }
 
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
                 hiveColumns,
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
-                columnCoercions,
+                tableToPartitionMapping,
                 path,
                 bucketNumber,
                 fileSize,
@@ -334,7 +328,7 @@ public class HivePageSourceProvider
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
                 List<HiveColumnHandle> requiredInterimColumns,
-                Map<Integer, HiveType> columnCoercions,
+                TableToPartitionMapping tableToPartitionMapping,
                 Path path,
                 OptionalInt bucketNumber,
                 long fileSize,
@@ -345,7 +339,7 @@ public class HivePageSourceProvider
             Set<Integer> regularColumnIndices = new HashSet<>();
             ImmutableList.Builder<ColumnMapping> columnMappings = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
-                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
+                Optional<HiveType> coercionFrom = tableToPartitionMapping.getCoercion(column.getHiveColumnIndex());
                 if (column.getColumnType() == REGULAR) {
                     checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
                     columnMappings.add(regular(column, regularIndex, coercionFrom));

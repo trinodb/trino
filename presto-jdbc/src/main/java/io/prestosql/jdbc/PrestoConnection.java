@@ -106,7 +106,9 @@ public class PrestoConnection
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        uri.getClientInfo().ifPresent(tags -> clientInfo.put("ClientInfo", tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
+        uri.getTraceToken().ifPresent(tags -> clientInfo.put("TraceToken", tags));
 
         roles.putAll(uri.getRoles());
         timeZoneId.set(ZoneId.systemDefault());
@@ -682,7 +684,6 @@ public class PrestoConnection
             source = applicationName;
         }
 
-        Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
                 .split(nullToEmpty(clientInfo.get("ClientTags")));
 
@@ -697,7 +698,7 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
-                traceToken,
+                Optional.ofNullable(clientInfo.get("TraceToken")),
                 ImmutableSet.copyOf(clientTags),
                 clientInfo.get("ClientInfo"),
                 catalog.get(),

@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.env.environment;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
@@ -26,9 +27,9 @@ public class SinglenodeLdapBindDn
         extends AbstractSinglenodeLdap
 {
     @Inject
-    public SinglenodeLdapBindDn(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentOptions environmentOptions)
+    public SinglenodeLdapBindDn(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentOptions environmentOptions)
     {
-        super(dockerFiles, standard, hadoop, environmentOptions);
+        super(ImmutableList.of(standard, hadoop), dockerFiles, environmentOptions);
     }
 
     @Override

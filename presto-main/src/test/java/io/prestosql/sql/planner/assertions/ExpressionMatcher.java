@@ -23,6 +23,8 @@ import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,11 @@ public class ExpressionMatcher
     {
         SqlParser parser = new SqlParser();
         return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, new ParsingOptions()));
+    }
+
+    public static ExpressionMatcher inPredicate(SymbolReference value, SymbolReference valueList)
+    {
+        return new ExpressionMatcher(new InPredicate(value, valueList));
     }
 
     @Override

@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -306,7 +305,7 @@ public class TestHiveSplitSource
                     bucketNumber,
                     true,
                     false,
-                    ImmutableMap.of(),
+                    TableToPartitionMapping.empty(),
                     Optional.empty(),
                     false,
                     Optional.empty());

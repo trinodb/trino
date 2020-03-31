@@ -100,11 +100,11 @@ C
 - :func:`covar_pop`
 - :func:`crc32`
 - :func:`cume_dist`
-- :func:`current_date`
-- :func:`current_time`
-- :func:`current_timestamp`
+- :data:`current_date`
+- :data:`current_time`
+- :data:`current_timestamp`
 - :func:`current_timezone`
-- :func:`current_user`
+- :data:`current_user`
 
 D
 
@@ -218,8 +218,8 @@ L
 - :func:`line_interpolate_point`
 - :func:`line_interpolate_points`
 - :func:`ln`
-- :func:`localtime`
-- :func:`localtimestamp`
+- :data:`localtime`
+- :data:`localtimestamp`
 - :func:`log`
 - :func:`log10`
 - :func:`log2`

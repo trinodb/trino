@@ -41,6 +41,7 @@ import io.prestosql.cost.CostCalculatorWithEstimatedExchanges;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.eventlistener.EventListenerConfig;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.CommentTask;
 import io.prestosql.execution.CommitTask;
@@ -217,6 +218,8 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class LocalQueryRunner
         implements QueryRunner
 {
+    private final EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
+
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -344,7 +347,8 @@ public class LocalQueryRunner
                 new EmbedVersion(new ServerConfig()),
                 pageSorter,
                 pageIndexerFactory,
-                transactionManager);
+                transactionManager,
+                eventListenerManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -365,7 +369,7 @@ public class LocalQueryRunner
                 new NoOpResourceGroupManager(),
                 accessControl,
                 new PasswordAuthenticatorManager(),
-                new EventListenerManager(),
+                eventListenerManager,
                 new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo));
 
@@ -435,6 +439,11 @@ public class LocalQueryRunner
         connectorManager.stop();
         finalizerService.destroy();
         singleStreamSpillerFactory.destroy();
+    }
+
+    public void loadEventListeners()
+    {
+        this.eventListenerManager.loadEventListeners();
     }
 
     @Override

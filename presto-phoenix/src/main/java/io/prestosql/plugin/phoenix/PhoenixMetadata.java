@@ -39,6 +39,7 @@ import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hbase.HColumnDescriptor;
@@ -217,7 +218,7 @@ public class PhoenixMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {

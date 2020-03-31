@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticatorManager
@@ -67,7 +67,7 @@ public class PasswordAuthenticatorManager
         }
 
         File configFile = CONFIG_FILE.getAbsoluteFile();
-        Map<String, String> properties = new HashMap<>(loadProperties(configFile));
+        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
 
         String name = properties.remove(NAME_PROPERTY);
         checkState(!isNullOrEmpty(name), "Password authenticator configuration %s does not contain '%s'", configFile, NAME_PROPERTY);

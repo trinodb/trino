@@ -384,10 +384,8 @@ class RelationPlanner
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                        .build(),
+                leftPlanBuilder.getRoot().getOutputSymbols(),
+                rightPlanBuilder.getRoot().getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -427,10 +425,8 @@ class RelationPlanner
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                            .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                            .build(),
+                    leftPlanBuilder.getRoot().getOutputSymbols(),
+                    rightPlanBuilder.getRoot().getOutputSymbols(),
                     Optional.of(rewrittenFilterCondition),
                     Optional.empty(),
                     Optional.empty(),
@@ -537,10 +533,8 @@ class RelationPlanner
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftCoercion.getOutputSymbols())
-                        .addAll(rightCoercion.getOutputSymbols())
-                        .build(),
+                leftCoercion.getOutputSymbols(),
+                rightCoercion.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

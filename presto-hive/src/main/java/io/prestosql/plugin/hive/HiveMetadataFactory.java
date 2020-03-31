@@ -17,6 +17,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
@@ -38,7 +39,7 @@ public class HiveMetadataFactory
 {
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
-    private final HiveCatalogName catalogName;
+    private final CatalogName catalogName;
     private final boolean allowCorruptWritesForTesting;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
@@ -64,12 +65,12 @@ public class HiveMetadataFactory
     @Inject
     @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
-            HiveCatalogName catalogName,
+            CatalogName catalogName,
             HiveConfig hiveConfig,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            @ForHive ExecutorService executorService,
+            ExecutorService executorService,
             @ForHiveTransactionHeartbeats ScheduledExecutorService heartbeatService,
             TypeManager typeManager,
             LocationService locationService,
@@ -105,7 +106,7 @@ public class HiveMetadataFactory
     }
 
     public HiveMetadataFactory(
-            HiveCatalogName catalogName,
+            CatalogName catalogName,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,

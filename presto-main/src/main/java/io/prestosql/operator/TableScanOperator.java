@@ -24,10 +24,10 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.EmptySplit;
-import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -205,7 +205,7 @@ public class TableScanOperator
         blocked.set(null);
 
         if (split.getConnectorSplit() instanceof EmptySplit) {
-            source = new EmptySplitPageSource();
+            source = new EmptyPageSource();
         }
 
         return () -> {
@@ -293,6 +293,9 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
+            if (!dynamicFilter.get().isAll()) {
+                operatorContext.recordDynamicFilterSplitProcessed(1L);
+            }
             source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 

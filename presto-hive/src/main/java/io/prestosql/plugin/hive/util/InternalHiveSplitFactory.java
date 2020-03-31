@@ -18,9 +18,9 @@ import io.prestosql.plugin.hive.DeleteDeltaLocations;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
-import io.prestosql.plugin.hive.HiveTypeName;
 import io.prestosql.plugin.hive.InternalHiveSplit;
 import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
+import io.prestosql.plugin.hive.TableToPartitionMapping;
 import io.prestosql.plugin.hive.s3select.S3SelectPushdown;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.predicate.Domain;
@@ -58,7 +58,7 @@ public class InternalHiveSplitFactory
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
-    private final Map<Integer, HiveTypeName> columnCoercions;
+    private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
@@ -70,7 +70,7 @@ public class InternalHiveSplitFactory
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveTypeName> columnCoercions,
+            TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled)
@@ -81,7 +81,7 @@ public class InternalHiveSplitFactory
         this.schema = requireNonNull(schema, "schema is null");
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
-        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
+        this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
@@ -196,7 +196,7 @@ public class InternalHiveSplitFactory
                 bucketNumber,
                 splittable,
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
-                columnCoercions,
+                tableToPartitionMapping,
                 bucketConversion,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
                 deleteDeltaLocations));

@@ -68,8 +68,8 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.prestosql.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -151,7 +151,7 @@ public class AccessControlManager
 
         Map<String, String> properties;
         try {
-            properties = new HashMap<>(loadProperties(configFile));
+            properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);

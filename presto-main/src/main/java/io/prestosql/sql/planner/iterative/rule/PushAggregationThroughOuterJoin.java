@@ -47,7 +47,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.SystemSessionProperties.shouldPushAggregationThroughJoin;
+import static io.prestosql.SystemSessionProperties.isPushAggregationThroughOuterJoin;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.prestosql.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
@@ -112,7 +112,7 @@ public class PushAggregationThroughOuterJoin
     @Override
     public boolean isEnabled(Session session)
     {
-        return shouldPushAggregationThroughJoin(session);
+        return isPushAggregationThroughOuterJoin(session);
     }
 
     @Override
@@ -152,10 +152,8 @@ public class PushAggregationThroughOuterJoin
                     join.getLeft(),
                     rewrittenAggregation,
                     join.getCriteria(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(join.getLeft().getOutputSymbols())
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
-                            .build(),
+                    join.getLeft().getOutputSymbols(),
+                    ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
@@ -171,10 +169,8 @@ public class PushAggregationThroughOuterJoin
                     rewrittenAggregation,
                     join.getRight(),
                     join.getCriteria(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
-                            .addAll(join.getRight().getOutputSymbols())
-                            .build(),
+                    ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
+                    join.getRight().getOutputSymbols(),
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
@@ -247,10 +243,8 @@ public class PushAggregationThroughOuterJoin
                 outerJoin,
                 aggregationOverNull,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(outerJoin.getOutputSymbols())
-                        .addAll(aggregationOverNull.getOutputSymbols())
-                        .build(),
+                outerJoin.getOutputSymbols(),
+                aggregationOverNull.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

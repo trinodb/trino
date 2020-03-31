@@ -4,8 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-cleanup_docker_containers
-start_docker_containers
+cleanup_hadoop_docker_containers
+start_hadoop_docker_containers
 
 # generate test data
 exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f /docker/sql/create-test.sql
@@ -32,6 +32,6 @@ EXIT_CODE=$?
 set -e
 popd
 
-cleanup_docker_containers
+cleanup_hadoop_docker_containers
 
 exit "${EXIT_CODE}"

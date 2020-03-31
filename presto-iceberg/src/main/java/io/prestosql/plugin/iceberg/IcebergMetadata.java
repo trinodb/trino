@@ -102,7 +102,6 @@ import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
-import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -252,7 +251,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         Optional<String> location = getLocation(properties).map(uri -> {
             try {
@@ -267,8 +266,8 @@ public class IcebergMetadata
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
-                .setOwnerType(USER)
-                .setOwnerName(session.getUser())
+                .setOwnerType(owner.getType())
+                .setOwnerName(owner.getName())
                 .build();
 
         metastore.createDatabase(new HiveIdentity(session), database);

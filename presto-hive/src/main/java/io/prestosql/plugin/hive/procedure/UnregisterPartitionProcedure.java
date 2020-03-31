@@ -102,7 +102,7 @@ public class UnregisterPartitionProcedure
         String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
 
         Partition partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Partition %s does not exist", partitionName)));
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
 
         SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();
 

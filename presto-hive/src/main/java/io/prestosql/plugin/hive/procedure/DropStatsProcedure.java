@@ -97,7 +97,7 @@ public class DropStatsProcedure
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schema, table)));
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));
         }
         Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
         List<String> partitionColumns = columns.values().stream()

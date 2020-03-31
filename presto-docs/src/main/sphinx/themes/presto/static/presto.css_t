@@ -26,12 +26,12 @@ body {
     color: #222222;
 }
 
-a:link, a:visited {
+a:link, a:visited, a.headerlink {
   font-weight: bold;
   text-decoration: none;
   color: #44af5c; }
 
-a:hover, a:active {
+a:hover, a:active, a.headerlink:hover {
   text-decoration: none;
   color: #299642; }
 

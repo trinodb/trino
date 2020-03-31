@@ -591,12 +591,12 @@ public final class MetadataManager
     }
 
     @Override
-    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties)
+    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties);
+        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties, principal);
     }
 
     @Override

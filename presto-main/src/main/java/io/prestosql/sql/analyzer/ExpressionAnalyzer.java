@@ -196,6 +196,9 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
     private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
 
+    // Track referenced fields from source relation node
+    private final Multimap<NodeRef<Node>, Field> referencedFields = HashMultimap.create();
+
     private final Session session;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
@@ -313,6 +316,11 @@ public class ExpressionAnalyzer
         return tableColumnReferences;
     }
 
+    public Multimap<NodeRef<Node>, Field> getReferencedFields()
+    {
+        return referencedFields;
+    }
+
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
@@ -420,6 +428,10 @@ public class ExpressionAnalyzer
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
                 tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
             }
+
+            fieldId.getRelationId()
+                    .getSourceNode()
+                    .ifPresent(source -> referencedFields.put(NodeRef.of(source), field));
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
@@ -935,7 +947,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = metadata.getType(signature.getArgumentTypes().get(i));
-                requireNonNull(expectedType, format("Type %s not found", signature.getArgumentTypes().get(i)));
+                requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
@@ -1586,10 +1598,14 @@ public class ExpressionAnalyzer
 
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
-        analysis.addResolvedFunction(resolvedFunctions);
+
+        resolvedFunctions.entrySet()
+                .forEach(entry -> analysis.addResolvedFunction(entry.getKey().getNode(), entry.getValue(), session.getUser()));
+
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
+        analysis.addReferencedFields(analyzer.getReferencedFields());
 
         return new ExpressionAnalysis(
                 expressionTypes,

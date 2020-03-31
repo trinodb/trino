@@ -306,11 +306,29 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testClientInfoParameter()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("clientInfo=hello%20world")) {
+            assertEquals(connection.getClientInfo("ClientInfo"), "hello world");
+        }
+    }
+
+    @Test
     public void testClientTags()
             throws SQLException
     {
         try (Connection connection = createConnection("clientTags=c2,c3")) {
             assertEquals(connection.getClientInfo("ClientTags"), "c2,c3");
+        }
+    }
+
+    @Test
+    public void testTraceToken()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("traceToken=trace%20me")) {
+            assertEquals(connection.getClientInfo("TraceToken"), "trace me");
         }
     }
 

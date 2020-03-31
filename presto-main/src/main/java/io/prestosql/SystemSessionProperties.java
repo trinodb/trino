@@ -100,7 +100,7 @@ public final class SystemSessionProperties
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
-    public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
+    public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
@@ -424,14 +424,14 @@ public final class SystemSessionProperties
                         featuresConfig.isEnableIntermediateAggregations(),
                         false),
                 booleanProperty(
-                        PUSH_AGGREGATION_THROUGH_JOIN,
+                        PUSH_AGGREGATION_THROUGH_OUTER_JOIN,
                         "Allow pushing aggregations below joins",
-                        featuresConfig.isPushAggregationThroughJoin(),
+                        featuresConfig.isPushAggregationThroughOuterJoin(),
                         false),
                 booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
-                        false,
+                        featuresConfig.isPushPartialAggregationThoughJoin(),
                         false),
                 booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
@@ -835,12 +835,12 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, Boolean.class);
     }
 
-    public static boolean shouldPushAggregationThroughJoin(Session session)
+    public static boolean isPushAggregationThroughOuterJoin(Session session)
     {
-        return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, Boolean.class);
+        return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_OUTER_JOIN, Boolean.class);
     }
 
-    public static boolean isPushAggregationThroughJoin(Session session)
+    public static boolean isPushPartialAggregationThroughJoin(Session session)
     {
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
     }

@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive;
 
 import io.prestosql.plugin.hive.metastore.Partition;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -24,16 +23,16 @@ public class HivePartitionMetadata
 {
     private final Optional<Partition> partition;
     private final HivePartition hivePartition;
-    private final Map<Integer, HiveTypeName> columnCoercions;
+    private final TableToPartitionMapping tableToPartitionMapping;
 
     HivePartitionMetadata(
             HivePartition hivePartition,
             Optional<Partition> partition,
-            Map<Integer, HiveTypeName> columnCoercions)
+            TableToPartitionMapping tableToPartitionMapping)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
-        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
+        this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
     }
 
     public HivePartition getHivePartition()
@@ -49,8 +48,8 @@ public class HivePartitionMetadata
         return partition;
     }
 
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return columnCoercions;
+        return tableToPartitionMapping;
     }
 }
