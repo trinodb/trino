@@ -33,6 +33,7 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -82,6 +83,12 @@ public class JdbcMetadata
     {
         return jdbcClient.getTableHandle(JdbcIdentity.from(session), tableName)
                 .orElse(null);
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return jdbcClient.getSystemTable(session, tableName);
     }
 
     @Override
