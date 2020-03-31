@@ -4734,6 +4734,37 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testShowViews()
+    {
+        String viewName = "test_show_views";
+
+        Session testSession = testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_view_access_owner"))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT abs(1) as whatever");
+
+        String showViews = format("SELECT * FROM information_schema.views WHERE table_name = '%s'", viewName);
+        assertQuery(
+                format("SELECT table_name FROM information_schema.views WHERE table_name = '%s'", viewName),
+                format("VALUES '%s'", viewName));
+
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyTables(table -> false);
+                assertQueryReturnsEmptyResult(testSession, showViews);
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+
+        assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
     public void testShowTablePrivileges()
     {
         try {
