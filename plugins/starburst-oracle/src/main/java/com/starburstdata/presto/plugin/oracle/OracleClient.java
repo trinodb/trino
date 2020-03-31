@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
@@ -27,6 +26,7 @@ import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -40,6 +40,7 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.Chars;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TimestampType;
@@ -82,6 +83,7 @@ import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -94,6 +96,7 @@ import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUns
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -145,6 +148,7 @@ public class OracleClient
     };
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
+            .put(BOOLEAN, oracleBooleanWriteMapping())
             .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))
             .put(INTEGER, WriteMapping.longMapping("number(10)", integerWriteFunction()))
             .put(SMALLINT, WriteMapping.longMapping("number(5)", smallintWriteFunction()))
@@ -254,17 +258,19 @@ public class OracleClient
     @Override
     protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
+        if (!schemaName.equals(newTable.getSchemaName().toUpperCase(ENGLISH))) {
+            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
+        }
+
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
             if (connection.getMetaData().storesUpperCaseIdentifiers()) {
-                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
                 newTableName = newTableName.toUpperCase(ENGLISH);
             }
             String sql = format(
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, schemaName, tableName),
-                    quoted(catalogName, newSchemaName, newTableName));
+                    quoted(newTableName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -417,8 +423,8 @@ public class OracleClient
                 CharType charType = createCharType(columnSize);
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
-                        (resultSet1, columnIndex1) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet1.getString(columnIndex1))),
-                        charWriteFunction(),
+                        charReadFunction(),
+                        oracleCharWriteFunction(charType),
                         DISABLE_UNSUPPORTED_PUSHDOWN));
 
             case OracleTypes.VARCHAR:
@@ -464,6 +470,20 @@ public class OracleClient
                     DISABLE_PUSHDOWN));
         }
         return Optional.empty();
+    }
+
+    private static WriteMapping oracleBooleanWriteMapping()
+    {
+        return WriteMapping.booleanMapping("number(1)", (statement, index, value) -> {
+            statement.setInt(index, value ? 1 : 0);
+        });
+    }
+
+    private SliceWriteFunction oracleCharWriteFunction(CharType charType)
+    {
+        return (statement, index, value) -> {
+            statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
+        };
     }
 
     public static ColumnMapping oracleTimestampColumnMapping(ConnectorSession session)
@@ -595,6 +615,18 @@ public class OracleClient
     public boolean isLimitGuaranteed()
     {
         return true;
+    }
+
+    @Override
+    public void createSchema(JdbcIdentity identity, String schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+    }
+
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
     @Override

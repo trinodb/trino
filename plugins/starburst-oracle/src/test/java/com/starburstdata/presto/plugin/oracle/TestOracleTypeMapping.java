@@ -597,12 +597,6 @@ public class TestOracleTypeMapping
         testUnsupportedOracleType("NUMBER(2, 4)"); // Explicitly removed from mapping
     }
 
-    @Test
-    public void unsupportedPrestoType()
-    {
-        assertQueryFails("CREATE TABLE unsupported_boolean AS SELECT true AS b", "Unsupported column type: boolean");
-    }
-
     /* Testing utilities */
 
     /**

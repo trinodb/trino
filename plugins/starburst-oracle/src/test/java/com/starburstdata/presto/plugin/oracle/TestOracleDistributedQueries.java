@@ -10,11 +10,16 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.JdbcSqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
+import org.testng.SkipException;
 
+import java.util.Optional;
+import java.util.Properties;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -26,7 +31,7 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOracleDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -43,6 +48,18 @@ public class TestOracleDistributedQueries
                         .build(),
                 Function.identity(),
                 TpchTable.getTables());
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
     }
 
     @Override
@@ -84,5 +101,63 @@ public class TestOracleDistributedQueries
         assertQuery(
                 "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
                 "SELECT 'customer' table_name");
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // does not support creating schemas
+        assertQueryFails("CREATE SCHEMA test_schema_create", "This connector does not support creating schemas");
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // delete is not supported
+    }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // super.testInsertWithCoercion assumes DATE and TIMESTAMP are different types, but in Oracle connector DATE is mapped to TIMESTAMP TODO reimplement test
+        throw new SkipException("reimplement test");
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                createJdbcSqlExecutor(),
+                "test_table_with_default_columns",
+                "(col_required NUMBER(15) NOT NULL," +
+                        "col_nullable NUMBER(15)," +
+                        "col_default NUMBER(15) DEFAULT 43," +
+                        "col_nonnull_default NUMBER(15) DEFAULT 42 NOT NULL," +
+                        "col_required2 NUMBER(15) NOT NULL)");
+    }
+
+    @Override
+    protected Optional<AbstractTestDistributedQueries.DataMappingTestSetup> filterDataMappingSmokeTestData(AbstractTestDistributedQueries.DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    private JdbcSqlExecutor createJdbcSqlExecutor()
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", TestingOracleServer.USER);
+        properties.setProperty("password", TestingOracleServer.PASSWORD);
+        return new JdbcSqlExecutor(TestingOracleServer.getJdbcUrl(), properties);
     }
 }
