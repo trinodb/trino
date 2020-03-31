@@ -713,51 +713,47 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Set<Symbol>> context)
         {
-            ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
-            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new UnionNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            // Find out which output symbols we need to keep
+            ImmutableListMultimap.Builder<Symbol, Symbol> prunedMappingBuilder = ImmutableListMultimap.builder();
+            for (Symbol symbol : node.getOutputSymbols()) {
+                if (context.get().contains(symbol)) {
+                    prunedMappingBuilder.putAll(symbol, node.getSymbolMapping().get(symbol));
+                }
+            }
+            ListMultimap<Symbol, Symbol> prunedSymbolMapping = prunedMappingBuilder.build();
+
+            // Find the corresponding input symbols to the remaining output symbols and prune the children
+            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
+            for (int i = 0; i < node.getSources().size(); i++) {
+                ImmutableSet.Builder<Symbol> expectedSourceSymbols = ImmutableSet.builder();
+                for (Collection<Symbol> symbols : prunedSymbolMapping.asMap().values()) {
+                    expectedSourceSymbols.add(Iterables.get(symbols, i));
+                }
+                rewrittenSources.add(context.rewrite(node.getSources().get(i), expectedSourceSymbols.build()));
+            }
+
+            return new UnionNode(node.getId(), rewrittenSources.build(), prunedSymbolMapping, ImmutableList.copyOf(prunedSymbolMapping.keySet()));
         }
 
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<Symbol>> context)
         {
-            ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
-            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new IntersectNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            return rewriteSetOperationChildren(node, context);
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Set<Symbol>> context)
         {
-            ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
-            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new ExceptNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            return rewriteSetOperationChildren(node, context);
         }
 
-        private ListMultimap<Symbol, Symbol> rewriteSetOperationSymbolMapping(SetOperationNode node, RewriteContext<Set<Symbol>> context)
+        private PlanNode rewriteSetOperationChildren(SetOperationNode node, RewriteContext<Set<Symbol>> context)
         {
-            // Find out which output symbols we need to keep
-            ImmutableListMultimap.Builder<Symbol, Symbol> rewrittenSymbolMappingBuilder = ImmutableListMultimap.builder();
-            for (Symbol symbol : node.getOutputSymbols()) {
-                if (context.get().contains(symbol)) {
-                    rewrittenSymbolMappingBuilder.putAll(symbol, node.getSymbolMapping().get(symbol));
-                }
-            }
-            return rewrittenSymbolMappingBuilder.build();
-        }
-
-        private ImmutableList<PlanNode> rewriteSetOperationSubPlans(SetOperationNode node, RewriteContext<Set<Symbol>> context, ListMultimap<Symbol, Symbol> rewrittenSymbolMapping)
-        {
-            // Find the corresponding input symbol to the remaining output symbols and prune the subplans
-            ImmutableList.Builder<PlanNode> rewrittenSubPlans = ImmutableList.builder();
+            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                ImmutableSet.Builder<Symbol> expectedInputSymbols = ImmutableSet.builder();
-                for (Collection<Symbol> symbols : rewrittenSymbolMapping.asMap().values()) {
-                    expectedInputSymbols.add(Iterables.get(symbols, i));
-                }
-                rewrittenSubPlans.add(context.rewrite(node.getSources().get(i), expectedInputSymbols.build()));
+                rewrittenSources.add(context.rewrite(node.getSources().get(i), ImmutableSet.copyOf(node.sourceOutputLayout(i))));
             }
-            return rewrittenSubPlans.build();
+            return node.replaceChildren(rewrittenSources.build());
         }
 
         @Override
