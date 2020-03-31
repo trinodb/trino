@@ -295,7 +295,7 @@ public class InMemoryRecordSet
                 completedBytes += ((Block) value).getSizeInBytes();
             }
             else if (value instanceof Slice) {
-                completedBytes += ((Slice) value).getBytes().length;
+                completedBytes += ((Slice) value).length();
             }
             else {
                 throw new IllegalArgumentException("Unknown type: " + value.getClass());
