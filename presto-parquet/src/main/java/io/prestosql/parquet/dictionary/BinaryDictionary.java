@@ -13,6 +13,7 @@
  */
 package io.prestosql.parquet.dictionary;
 
+import io.airlift.slice.Slice;
 import io.prestosql.parquet.DictionaryPage;
 import org.apache.parquet.io.api.Binary;
 
@@ -37,9 +38,10 @@ public class BinaryDictionary
             throws IOException
     {
         super(dictionaryPage.getEncoding());
-        byte[] dictionaryBytes = dictionaryPage.getSlice().getBytes();
         content = new Binary[dictionaryPage.getDictionarySize()];
-        int offset = 0;
+        Slice dictionarySlice = dictionaryPage.getSlice();
+        byte[] dictionaryBytes = dictionarySlice.byteArray();
+        int offset = dictionarySlice.byteArrayOffset();
         if (length == null) {
             for (int i = 0; i < content.length; i++) {
                 int len = readIntLittleEndian(dictionaryBytes, offset);
