@@ -24,11 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    protected boolean isParameterizedVarcharSupported()
-    {
-        return true;
-    }
-
     /**
      * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
