@@ -20,11 +20,9 @@ import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
-@Test
 public class TestPostgreSqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
