@@ -18,6 +18,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
@@ -27,6 +28,7 @@ import io.prestosql.spi.connector.Constraint;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -65,7 +67,7 @@ public class SplitManager
         splitManagers.remove(catalogName);
     }
 
-    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, List<ColumnHandle> columns)
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
@@ -83,7 +85,7 @@ public class SplitManager
             source = splitManager.getSplits(table.getTransaction(), connectorSession, layout, splitSchedulingStrategy);
         }
         else {
-            source = splitManager.getSplits(table.getTransaction(), connectorSession, table.getConnectorHandle(), splitSchedulingStrategy);
+            source = splitManager.getSplits(table.getTransaction(), connectorSession, table.getConnectorHandle(), splitSchedulingStrategy, columns);
         }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, source);

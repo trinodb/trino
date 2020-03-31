@@ -14,6 +14,7 @@
 package io.prestosql.plugin.base.classloader;
 
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -22,6 +23,8 @@ import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +54,14 @@ public final class ClassLoaderSafeConnectorSplitManager
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplits(transaction, session, table, splitSchedulingStrategy);
+        }
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, List<ColumnHandle> columns)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSplits(transaction, session, table, splitSchedulingStrategy, columns);
         }
     }
 }

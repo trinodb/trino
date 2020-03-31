@@ -465,7 +465,7 @@ public class ExtractSpatialJoins
         ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
 
         Optional<KdbTree> kdbTree = Optional.empty();
-        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING)) {
+        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING, visibleColumnHandles)) {
             while (!Thread.currentThread().isInterrupted()) {
                 SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
                 List<Split> splits = splitBatch.getSplits();

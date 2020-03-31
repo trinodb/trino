@@ -112,6 +112,7 @@ import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
@@ -197,6 +198,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.cost.StatsCalculatorModule.createNewStatsCalculator;
@@ -743,11 +745,15 @@ public class LocalQueryRunner
         long sequenceId = 0;
         for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
             TableHandle table = tableScan.getTable();
+            List<ColumnHandle> columns = tableScan.getOutputSymbols().stream()
+                    .map(symbol -> tableScan.getAssignments().get(symbol))
+                    .collect(toImmutableList());
 
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     table,
-                    stageExecutionDescriptor.isScanGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    stageExecutionDescriptor.isScanGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
+                    columns);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {

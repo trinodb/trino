@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
+import java.util.List;
+
 public interface ConnectorSplitManager
 {
     @Deprecated
@@ -25,6 +27,7 @@ public interface ConnectorSplitManager
         throw new UnsupportedOperationException();
     }
 
+    @Deprecated
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
@@ -32,6 +35,16 @@ public interface ConnectorSplitManager
             SplitSchedulingStrategy splitSchedulingStrategy)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            List<ColumnHandle> columns)
+    {
+        return getSplits(transaction, session, table, splitSchedulingStrategy);
     }
 
     enum SplitSchedulingStrategy

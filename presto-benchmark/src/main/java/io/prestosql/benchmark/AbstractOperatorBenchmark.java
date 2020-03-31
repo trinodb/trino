@@ -172,7 +172,7 @@ public abstract class AbstractOperatorBenchmark
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
 
         // get the split for this table
-        Split split = getLocalQuerySplit(session, tableHandle);
+        Split split = getLocalQuerySplit(session, tableHandle, columnHandles);
 
         return new OperatorFactory()
         {
@@ -197,9 +197,9 @@ public abstract class AbstractOperatorBenchmark
         };
     }
 
-    private Split getLocalQuerySplit(Session session, TableHandle handle)
+    private Split getLocalQuerySplit(Session session, TableHandle handle, List<ColumnHandle> columnHandles)
     {
-        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING);
+        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING, columnHandles);
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(getNextBatch(splitSource));

@@ -22,6 +22,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.metadata.TableProperties;
 import io.prestosql.operator.StageExecutionDescriptor;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.split.SampledSplitSource;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
@@ -68,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -184,12 +186,16 @@ public class DistributedExecutionPlanner
             if (!dynamicFilters.isEmpty()) {
                 log.debug("Dynamic filters: %s", dynamicFilters);
             }
+            List<ColumnHandle> columns = node.getOutputSymbols().stream()
+                    .map(symbol -> node.getAssignments().get(symbol))
+                    .collect(toImmutableList());
 
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     node.getTable(),
-                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
+                    columns);
 
             splitSources.add(splitSource);
 
