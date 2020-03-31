@@ -597,7 +597,8 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata),
-                        new PruneJoinColumns())));
+                        new PruneJoinColumns(),
+                        new PruneJoinChildrenColumns())));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
