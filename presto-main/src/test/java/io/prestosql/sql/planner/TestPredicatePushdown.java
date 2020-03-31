@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -37,7 +36,7 @@ public class TestPredicatePushdown
 
     public TestPredicatePushdown()
     {
-        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "true"));
+        super(true);
     }
 
     @Test

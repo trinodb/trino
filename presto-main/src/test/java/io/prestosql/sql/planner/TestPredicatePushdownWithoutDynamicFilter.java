@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
@@ -31,7 +30,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
 {
     public TestPredicatePushdownWithoutDynamicFilter()
     {
-        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "false"));
+        super(false);
     }
 
     @Test
