@@ -62,6 +62,8 @@ public class HiveS3Config
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
+    private String s3ProxyHost;
+    private String s3ProxyPort;
 
     public String getS3AwsAccessKey()
     {
@@ -455,6 +457,32 @@ public class HiveS3Config
     public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
     {
         this.requesterPaysEnabled = requesterPaysEnabled;
+        return this;
+    }
+
+    public String getS3ProxyHost()
+    {
+        return s3ProxyHost;
+    }
+
+    @Config("hive.s3.proxy-host")
+    @ConfigDescription("HTTP proxy host the S3 client will connect through")
+    public HiveS3Config setS3ProxyHost(String s3ProxyHost)
+    {
+        this.s3ProxyHost = s3ProxyHost;
+        return this;
+    }
+
+    public String getS3ProxyPort()
+    {
+        return s3ProxyPort;
+    }
+
+    @Config("hive.s3.proxy-port")
+    @ConfigDescription("HTTP proxy port the S3 client will connect through")
+    public HiveS3Config setS3ProxyPort(String s3ProxyPort)
+    {
+        this.s3ProxyPort = s3ProxyPort;
         return this;
     }
 }

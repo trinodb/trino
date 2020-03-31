@@ -400,6 +400,12 @@ Property Name                                Description
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              skips data that may be expected to be part of the table
                                              or partition. Defaults to ``false``.
+
+``hive.s3.proxy-host``                       HTTP proxy host the S3 client will connect through. Default is
+                                             not to connect via a proxy.
+                                             
+``hive.s3.proxy-port``                       HTTP proxy port the S3 client will connect through. Default is
+                                             not to connect via a proxy.
 ============================================ =================================================================
 
 S3 Credentials

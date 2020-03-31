@@ -201,6 +201,8 @@ public class PrestoS3FileSystem
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
     private PrestoS3StorageClass s3StorageClass;
+    private String s3ProxyHost;
+    private String s3ProxyPort;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -247,6 +249,8 @@ public class PrestoS3FileSystem
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.s3ProxyHost = defaults.getS3ProxyHost();
+        this.s3ProxyPort = defaults.getS3ProxyPort();
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -723,6 +727,14 @@ public class PrestoS3FileSystem
             }
             SignerFactory.registerSigner(S3_CUSTOM_SIGNER, klass);
             clientConfig.setSignerOverride(S3_CUSTOM_SIGNER);
+        }
+
+        if (s3ProxyHost != null && !s3ProxyHost.equals("")) {
+            clientConfig.setProxyHost(s3ProxyHost);
+        }
+
+        if (s3ProxyPort != null && !s3ProxyPort.equals("") && !s3ProxyPort.equals("0")) {
+            clientConfig.setProxyPort(Integer.parseInt(s3ProxyPort));
         }
 
         if (encryptionMaterialsProvider.isPresent()) {
