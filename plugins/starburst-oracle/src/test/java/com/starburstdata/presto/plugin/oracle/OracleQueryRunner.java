@@ -99,7 +99,7 @@ public final class OracleQueryRunner
             executeInOracle(format("GRANT SELECT ON user_context to %s", ALICE_USER));
             executeInOracle(format("GRANT SELECT ON user_context to %s", BOB_USER));
 
-            queryRunner.installPlugin(new OraclePlugin());
+            queryRunner.installPlugin(new TestingOraclePlugin());
             queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
 
             queryRunner.installPlugin(new JmxPlugin());

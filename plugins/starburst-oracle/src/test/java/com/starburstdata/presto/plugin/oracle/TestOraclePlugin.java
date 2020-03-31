@@ -22,7 +22,7 @@ public class TestOraclePlugin
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new OraclePlugin();
+        Plugin plugin = new TestingOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
     }
