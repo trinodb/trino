@@ -19,6 +19,8 @@ import org.testng.annotations.Test;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.lang.String.join;
+import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestIntegrationSmokeTest
@@ -97,6 +99,13 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                 "FROM orders " +
                 "WHERE orderkey BETWEEN 10 AND 50");
+    }
+
+    @Test
+    public void testConcurrentScans()
+    {
+        String unionMultipleTimes = join(" UNION ALL ", nCopies(25, "SELECT * FROM orders"));
+        assertQuery("SELECT sum(if(rand() >= 0, orderkey)) FROM (" + unionMultipleTimes + ")", "VALUES 11246812500");
     }
 
     @Test
