@@ -62,6 +62,7 @@ public class HiveS3Config
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
+    private boolean usePseudoDirectories = true;
 
     public String getS3AwsAccessKey()
     {
@@ -455,6 +456,18 @@ public class HiveS3Config
     public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
     {
         this.requesterPaysEnabled = requesterPaysEnabled;
+        return this;
+    }
+
+    public boolean isUsePseudoDirectories()
+    {
+        return usePseudoDirectories;
+    }
+
+    @Config("hive.s3.use-pseudo-directories")
+    public HiveS3Config setUsePseudoDirectories(boolean usePseudoDirectories)
+    {
+        this.usePseudoDirectories = usePseudoDirectories;
         return this;
     }
 }

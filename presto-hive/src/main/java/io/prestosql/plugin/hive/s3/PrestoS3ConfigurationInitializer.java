@@ -52,6 +52,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTOR
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STORAGE_CLASS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_PSEUDO_DIRECTORIES;
 
 public class PrestoS3ConfigurationInitializer
         implements ConfigurationInitializer
@@ -86,6 +87,7 @@ public class PrestoS3ConfigurationInitializer
     private final String signerClass;
     private final boolean requesterPaysEnabled;
     private final boolean skipGlacierObjects;
+    private final boolean usePseudoDirectories;
 
     @Inject
     public PrestoS3ConfigurationInitializer(HiveS3Config config)
@@ -120,6 +122,7 @@ public class PrestoS3ConfigurationInitializer
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
         this.requesterPaysEnabled = config.isRequesterPaysEnabled();
+        this.usePseudoDirectories = config.isUsePseudoDirectories();
     }
 
     @Override
@@ -178,5 +181,6 @@ public class PrestoS3ConfigurationInitializer
         config.set(S3_ACL_TYPE, aclType.name());
         config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);
         config.setBoolean(S3_REQUESTER_PAYS_ENABLED, requesterPaysEnabled);
+        config.setBoolean(S3_USE_PSEUDO_DIRECTORIES, usePseudoDirectories);
     }
 }
