@@ -18,7 +18,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.base.CatalogName;
@@ -35,6 +34,7 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -48,7 +48,7 @@ public class GlueMetastoreModule
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
 
-        OptionalBinder.newOptionalBinder(binder, GlueColumnStatisticsProvider.class)
+        newOptionalBinder(binder, GlueColumnStatisticsProvider.class)
                 .setDefault().to(DisabledGlueColumnStatisticsProvider.class).in(Scopes.SINGLETON);
 
         if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
