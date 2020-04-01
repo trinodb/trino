@@ -36,7 +36,6 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static java.lang.Boolean.TRUE;
-import static java.lang.Math.toIntExact;
 
 public final class FastutilSetHelper
 {
@@ -190,7 +189,7 @@ public final class FastutilSetHelper
         public int hashCode(Object value)
         {
             try {
-                return toIntExact(Long.hashCode((long) hashCodeHandle.invokeExact(value)));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);

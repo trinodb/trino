@@ -25,7 +25,6 @@ import java.util.Iterator;
 
 import static io.prestosql.block.BlockSerdeUtil.readBlock;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
-import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -67,7 +66,7 @@ public final class PagesSerdeUtil
         PageCodecMarker.MarkerSet markers = PageCodecMarker.MarkerSet.fromByteValue(sliceInput.readByte());
         int uncompressedSizeInBytes = sliceInput.readInt();
         int sizeInBytes = sliceInput.readInt();
-        Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
+        Slice slice = sliceInput.readSlice(sizeInBytes);
         return new SerializedPage(slice, markers, positionCount, uncompressedSizeInBytes);
     }
 

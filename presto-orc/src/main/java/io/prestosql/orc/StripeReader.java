@@ -438,7 +438,7 @@ public class StripeReader
 
     private Set<Integer> selectRowGroups(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
     {
-        int rowsInStripe = toIntExact(stripe.getNumberOfRows());
+        int rowsInStripe = stripe.getNumberOfRows();
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);
 
         ImmutableSet.Builder<Integer> selectedRowGroups = ImmutableSet.builder();
@@ -485,7 +485,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> streamDiskRanges = ImmutableMap.builder();
         long stripeOffset = 0;
         for (Stream stream : streams) {
-            int streamLength = toIntExact(stream.getLength());
+            int streamLength = stream.getLength();
             // ignore zero byte streams
             if (streamLength > 0) {
                 streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));

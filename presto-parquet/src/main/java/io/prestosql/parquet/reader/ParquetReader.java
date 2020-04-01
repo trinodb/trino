@@ -137,7 +137,7 @@ public class ParquetReader
             return -1;
         }
 
-        batchSize = toIntExact(min(nextBatchSize, maxBatchSize));
+        batchSize = min(nextBatchSize, maxBatchSize);
         nextBatchSize = min(batchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_VECTOR_LENGTH);
         batchSize = toIntExact(min(batchSize, currentGroupRowCount - nextRowInGroup));
 
