@@ -13,18 +13,22 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.starburstdata.presto.kerberos.KerberosManager;
+import com.starburstdata.presto.kerberos.KerberosManagerModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
+import com.starburstdata.presto.plugin.jdbc.kerberos.PassThroughKerberosConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.prestosql.spi.PrestoException;
 import oracle.jdbc.driver.OracleDriver;
 import oracle.net.ano.AnoServices;
@@ -33,7 +37,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS;
-import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASS_THROUGH;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
@@ -72,8 +76,8 @@ public class OracleAuthenticationModule
 
         install(installModuleIf(
                 OracleConfig.class,
-                config -> config.getAuthenticationType() == PASS_THROUGH,
-                new PassThroughModule()));
+                config -> config.getAuthenticationType() == KERBEROS_PASS_THROUGH,
+                new KerberosPassThroughModule()));
     }
 
     private class ImpersonationModule
@@ -152,22 +156,31 @@ public class OracleAuthenticationModule
         }
     }
 
-    private static class PassThroughModule
+    private static class KerberosPassThroughModule
             implements Module
     {
         @Override
-        public void configure(Binder binder) {}
+        public void configure(Binder binder)
+        {
+            binder.install(new KerberosManagerModule());
+        }
 
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, KerberosManager kerberosManager)
         {
             if (oracleConfig.isConnectionPoolingEnabled()) {
                 throw new PrestoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with pass-through authentication");
             }
-            throw new UnsupportedOperationException("Pass through authentication not yet implemented");
-//            return new PassThroughConnectionFactory(baseJdbcConfig, getKerberosProperties(oracleConfig));
+
+            DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
+                    new OracleDriver(),
+                    baseJdbcConfig.getConnectionUrl(),
+                    getKerberosProperties(oracleConfig),
+                    new EmptyCredentialProvider());
+
+            return new PassThroughKerberosConnectionFactory(kerberosManager, connectionFactory);
         }
     }
 

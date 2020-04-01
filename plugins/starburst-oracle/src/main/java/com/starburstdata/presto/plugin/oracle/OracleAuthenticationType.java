@@ -13,6 +13,6 @@ public enum OracleAuthenticationType
 {
     USER_PASSWORD,
     KERBEROS,
-    PASS_THROUGH,
+    KERBEROS_PASS_THROUGH,
     /**/;
 }
