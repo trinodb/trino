@@ -67,8 +67,10 @@ import io.prestosql.sql.planner.iterative.rule.PruneCorrelatedJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
 import io.prestosql.sql.planner.iterative.rule.PruneDeleteSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneEnforceSingleRowColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneExceptSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneFilterColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneIndexSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneIntersectSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneLimitColumns;
@@ -81,6 +83,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneUnionSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
@@ -242,8 +245,10 @@ public class PlanOptimizers
                 new PruneCorrelatedJoinColumns(),
                 new PruneDeleteSourceColumns(),
                 new PruneEnforceSingleRowColumns(),
+                new PruneExceptSourceColumns(),
                 new PruneFilterColumns(),
                 new PruneIndexSourceColumns(),
+                new PruneIntersectSourceColumns(),
                 new PruneJoinChildrenColumns(),
                 new PruneJoinColumns(),
                 new PruneMarkDistinctColumns(),
@@ -252,6 +257,7 @@ public class PlanOptimizers
                 new PruneSemiJoinColumns(),
                 new PruneSemiJoinFilteringSourceColumns(),
                 new PruneTopNColumns(),
+                new PruneUnionSourceColumns(),
                 new PruneValuesColumns(),
                 new PruneWindowColumns(),
                 new PruneOffsetColumns(),
