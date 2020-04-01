@@ -13,34 +13,104 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
+import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
-import static com.google.common.collect.Maps.filterKeys;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static io.prestosql.util.MoreLists.filteredCopy;
+import static java.util.Objects.requireNonNull;
 
+/**
+ * TODO: this is a special case of PushProjectionIntoTableScan and should be merged with that rule.
+ */
 public class PruneTableScanColumns
         extends ProjectOffPushDownRule<TableScanNode>
 {
-    public PruneTableScanColumns()
+    private final Metadata metadata;
+    private final TypeAnalyzer typeAnalyzer;
+
+    public PruneTableScanColumns(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         super(tableScan());
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(Context context, TableScanNode tableScanNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, TableScanNode node, Set<Symbol> referencedOutputs)
     {
-        return Optional.of(
-                new TableScanNode(
-                        tableScanNode.getId(),
-                        tableScanNode.getTable(),
-                        filteredCopy(tableScanNode.getOutputSymbols(), referencedOutputs::contains),
-                        filterKeys(tableScanNode.getAssignments(), referencedOutputs::contains),
-                        tableScanNode.getEnforcedConstraint()));
+        Session session = context.getSession();
+        TypeProvider types = context.getSymbolAllocator().getTypes();
+
+        return pruneColumns(metadata, typeAnalyzer, types, session, node, referencedOutputs);
+    }
+
+    public static Optional<PlanNode> pruneColumns(Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, Session session, TableScanNode node, Set<Symbol> referencedOutputs)
+    {
+        List<Symbol> newOutputs = filteredCopy(node.getOutputSymbols(), referencedOutputs::contains);
+
+        if (newOutputs.size() == node.getOutputSymbols().size()) {
+            return Optional.empty();
+        }
+
+        List<ConnectorExpression> projections = newOutputs.stream()
+                .map(symbol -> new Variable(symbol.getName(), types.get(symbol)))
+                .collect(toImmutableList());
+
+        TableHandle handle = node.getTable();
+        Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(
+                session,
+                handle,
+                projections,
+                newOutputs.stream()
+                        .collect(toImmutableMap(Symbol::getName, node.getAssignments()::get)));
+
+        Map<Symbol, ColumnHandle> newAssignments;
+        // Attempt to push down the constrained list of columns into the connector.
+        // Bail out if the connector does anything other than limit the list of columns (e.g., if it synthesizes arbitrary expressions)
+        if (result.isPresent() && result.get().getProjections().stream().allMatch(Variable.class::isInstance)) {
+            handle = result.get().getHandle();
+
+            Map<String, ColumnHandle> assignments = result.get().getAssignments().stream()
+                    .collect(toImmutableMap(ProjectionApplicationResult.Assignment::getVariable, ProjectionApplicationResult.Assignment::getColumn));
+
+            ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
+            for (int i = 0; i < newOutputs.size(); i++) {
+                Variable variable = (Variable) result.get().getProjections().get(i);
+                builder.put(newOutputs.get(i), assignments.get(variable.getName()));
+            }
+
+            newAssignments = builder.build();
+        }
+        else {
+            newAssignments = newOutputs.stream()
+                    .collect(toImmutableMap(Function.identity(), node.getAssignments()::get));
+        }
+
+        return Optional.of(new TableScanNode(
+                node.getId(),
+                handle,
+                newOutputs,
+                newAssignments,
+                node.getEnforcedConstraint()));
     }
 }

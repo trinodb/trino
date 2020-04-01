@@ -256,7 +256,7 @@ public class PlanOptimizers
                 new PruneWindowColumns(),
                 new PruneOffsetColumns(),
                 new PruneLimitColumns(),
-                new PruneTableScanColumns());
+                new PruneTableScanColumns(metadata, typeAnalyzer));
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
                 new PushProjectionIntoTableScan(metadata, typeAnalyzer),
@@ -370,7 +370,7 @@ public class PlanOptimizers
                                 new ImplementIntersectAsUnion(metadata),
                                 new ImplementExceptAsUnion(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PruneUnreferencedOutputs(),
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
                 inlineProjections,
                 new IterativeOptimizer(
                         ruleStats,
@@ -433,7 +433,7 @@ public class PlanOptimizers
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
                         ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
-                new PruneUnreferencedOutputs(),
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -446,7 +446,7 @@ public class PlanOptimizers
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
-                new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
                         ruleStats,
@@ -465,7 +465,7 @@ public class PlanOptimizers
                                 .addAll(GatherAndMergeWindows.rules())
                                 .build()),
                 inlineProjections,
-                new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -487,7 +487,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer))),
                 projectionPushDown,
-                new PruneUnreferencedOutputs(),
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -577,7 +577,7 @@ public class PlanOptimizers
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(new PruneUnreferencedOutputs());
+        builder.add(new PruneUnreferencedOutputs(metadata, typeAnalyzer));
 
         builder.add(new IterativeOptimizer(
                 ruleStats,

@@ -22,6 +22,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -29,7 +30,9 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
@@ -109,6 +112,15 @@ import static java.util.Objects.requireNonNull;
 public class PruneUnreferencedOutputs
         implements PlanOptimizer
 {
+    private final Metadata metadata;
+    private final TypeAnalyzer typeAnalyzer;
+
+    public PruneUnreferencedOutputs(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
@@ -118,12 +130,27 @@ public class PruneUnreferencedOutputs
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, ImmutableSet.of());
+        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, types, typeAnalyzer, symbolAllocator, session), plan, ImmutableSet.of());
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Set<Symbol>>
     {
+        private final Metadata metadata;
+        private final TypeProvider types;
+        private final TypeAnalyzer typeAnalyzer;
+        private final SymbolAllocator symbolAllocator;
+        private final Session session;
+
+        public Rewriter(Metadata metadata, TypeProvider types, TypeAnalyzer typeAnalyzer, SymbolAllocator symbolAllocator, Session session)
+        {
+            this.metadata = metadata;
+            this.types = types;
+            this.typeAnalyzer = typeAnalyzer;
+            this.symbolAllocator = symbolAllocator;
+            this.session = session;
+        }
+
         @Override
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Set<Symbol>> context)
         {
@@ -424,19 +451,8 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<Symbol>> context)
         {
-            List<Symbol> newOutputs = node.getOutputSymbols().stream()
-                    .filter(context.get()::contains)
-                    .collect(toImmutableList());
-
-            Map<Symbol, ColumnHandle> newAssignments = newOutputs.stream()
-                    .collect(Collectors.toMap(Function.identity(), node.getAssignments()::get));
-
-            return new TableScanNode(
-                    node.getId(),
-                    node.getTable(),
-                    newOutputs,
-                    newAssignments,
-                    node.getEnforcedConstraint());
+            return PruneTableScanColumns.pruneColumns(metadata, typeAnalyzer, types, session, node, context.get())
+                    .orElse(node);
         }
 
         @Override
