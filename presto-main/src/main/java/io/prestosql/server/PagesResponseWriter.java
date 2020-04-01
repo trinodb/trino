@@ -17,7 +17,6 @@ import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.execution.buffer.SerializedPage;
-import io.prestosql.spi.Page;
 
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
@@ -58,7 +57,7 @@ public class PagesResponseWriter
     public boolean isWriteable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
     {
         return List.class.isAssignableFrom(type) &&
-                TypeToken.of(genericType).resolveType(LIST_GENERIC_TOKEN).getRawType().equals(Page.class) &&
+                TypeToken.of(genericType).resolveType(LIST_GENERIC_TOKEN).getRawType().equals(SerializedPage.class) &&
                 mediaType.isCompatible(PRESTO_PAGES_TYPE);
     }
 
