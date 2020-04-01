@@ -17,6 +17,7 @@ import com.starburstdata.presto.kerberos.KerberosManager;
 import com.starburstdata.presto.kerberos.KerberosManagerModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
+import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
@@ -38,6 +39,8 @@ import java.util.Properties;
 
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
@@ -66,8 +69,13 @@ public class OracleAuthenticationModule
 
         install(installModuleIf(
                 OracleConfig.class,
-                config -> config.getAuthenticationType() == OracleAuthenticationType.PASSWORD,
+                config -> config.getAuthenticationType() == PASSWORD,
                 new UserPasswordModule()));
+
+        install(installModuleIf(
+                OracleConfig.class,
+                config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
+                new PasswordPassThroughModule()));
 
         install(installModuleIf(
                 OracleConfig.class,
@@ -78,6 +86,26 @@ public class OracleAuthenticationModule
                 OracleConfig.class,
                 config -> config.getAuthenticationType() == KERBEROS_PASS_THROUGH,
                 new KerberosPassThroughModule()));
+    }
+
+    private ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config,
+            OracleConfig oracleConfig,
+            OracleConnectionPoolingConfig poolingConfig,
+            CredentialProvider credentialProvider)
+    {
+        if (oracleConfig.isConnectionPoolingEnabled()) {
+            return new OraclePoolingConnectionFactory(
+                    catalogName,
+                    config,
+                    getProperties(oracleConfig),
+                    Optional.of(credentialProvider),
+                    poolingConfig);
+        }
+        return new DriverConnectionFactory(
+                new OracleDriver(),
+                config.getConnectionUrl(),
+                getProperties(oracleConfig),
+                credentialProvider);
     }
 
     private class ImpersonationModule
@@ -110,21 +138,27 @@ public class OracleAuthenticationModule
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config,
+                OracleConfig oracleConfig,
+                OracleConnectionPoolingConfig poolingConfig,
+                CredentialProvider credentialProvider)
         {
-            if (oracleConfig.isConnectionPoolingEnabled()) {
-                return new OraclePoolingConnectionFactory(
-                        catalogName,
-                        config,
-                        getProperties(oracleConfig),
-                        Optional.of(credentialProvider),
-                        poolingConfig);
-            }
-            return new DriverConnectionFactory(
-                    new OracleDriver(),
-                    config.getConnectionUrl(),
-                    getProperties(oracleConfig),
-                    credentialProvider);
+            return createBasicConnectionFactory(config, oracleConfig, poolingConfig, credentialProvider);
+        }
+    }
+
+    private class PasswordPassThroughModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder) {}
+
+        @Provides
+        @Singleton
+        @ForAuthentication
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig)
+        {
+            return createBasicConnectionFactory(config, oracleConfig, poolingConfig, new PassThroughCredentialProvider());
         }
     }
 
@@ -141,7 +175,11 @@ public class OracleAuthenticationModule
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, KerberosConfig kerberosConfig)
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig baseJdbcConfig,
+                OracleConfig oracleConfig,
+                OracleConnectionPoolingConfig poolingConfig,
+                KerberosConfig kerberosConfig)
         {
             if (oracleConfig.isConnectionPoolingEnabled()) {
                 ConnectionFactory connectionFactory = new OraclePoolingConnectionFactory(

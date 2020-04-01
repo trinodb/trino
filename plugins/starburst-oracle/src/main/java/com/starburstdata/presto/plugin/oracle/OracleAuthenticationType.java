@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.oracle;
 public enum OracleAuthenticationType
 {
     PASSWORD,
+    PASSWORD_PASS_THROUGH,
     KERBEROS,
     KERBEROS_PASS_THROUGH,
     /**/;
