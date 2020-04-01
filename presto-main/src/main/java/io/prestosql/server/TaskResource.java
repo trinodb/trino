@@ -31,7 +31,6 @@ import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.spi.Page;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -267,7 +266,7 @@ public class TaskResource
                 status = Status.NO_CONTENT;
             }
             else {
-                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Page>>() {}.getType());
+                entity = new GenericEntity<>(serializedPages, new TypeToken<List<SerializedPage>>() {}.getType());
                 status = Status.OK;
             }
 
