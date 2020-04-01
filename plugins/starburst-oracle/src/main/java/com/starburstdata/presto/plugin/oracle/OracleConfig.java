@@ -19,7 +19,7 @@ import javax.validation.constraints.NotNull;
 import java.math.RoundingMode;
 import java.util.Optional;
 
-import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.USER_PASSWORD;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.oracle.OracleConcurrencyType.NO_CONCURRENCY;
 
 public class OracleConfig
@@ -29,7 +29,7 @@ public class OracleConfig
     private RoundingMode numberRoundingMode = RoundingMode.UNNECESSARY;
     private Integer defaultNumberScale;
     private boolean connectionPoolingEnabled = true;
-    private OracleAuthenticationType authenticationType = USER_PASSWORD;
+    private OracleAuthenticationType authenticationType = PASSWORD;
     private OracleConcurrencyType concurrencyType = NO_CONCURRENCY;
     private int maxSplitsPerScan = 10; // Oracle always has a limit for number of concurrent connections
 

@@ -31,7 +31,7 @@ public class TestOracleConfig
                 .setNumberRoundingMode(RoundingMode.UNNECESSARY)
                 .setDefaultNumberScale(null)
                 .setConcurrencyType(NO_CONCURRENCY)
-                .setAuthenticationType(OracleAuthenticationType.USER_PASSWORD)
+                .setAuthenticationType(OracleAuthenticationType.PASSWORD)
                 .setMaxSplitsPerScan(10));
     }
 

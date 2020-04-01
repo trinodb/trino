@@ -66,7 +66,7 @@ public class OracleAuthenticationModule
 
         install(installModuleIf(
                 OracleConfig.class,
-                config -> config.getAuthenticationType() == OracleAuthenticationType.USER_PASSWORD,
+                config -> config.getAuthenticationType() == OracleAuthenticationType.PASSWORD,
                 new UserPasswordModule()));
 
         install(installModuleIf(
