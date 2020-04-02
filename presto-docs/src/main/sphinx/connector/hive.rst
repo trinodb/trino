@@ -318,6 +318,8 @@ Property Name                                        Description
                                                      Catalog.
 ==================================================== ============================================================
 
+.. _hive-s3:
+
 Amazon S3 Configuration
 -----------------------
 
@@ -399,6 +401,8 @@ Property Name                                Description
                                              or partition. Defaults to ``false``.
 ============================================ =================================================================
 
+.. _hive-s3-credentials:
+
 S3 Credentials
 ^^^^^^^^^^^^^^
 
@@ -428,6 +432,8 @@ IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
+
+.. _hive-s3-security-mapping:
 
 S3 Security Mapping
 ^^^^^^^^^^^^^^^^^^^
