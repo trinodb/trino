@@ -15,7 +15,6 @@ package io.prestosql.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.Session;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
@@ -32,9 +31,6 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.execution.QueryState.FAILED;
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.prestosql.server.BasicQueryStats.immediateFailureQueryStats;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -100,23 +96,6 @@ public class BasicQueryInfo
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode());
-    }
-
-    public static BasicQueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ErrorCode errorCode)
-    {
-        return new BasicQueryInfo(
-                session.getQueryId(),
-                session.toSessionRepresentation(),
-                resourceGroupId,
-                FAILED,
-                GENERAL_POOL,
-                false,
-                self,
-                query,
-                Optional.empty(),
-                immediateFailureQueryStats(),
-                errorCode == null ? null : errorCode.getType(),
-                errorCode);
     }
 
     @JsonProperty
