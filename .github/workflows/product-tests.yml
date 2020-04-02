@@ -50,6 +50,11 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server-rpm'
+      - name: Free Disk Space
+        run: |
+          docker image prune -af
+          sudo apt-get clean
+          rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
