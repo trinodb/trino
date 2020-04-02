@@ -22,6 +22,11 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -90,7 +95,6 @@ public final class Environment
 
             String containerName = "ptl-" + name;
             container
-                    .withLogConsumer(new PrintingLogConsumer(format("%-20s| ", containerName)))
                     .withNetwork(network)
                     .withNetworkAliases(name)
                     .withLabel(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)
@@ -121,14 +125,26 @@ public final class Environment
 
         public Environment build()
         {
+            // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
+            PrintStream out;
+            try {
+                //noinspection resource
+                out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
+            }
+            catch (UnsupportedEncodingException e) {
+                throw new RuntimeException(e);
+            }
+
             containers.forEach((name, container) -> {
-                container.withCreateContainerCmdModifier(createContainerCmd -> {
-                    Map<String, Bind> binds = new HashMap<>();
-                    for (Bind bind : firstNonNull(createContainerCmd.getBinds(), new Bind[0])) {
-                        binds.put(bind.getVolume().getPath(), bind); // last bind wins
-                    }
-                    createContainerCmd.withBinds(binds.values().toArray(new Bind[0]));
-                });
+                container
+                        .withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", name)))
+                        .withCreateContainerCmdModifier(createContainerCmd -> {
+                            Map<String, Bind> binds = new HashMap<>();
+                            for (Bind bind : firstNonNull(createContainerCmd.getBinds(), new Bind[0])) {
+                                binds.put(bind.getVolume().getPath(), bind); // last bind wins
+                            }
+                            createContainerCmd.withBinds(binds.values().toArray(new Bind[0]));
+                        });
             });
 
             return new Environment(containers);
