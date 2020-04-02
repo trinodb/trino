@@ -10,7 +10,6 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -21,11 +20,8 @@ import java.util.function.Function;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -80,90 +76,6 @@ public class TestOracleDistributedQueries
     }
 
     @Override
-    public void testApproxSetBigint()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testApproxSetBigintGroupBy()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testApproxSetGroupByWithOnlyNullsInOneGroup()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testApproxSetWithNulls()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testCustomAdd()
-    {
-        // custom_add does not support decimal arguments
-    }
-
-    @Override
-    public void testCustomSum()
-    {
-        // custom_sum does not support decimal arguments
-    }
-
-    @Override
-    public void testDescribeInput()
-    {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ?")
-                .build();
-        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
-        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
-                .row(0, "unknown")
-                .row(1, "decimal")
-                .row(2, "varchar")
-                .build();
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Override
-    public void testDescribeOutput()
-    {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT * FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(19,0)", 16, false)
-                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(19,0)", 16, false)
-                .row("comment", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(152)", 0, false)
-                .build();
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT 1, name, regionkey AS my_alias FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("_col0", "", "", "", "integer", 4, false)
-                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(19,0)", 16, true)
-                .build();
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Override
     public void testInformationSchemaFiltering()
     {
         assertQuery(
@@ -172,65 +84,5 @@ public class TestOracleDistributedQueries
         assertQuery(
                 "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
                 "SELECT 'customer' table_name");
-    }
-
-    @Override
-    public void testMergeHyperLogLog()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeHyperLogLogGroupBy()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeHyperLogLogGroupByWithNulls()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeHyperLogLogWithNulls()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeEmptyNonEmptyApproxSet()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testP4ApproxSetBigint()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetBigintGroupBy()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetGroupByWithNulls()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetGroupByWithOnlyNullsInOneGroup()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetWithNulls()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
     }
 }
