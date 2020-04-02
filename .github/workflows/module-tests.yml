@@ -80,7 +80,8 @@ jobs:
             !presto-redis,
             !presto-sqlserver,!presto-postgresql,!presto-mysql,
             !presto-phoenix,!presto-iceberg,
-            !presto-docs,!presto-server,!presto-server-rpm'
+            !presto-docs,!presto-server,!presto-server-rpm,
+            !presto-kudu'
 
   x:
     runs-on: ubuntu-latest
