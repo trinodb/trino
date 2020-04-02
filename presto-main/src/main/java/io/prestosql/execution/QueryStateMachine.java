@@ -370,6 +370,7 @@ public class QueryStateMachine
                 stageStats.isScheduled(),
                 self,
                 query,
+                Optional.ofNullable(updateType.get()),
                 preparedQuery,
                 queryStats,
                 errorCode == null ? null : errorCode.getType(),
