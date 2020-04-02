@@ -13,8 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -44,7 +42,6 @@ import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.analyzer.Analysis;
@@ -406,23 +403,7 @@ public class SqlQueryExecution
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractTableHandles(analysis));
-    }
-
-    private static Multimap<CatalogName, ConnectorTableHandle> extractTableHandles(Analysis analysis)
-    {
-        ImmutableMultimap.Builder<CatalogName, ConnectorTableHandle> tableHandles = ImmutableMultimap.builder();
-
-        for (TableHandle tableHandle : analysis.getTables()) {
-            tableHandles.put(tableHandle.getCatalogName(), tableHandle.getConnectorHandle());
-        }
-
-        if (analysis.getInsert().isPresent()) {
-            TableHandle target = analysis.getInsert().get().getTarget();
-            tableHandles.put(target.getCatalogName(), target.getConnectorHandle());
-        }
-
-        return tableHandles.build();
+        return new PlanRoot(fragmentedPlan, !explainAnalyze);
     }
 
     private void planDistribution(PlanRoot plan)
@@ -622,13 +603,11 @@ public class SqlQueryExecution
     {
         private final SubPlan root;
         private final boolean summarizeTaskInfos;
-        private final Multimap<CatalogName, ConnectorTableHandle> tableHandles;
 
-        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Multimap<CatalogName, ConnectorTableHandle> tableHandles)
+        public PlanRoot(SubPlan root, boolean summarizeTaskInfos)
         {
             this.root = requireNonNull(root, "root is null");
             this.summarizeTaskInfos = summarizeTaskInfos;
-            this.tableHandles = ImmutableMultimap.copyOf(requireNonNull(tableHandles, "tableHandles is null"));
         }
 
         public SubPlan getRoot()
@@ -639,11 +618,6 @@ public class SqlQueryExecution
         public boolean isSummarizeTaskInfos()
         {
             return summarizeTaskInfos;
-        }
-
-        public Multimap<CatalogName, ConnectorTableHandle> getTableHandles()
-        {
-            return tableHandles;
         }
     }
 
