@@ -40,11 +40,6 @@ public final class JdbcTableHandle
     private final TupleDomain<ColumnHandle> constraint;
     private final OptionalLong limit;
 
-    public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
-    {
-        this(schemaTableName, catalogName, schemaName, tableName, TupleDomain.all(), OptionalLong.empty());
-    }
-
     @JsonCreator
     public JdbcTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,

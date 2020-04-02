@@ -39,6 +39,7 @@ import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.Type;
@@ -64,6 +65,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.StringJoiner;
 
@@ -114,7 +116,9 @@ public class PhoenixMetadata
                         schemaTableName,
                         tableHandle.getCatalogName(),
                         toPrestoSchemaName(Optional.ofNullable(tableHandle.getSchemaName())).orElse(null),
-                        tableHandle.getTableName()))
+                        tableHandle.getTableName(),
+                        TupleDomain.all(),
+                        OptionalLong.empty()))
                 .orElse(null);
     }
 

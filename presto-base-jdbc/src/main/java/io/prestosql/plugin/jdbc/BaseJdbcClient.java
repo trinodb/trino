@@ -225,7 +225,9 @@ public class BaseJdbcClient
                             schemaTableName,
                             resultSet.getString("TABLE_CAT"),
                             resultSet.getString("TABLE_SCHEM"),
-                            resultSet.getString("TABLE_NAME")));
+                            resultSet.getString("TABLE_NAME"),
+                            TupleDomain.all(),
+                            OptionalLong.empty()));
                 }
                 if (tableHandles.isEmpty()) {
                     return Optional.empty();
@@ -644,7 +646,9 @@ public class BaseJdbcClient
                 new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getCatalogName(),
                 handle.getSchemaName(),
-                handle.getTemporaryTableName()));
+                handle.getTemporaryTableName(),
+                TupleDomain.all(),
+                OptionalLong.empty()));
     }
 
     @Override
