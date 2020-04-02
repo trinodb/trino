@@ -1,5 +1,5 @@
 ==============
-Group provider
+Group Provider
 ==============
 
 Presto can map user names onto groups for easier access control management.
