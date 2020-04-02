@@ -30,7 +30,6 @@ public final class PrintingLogConsumer
     private final PrintStream out;
     private final String prefix;
 
-
     public PrintingLogConsumer(PrintStream out, String prefix)
     {
         this.out = requireNonNull(out, "out is null");
@@ -52,5 +51,6 @@ public final class PrintingLogConsumer
         if (outputFrame.getType() == END) {
             out.println(prefix + "(exited)");
         }
+        out.flush();
     }
 }
