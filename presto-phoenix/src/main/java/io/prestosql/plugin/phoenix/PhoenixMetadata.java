@@ -111,7 +111,7 @@ public class PhoenixMetadata
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return phoenixClient.getTableHandle(JdbcIdentity.from(session), schemaTableName)
+        return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(tableHandle -> new JdbcTableHandle(
                         schemaTableName,
                         tableHandle.getCatalogName(),
@@ -453,7 +453,7 @@ public class PhoenixMetadata
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
         for (SchemaTableName tableName : tables) {
             try {
-                phoenixClient.getTableHandle(JdbcIdentity.from(session), tableName)
+                phoenixClient.getTableHandle(session, tableName)
                         .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
             }
             catch (TableNotFoundException e) {

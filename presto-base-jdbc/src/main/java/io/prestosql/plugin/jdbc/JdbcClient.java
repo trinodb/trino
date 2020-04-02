@@ -42,7 +42,7 @@ public interface JdbcClient
 
     List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema);
 
-    Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName);
+    Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName);
 
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 

@@ -54,7 +54,7 @@ public final class CachingJdbcClient
 
     private final LoadingCache<JdbcIdentity, Set<String>> schemaNamesCache;
     private final LoadingCache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
-    private final LoadingCache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
+    private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
 
     @Inject
@@ -72,7 +72,8 @@ public final class CachingJdbcClient
                 .expireAfterWrite(metadataCachingTtl.toMillis(), TimeUnit.MILLISECONDS);
         schemaNamesCache = cacheBuilder.build(CacheLoader.from(delegate::getSchemaNames));
         tableNamesCache = cacheBuilder.build(CacheLoader.from(key -> delegate.getTableNames(key.identity, key.schemaName)));
-        tableHandleCache = cacheBuilder.build(CacheLoader.from(key -> delegate.getTableHandle(key.identity, key.tableName)));
+        // TODO use LoadingCache for tableHandle (tableHandle depend on session and session cannot be used in cache key)
+        tableHandleCache = cacheBuilder.build();
 
         // TODO use LoadingCache for columns (columns depend on session and session cannot be used in cache key)
         columnsCache = cacheBuilder.build();
@@ -162,15 +163,15 @@ public final class CachingJdbcClient
     }
 
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableHandleCacheKey key = new TableHandleCacheKey(identity, schemaTableName);
+        TableHandleCacheKey key = new TableHandleCacheKey(JdbcIdentity.from(session), schemaTableName);
         Optional<JdbcTableHandle> cachedTableHandle = tableHandleCache.getIfPresent(key);
         //noinspection OptionalAssignedToNull
         if (cachedTableHandle != null) {
             return cachedTableHandle;
         }
-        Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(identity, schemaTableName);
+        Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(session, schemaTableName);
         if (!tableHandle.isPresent() || cacheMissing) {
             tableHandleCache.put(key, tableHandle);
         }

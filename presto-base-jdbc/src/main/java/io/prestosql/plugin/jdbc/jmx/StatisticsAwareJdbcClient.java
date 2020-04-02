@@ -86,9 +86,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return stats.getGetTableHandle().wrap(() -> delegate().getTableHandle(identity, schemaTableName));
+        return stats.getGetTableHandle().wrap(() -> delegate().getTableHandle(session, schemaTableName));
     }
 
     @Override

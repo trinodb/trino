@@ -213,8 +213,9 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        JdbcIdentity identity = JdbcIdentity.from(session);
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());

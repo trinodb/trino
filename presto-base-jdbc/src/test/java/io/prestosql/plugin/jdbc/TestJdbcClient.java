@@ -75,7 +75,7 @@ public class TestJdbcClient
                 new SchemaTableName("tpch", "orders")));
 
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
-        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(identity, schemaTableName);
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(table.get().getCatalogName(), catalogName.toUpperCase(ENGLISH));
         assertEquals(table.get().getSchemaName(), "EXAMPLE");
@@ -91,7 +91,7 @@ public class TestJdbcClient
     public void testMetadataWithSchemaPattern()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
-        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
                 new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
@@ -102,7 +102,7 @@ public class TestJdbcClient
     public void testMetadataWithFloatAndDoubleCol()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
-        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
                 new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),

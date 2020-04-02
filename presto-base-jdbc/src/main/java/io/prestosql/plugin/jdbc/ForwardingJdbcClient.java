@@ -71,9 +71,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return delegate().getTableHandle(identity, schemaTableName);
+        return delegate().getTableHandle(session, schemaTableName);
     }
 
     @Override
