@@ -15,6 +15,7 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -31,10 +32,12 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
@@ -107,10 +110,42 @@ public class JdbcMetadata
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTableName(),
+                handle.getColumns(),
                 newDomain,
                 handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+    }
+
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        ImmutableList.Builder<JdbcColumnHandle> desiredColumns = ImmutableList.builder();
+        ImmutableList.Builder<ProjectionApplicationResult.Assignment> assignmentList = ImmutableList.builder();
+        assignments.forEach((name, column) -> {
+            desiredColumns.add((JdbcColumnHandle) column);
+            assignmentList.add(new ProjectionApplicationResult.Assignment(name, column, ((JdbcColumnHandle) column).getColumnType()));
+        });
+
+        if (containSameElements(desiredColumns.build(), handle.getColumns())) {
+            return Optional.empty();
+        }
+        handle = new JdbcTableHandle(
+                handle.getSchemaTableName(),
+                handle.getCatalogName(),
+                handle.getSchemaName(),
+                handle.getTableName(),
+                desiredColumns.build(),
+                handle.getConstraint(),
+                handle.getLimit());
+
+        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build()));
     }
 
     @Override
@@ -131,6 +166,7 @@ public class JdbcMetadata
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTableName(),
+                handle.getColumns(),
                 handle.getConstraint(),
                 OptionalLong.of(limit));
 
@@ -155,7 +191,7 @@ public class JdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, handle)) {
+        for (JdbcColumnHandle column : handle.getColumns()) {
             columnMetadata.add(column.getColumnMetadata());
         }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
@@ -173,7 +209,7 @@ public class JdbcMetadata
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
+        for (JdbcColumnHandle column : jdbcTableHandle.getColumns()) {
             columnHandles.put(column.getColumnMetadata().getName(), column);
         }
         return columnHandles.build();
@@ -321,5 +357,10 @@ public class JdbcMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         jdbcClient.dropSchema(JdbcIdentity.from(session), schemaName);
+    }
+
+    private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
+    {
+        return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
     }
 }

@@ -36,7 +36,6 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleReadFunction;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongReadFunction;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
@@ -228,15 +227,14 @@ public class PostgreSqlClient
                 tableTypes.clone());
     }
 
-    @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
             if (getArrayMapping(session) == AS_ARRAY) {
-                arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);
+                arrayColumnDimensions = getArrayColumnDimensions(connection, schemaName, tableName);
             }
-            try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            try (ResultSet resultSet = getColumns(connection.getMetaData(), catalogName, schemaName, tableName)) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
                     String columnName = resultSet.getString("COLUMN_NAME");
@@ -247,7 +245,7 @@ public class PostgreSqlClient
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)));
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
-                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
+                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -267,7 +265,7 @@ public class PostgreSqlClient
                 }
                 if (columns.isEmpty()) {
                     // In rare cases a table might have no columns.
-                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
+                    throw new TableNotFoundException(schemaTableName);
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -277,7 +275,7 @@ public class PostgreSqlClient
         }
     }
 
-    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
+    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         String sql = "" +
@@ -290,8 +288,8 @@ public class PostgreSqlClient
                 "AND tbl.relname = ? " +
                 "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, tableHandle.getSchemaName());
-            statement.setString(2, tableHandle.getTableName());
+            statement.setString(1, schemaName.orElse(null));
+            statement.setString(2, tableName.orElse(null));
 
             Map<String, Integer> arrayColumnDimensions = new HashMap<>();
             try (ResultSet resultSet = statement.executeQuery()) {

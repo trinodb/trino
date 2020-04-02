@@ -81,7 +81,7 @@ public class TestJdbcClient
         assertEquals(table.get().getSchemaName(), "EXAMPLE");
         assertEquals(table.get().getTableName(), "NUMBERS");
         assertEquals(table.get().getSchemaTableName(), schemaTableName);
-        assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
+        assertEquals(table.get().getColumns(), ImmutableList.of(
                 new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
                 new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
@@ -93,7 +93,7 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
-        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
+        assertEquals(table.get().getColumns(), ImmutableList.of(
                 new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT)));
     }
@@ -104,7 +104,7 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
-        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
+        assertEquals(table.get().getColumns(), ImmutableList.of(
                 new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),

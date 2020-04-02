@@ -77,12 +77,6 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
-    {
-        return delegate().getColumns(session, tableHandle);
-    }
-
-    @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         return delegate().toPrestoType(session, connection, typeHandle);

@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
@@ -21,6 +20,7 @@ import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSet
@@ -28,35 +28,29 @@ public class JdbcRecordSet
 {
     private final JdbcClient jdbcClient;
     private final JdbcTableHandle table;
-    private final List<JdbcColumnHandle> columnHandles;
-    private final List<Type> columnTypes;
     private final JdbcSplit split;
     private final ConnectorSession session;
 
-    public JdbcRecordSet(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordSet(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.split = requireNonNull(split, "split is null");
-
         this.table = requireNonNull(table, "table is null");
-        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (JdbcColumnHandle column : columnHandles) {
-            types.add(column.getColumnType());
-        }
-        this.columnTypes = types.build();
         this.session = requireNonNull(session, "session is null");
     }
 
     @Override
     public List<Type> getColumnTypes()
     {
-        return columnTypes;
+        return table.getColumns()
+                .stream()
+                .map(JdbcColumnHandle::getColumnType)
+                .collect(toImmutableList());
     }
 
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, session, split, table, columnHandles);
+        return new JdbcRecordCursor(jdbcClient, session, split, table);
     }
 }

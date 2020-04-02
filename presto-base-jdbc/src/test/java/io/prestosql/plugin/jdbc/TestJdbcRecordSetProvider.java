@@ -65,7 +65,7 @@ public class TestJdbcRecordSetProvider
         table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
         split = database.getSplit(SESSION, table);
 
-        Map<String, JdbcColumnHandle> columns = database.getColumnHandles(SESSION, table);
+        Map<String, JdbcColumnHandle> columns = database.getColumnHandles(table);
         textColumn = columns.get("text");
         textShortColumn = columns.get("text_short");
         valueColumn = columns.get("value");
@@ -182,6 +182,7 @@ public class TestJdbcRecordSetProvider
                 jdbcTableHandle.getCatalogName(),
                 jdbcTableHandle.getSchemaName(),
                 jdbcTableHandle.getTableName(),
+                ImmutableList.of(),
                 domain,
                 OptionalLong.empty());
 

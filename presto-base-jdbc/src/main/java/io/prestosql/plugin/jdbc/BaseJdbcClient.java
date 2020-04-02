@@ -222,11 +222,15 @@ public class BaseJdbcClient
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
+                    Optional<String> catalogName = Optional.ofNullable(resultSet.getString("TABLE_CAT"));
+                    Optional<String> schemaName = Optional.ofNullable(resultSet.getString("TABLE_SCHEM"));
+                    Optional<String> tableName = Optional.ofNullable(resultSet.getString("TABLE_NAME"));
                     tableHandles.add(new JdbcTableHandle(
                             schemaTableName,
-                            resultSet.getString("TABLE_CAT"),
-                            resultSet.getString("TABLE_SCHEM"),
-                            resultSet.getString("TABLE_NAME"),
+                            catalogName.orElse(null),
+                            schemaName.orElse(null),
+                            tableName.orElse(null),
+                            getColumns(session, schemaTableName, catalogName, schemaName, tableName),
                             TupleDomain.all(),
                             OptionalLong.empty()));
                 }
@@ -244,11 +248,10 @@ public class BaseJdbcClient
         }
     }
 
-    @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
-                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+                ResultSet resultSet = getColumns(connection.getMetaData(), catalogName, schemaName, tableName)) {
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
@@ -261,7 +264,7 @@ public class BaseJdbcClient
                         resultSet.getInt("DECIMAL_DIGITS"),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
-                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
@@ -283,8 +286,8 @@ public class BaseJdbcClient
             if (columns.isEmpty()) {
                 // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
                 throw new TableNotFoundException(
-                        tableHandle.getSchemaTableName(),
-                        format("Table '%s' has no supported columns (all %s columns are not supported)", tableHandle.getSchemaTableName(), allColumns));
+                        schemaTableName,
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
             }
             return ImmutableList.copyOf(columns);
         }
@@ -293,13 +296,13 @@ public class BaseJdbcClient
         }
     }
 
-    protected static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+    protected static ResultSet getColumns(DatabaseMetaData metadata, Optional<String> catalogName, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         return metadata.getColumns(
-                tableHandle.getCatalogName(),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), metadata.getSearchStringEscape()).orElse(null),
+                catalogName.orElse(null),
+                escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
                 null);
     }
 
@@ -648,6 +651,7 @@ public class BaseJdbcClient
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTemporaryTableName(),
+                ImmutableList.of(), // DROP TABLE does not care about columns
                 TupleDomain.all(),
                 OptionalLong.empty()));
     }

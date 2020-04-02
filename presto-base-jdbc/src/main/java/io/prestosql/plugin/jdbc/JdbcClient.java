@@ -44,8 +44,6 @@ public interface JdbcClient
 
     Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName);
 
-    List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
-
     Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);

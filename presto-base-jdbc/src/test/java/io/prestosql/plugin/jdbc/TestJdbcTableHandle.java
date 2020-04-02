@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.testing.EquivalenceTester;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -28,7 +29,7 @@ public class TestJdbcTableHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", TupleDomain.all(), OptionalLong.empty()));
+        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()));
     }
 
     @Test
@@ -36,15 +37,15 @@ public class TestJdbcTableHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", TupleDomain.all(), OptionalLong.empty()),
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", TupleDomain.all(), OptionalLong.empty()),
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", TupleDomain.all(), OptionalLong.empty()),
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", TupleDomain.all(), OptionalLong.empty()))
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()))
                 .addEquivalentGroup(
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", TupleDomain.all(), OptionalLong.empty()),
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", TupleDomain.all(), OptionalLong.empty()),
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", TupleDomain.all(), OptionalLong.empty()),
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", TupleDomain.all(), OptionalLong.empty()))
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()))
                 .check();
     }
 }

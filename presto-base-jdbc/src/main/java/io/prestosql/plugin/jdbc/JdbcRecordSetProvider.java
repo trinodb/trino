@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -26,6 +26,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSetProvider
@@ -42,14 +43,17 @@ public class JdbcRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
-        JdbcSplit jdbcSplit = (JdbcSplit) split;
-        JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+        verify(
+                containSameElements(handle.getColumns(), columns),
+                "Table handle has obsolete columns: %s, while expecting: %s",
+                handle.getColumns(),
+                columns);
+        return new JdbcRecordSet(jdbcClient, session, (JdbcSplit) split, handle);
+    }
 
-        ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
-        for (ColumnHandle handle : columns) {
-            handles.add((JdbcColumnHandle) handle);
-        }
-
-        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
+    private static <T> boolean containSameElements(Iterable<? extends T> first, Iterable<? extends T> second)
+    {
+        return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
     }
 }

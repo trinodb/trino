@@ -78,7 +78,12 @@ public class PhoenixSplitManager
         try (PhoenixConnection connection = phoenixClient.getConnection(JdbcIdentity.from(session))) {
             List<JdbcColumnHandle> columns = layoutHandle.getDesiredColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
-                    .orElseGet(() -> phoenixClient.getColumns(session, handle));
+                    .orElseGet(() -> {
+                        String catalogName = handle.getCatalogName();
+                        Optional<String> schemaName = Optional.ofNullable(handle.getSchemaName());
+                        Optional<String> tableName = Optional.ofNullable(handle.getTableName());
+                        return phoenixClient.getColumns(session, catalogName, schemaName, handle, tableName);
+                    });
             PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(SchemaUtil.ESCAPE_CHARACTER).buildSql(
                     phoenixClient,
                     session,

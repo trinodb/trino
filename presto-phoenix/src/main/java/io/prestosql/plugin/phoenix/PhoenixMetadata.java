@@ -145,7 +145,10 @@ public class PhoenixMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        List<ColumnMetadata> columnMetadata = phoenixClient.getColumns(session, handle).stream()
+        String catalogName = handle.getCatalogName();
+        Optional<String> schemaName = Optional.ofNullable(handle.getSchemaName());
+        Optional<String> tableName = Optional.ofNullable(handle.getTableName());
+        List<ColumnMetadata> columnMetadata = phoenixClient.getColumns(session, catalogName, schemaName, handle, tableName).stream()
                 .filter(column -> rowkeyRequired || !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
@@ -276,7 +279,10 @@ public class PhoenixMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        List<JdbcColumnHandle> allColumns = phoenixClient.getColumns(session, handle);
+        String catalogName = handle.getCatalogName();
+        Optional<String> schemaName = Optional.ofNullable(handle.getSchemaName());
+        Optional<String> tableName = Optional.ofNullable(handle.getTableName());
+        List<JdbcColumnHandle> allColumns = phoenixClient.getColumns(session, catalogName, schemaName, handle, tableName);
         List<JdbcColumnHandle> nonRowkeyColumns = allColumns.stream()
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
@@ -432,7 +438,10 @@ public class PhoenixMetadata
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (JdbcColumnHandle column : phoenixClient.getColumns(session, jdbcTableHandle)) {
+        String catalogName = jdbcTableHandle.getCatalogName();
+        Optional<String> schemaName = Optional.ofNullable(jdbcTableHandle.getSchemaName());
+        Optional<String> tableName = Optional.ofNullable(jdbcTableHandle.getTableName());
+        for (JdbcColumnHandle column : phoenixClient.getColumns(session, catalogName, schemaName, jdbcTableHandle, tableName)) {
             columnHandles.put(column.getColumnMetadata().getName(), column);
         }
         return columnHandles.build();

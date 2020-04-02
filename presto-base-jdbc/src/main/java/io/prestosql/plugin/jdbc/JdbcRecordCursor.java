@@ -40,7 +40,7 @@ public class JdbcRecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
-    private final JdbcColumnHandle[] columnHandles;
+    private final List<JdbcColumnHandle> columnHandles;
     private final ReadFunction[] readFunctions;
     private final BooleanReadFunction[] booleanReadFunctions;
     private final DoubleReadFunction[] doubleReadFunctions;
@@ -54,12 +54,11 @@ public class JdbcRecordCursor
     private final ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
 
-        this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
-
+        columnHandles = table.getColumns();
         readFunctions = new ReadFunction[columnHandles.size()];
         booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
         doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
@@ -70,7 +69,7 @@ public class JdbcRecordCursor
         try {
             connection = jdbcClient.getConnection(JdbcIdentity.from(session), split);
 
-            for (int i = 0; i < this.columnHandles.length; i++) {
+            for (int i = 0; i < columnHandles.size(); i++) {
                 ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandles.get(i).getJdbcTypeHandle())
                         .orElseThrow(() -> new VerifyException("Unsupported column type"));
                 Class<?> javaType = columnMapping.getType().getJavaType();
@@ -121,7 +120,7 @@ public class JdbcRecordCursor
     @Override
     public Type getType(int field)
     {
-        return columnHandles[field].getColumnType();
+        return columnHandles.get(field).getColumnType();
     }
 
     @Override
@@ -203,7 +202,7 @@ public class JdbcRecordCursor
     public boolean isNull(int field)
     {
         checkState(!closed, "cursor is closed");
-        checkArgument(field < columnHandles.length, "Invalid field index");
+        checkArgument(field < columnHandles.size(), "Invalid field index");
 
         try {
             return readFunctions[field].isNull(resultSet, field + 1);

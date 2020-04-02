@@ -92,8 +92,8 @@ public class TestJdbcMetadata
                 "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
 
         // unknown table
-        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown", TupleDomain.all(), OptionalLong.empty()));
-        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown", TupleDomain.all(), OptionalLong.empty()));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()));
     }
 
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
@@ -126,9 +126,9 @@ public class TestJdbcMetadata
                 new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), null, "unknown", "unknown", TupleDomain.all(), OptionalLong.empty()));
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown", TupleDomain.all(), OptionalLong.empty()));
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "unknown", "numbers", TupleDomain.all(), OptionalLong.empty()));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), null, "unknown", "unknown", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "unknown", "numbers", ImmutableList.of(), TupleDomain.all(), OptionalLong.empty()));
     }
 
     private void unknownTableMetadata(JdbcTableHandle tableHandle)

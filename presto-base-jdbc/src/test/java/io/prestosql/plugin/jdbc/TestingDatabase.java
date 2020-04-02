@@ -101,9 +101,9 @@ final class TestingDatabase
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
 
-    public Map<String, JdbcColumnHandle> getColumnHandles(ConnectorSession session, JdbcTableHandle table)
+    public Map<String, JdbcColumnHandle> getColumnHandles(JdbcTableHandle table)
     {
-        return jdbcClient.getColumns(session, table).stream()
+        return table.getColumns().stream()
                 .collect(toImmutableMap(column -> column.getColumnMetadata().getName(), identity()));
     }
 }

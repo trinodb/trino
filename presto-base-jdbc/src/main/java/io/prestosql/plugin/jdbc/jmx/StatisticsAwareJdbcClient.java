@@ -92,12 +92,6 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
-    {
-        return stats.getGetColumns().wrap(() -> delegate().getColumns(session, tableHandle));
-    }
-
-    @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         return stats.getToPrestoType().wrap(() -> delegate().toPrestoType(session, connection, typeHandle));
