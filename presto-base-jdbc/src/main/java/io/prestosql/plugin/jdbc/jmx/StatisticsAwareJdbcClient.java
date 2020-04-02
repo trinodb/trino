@@ -14,7 +14,6 @@
 package io.prestosql.plugin.jdbc.jmx;
 
 import io.prestosql.plugin.jdbc.ColumnMapping;
-import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
@@ -29,6 +28,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -44,8 +44,8 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class StatisticsAwareJdbcClient
-        extends ForwardingJdbcClient
+public final class StatisticsAwareJdbcClient
+        implements JdbcClient
 {
     private final JdbcClientStats stats = new JdbcClientStats();
     private final JdbcClient delegate;
@@ -55,8 +55,7 @@ public class StatisticsAwareJdbcClient
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
-    @Override
-    protected JdbcClient delegate()
+    private JdbcClient delegate()
     {
         return delegate;
     }
@@ -230,6 +229,18 @@ public class StatisticsAwareJdbcClient
     }
 
     @Override
+    public boolean supportsLimit()
+    {
+        return delegate().supportsLimit();
+    }
+
+    @Override
+    public boolean isLimitGuaranteed()
+    {
+        return delegate().isLimitGuaranteed();
+    }
+
+    @Override
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
         stats.getCreateSchema().wrap(() -> delegate().createSchema(identity, schemaName));
@@ -239,5 +250,11 @@ public class StatisticsAwareJdbcClient
     public void dropSchema(JdbcIdentity identity, String schemaName)
     {
         stats.getDropSchema().wrap(() -> delegate().dropSchema(identity, schemaName));
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return delegate().getSystemTable(session, tableName);
     }
 }
