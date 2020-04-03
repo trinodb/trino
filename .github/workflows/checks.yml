@@ -31,7 +31,9 @@ jobs:
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install -B -P ci -pl presto-server-rpm
+          ./bin/retry ./mvnw verify -B -P ci -pl presto-server-rpm
+      - name: Free Disk Space
+        run: ./mvnw clean -pl '!presto-server,!presto-cli'
       - name: Test Docker Image
         run: docker/build-local.sh
 
