@@ -492,8 +492,11 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testShowCreateTable()
     {
+        super.testShowCreateTable();
+
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   c1 bigint,\n" +

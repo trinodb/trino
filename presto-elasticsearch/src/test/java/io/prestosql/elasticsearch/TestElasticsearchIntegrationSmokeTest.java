@@ -28,6 +28,7 @@ import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -41,6 +42,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -93,6 +95,15 @@ public class TestElasticsearchIntegrationSmokeTest
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Override
+    public void testShowCreateTable()
+    {
+        // TODO (https://github.com/prestosql/presto/issues/3385) Fix SHOW CREATE TABLE
+        assertThatThrownBy(super::testShowCreateTable)
+                .hasMessage("No PropertyMetadata for property: original-name");
+        throw new SkipException("Fix SHOW CREATE TABLE");
     }
 
     @Test
