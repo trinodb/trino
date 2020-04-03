@@ -15,6 +15,7 @@ package io.prestosql.plugin.jdbc;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
@@ -29,6 +30,7 @@ public class TypeHandlingJdbcConfig
     }
 
     @Config("unsupported-type-handling")
+    @LegacyConfig("unsupported-type.handling-strategy")
     @ConfigDescription("Unsupported type handling strategy")
     public TypeHandlingJdbcConfig setUnsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
     {
