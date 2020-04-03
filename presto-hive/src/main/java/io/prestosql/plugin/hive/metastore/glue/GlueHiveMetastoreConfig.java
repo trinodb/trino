@@ -16,15 +16,18 @@ package io.prestosql.plugin.hive.metastore.glue;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 import java.util.Optional;
 
+@DefunctConfig("hive.metastore.glue.use-instance-credentials")
 public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
+    private Optional<String> glueEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
@@ -32,7 +35,6 @@ public class GlueHiveMetastoreConfig
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
     private Optional<String> awsCredentialsProvider = Optional.empty();
-    private boolean useInstanceCredentials;
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
@@ -47,6 +49,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGlueRegion(String region)
     {
         this.glueRegion = Optional.ofNullable(region);
+        return this;
+    }
+
+    public Optional<String> getGlueEndpointUrl()
+    {
+        return glueEndpointUrl;
+    }
+
+    @Config("hive.metastore.glue.endpoint-url")
+    @ConfigDescription("Glue API endpoint URL")
+    public GlueHiveMetastoreConfig setGlueEndpointUrl(String glueEndpointUrl)
+    {
+        this.glueEndpointUrl = Optional.ofNullable(glueEndpointUrl);
         return this;
     }
 
@@ -140,18 +155,6 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setCatalogId(String catalogId)
     {
         this.catalogId = Optional.ofNullable(catalogId);
-        return this;
-    }
-
-    public boolean isUseInstanceCredentials()
-    {
-        return useInstanceCredentials;
-    }
-
-    @Config("hive.metastore.glue.use-instance-credentials")
-    public GlueHiveMetastoreConfig setUseInstanceCredentials(boolean useInstanceCredentials)
-    {
-        this.useInstanceCredentials = useInstanceCredentials;
         return this;
     }
 

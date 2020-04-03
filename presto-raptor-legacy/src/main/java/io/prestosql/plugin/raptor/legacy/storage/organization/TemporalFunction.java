@@ -86,7 +86,7 @@ public class TemporalFunction
         int startDay = toIntExact(Duration.ofMillis(rangeStart).toDays());
         int endDay = toIntExact(Duration.ofMillis(rangeEnd).toDays());
         if (startDay == endDay) {
-            return toIntExact(startDay);
+            return startDay;
         }
 
         if ((endDay - startDay) > 1) {

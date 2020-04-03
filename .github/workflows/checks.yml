@@ -20,7 +20,7 @@ jobs:
             13
         ]
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java-version }}
@@ -38,7 +38,7 @@ jobs:
   error-prone-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -55,6 +55,6 @@ jobs:
   web-ui-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Web UI Checks
         run: presto-main/bin/check_webui.sh

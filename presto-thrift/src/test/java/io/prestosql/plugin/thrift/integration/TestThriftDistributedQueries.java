@@ -28,10 +28,4 @@ public class TestThriftDistributedQueries
     {
         return createThriftQueryRunner(3, false, ImmutableMap.of());
     }
-
-    @Override
-    public void testAssignUniqueId()
-    {
-        // this test can take a long time
-    }
 }

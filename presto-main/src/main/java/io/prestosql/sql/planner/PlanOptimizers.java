@@ -62,10 +62,11 @@ import io.prestosql.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneApplyColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneApplySourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneAssignUniqueIdColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCorrelatedJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
-import io.prestosql.sql.planner.iterative.rule.PruneCrossJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneDeleteSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneEnforceSingleRowColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneFilterColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneIndexSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneJoinChildrenColumns;
@@ -237,9 +238,10 @@ public class PlanOptimizers
                 new PruneAggregationSourceColumns(),
                 new PruneApplyColumns(),
                 new PruneApplySourceColumns(),
+                new PruneAssignUniqueIdColumns(),
                 new PruneCorrelatedJoinColumns(),
-                new PruneCrossJoinColumns(),
                 new PruneDeleteSourceColumns(),
+                new PruneEnforceSingleRowColumns(),
                 new PruneFilterColumns(),
                 new PruneIndexSourceColumns(),
                 new PruneJoinChildrenColumns(),
@@ -599,7 +601,8 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata),
-                        new PruneJoinColumns())));
+                        new PruneJoinColumns(),
+                        new PruneJoinChildrenColumns())));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

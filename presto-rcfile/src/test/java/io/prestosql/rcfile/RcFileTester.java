@@ -459,7 +459,7 @@ public class RcFileTester
 
             Iterator<?> iterator = expectedValues.iterator();
             int totalCount = 0;
-            for (int batchSize = recordReader.advance(); batchSize >= 0; batchSize = toIntExact(recordReader.advance())) {
+            for (int batchSize = recordReader.advance(); batchSize >= 0; batchSize = recordReader.advance()) {
                 totalCount += batchSize;
                 if (readLastBatchOnly && totalCount == expectedValues.size()) {
                     assertEquals(advance(iterator, batchSize), batchSize);

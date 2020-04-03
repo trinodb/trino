@@ -25,7 +25,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
 import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class UncompressedOrcChunkLoader
@@ -53,7 +52,7 @@ public final class UncompressedOrcChunkLoader
 
     private int getCurrentCompressedOffset()
     {
-        return hasNextChunk() ? 0 : toIntExact(dataReader.getSize());
+        return hasNextChunk() ? 0 : dataReader.getSize();
     }
 
     @Override

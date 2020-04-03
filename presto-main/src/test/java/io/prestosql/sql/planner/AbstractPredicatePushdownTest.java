@@ -26,9 +26,9 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -48,9 +48,12 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 public abstract class AbstractPredicatePushdownTest
         extends BasePlanTest
 {
-    protected AbstractPredicatePushdownTest(Map<String, String> sessionProperties)
+    private final boolean enableDynamicFiltering;
+
+    protected AbstractPredicatePushdownTest(boolean enableDynamicFiltering)
     {
-        super(sessionProperties);
+        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enableDynamicFiltering)));
+        this.enableDynamicFiltering = enableDynamicFiltering;
     }
 
     @Test
@@ -437,6 +440,54 @@ public abstract class AbstractPredicatePushdownTest
                                                         tableScan(
                                                                 "orders",
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Test
+    public void testNormalizeOuterJoinToInner()
+    {
+        Session disableJoinReordering = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .build();
+
+        // one join
+        assertPlan(
+                "SELECT customer.name, orders.orderdate " +
+                        "FROM orders " +
+                        "LEFT JOIN customer ON orders.custkey = customer.custkey " +
+                        "WHERE customer.name IS NOT NULL",
+                disableJoinReordering,
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("o_custkey", "c_custkey")),
+                                anyTree(tableScan("orders", ImmutableMap.of("o_orderdate", "orderdate", "o_custkey", "custkey"))),
+                                anyTree(
+                                        filter(
+                                                "NOT (c_name IS NULL)",
+                                                tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name")))))));
+
+        // nested joins
+        assertPlan(
+                "SELECT customer.name, lineitem.partkey " +
+                        "FROM lineitem " +
+                        "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " +
+                        "LEFT JOIN customer ON orders.custkey = customer.custkey " +
+                        "WHERE customer.name IS NOT NULL",
+                disableJoinReordering,
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("o_custkey", "c_custkey")),
+                                anyTree(
+                                        join(
+                                                enableDynamicFiltering ? INNER : LEFT, // TODO (https://github.com/prestosql/presto/issues/2392) this should be INNER also when dynamic filtering is off
+                                                ImmutableList.of(equiJoinClause("l_orderkey", "o_orderkey")),
+                                                anyTree(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))),
+                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))),
+                                anyTree(
+                                        filter(
+                                                "NOT (c_name IS NULL)",
+                                                tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name")))))));
     }
 
     @Test

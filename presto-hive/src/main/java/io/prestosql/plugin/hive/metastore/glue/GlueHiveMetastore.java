@@ -19,8 +19,9 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
@@ -112,6 +113,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -165,11 +167,13 @@ public class GlueHiveMetastore
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
             GlueColumnStatisticsProvider columnStatisticsProvider,
-            @ForGlueHiveMetastore Executor executor)
+            @ForGlueHiveMetastore Executor executor,
+            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler)
     {
+        requireNonNull(glueConfig, "glueConfig is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-        this.glueClient = requireNonNull(createAsyncGlueClient(glueConfig), "glueClient is null");
+        this.glueClient = createAsyncGlueClient(glueConfig, requestHandler);
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
@@ -177,13 +181,21 @@ public class GlueHiveMetastore
         this.columnStatisticsProvider = requireNonNull(columnStatisticsProvider, "columnStatisticsProvider is null");
     }
 
-    private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config)
+    private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler)
     {
         ClientConfiguration clientConfig = new ClientConfiguration().withMaxConnections(config.getMaxGlueConnections());
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
                 .withClientConfiguration(clientConfig);
 
-        if (config.getGlueRegion().isPresent()) {
+        requestHandler.ifPresent(asyncGlueClientBuilder::setRequestHandlers);
+
+        if (config.getGlueEndpointUrl().isPresent()) {
+            checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
+            asyncGlueClientBuilder.setEndpointConfiguration(new EndpointConfiguration(
+                    config.getGlueEndpointUrl().get(),
+                    config.getGlueRegion().get()));
+        }
+        else if (config.getGlueRegion().isPresent()) {
             asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
@@ -200,9 +212,6 @@ public class GlueHiveMetastore
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
             return new AWSStaticCredentialsProvider(
                     new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
-        }
-        if (config.isUseInstanceCredentials()) {
-            return InstanceProfileCredentialsProvider.getInstance();
         }
         if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider

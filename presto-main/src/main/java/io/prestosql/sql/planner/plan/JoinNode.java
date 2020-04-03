@@ -34,7 +34,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
@@ -113,13 +112,6 @@ public class JoinNode
         checkArgument(leftSymbols.containsAll(leftOutputSymbols), "Left source inputs do not contain all left output symbols");
         checkArgument(rightSymbols.containsAll(rightOutputSymbols), "Right source inputs do not contain all right output symbols");
 
-        if (isCrossJoin()) {
-            checkArgument(
-                    ImmutableSet.copyOf(leftOutputSymbols).containsAll(leftSymbols) &&
-                            ImmutableSet.copyOf(rightOutputSymbols).containsAll(rightSymbols),
-                    "Cross join does not support output symbols pruning");
-        }
-
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
 
@@ -134,12 +126,6 @@ public class JoinNode
             checkArgument(
                     !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
                     "%s join do not work with %s distribution type",
-                    type,
-                    distributionType.get());
-            // It does not make sense to PARTITION when there is nothing to partition on
-            checkArgument(
-                    !(distributionType.get() == PARTITIONED && criteria.isEmpty() && type != RIGHT && type != FULL),
-                    "Equi criteria are empty, so %s join should not have %s distribution type",
                     type,
                     distributionType.get());
         }

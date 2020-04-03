@@ -17,7 +17,6 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -218,9 +217,6 @@ public class ElasticsearchClient
             return new AWSStaticCredentialsProvider(new BasicAWSCredentials(
                     config.getAccessKey().get(),
                     config.getSecretKey().get()));
-        }
-        if (config.isUseInstanceCredentials()) {
-            return InstanceProfileCredentialsProvider.getInstance();
         }
         return DefaultAWSCredentialsProviderChain.getInstance();
     }
