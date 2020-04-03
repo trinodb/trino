@@ -430,7 +430,7 @@ public class BaseJdbcClient
                 columnList.add(getColumnSql(session, column, columnName));
             }
 
-            String sql = createTableSql(tableName, remoteSchema, catalog, columnList.build());
+            String sql = createTableSql(catalog, remoteSchema, tableName, columnList.build());
             execute(connection, sql);
 
             return new JdbcOutputTableHandle(
@@ -444,7 +444,7 @@ public class BaseJdbcClient
         }
     }
 
-    protected String createTableSql(String tableName, String remoteSchema, String catalog, List<String> columns)
+    protected String createTableSql(String catalog, String remoteSchema, String tableName, List<String> columns)
     {
         return format("CREATE TABLE %s (%s)", quoted(catalog, remoteSchema, tableName), join(", ", columns));
     }
