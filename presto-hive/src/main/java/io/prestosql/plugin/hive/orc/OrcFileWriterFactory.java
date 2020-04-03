@@ -22,14 +22,11 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveFileWriterFactory;
-import io.prestosql.plugin.hive.HiveMetadata;
-import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.spi.PrestoException;
@@ -54,15 +51,19 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+import static io.prestosql.orc.metadata.OrcType.createRootOrcType;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMinStripeSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Locale.ENGLISH;
@@ -157,7 +158,7 @@ public class OrcFileWriterFactory
             OrcDataSink orcDataSink = createOrcDataSink(fileSystem, path);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
-            if (HiveSessionProperties.isOrcOptimizedWriterValidate(session)) {
+            if (isOrcOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
                         return new HdfsOrcDataSource(
@@ -183,7 +184,7 @@ public class OrcFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
-                    OrcType.createRootOrcType(fileColumnNames, fileColumnTypes),
+                    createRootOrcType(fileColumnNames, fileColumnTypes),
                     compression,
                     orcWriterOptions
                             .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
@@ -194,8 +195,8 @@ public class OrcFileWriterFactory
                     writeLegacyVersion,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
-                            .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
-                            .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .put(PRESTO_VERSION_NAME, nodeVersion.toString())
+                            .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
                     hiveStorageTimeZone,
                     validationInputFactory,
