@@ -1100,6 +1100,13 @@ public final class MetadataManager
                     result.getProjections().forEach(projection -> requireNonNull(projection, "one of the projections is null"));
                     result.getAssignments().forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
 
+                    verify(
+                            projections.size() == result.getProjections().size(),
+                            "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
+                            result.getProjections().size(),
+                            projections.size(),
+                            table);
+
                     return new ProjectionApplicationResult<>(
                             new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                             result.getProjections(),
