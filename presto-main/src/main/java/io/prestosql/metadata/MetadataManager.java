@@ -1096,10 +1096,15 @@ public final class MetadataManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyProjection(connectorSession, table.getConnectorHandle(), projections, assignments)
-                .map(result -> new ProjectionApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
-                        result.getProjections(),
-                        result.getAssignments()));
+                .map(result -> {
+                    result.getProjections().forEach(projection -> requireNonNull(projection, "one of the projections is null"));
+                    result.getAssignments().forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
+
+                    return new ProjectionApplicationResult<>(
+                            new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                            result.getProjections(),
+                            result.getAssignments());
+                });
     }
 
     //
