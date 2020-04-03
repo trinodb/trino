@@ -121,8 +121,9 @@ public final class ElasticsearchQueryRunner
     {
         Logging.initialize();
 
+        ElasticsearchServer elasticsearchServer = new ElasticsearchServer();
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
-                HostAndPort.fromParts("localhost", 9200),
+                elasticsearchServer.getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"));
 
