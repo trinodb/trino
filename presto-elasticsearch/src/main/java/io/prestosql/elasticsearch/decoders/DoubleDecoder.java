@@ -13,13 +13,11 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
 public class DoubleDecoder
@@ -36,7 +34,7 @@ public class DoubleDecoder
             DOUBLE.writeDouble(output, ((Number) value).doubleValue());
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a numeric value for DOUBLE field");
+            throw cannotDecodeException("double", value);
         }
     }
 }

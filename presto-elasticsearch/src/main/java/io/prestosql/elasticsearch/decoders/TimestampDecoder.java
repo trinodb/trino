@@ -24,10 +24,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
 public class TimestampDecoder
@@ -71,10 +69,7 @@ public class TimestampDecoder
                 timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format(
-                        "Unsupported representation for timestamp type: %s [%s]",
-                        value.getClass().getSimpleName(),
-                        value));
+                throw cannotDecodeException("timestamp", value);
             }
 
             long epochMillis = timestamp.atZone(zoneId)

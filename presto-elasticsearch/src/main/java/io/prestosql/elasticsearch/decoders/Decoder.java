@@ -13,12 +13,25 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
 public interface Decoder
 {
     void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output);
+
+    default PrestoException cannotDecodeException(String type, Object value)
+    {
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null"); // null value must be handled explicitly by the caller
+
+        return new PrestoException(TYPE_MISMATCH, format("Unsupported representation for %s type: %s [%s]", value.getClass().getName(), value));
+    }
 }

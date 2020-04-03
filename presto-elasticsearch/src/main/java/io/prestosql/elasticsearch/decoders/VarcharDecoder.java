@@ -14,13 +14,11 @@
 package io.prestosql.elasticsearch.decoders;
 
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class VarcharDecoder
@@ -37,7 +35,7 @@ public class VarcharDecoder
             VARCHAR.writeSlice(output, Slices.utf8Slice(value.toString()));
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a string value for VARCHAR field");
+            throw cannotDecodeException("varchar", value);
         }
     }
 }

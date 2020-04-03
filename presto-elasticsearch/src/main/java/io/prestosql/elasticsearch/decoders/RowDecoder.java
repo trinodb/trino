@@ -13,7 +13,6 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -22,7 +21,6 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static io.prestosql.elasticsearch.ElasticsearchPageSource.getField;
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 
 public class RowDecoder
         implements Decoder
@@ -53,7 +51,7 @@ public class RowDecoder
             output.closeEntry();
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected object for ROW field");
+            throw cannotDecodeException("row", data);
         }
     }
 }

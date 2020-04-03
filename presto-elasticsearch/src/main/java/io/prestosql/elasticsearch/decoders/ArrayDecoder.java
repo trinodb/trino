@@ -13,14 +13,11 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.List;
 import java.util.function.Supplier;
-
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 
 public class ArrayDecoder
         implements Decoder
@@ -46,7 +43,7 @@ public class ArrayDecoder
             output.closeEntry();
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected list of elements for ARRAY field");
+            throw cannotDecodeException("array", data);
         }
     }
 }

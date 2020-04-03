@@ -13,13 +13,11 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.toIntExact;
 
@@ -37,7 +35,7 @@ public class IntegerDecoder
             INTEGER.writeLong(output, toIntExact(((Number) value).longValue()));
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a numeric value for INTEGER field");
+            throw cannotDecodeException("integer", value);
         }
     }
 }

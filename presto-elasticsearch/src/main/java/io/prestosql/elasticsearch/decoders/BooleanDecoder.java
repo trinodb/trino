@@ -13,13 +13,11 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 
 public class BooleanDecoder
@@ -36,7 +34,7 @@ public class BooleanDecoder
             BOOLEAN.writeBoolean(output, (Boolean) value);
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a boolean value for BOOLEAN field");
+            throw cannotDecodeException("boolean", value);
         }
     }
 }

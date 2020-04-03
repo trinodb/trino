@@ -13,13 +13,11 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 
 public class BigintDecoder
@@ -36,7 +34,7 @@ public class BigintDecoder
             BIGINT.writeLong(output, ((Number) value).longValue());
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a numeric value for BIGINT field");
+            throw cannotDecodeException("bigint", value);
         }
     }
 }
