@@ -72,6 +72,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -88,6 +89,7 @@ import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
+import io.prestosql.sql.planner.ConnectorExpressions;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
@@ -1106,6 +1108,15 @@ public final class MetadataManager
                             result.getProjections().size(),
                             projections.size(),
                             table);
+
+                    Set<String> assignedVariables = result.getAssignments().stream()
+                            .map(ProjectionApplicationResult.Assignment::getVariable)
+                            .collect(toImmutableSet());
+                    result.getProjections().stream()
+                            .flatMap(connectorExpression -> ConnectorExpressions.extractVariables(connectorExpression).stream())
+                            .map(Variable::getName)
+                            .filter(variableName -> !assignedVariables.contains(variableName))
+                            .findAny().ifPresent(variableName -> { throw new IllegalStateException("Unbound variable: " + variableName); });
 
                     return new ProjectionApplicationResult<>(
                             new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
