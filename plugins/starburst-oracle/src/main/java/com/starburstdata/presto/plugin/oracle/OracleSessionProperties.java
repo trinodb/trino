@@ -28,7 +28,7 @@ public final class OracleSessionProperties
 {
     public static final String NUMBER_ROUNDING_MODE = "number_rounding_mode";
     public static final String NUMBER_DEFAULT_SCALE = "number_default_scale";
-    public static final String CONCURRENCY_TYPE = "concurrency_type";
+    public static final String PARALLELISM_TYPE = "parallelism_type";
     public static final String MAX_SPLITS_PER_SCAN = "max_splits_per_scan";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -49,10 +49,10 @@ public final class OracleSessionProperties
                         oracleConfig.getDefaultNumberScale().orElse(null),
                         false))
                 .add(enumProperty(
-                        CONCURRENCY_TYPE,
-                        "Concurrency strategy for reads",
-                        OracleConcurrencyType.class,
-                        oracleConfig.getConcurrencyType(),
+                        PARALLELISM_TYPE,
+                        "Parallelism strategy for reads",
+                        OracleParallelismType.class,
+                        oracleConfig.getParallelismType(),
                         false))
                 .add(integerProperty(
                         MAX_SPLITS_PER_SCAN,
@@ -78,9 +78,9 @@ public final class OracleSessionProperties
         return Optional.ofNullable(session.getProperty(NUMBER_DEFAULT_SCALE, Integer.class));
     }
 
-    public static OracleConcurrencyType getConcurrencyType(ConnectorSession session)
+    public static OracleParallelismType getParallelismType(ConnectorSession session)
     {
-        return session.getProperty(CONCURRENCY_TYPE, OracleConcurrencyType.class);
+        return session.getProperty(PARALLELISM_TYPE, OracleParallelismType.class);
     }
 
     public static int getMaxSplitsPerScan(ConnectorSession session)

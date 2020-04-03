@@ -35,9 +35,11 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
+import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.CONCURRENCY_TYPE;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.MAX_SPLITS_PER_SCAN;
+import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.PARALLELISM_TYPE;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -73,8 +75,8 @@ public class TestOracleParallelQueries
                         4, 5, 6,
                         7, 6, 8));
 
-        verifyTableSplitCount(tableName, "b", "GPhxvpcxVrk=", OracleConcurrencyType.NO_CONCURRENCY, Optional.empty(), 1);
-        verifyTableSplitCount(tableName, "c", "/GYVBejTO3U=", OracleConcurrencyType.PARTITIONS, Optional.empty(), 4);
+        verifyTableSplitCount(tableName, "b", "GPhxvpcxVrk=", NO_PARALLELISM, Optional.empty(), 1);
+        verifyTableSplitCount(tableName, "c", "/GYVBejTO3U=", PARTITIONS, Optional.empty(), 4);
 
         dropTable(tableName);
     }
@@ -91,9 +93,9 @@ public class TestOracleParallelQueries
                         4, 5, 6,
                         7, 6, 8));
 
-        verifyTableSplitCount(tableName, "b", "GPhxvpcxVrk=", OracleConcurrencyType.NO_CONCURRENCY, Optional.empty(), 1);
-        verifyTableSplitCount(tableName, "c", "/GYVBejTO3U=", OracleConcurrencyType.PARTITIONS, Optional.of(2), 2);
-        verifyTableSplitCount(tableName, "c", "/GYVBejTO3U=", OracleConcurrencyType.PARTITIONS, Optional.of(3), 2);
+        verifyTableSplitCount(tableName, "b", "GPhxvpcxVrk=", NO_PARALLELISM, Optional.empty(), 1);
+        verifyTableSplitCount(tableName, "c", "/GYVBejTO3U=", PARTITIONS, Optional.of(2), 2);
+        verifyTableSplitCount(tableName, "c", "/GYVBejTO3U=", PARTITIONS, Optional.of(3), 2);
 
         dropTable(tableName);
     }
@@ -108,12 +110,12 @@ public class TestOracleParallelQueries
                 "a, b, c",
                 IntStream.range(0, 99999).boxed().collect(toImmutableList()));
 
-        verifyTableSplitCount(tableName, "a", "82outvYm50s=", OracleConcurrencyType.NO_CONCURRENCY, Optional.empty(), 1);
+        verifyTableSplitCount(tableName, "a", "82outvYm50s=", NO_PARALLELISM, Optional.empty(), 1);
 
-        verifyTableSplitCount(tableName, "a", "82outvYm50s=", OracleConcurrencyType.PARTITIONS, Optional.of(1), 1);
-        verifyTableSplitCount(tableName, "b", "BaJpI0zFEZ0=", OracleConcurrencyType.PARTITIONS, Optional.of(7), 7);
-        verifyTableSplitCount(tableName, "c", "KgAXfidTzXE=", OracleConcurrencyType.PARTITIONS, Optional.of(100), 100);
-        verifyTableSplitCount(tableName, "c", "KgAXfidTzXE=", OracleConcurrencyType.PARTITIONS, Optional.of(101), 100);
+        verifyTableSplitCount(tableName, "a", "82outvYm50s=", PARTITIONS, Optional.of(1), 1);
+        verifyTableSplitCount(tableName, "b", "BaJpI0zFEZ0=", PARTITIONS, Optional.of(7), 7);
+        verifyTableSplitCount(tableName, "c", "KgAXfidTzXE=", PARTITIONS, Optional.of(100), 100);
+        verifyTableSplitCount(tableName, "c", "KgAXfidTzXE=", PARTITIONS, Optional.of(101), 100);
 
         dropTable(tableName);
     }
@@ -125,8 +127,8 @@ public class TestOracleParallelQueries
         createNonPartitionedTable(tableName, "a NUMBER, b NUMBER");
         insertIntoTable(tableName, "a, b", ImmutableList.of(1, 2, 3, 4, 5, 6, 7, 6, 8, 11));
 
-        verifyTableSplitCount(tableName, "a", "Gv+Z64FGbJw=", OracleConcurrencyType.NO_CONCURRENCY, Optional.empty(), 1);
-        verifyTableSplitCount(tableName, "b", "meGP+zKVR8U=", OracleConcurrencyType.PARTITIONS, Optional.empty(), 1);
+        verifyTableSplitCount(tableName, "a", "Gv+Z64FGbJw=", NO_PARALLELISM, Optional.empty(), 1);
+        verifyTableSplitCount(tableName, "b", "meGP+zKVR8U=", PARTITIONS, Optional.empty(), 1);
 
         dropTable(tableName);
     }
@@ -168,11 +170,11 @@ public class TestOracleParallelQueries
         executeInOracle(format("DROP TABLE %s", tableName));
     }
 
-    private void verifyTableSplitCount(String tableName, String column, String expectedChecksum, OracleConcurrencyType concurrencyType, Optional<Integer> maxSplits, int expectedSplits)
+    private void verifyTableSplitCount(String tableName, String column, String expectedChecksum, OracleParallelismType parallelismType, Optional<Integer> maxSplits, int expectedSplits)
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         Session.SessionBuilder sessionBuilder = Session.builder(getSession())
-                .setCatalogSessionProperty("oracle", CONCURRENCY_TYPE, concurrencyType.name());
+                .setCatalogSessionProperty("oracle", PARALLELISM_TYPE, parallelismType.name());
 
         maxSplits.ifPresent(value -> sessionBuilder.setCatalogSessionProperty("oracle", MAX_SPLITS_PER_SCAN, value.toString()));
 

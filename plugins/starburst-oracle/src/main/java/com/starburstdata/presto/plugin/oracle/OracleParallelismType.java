@@ -22,8 +22,26 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-public enum OracleConcurrencyType
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+
+public enum OracleParallelismType
 {
-    NO_CONCURRENCY,
+    NO_PARALLELISM,
     PARTITIONS,
+    /**/;
+
+    public static OracleParallelismType fromString(String value)
+    {
+        switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+            case "no_concurrency":
+            case "no_parallelism":
+                return NO_PARALLELISM;
+            case "partitions":
+                return PARTITIONS;
+        }
+
+        throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+    }
 }

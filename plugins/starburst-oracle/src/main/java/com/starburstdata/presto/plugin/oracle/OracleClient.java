@@ -73,10 +73,10 @@ import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getConcurrencyType;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getMaxSplitsPerScan;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getNumberDefaultScale;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getNumberRoundingMode;
+import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getParallelismType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
@@ -184,7 +184,7 @@ public class OracleClient
         return splitManager.getSplitSource(
                 JdbcIdentity.from(session),
                 tableHandle,
-                getConcurrencyType(session),
+                getParallelismType(session),
                 getMaxSplitsPerScan(session));
     }
 

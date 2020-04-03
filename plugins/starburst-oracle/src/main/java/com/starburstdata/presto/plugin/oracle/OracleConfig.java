@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -20,7 +21,7 @@ import java.math.RoundingMode;
 import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
-import static com.starburstdata.presto.plugin.oracle.OracleConcurrencyType.NO_CONCURRENCY;
+import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 
 public class OracleConfig
 {
@@ -30,7 +31,7 @@ public class OracleConfig
     private Integer defaultNumberScale;
     private boolean connectionPoolingEnabled = true;
     private OracleAuthenticationType authenticationType = PASSWORD;
-    private OracleConcurrencyType concurrencyType = NO_CONCURRENCY;
+    private OracleParallelismType parallelismType = NO_PARALLELISM;
     private int maxSplitsPerScan = 10; // Oracle always has a limit for number of concurrent connections
 
     public boolean isImpersonationEnabled()
@@ -112,16 +113,17 @@ public class OracleConfig
     }
 
     @NotNull
-    public OracleConcurrencyType getConcurrencyType()
+    public OracleParallelismType getParallelismType()
     {
-        return concurrencyType;
+        return parallelismType;
     }
 
-    @Config("oracle.concurrency-type")
+    @Config("oracle.parallelism-type")
+    @LegacyConfig("oracle.concurrency-type")
     @ConfigDescription("Concurrency strategy for reads")
-    public OracleConfig setConcurrencyType(OracleConcurrencyType concurrencyType)
+    public OracleConfig setParallelismType(OracleParallelismType parallelismType)
     {
-        this.concurrencyType = concurrencyType;
+        this.parallelismType = parallelismType;
         return this;
     }
 
@@ -131,7 +133,8 @@ public class OracleConfig
         return maxSplitsPerScan;
     }
 
-    @Config("oracle.concurrent.max-splits-per-scan")
+    @LegacyConfig("oracle.concurrent.max-splits-per-scan")
+    @Config("oracle.parallel.max-splits-per-scan")
     @ConfigDescription("Maximum number of splits for a table scan")
     public OracleConfig setMaxSplitsPerScan(int maxSplits)
     {

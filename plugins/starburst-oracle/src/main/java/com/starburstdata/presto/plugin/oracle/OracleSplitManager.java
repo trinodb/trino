@@ -28,8 +28,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.starburstdata.presto.plugin.oracle.OracleConcurrencyType.NO_CONCURRENCY;
-import static com.starburstdata.presto.plugin.oracle.OracleConcurrencyType.PARTITIONS;
+import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
+import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.math.RoundingMode.CEILING;
@@ -45,18 +45,18 @@ public class OracleSplitManager
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
     }
 
-    public ConnectorSplitSource getSplitSource(JdbcIdentity identity, JdbcTableHandle tableHandle, OracleConcurrencyType concurrencyType, int maxSplits)
+    public ConnectorSplitSource getSplitSource(JdbcIdentity identity, JdbcTableHandle tableHandle, OracleParallelismType parallelismType, int maxSplits)
     {
-        return new FixedSplitSource(getSplits(identity, tableHandle, concurrencyType, maxSplits));
+        return new FixedSplitSource(getSplits(identity, tableHandle, parallelismType, maxSplits));
     }
 
-    public List<OracleSplit> getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle, OracleConcurrencyType concurrencyType, int maxSplits)
+    public List<OracleSplit> getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle, OracleParallelismType parallelismType, int maxSplits)
     {
-        if (concurrencyType == NO_CONCURRENCY) {
+        if (parallelismType == NO_PARALLELISM) {
             return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty()));
         }
 
-        if (concurrencyType == PARTITIONS) {
+        if (parallelismType == PARTITIONS) {
             List<String> partitions = listPartitionsForTable(identity, tableHandle);
 
             if (partitions.isEmpty()) {
@@ -70,7 +70,7 @@ public class OracleSplitManager
                     .collect(toImmutableList());
         }
 
-        throw new IllegalArgumentException(format("Concurrency type %s is not supported", concurrencyType));
+        throw new IllegalArgumentException(format("Parallelism type %s is not supported", parallelismType));
     }
 
     private List<String> listPartitionsForTable(JdbcIdentity identity, JdbcTableHandle tableHandle)
