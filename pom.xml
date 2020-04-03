@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>98</version>
+        <version>99</version>
     </parent>
 
     <groupId>io.prestosql</groupId>
