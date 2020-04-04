@@ -455,7 +455,8 @@ public abstract class BaseJdbcClient
                 columnList.add(getColumnSql(session, column, columnName));
             }
 
-            String sql = createTableSql(catalog, remoteSchema, tableName, columnList.build());
+            RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), tableName);
+            String sql = createTableSql(remoteTableName, columnList.build());
             execute(connection, sql);
 
             return new JdbcOutputTableHandle(
@@ -469,9 +470,9 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected String createTableSql(@Nullable String catalog, @Nullable String remoteSchema, String tableName, List<String> columns)
+    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns)
     {
-        return format("CREATE TABLE %s (%s)", quoted(catalog, remoteSchema, tableName), join(", ", columns));
+        return format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns));
     }
 
     private String getColumnSql(ConnectorSession session, ColumnMetadata column, String columnName)
@@ -919,6 +920,14 @@ public abstract class BaseJdbcClient
     {
         name = name.replace(identifierQuote, identifierQuote + identifierQuote);
         return identifierQuote + name + identifierQuote;
+    }
+
+    protected String quoted(RemoteTableName remoteTableName)
+    {
+        return quoted(
+                remoteTableName.getCatalogName().orElse(null),
+                remoteTableName.getSchemaName().orElse(null),
+                remoteTableName.getTableName());
     }
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
