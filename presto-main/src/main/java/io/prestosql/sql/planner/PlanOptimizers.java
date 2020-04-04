@@ -66,6 +66,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneAssignUniqueIdColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCorrelatedJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
 import io.prestosql.sql.planner.iterative.rule.PruneDeleteSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneDistinctLimitSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneEnforceSingleRowColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneExceptSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneFilterColumns;
@@ -245,6 +246,7 @@ public class PlanOptimizers
                 new PruneAssignUniqueIdColumns(),
                 new PruneCorrelatedJoinColumns(),
                 new PruneDeleteSourceColumns(),
+                new PruneDistinctLimitSourceColumns(),
                 new PruneEnforceSingleRowColumns(),
                 new PruneExceptSourceColumns(),
                 new PruneFilterColumns(),
