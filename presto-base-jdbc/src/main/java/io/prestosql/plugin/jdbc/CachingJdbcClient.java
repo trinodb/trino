@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -45,7 +46,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
-public class CachingJdbcClient
+public final class CachingJdbcClient
         implements JdbcClient
 {
     private final JdbcClient delegate;
@@ -75,6 +76,13 @@ public class CachingJdbcClient
 
         // TODO use LoadingCache for columns (columns depend on session and session cannot be used in cache key)
         columnsCache = cacheBuilder.build();
+    }
+
+    @Override
+    public boolean schemaExists(JdbcIdentity identity, String schema)
+    {
+        // this method cannot be delegated as that would bypass the cache
+        return getSchemaNames(identity).contains(schema);
     }
 
     @Override
@@ -281,6 +289,12 @@ public class CachingJdbcClient
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         return delegate.beginCreateTable(session, tableMetadata);
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return delegate.getSystemTable(session, tableName);
     }
 
     private void invalidateSchemasCache()
