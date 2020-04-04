@@ -15,6 +15,7 @@ package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import sun.misc.Launcher;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -151,8 +152,8 @@ class PluginClassLoader
             return (ClassLoader) method.invoke(null);
         }
         catch (NoSuchMethodException ignored) {
-            // use null class loader on Java 8
-            return null;
+            // use extension class loader which is the parent of Launcher.class classloader on Java < 9
+            return Launcher.getLauncher().getClassLoader().getParent();
         }
         catch (IllegalAccessException | InvocationTargetException e) {
             throw new AssertionError(e);
