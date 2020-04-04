@@ -38,6 +38,8 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
+import javax.annotation.Nullable;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -467,7 +469,7 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected String createTableSql(String catalog, String remoteSchema, String tableName, List<String> columns)
+    protected String createTableSql(@Nullable String catalog, @Nullable String remoteSchema, String tableName, List<String> columns)
     {
         return format("CREATE TABLE %s (%s)", quoted(catalog, remoteSchema, tableName), join(", ", columns));
     }
@@ -919,7 +921,7 @@ public abstract class BaseJdbcClient
         return identifierQuote + name + identifierQuote;
     }
 
-    protected String quoted(String catalog, String schema, String table)
+    protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
     {
         StringBuilder sb = new StringBuilder();
         if (!isNullOrEmpty(catalog)) {
