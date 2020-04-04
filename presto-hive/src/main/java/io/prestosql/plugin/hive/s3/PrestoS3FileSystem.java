@@ -22,6 +22,7 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.auth.Signer;
@@ -159,6 +160,7 @@ public class PrestoS3FileSystem
     public static final String S3_ENDPOINT = "presto.s3.endpoint";
     public static final String S3_SECRET_KEY = "presto.s3.secret-key";
     public static final String S3_ACCESS_KEY = "presto.s3.access-key";
+    public static final String S3_SESSION_TOKEN = "presto.s3.session-token";
     public static final String S3_IAM_ROLE = "presto.s3.iam-role";
     public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
@@ -840,6 +842,12 @@ public class PrestoS3FileSystem
         if (isNullOrEmpty(accessKey) || isNullOrEmpty(secretKey)) {
             return Optional.empty();
         }
+
+        String sessionToken = conf.get(S3_SESSION_TOKEN);
+        if (!isNullOrEmpty(sessionToken)) {
+            return Optional.of(new BasicSessionCredentials(accessKey, secretKey, sessionToken));
+        }
+
         return Optional.of(new BasicAWSCredentials(accessKey, secretKey));
     }
 
