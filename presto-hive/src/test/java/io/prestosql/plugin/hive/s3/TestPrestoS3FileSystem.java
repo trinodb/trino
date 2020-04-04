@@ -67,7 +67,6 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SIGNER_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
@@ -96,22 +95,6 @@ public class TestPrestoS3FileSystem
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             verifyStaticCredentials(config, fs, "s3n://test-bucket/", "test_access_key", "test_secret_key");
-        }
-    }
-
-    @Test
-    public void testCompatibleStaticCredentials()
-            throws Exception
-    {
-        Configuration config = new Configuration(false);
-        config.set(S3_ACCESS_KEY, "test_access_key");
-        config.set(S3_SECRET_KEY, "test_secret_key");
-        config.set(S3_ENDPOINT, "test.example.endpoint.com");
-        config.set(S3_SIGNER_TYPE, "S3SignerType");
-        // the static credentials should be preferred
-
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
-            verifyStaticCredentials(config, fs, "s3a://test-bucket/", "test_access_key", "test_secret_key");
         }
     }
 
