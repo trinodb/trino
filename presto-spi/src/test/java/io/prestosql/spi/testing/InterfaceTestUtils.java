@@ -13,12 +13,16 @@
  */
 package io.prestosql.spi.testing;
 
+import com.google.common.collect.ImmutableSet;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Sets.difference;
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -30,8 +34,13 @@ public final class InterfaceTestUtils
 
     public static <I, C extends I> void assertAllMethodsOverridden(Class<I> iface, Class<C> clazz)
     {
+        assertAllMethodsOverridden(iface, clazz, ImmutableSet.of());
+    }
+
+    public static <I, C extends I> void assertAllMethodsOverridden(Class<I> iface, Class<C> clazz, Set<Method> exclusions)
+    {
         checkArgument(iface.isAssignableFrom(clazz), "%s is not supertype of %s", iface, clazz);
-        for (Method method : iface.getMethods()) {
+        for (Method method : difference(ImmutableSet.copyOf(iface.getMethods()), exclusions)) {
             if (Modifier.isStatic(method.getModifiers())) {
                 continue;
             }
@@ -52,7 +61,12 @@ public final class InterfaceTestUtils
 
     public static <I, C extends I> void assertProperForwardingMethodsAreCalled(Class<I> iface, Function<I, C> forwardingInstanceFactory)
     {
-        for (Method actualMethod : iface.getDeclaredMethods()) {
+        assertProperForwardingMethodsAreCalled(iface, forwardingInstanceFactory, ImmutableSet.of());
+    }
+
+    public static <I, C extends I> void assertProperForwardingMethodsAreCalled(Class<I> iface, Function<I, C> forwardingInstanceFactory, Set<Method> exclusions)
+    {
+        for (Method actualMethod : difference(ImmutableSet.copyOf(iface.getDeclaredMethods()), exclusions)) {
             Object[] actualArguments = new Object[actualMethod.getParameterCount()];
             for (int i = 0; i < actualArguments.length; i++) {
                 if (actualMethod.getParameterTypes()[i].isPrimitive()) {
