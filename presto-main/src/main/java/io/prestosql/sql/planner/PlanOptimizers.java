@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.cost.CostCalculator;
@@ -22,9 +23,11 @@ import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.TaskCountEstimator;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.QueryId;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
+import io.prestosql.sql.planner.iterative.QueryRuleStats;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.prestosql.sql.planner.iterative.rule.AddIntermediateAggregations;
@@ -176,6 +179,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class PlanOptimizers
@@ -673,5 +677,10 @@ public class PlanOptimizers
     public List<PlanOptimizer> get()
     {
         return optimizers;
+    }
+
+    public Cache<QueryId, Map<Class<?>, QueryRuleStats>> getQueryRuleStats()
+    {
+        return ruleStats.getQueryRuleStats();
     }
 }

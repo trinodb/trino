@@ -13,6 +13,7 @@
  */
 package io.prestosql.execution;
 
+import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -60,6 +61,7 @@ import io.prestosql.sql.planner.PlanOptimizers;
 import io.prestosql.sql.planner.StageExecutionPlan;
 import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.iterative.QueryRuleStats;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.Query;
@@ -70,9 +72,11 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -86,6 +90,7 @@ import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutp
 import static io.prestosql.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -105,6 +110,7 @@ public class SqlQueryExecution
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
+    private final Cache<QueryId, Map<Class<?>, QueryRuleStats>> queryRuleStats;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
@@ -133,6 +139,7 @@ public class SqlQueryExecution
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
+            Cache<QueryId, Map<Class<?>, QueryRuleStats>> queryRuleStats,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
@@ -156,6 +163,7 @@ public class SqlQueryExecution
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+            this.queryRuleStats = requireNonNull(queryRuleStats, "queryRuleStats is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -392,6 +400,12 @@ public class SqlQueryExecution
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, stateMachine.getWarningCollector());
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
+        try {
+            stateMachine.setQueryRuleStats(queryRuleStats.get(getQueryId(), HashMap::new));
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(format("Failed to get query %s ruleStats from queryRuleStats", getQueryId()), e);
+        }
 
         // extract inputs
         List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
@@ -633,6 +647,7 @@ public class SqlQueryExecution
         private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
+        private final Cache<QueryId, Map<Class<?>, QueryRuleStats>> queryRuleStats;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final QueryExplainer queryExplainer;
@@ -687,6 +702,7 @@ public class SqlQueryExecution
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
+            this.queryRuleStats = requireNonNull(planOptimizers, "planOptimizers is null").getQueryRuleStats();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         }
@@ -713,6 +729,7 @@ public class SqlQueryExecution
                     nodePartitioningManager,
                     nodeScheduler,
                     planOptimizers,
+                    queryRuleStats,
                     planFragmenter,
                     remoteTaskFactory,
                     locationFactory,

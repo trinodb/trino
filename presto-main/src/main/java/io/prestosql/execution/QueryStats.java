@@ -23,11 +23,13 @@ import io.prestosql.operator.BlockedReason;
 import io.prestosql.operator.OperatorStats;
 import io.prestosql.operator.TableWriterOperator;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.prestosql.sql.planner.iterative.QueryRuleStats;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
 
@@ -51,6 +53,7 @@ public class QueryStats
     private final Duration executionTime;
     private final Duration analysisTime;
     private final Duration planningTime;
+    Map<Class<?>, QueryRuleStats> planningRuleStats;
     private final Duration finishingTime;
 
     private final int totalTasks;
@@ -117,6 +120,7 @@ public class QueryStats
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("planningTime") Duration planningTime,
+            @JsonProperty("planningRuleStats") Map<Class<?>, QueryRuleStats> planningRuleStats,
             @JsonProperty("finishingTime") Duration finishingTime,
 
             @JsonProperty("totalTasks") int totalTasks,
@@ -181,6 +185,7 @@ public class QueryStats
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
+        this.planningRuleStats = requireNonNull(planningRuleStats, "planningRuleStats is null");
         this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
@@ -311,6 +316,12 @@ public class QueryStats
     public Duration getPlanningTime()
     {
         return planningTime;
+    }
+
+    @JsonProperty
+    public Map<Class<?>, QueryRuleStats> getPlanningRuleStats()
+    {
+        return planningRuleStats;
     }
 
     @JsonProperty

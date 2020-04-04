@@ -14,6 +14,7 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -22,17 +23,22 @@ import io.prestosql.operator.FilterAndProjectOperator;
 import io.prestosql.operator.OperatorStats;
 import io.prestosql.operator.TableWriterOperator;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.prestosql.sql.planner.iterative.QueryRuleStats;
+import io.prestosql.sql.planner.iterative.rule.test.FakRules;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestQueryStats
 {
@@ -168,6 +174,9 @@ public class TestQueryStats
             new Duration(33, NANOSECONDS),
 
             new Duration(100, NANOSECONDS),
+            ImmutableMap.of(FakRules.FakeRule1.class, QueryRuleStats.createQueryRuleStats(true, 1),
+                    FakRules.FakeRule2.class, QueryRuleStats.createQueryRuleStats(false, 2),
+                    FakRules.FakeRule3.class, QueryRuleStats.createFailureQueryRuleStats()),
             new Duration(200, NANOSECONDS),
 
             9,
@@ -253,7 +262,16 @@ public class TestQueryStats
         assertEquals(actual.getAnalysisTime(), new Duration(33, NANOSECONDS));
 
         assertEquals(actual.getPlanningTime(), new Duration(100, NANOSECONDS));
+        assertEquals(actual.getPlanningRuleStats().size(), 3);
+        Map<Class<?>, QueryRuleStats> actualPlanningRuleStats = actual.getPlanningRuleStats();
+        assertTrue(actualPlanningRuleStats.get(FakRules.FakeRule1.class).getMatch());
+        assertEquals(actualPlanningRuleStats.get(FakRules.FakeRule1.class).getTime(), 1);
+        assertFalse(actualPlanningRuleStats.get(FakRules.FakeRule1.class).getFailure());
+        assertFalse(actualPlanningRuleStats.get(FakRules.FakeRule2.class).getMatch());
+        assertEquals(actualPlanningRuleStats.get(FakRules.FakeRule2.class).getTime(), 2);
         assertEquals(actual.getFinishingTime(), new Duration(200, NANOSECONDS));
+        assertFalse(actualPlanningRuleStats.get(FakRules.FakeRule2.class).getFailure());
+        assertTrue(actualPlanningRuleStats.get(FakRules.FakeRule3.class).getFailure());
 
         assertEquals(actual.getTotalTasks(), 9);
         assertEquals(actual.getRunningTasks(), 10);

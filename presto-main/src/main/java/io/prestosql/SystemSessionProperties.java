@@ -129,6 +129,7 @@ public final class SystemSessionProperties
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
+    public static final String QUERY_RULE_STATS_TOP_N = "query_rule_stats_top_n";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -564,7 +565,12 @@ public final class SystemSessionProperties
                         COST_ESTIMATION_WORKER_COUNT,
                         "Set the estimate count of workers while planning",
                         null,
-                        true));
+                        true),
+                integerProperty(
+                        QUERY_RULE_STATS_TOP_N,
+                        "Top N of most expensive rule during the query planning (set to negative to turn off)",
+                        queryManagerConfig.getQueryRuleStatsTopN(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1013,5 +1019,10 @@ public final class SystemSessionProperties
     public static Integer getCostEstimationWorkerCount(Session session)
     {
         return session.getSystemProperty(COST_ESTIMATION_WORKER_COUNT, Integer.class);
+    }
+
+    public static int getQueryRuleStatsTopN(Session session)
+    {
+        return session.getSystemProperty(QUERY_RULE_STATS_TOP_N, Integer.class);
     }
 }
