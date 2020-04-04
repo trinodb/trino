@@ -16,7 +16,6 @@ package io.prestosql.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -38,12 +37,7 @@ public final class JdbcTableHandle
         implements ConnectorTableHandle
 {
     private final SchemaTableName schemaTableName;
-
-    // catalog, schema and table names are reported by the remote database
-    private final String catalogName;
-    private final String schemaName;
-    private final String tableName;
-
+    private final RemoteTableName remoteTableName;
     private final TupleDomain<ColumnHandle> constraint;
 
     // semantically aggregation is applied after constraint
@@ -55,13 +49,17 @@ public final class JdbcTableHandle
     // columns of the relation described by this handle, after projections, aggregations, etc.
     private final Optional<List<JdbcColumnHandle>> columns;
 
+    @Deprecated
     public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
+    {
+        this(schemaTableName, new RemoteTableName(Optional.ofNullable(catalogName), Optional.ofNullable(schemaName), tableName));
+    }
+
+    public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
         this(
                 schemaTableName,
-                catalogName,
-                schemaName,
-                tableName,
+                remoteTableName,
                 TupleDomain.all(),
                 Optional.empty(),
                 OptionalLong.empty(),
@@ -71,19 +69,14 @@ public final class JdbcTableHandle
     @JsonCreator
     public JdbcTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("catalogName") @Nullable String catalogName,
-            @JsonProperty("schemaName") @Nullable String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("groupingSets") Optional<List<List<JdbcColumnHandle>>> groupingSets,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.tableName = requireNonNull(tableName, "tableName is null");
-
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTable is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
 
         requireNonNull(groupingSets, "groupingSets is null");
@@ -104,23 +97,29 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
+    public RemoteTableName getRemoteTableName()
+    {
+        return remoteTableName;
+    }
+
+    @Deprecated
     @Nullable
     public String getCatalogName()
     {
-        return catalogName;
+        return remoteTableName.getCatalogName().orElse(null);
     }
 
-    @JsonProperty
+    @Deprecated
     @Nullable
     public String getSchemaName()
     {
-        return schemaName;
+        return remoteTableName.getSchemaName().orElse(null);
     }
 
-    @JsonProperty
+    @Deprecated
     public String getTableName()
     {
-        return tableName;
+        return remoteTableName.getTableName();
     }
 
     @JsonProperty
@@ -181,7 +180,7 @@ public final class JdbcTableHandle
     {
         StringBuilder builder = new StringBuilder();
         builder.append(schemaTableName).append(" ");
-        Joiner.on(".").skipNulls().appendTo(builder, catalogName, schemaName, tableName);
+        builder.append(remoteTableName);
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         columns.ifPresent(value -> builder.append(" columns=").append(value));
         groupingSets.ifPresent(value -> builder.append(" groupingSets=").append(value));
