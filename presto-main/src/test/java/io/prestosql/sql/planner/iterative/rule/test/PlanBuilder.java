@@ -294,13 +294,18 @@ public class PlanBuilder
 
     public DistinctLimitNode distinctLimit(long count, List<Symbol> distinctSymbols, PlanNode source)
     {
+        return distinctLimit(count, distinctSymbols, Optional.empty(), source);
+    }
+
+    public DistinctLimitNode distinctLimit(long count, List<Symbol> distinctSymbols, Optional<Symbol> hashSymbol, PlanNode source)
+    {
         return new DistinctLimitNode(
                 idAllocator.getNextId(),
                 source,
                 count,
                 false,
                 distinctSymbols,
-                Optional.empty());
+                hashSymbol);
     }
 
     public class AggregationBuilder
