@@ -14,7 +14,6 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -24,6 +23,7 @@ import java.net.URLClassLoader;
 import java.util.Enumeration;
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class PluginClassLoader
@@ -38,12 +38,14 @@ class PluginClassLoader
     public PluginClassLoader(
             List<URL> urls,
             ClassLoader spiClassLoader,
-            Iterable<String> spiPackages)
+            List<String> spiPackages)
     {
         this(urls,
                 spiClassLoader,
                 spiPackages,
-                Iterables.transform(spiPackages, PluginClassLoader::classNameToResource));
+                spiPackages.stream()
+                        .map(PluginClassLoader::classNameToResource)
+                        .collect(toImmutableList()));
     }
 
     private PluginClassLoader(
@@ -53,7 +55,7 @@ class PluginClassLoader
             Iterable<String> spiResources)
     {
         // plugins should not have access to the system (application) class loader
-        super(urls.toArray(new URL[urls.size()]), PLATFORM_CLASS_LOADER);
+        super(urls.toArray(new URL[0]), PLATFORM_CLASS_LOADER);
         this.spiClassLoader = requireNonNull(spiClassLoader, "spiClassLoader is null");
         this.spiPackages = ImmutableList.copyOf(spiPackages);
         this.spiResources = ImmutableList.copyOf(spiResources);
