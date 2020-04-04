@@ -123,9 +123,7 @@ public class JdbcMetadata
 
         handle = new JdbcTableHandle(
                 handle.getSchemaTableName(),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTableName(),
+                handle.getRemoteTableName(),
                 newDomain,
                 Optional.empty(), // groupBy
                 handle.getLimit(),
@@ -154,9 +152,7 @@ public class JdbcMetadata
         return Optional.of(new ProjectionApplicationResult<>(
                 new JdbcTableHandle(
                         handle.getSchemaTableName(),
-                        handle.getCatalogName(),
-                        handle.getSchemaName(),
-                        handle.getTableName(),
+                        handle.getRemoteTableName(),
                         handle.getConstraint(),
                         handle.getGroupingSets(),
                         handle.getLimit(),
@@ -236,9 +232,7 @@ public class JdbcMetadata
 
         handle = new JdbcTableHandle(
                 handle.getSchemaTableName(),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTableName(),
+                handle.getRemoteTableName(),
                 handle.getConstraint(),
                 Optional.of(groupingSets.stream()
                         .map(groupingSet -> groupingSet.stream()
@@ -266,9 +260,7 @@ public class JdbcMetadata
 
         handle = new JdbcTableHandle(
                 handle.getSchemaTableName(),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTableName(),
+                handle.getRemoteTableName(),
                 handle.getConstraint(),
                 handle.getGroupingSets(),
                 OptionalLong.of(limit),
