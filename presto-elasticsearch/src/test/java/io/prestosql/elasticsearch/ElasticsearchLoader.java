@@ -24,6 +24,7 @@ import io.prestosql.testing.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
@@ -109,7 +110,7 @@ public class ElasticsearchLoader
 
             request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
             try {
-                client.bulk(request);
+                client.bulk(request, RequestOptions.DEFAULT);
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

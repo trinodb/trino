@@ -40,6 +40,9 @@ import org.elasticsearch.action.search.ClearScrollRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.Node;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
@@ -83,6 +86,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -161,15 +165,16 @@ public class ElasticsearchClient
         try {
             Set<ElasticsearchNode> nodes = fetchNodes();
 
-            HttpHost[] hosts = nodes.stream()
+            List<Node> hosts = nodes.stream()
                     .map(ElasticsearchNode::getAddress)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
-                    .toArray(HttpHost[]::new);
+                    .map(Node::new)
+                    .collect(Collectors.toList());
 
-            if (hosts.length > 0 && !ignorePublishAddress) {
-                client.getLowLevelClient().setHosts(hosts);
+            if (hosts.size() > 0 && !ignorePublishAddress) {
+                client.getLowLevelClient().setNodes(hosts);
             }
 
             this.nodes.set(nodes);
@@ -188,8 +193,7 @@ public class ElasticsearchClient
                 .setRequestConfigCallback(
                         configBuilder -> configBuilder
                                 .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
-                                .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())))
-                .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
+                                .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())));
 
         builder.setHttpClientConfigCallback(clientBuilder -> {
             if (config.isTlsEnabled()) {
@@ -554,7 +558,7 @@ public class ElasticsearchClient
 
         long start = System.nanoTime();
         try {
-            return client.search(request);
+            return client.search(request, RequestOptions.DEFAULT);
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -597,7 +601,7 @@ public class ElasticsearchClient
 
         long start = System.nanoTime();
         try {
-            return client.searchScroll(request);
+            return client.scroll(request, RequestOptions.DEFAULT);
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -612,7 +616,7 @@ public class ElasticsearchClient
         ClearScrollRequest request = new ClearScrollRequest();
         request.addScrollId(scrollId);
         try {
-            client.clearScroll(request);
+            client.clearScroll(request, RequestOptions.DEFAULT);
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -640,7 +644,7 @@ public class ElasticsearchClient
         Response response;
         try {
             response = client.getLowLevelClient()
-                    .performRequest("GET", path);
+                    .performRequest(new Request("GET", path));
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);

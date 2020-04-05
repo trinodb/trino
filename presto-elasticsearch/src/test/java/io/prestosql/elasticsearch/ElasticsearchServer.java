@@ -22,7 +22,7 @@ public class ElasticsearchServer
 
     public ElasticsearchServer()
     {
-        container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0");
+        container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:7.6.2");
         container.start();
     }
 

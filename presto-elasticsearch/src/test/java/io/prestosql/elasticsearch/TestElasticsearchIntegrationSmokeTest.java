@@ -21,12 +21,15 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -41,6 +44,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -133,10 +137,9 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "test_arrays";
 
+        @Language("JSON")
         String mapping = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
                 "      \"_meta\": {" +
                 "        \"presto\": {" +
                 "          \"a\": {" +
@@ -211,8 +214,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 "          \"type\": \"long\"" +
                 "        }" +
                 "      }" +
-                "    }" +
-                "  }" +
                 "}";
 
         createIndex(indexName, mapping);
@@ -311,10 +312,9 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "types";
 
+        @Language("JSON")
         String mapping = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
                 "      \"properties\": {" +
                 "        \"boolean_column\":   { \"type\": \"boolean\" }," +
                 "        \"float_column\":     { \"type\": \"float\" }," +
@@ -326,8 +326,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 "        \"binary_column\":    { \"type\": \"binary\" }," +
                 "        \"timestamp_column\": { \"type\": \"date\" }" +
                 "      }" +
-                "    }" +
-                "  }" +
                 "}";
 
         createIndex(indexName, mapping);
@@ -370,10 +368,9 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "filter_pushdown";
 
+        @Language("JSON")
         String mapping = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
                 "      \"properties\": {" +
                 "        \"boolean_column\":   { \"type\": \"boolean\" }," +
                 "        \"float_column\":     { \"type\": \"float\" }," +
@@ -385,8 +382,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 "        \"binary_column\":    { \"type\": \"binary\" }," +
                 "        \"timestamp_column\": { \"type\": \"date\" }" +
                 "      }" +
-                "    }" +
-                "  }" +
                 "}";
 
         createIndex(indexName, mapping);
@@ -499,10 +494,9 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "types_nested";
 
+        @Language("JSON")
         String mapping = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
                 "      \"properties\": {" +
                 "        \"field\": {" +
                 "          \"properties\": {" +
@@ -518,8 +512,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 "          }" +
                 "        }" +
                 "      }" +
-                "    }" +
-                "  }" +
                 "}";
 
         createIndex(indexName, mapping);
@@ -564,10 +556,9 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "nested_type_nested";
 
+        @Language("JSON")
         String mapping = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
                 "      \"properties\": {" +
                 "        \"nested_field\": {" +
                 "          \"type\":\"nested\"," +
@@ -584,8 +575,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 "          }" +
                 "        }" +
                 "      }" +
-                "    }" +
-                "  }" +
                 "}";
 
         createIndex(indexName, mapping);
@@ -688,16 +677,21 @@ public class TestElasticsearchIntegrationSmokeTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "doc")
+        IndexRequest request = new IndexRequest(index)
                 .source(document)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE));
+                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        client.index(request, RequestOptions.DEFAULT);
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+        AliasActions aliasAction = new AliasActions(AliasActions.Type.ADD)
+                .index(index)
+                .alias(alias);
+        IndicesAliasesRequest request = new IndicesAliasesRequest();
+        request.addAliasAction(aliasAction);
+        client.indices().updateAliases(request, RequestOptions.DEFAULT);
 
         refreshIndex(alias);
     }
@@ -705,14 +699,16 @@ public class TestElasticsearchIntegrationSmokeTest
     private void createIndex(String indexName, @Language("JSON") String mapping)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
+        CreateIndexRequest request = new CreateIndexRequest(indexName);
+        request.mapping(mapping, XContentType.JSON);
+        client.indices().create(request, RequestOptions.DEFAULT);
     }
 
     private void refreshIndex(String index)
             throws IOException
     {
+        Request request = new Request("GET", format("/%s/_refresh", index));
         client.getLowLevelClient()
-                .performRequest("GET", format("/%s/_refresh", index));
+                .performRequest(request);
     }
 }
