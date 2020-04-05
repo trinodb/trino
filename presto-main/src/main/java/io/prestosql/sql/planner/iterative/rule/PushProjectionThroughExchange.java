@@ -33,6 +33,7 @@ import io.prestosql.sql.tree.SymbolReference;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
@@ -120,10 +121,21 @@ public class PushProjectionThroughExchange
                         });
             }
 
+            ImmutableSet.Builder<Symbol> outputBuilder = ImmutableSet.builder();
+            partitioningColumns.forEach(outputBuilder::add);
+            exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
+            exchange.getOrderingScheme().ifPresent(orderingScheme -> outputBuilder.addAll(orderingScheme.getOrderBy()));
+            Set<Symbol> partitioningHashAndOrderingOutputs = outputBuilder.build();
+
+            Map<Symbol, Expression> translationMap = outputToInputMap.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+
             for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
-                ImmutableMap.Builder<Symbol, Expression> translationMap = ImmutableMap.builder();
-                outputToInputMap.forEach((key, value) -> translationMap.put(key, value.toSymbolReference()));
-                Expression translatedExpression = inlineSymbols(translationMap.build(), projection.getValue());
+                // Skip identity projection if symbol is in outputs already
+                if (partitioningHashAndOrderingOutputs.contains(projection.getKey())) {
+                    continue;
+                }
+                Expression translatedExpression = inlineSymbols(translationMap, projection.getValue());
                 Type type = context.getSymbolAllocator().getTypes().get(projection.getKey());
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
                 projections.put(symbol, translatedExpression);
@@ -143,7 +155,14 @@ public class PushProjectionThroughExchange
                     .filter(symbol -> !partitioningColumns.contains(symbol))
                     .forEach(outputBuilder::add);
         }
+
+        Set<Symbol> partitioningHashAndOrderingOutputs = ImmutableSet.copyOf(outputBuilder.build());
+
         for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
+            // Do not add output for identity projection if symbol is in outputs already
+            if (partitioningHashAndOrderingOutputs.contains(projection.getKey())) {
+                continue;
+            }
             outputBuilder.add(projection.getKey());
         }
 
