@@ -54,7 +54,7 @@ import static io.prestosql.sql.planner.plan.Patterns.source;
  *    Project(x = e1, y = e2)
  *      Source(a, b, c)
  *  </pre>
- * Or if Exchange needs symbols from Source for partitioning or as hash symbol to:
+ * Or if Exchange needs symbols from Source for partitioning, ordering or as hash symbol to:
  * <pre>
  *  Project(x, y)
  *    Exchange()
@@ -107,9 +107,9 @@ public class PushProjectionThroughExchange
             }
 
             if (exchange.getOrderingScheme().isPresent()) {
-                // need to retain ordering columns for the exchange
+                // Need to retain ordering columns for the exchange
                 exchange.getOrderingScheme().get().getOrderBy().stream()
-                        // do not project the same symbol twice as ExchangeNode verifies that source input symbols match partitioning scheme outputLayout
+                        // Do not duplicate symbols in inputs list
                         .filter(symbol -> !partitioningColumns.contains(symbol))
                         .map(outputToInputMap::get)
                         .forEach(inputSymbol -> {
@@ -137,6 +137,7 @@ public class PushProjectionThroughExchange
         exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
         if (exchange.getOrderingScheme().isPresent()) {
             exchange.getOrderingScheme().get().getOrderBy().stream()
+                    // Do not duplicate symbols in outputs list (for consistency with inputs lists)
                     .filter(symbol -> !partitioningColumns.contains(symbol))
                     .forEach(outputBuilder::add);
         }
