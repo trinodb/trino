@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
@@ -29,7 +30,6 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -87,7 +87,7 @@ public class PushProjectionThroughExchange
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
         ImmutableList.Builder<List<Symbol>> inputsBuilder = ImmutableList.builder();
         for (int i = 0; i < exchange.getSources().size(); i++) {
-            Map<Symbol, SymbolReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
+            Map<Symbol, Symbol> outputToInputMap = mapExchangeOutputToInput(exchange, i);
 
             Assignments.Builder projections = Assignments.builder();
             ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
@@ -95,10 +95,9 @@ public class PushProjectionThroughExchange
             // Need to retain the partition keys for the exchange
             partitioningColumns.stream()
                     .map(outputToInputMap::get)
-                    .forEach(nameReference -> {
-                        Symbol symbol = Symbol.from(nameReference);
-                        projections.put(symbol, nameReference);
-                        inputs.add(symbol);
+                    .forEach(inputSymbol -> {
+                        projections.put(inputSymbol, inputSymbol.toSymbolReference());
+                        inputs.add(inputSymbol);
                     });
 
             if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
@@ -113,15 +112,16 @@ public class PushProjectionThroughExchange
                         // do not project the same symbol twice as ExchangeNode verifies that source input symbols match partitioning scheme outputLayout
                         .filter(symbol -> !partitioningColumns.contains(symbol))
                         .map(outputToInputMap::get)
-                        .forEach(nameReference -> {
-                            Symbol symbol = Symbol.from(nameReference);
-                            projections.put(symbol, nameReference);
-                            inputs.add(symbol);
+                        .forEach(inputSymbol -> {
+                            projections.put(inputSymbol, inputSymbol.toSymbolReference());
+                            inputs.add(inputSymbol);
                         });
             }
 
             for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineSymbols(outputToInputMap, projection.getValue());
+                ImmutableMap.Builder<Symbol, Expression> translationMap = ImmutableMap.builder();
+                outputToInputMap.forEach((key, value) -> translationMap.put(key, value.toSymbolReference()));
+                Expression translatedExpression = inlineSymbols(translationMap.build(), projection.getValue());
                 Type type = context.getSymbolAllocator().getTypes().get(projection.getKey());
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
                 projections.put(symbol, translatedExpression);
@@ -167,15 +167,15 @@ public class PushProjectionThroughExchange
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
-        return project.getAssignments().getExpressions().stream().allMatch(e -> e instanceof SymbolReference);
+        return project.getAssignments().getExpressions().stream().allMatch(SymbolReference.class::isInstance);
     }
 
-    private static Map<Symbol, SymbolReference> extractExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)
+    private static Map<Symbol, Symbol> mapExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)
     {
-        Map<Symbol, SymbolReference> outputToInputMap = new HashMap<>();
+        ImmutableMap.Builder<Symbol, Symbol> outputToInputMap = ImmutableMap.builder();
         for (int i = 0; i < exchange.getOutputSymbols().size(); i++) {
-            outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i).toSymbolReference());
+            outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i));
         }
-        return outputToInputMap;
+        return outputToInputMap.build();
     }
 }
