@@ -100,11 +100,13 @@ public class PushProjectionThroughExchange
                         inputs.add(inputSymbol);
                     });
 
-            if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
-                // Need to retain the hash symbol for the exchange
-                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
-                inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
-            }
+            // Need to retain the hash symbol for the exchange
+            exchange.getPartitioningScheme().getHashColumn()
+                    .map(outputToInputMap::get)
+                    .ifPresent(inputSymbol -> {
+                        projections.put(inputSymbol, inputSymbol.toSymbolReference());
+                        inputs.add(inputSymbol);
+                    });
 
             if (exchange.getOrderingScheme().isPresent()) {
                 // Need to retain ordering columns for the exchange
