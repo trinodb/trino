@@ -29,6 +29,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -105,6 +106,36 @@ public class TestPushProjectionThroughExchange
                                 // verify that data originally on symbols aliased as x1 and x2 is part of exchange output
                                 .withAlias("x1")
                                 .withAlias("x2"));
+    }
+
+    @Test
+    public void testHashMapping()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol h1 = p.symbol("h_1");
+                    Symbol c = p.symbol("c");
+                    Symbol h = p.symbol("h");
+                    Symbol cTimes5 = p.symbol("c_times_5");
+                    return p.project(
+                            Assignments.of(
+                                    cTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("c"), new LongLiteral("5"))),
+                            p.exchange(e -> e
+                                    .addSource(
+                                            p.values(a, h1))
+                                    .addInputsSet(a, h1)
+                                    .fixedHashDistributionParitioningScheme(
+                                            ImmutableList.of(c, h),
+                                            ImmutableList.of(c),
+                                            h)));
+                })
+                .matches(
+                        project(
+                                exchange(
+                                        strictProject(
+                                                ImmutableMap.of("a", expression("a"), "h_1", expression("h_1"), "a_times_5", expression("a * 5")),
+                                                values(ImmutableList.of("a", "h_1"))))));
     }
 
     @Test
