@@ -15,6 +15,8 @@ package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -38,15 +40,21 @@ public final class PostgreSqlQueryRunner
     public static QueryRunner createPostgreSqlQueryRunner(TestingPostgreSqlServer server, TpchTable<?>... tables)
             throws Exception
     {
-        return createPostgreSqlQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
+        return createPostgreSqlQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static QueryRunner createPostgreSqlQueryRunner(TestingPostgreSqlServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createPostgreSqlQueryRunner(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setExtraProperties(extraProperties)
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -77,5 +85,21 @@ public final class PostgreSqlQueryRunner
                 .setCatalog("postgresql")
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        DistributedQueryRunner queryRunner = createPostgreSqlQueryRunner(
+                new TestingPostgreSqlServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(PostgreSqlQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
