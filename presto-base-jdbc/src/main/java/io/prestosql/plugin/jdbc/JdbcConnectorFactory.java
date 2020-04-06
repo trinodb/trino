@@ -17,6 +17,8 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -66,6 +68,8 @@ public class JdbcConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
+                binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
+                binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
                 new JdbcModule(catalogName),
                 new CredentialProviderModule(),
                 moduleProvider.getModule(catalogName));
