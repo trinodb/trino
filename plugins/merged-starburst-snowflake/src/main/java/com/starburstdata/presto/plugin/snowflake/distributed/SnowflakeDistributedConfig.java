@@ -27,9 +27,9 @@ public class SnowflakeDistributedConfig
 
     // defaults copied from io.prestosql.plugin.hive.HiveConfig
     private DataSize maxInitialSplitSize;
-    private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
-    private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
-    private DataSize exportFileMaxSize = new DataSize(5, GIGABYTE);
+    private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
+    private DataSize parquetMaxReadBlockSize = DataSize.of(16, MEGABYTE);
+    private DataSize exportFileMaxSize = DataSize.of(5, GIGABYTE);
     private int maxExportRetries = 3;
 
     @Config("snowflake.stage-schema")
@@ -49,7 +49,7 @@ public class SnowflakeDistributedConfig
     public DataSize getMaxInitialSplitSize()
     {
         if (maxInitialSplitSize == null) {
-            return new DataSize(maxSplitSize.getValue() / 2, maxSplitSize.getUnit());
+            return DataSize.ofBytes(maxSplitSize.toBytes() / 2).to(maxSplitSize.getUnit());
         }
         return maxInitialSplitSize;
     }

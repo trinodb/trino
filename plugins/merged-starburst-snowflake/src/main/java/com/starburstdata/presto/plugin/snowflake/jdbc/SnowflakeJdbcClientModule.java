@@ -14,6 +14,13 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
+import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
+import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
+import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
+import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
+import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.snowflake.SnowflakeConfig;
 import com.starburstdata.presto.plugin.snowflake.SnowflakeImpersonationType;
 import com.starburstdata.presto.plugin.snowflake.auth.CachingSnowflakeOauthService;
@@ -29,21 +36,15 @@ import com.starburstdata.presto.plugin.snowflake.auth.SnowflakeOauthService;
 import com.starburstdata.presto.plugin.snowflake.auth.StatsCollectingOktaAuthClient;
 import com.starburstdata.presto.plugin.snowflake.auth.StatsCollectingSnowflakeAuthClient;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.jdbc.AuthToLocal;
-import io.prestosql.plugin.jdbc.AuthToLocalModule;
+import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.BaseJdbcConnectionPoolConfig;
-import io.prestosql.plugin.jdbc.BaseJdbcStatisticsConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.PollingConnectionFactory;
-import io.prestosql.plugin.jdbc.caching.BaseJdbcCachingConfig;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
-import io.prestosql.plugin.jdbc.credential.PassThroughCredentialProvider;
-import io.prestosql.spi.PrestoException;
-import org.weakref.jmx.ObjectNameBuilder;
+import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import javax.inject.Qualifier;
 
@@ -51,9 +52,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
@@ -64,8 +65,11 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class SnowflakeJdbcClientModule
         extends AbstractConfigurationAwareModule
 {
-    private String catalogName;
-    private boolean distributedConnector;
+    private static final String TIMESTAMP_FORMAT = "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM";
+    private static final String TIME_FORMAT = "HH24:MI:SS.FF9";
+
+    private final String catalogName;
+    private final boolean distributedConnector;
 
     public SnowflakeJdbcClientModule(String catalogName, boolean distributedConnector)
     {
@@ -76,13 +80,12 @@ public class SnowflakeJdbcClientModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(JdbcClient.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(BaseJdbcConfig.class);
-        configBinder(binder).bindConfig(BaseJdbcCachingConfig.class);
-        configBinder(binder).bindConfig(BaseJdbcStatisticsConfig.class);
-        configBinder(binder).bindConfig(BaseJdbcConnectionPoolConfig.class);
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
 
-        install(new SnowflakeConnectorObjectNameGeneratorModule(catalogName));
+        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
+
+        install(new ConnectorObjectNameGeneratorModule(catalogName, "com.starburstdata.presto.plugin.snowflake", "starburst.plugin.snowflake"));
 
         install(installModuleIf(
                 SnowflakeConfig.class,
@@ -107,20 +110,20 @@ public class SnowflakeJdbcClientModule
 
     @Provides
     @Singleton
-    public SnowflakeClient getSnowflakeClient(BaseJdbcConfig config, BaseJdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory)
+    public SnowflakeClient getSnowflakeClient(BaseJdbcConfig config, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory)
     {
         return new SnowflakeClient(config, statisticsConfig, connectionFactory, distributedConnector);
     }
 
     @Provides
     @Singleton
-    @ForSnowflakeJdbcConnectionFactory
-    public ConnectionFactory getBaseConnectionFactory(BaseJdbcConfig config, BaseJdbcConnectionPoolConfig connectionPoolingConfig, CredentialProvider credentialProvider, SnowflakeConfig snowflakeConfig)
+    @ForAuthentication
+    public ConnectionFactory getBaseConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig connectionPoolingConfig, CredentialProvider credentialProvider, SnowflakeConfig snowflakeConfig)
     {
         if (connectionPoolingConfig.isConnectionPoolEnabled()) {
-            return new PollingConnectionFactory(
+            return new PoolingConnectionFactory(
                     catalogName,
-                    SnowflakeProxyDriver.class,
+                    SnowflakeDriver.class,
                     getConnectionProperties(snowflakeConfig),
                     config,
                     connectionPoolingConfig,
@@ -128,7 +131,7 @@ public class SnowflakeJdbcClientModule
         }
 
         return new DriverConnectionFactory(
-                new SnowflakeProxyDriver(),
+                new SnowflakeDriver(),
                 config.getConnectionUrl(),
                 getConnectionProperties(snowflakeConfig),
                 credentialProvider);
@@ -142,30 +145,18 @@ public class SnowflakeJdbcClientModule
             protected void setup(Binder binder)
             {
                 if (buildConfigObject(SnowflakeConfig.class).getRole().isPresent()) {
-                    throw new PrestoException(CONSTRAINT_VIOLATION, "Snowflake role should not be set when impersonation is enabled");
+                    throw new IllegalStateException("Snowflake role should not be set when impersonation is enabled");
                 }
                 install(new AuthToLocalModule(catalogName));
 
                 configBinder(binder).bindConfig(OktaConfig.class);
                 configBinder(binder).bindConfig(SnowflakeOauthConfig.class);
                 configBinder(binder).bindConfig(SnowflakeCredentialProviderConfig.class);
-                binder.bind(PassThroughCredentialProvider.class).in(Scopes.SINGLETON);
                 binder.bind(NativeOktaAuthClient.class).in(Scopes.SINGLETON);
                 binder.bind(OktaAuthClient.class).to(StatsCollectingOktaAuthClient.class).in(Scopes.SINGLETON);
                 binder.bind(SnowflakeAuthClient.class).to(StatsCollectingSnowflakeAuthClient.class).in(Scopes.SINGLETON);
-                newExporter(binder).export(StatsCollectingOktaAuthClient.class)
-                        .as(generateJmxName("StatsCollectingOktaAuthClient"));
-                newExporter(binder).export(StatsCollectingSnowflakeAuthClient.class)
-                        .as(generateJmxName("StatsCollectingSnowflakeAuthClient"));
-            }
-
-            private String generateJmxName(String type)
-            {
-                // Not using ObjectNames.generatedNameOf, because class names are gone after obfuscation
-                return new ObjectNameBuilder("presto.plugin.snowflake.auth")
-                        .withProperty("type", type)
-                        .withProperty("name", catalogName)
-                        .build();
+                newExporter(binder).export(StatsCollectingOktaAuthClient.class).withGeneratedName();
+                newExporter(binder).export(StatsCollectingSnowflakeAuthClient.class).withGeneratedName();
             }
 
             @Provides
@@ -183,15 +174,12 @@ public class SnowflakeJdbcClientModule
             @Singleton
             public CredentialProvider getCredentialProvider(
                     SnowflakeCredentialProviderConfig config,
-                    CredentialProvider extraCredentialProvider,
-                    PassThroughCredentialProvider passThroughCredentialProvider)
+                    CredentialProvider extraCredentialProvider)
             {
                 if (config.isUseExtraCredentials()) {
                     return extraCredentialProvider;
                 }
-                else {
-                    return passThroughCredentialProvider;
-                }
+                return new PassThroughCredentialProvider();
             }
 
             @Provides
@@ -227,16 +215,17 @@ public class SnowflakeJdbcClientModule
 
             @Provides
             @Singleton
+            @ForBaseJdbc
             public ConnectionFactory getConnectionFactory(
                     BaseJdbcConfig config,
-                    BaseJdbcConnectionPoolConfig connectionPoolingConfig,
+                    JdbcConnectionPoolConfig connectionPoolingConfig,
                     SnowflakeOauthService snowflakeOauthService,
                     SnowflakeConfig snowflakeConfig)
             {
                 if (connectionPoolingConfig.isConnectionPoolEnabled()) {
-                    return new PollingConnectionFactory(
+                    return new PoolingConnectionFactory(
                             catalogName,
-                            SnowflakeProxyDriver.class,
+                            SnowflakeDriver.class,
                             getConnectionProperties(snowflakeConfig),
                             config,
                             connectionPoolingConfig,
@@ -244,7 +233,7 @@ public class SnowflakeJdbcClientModule
                 }
 
                 return new DriverConnectionFactory(
-                        new SnowflakeProxyDriver(),
+                        new SnowflakeDriver(),
                         config.getConnectionUrl(),
                         getConnectionProperties(snowflakeConfig),
                         new SnowflakeOauthPropertiesProvider(snowflakeOauthService));
@@ -266,16 +255,14 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                if (buildConfigObject(SnowflakeConfig.class).getRole().isPresent()) {
-                    throw new PrestoException(CONSTRAINT_VIOLATION, "Snowflake role should not be set when impersonation is enabled");
-                }
-
+                checkState(!buildConfigObject(SnowflakeConfig.class).getRole().isPresent(), "Snowflake role should not be set when impersonation is enabled");
                 install(new AuthToLocalModule(catalogName));
             }
 
             @Provides
             @Singleton
-            public ConnectionFactory getConnectionFactory(@ForSnowflakeJdbcConnectionFactory ConnectionFactory connectionFactory, AuthToLocal authToLocal)
+            @ForBaseJdbc
+            public ConnectionFactory getConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
             {
                 return new SnowflakeImpersonationConnectionFactory(connectionFactory, authToLocal);
             }
@@ -289,14 +276,13 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                if (!buildConfigObject(SnowflakeConfig.class).getRole().isPresent()) {
-                    throw new PrestoException(CONSTRAINT_VIOLATION, "No snowflake role has been provided");
-                }
+                checkState(buildConfigObject(SnowflakeConfig.class).getRole().isPresent(), "No Snowflake role has been provided");
             }
 
             @Provides
             @Singleton
-            public ConnectionFactory getConnectionFactory(@ForSnowflakeJdbcConnectionFactory ConnectionFactory connectionFactory)
+            @ForBaseJdbc
+            public ConnectionFactory getConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory)
             {
                 return connectionFactory;
             }
@@ -307,9 +293,18 @@ public class SnowflakeJdbcClientModule
     {
         requireNonNull(snowflakeConfig, "snowflakeConfig is null");
         Properties properties = new Properties();
-        snowflakeConfig.getRole().ifPresent(role -> properties.put("role", role));
-        snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.put("warehouse", warehouse));
-        snowflakeConfig.getDatabase().ifPresent(database -> properties.put("db", database));
+
+        snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
+        snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
+        snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
+
+        properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "false"); // avoid cast to Long which overflows
+        properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+        properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+        properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+        properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+        properties.setProperty("TIME_OUTPUT_FORMAT", TIME_FORMAT);
+        properties.setProperty("JSON_INDENT", "0");
 
         return properties;
     }
@@ -317,14 +312,5 @@ public class SnowflakeJdbcClientModule
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
     @Qualifier
-    public @interface ForOauth
-    {
-    }
-
-    @Retention(RUNTIME)
-    @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
-    private @interface ForSnowflakeJdbcConnectionFactory
-    {
-    }
+    public @interface ForOauth {}
 }

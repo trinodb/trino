@@ -10,34 +10,33 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import io.prestosql.spi.type.VarcharType;
-import io.prestosql.tests.datatype.DataTypeTest;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.datatype.DataTypeTest;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.tests.datatype.DataType.stringDataType;
-import static io.prestosql.tests.datatype.DataType.varcharDataType;
+import static io.prestosql.testing.datatype.DataType.stringDataType;
+import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 
 public class TestDistributedSnowflakeTypeMapping
         extends BaseSnowflakeTypeMappingTest
 {
-    public TestDistributedSnowflakeTypeMapping()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new SnowflakeServer());
-    }
-
-    private TestDistributedSnowflakeTypeMapping(SnowflakeServer server)
-    {
-        super(server, () -> distributedBuilder()
+        return distributedBuilder()
                 .withServer(server)
                 .withAdditionalProperties(impersonationDisabled())
-                .build());
+                .build();
     }
 
     @Test
+    @Override
     public void varcharMapping()
     {
         testTypeMapping(
@@ -51,6 +50,7 @@ public class TestDistributedSnowflakeTypeMapping
     }
 
     @Test
+    @Override
     public void varcharReadMapping()
     {
         testTypeReadMapping(

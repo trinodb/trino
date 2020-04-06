@@ -11,17 +11,18 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.starburstdata.presto.license.LicenseTesting.unlicensed;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakePlugin.SNOWFLAKE_DISTRIBUTED;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakePlugin.SNOWFLAKE_JDBC;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.ACCOUNT_NAME;
@@ -39,8 +40,8 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.QueryAssertions.copyTable;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.QueryAssertions.copyTable;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -122,7 +123,7 @@ class SnowflakeQueryRunner
             warehouse.ifPresent(warehouseName -> properties.put("snowflake.warehouse", warehouseName));
             database.ifPresent(databaseName -> properties.put("snowflake.database", databaseName));
 
-            queryRunner.installPlugin(new SnowflakePlugin());
+            queryRunner.installPlugin(unlicensed(new SnowflakePlugin()));
             queryRunner.createCatalog(SNOWFLAKE_CATALOG, connectorName, properties.build());
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx", ImmutableMap.of());
@@ -167,7 +168,7 @@ class SnowflakeQueryRunner
         private Optional<String> warehouseName = Optional.of(TEST_WAREHOUSE);
         private Optional<String> databaseName = Optional.of(TEST_DATABASE);
         private ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
-        private int nodeCount = 2;
+        private int nodeCount = 3;
 
         private Builder(String connectorName)
         {
@@ -207,6 +208,7 @@ class SnowflakeQueryRunner
         public Builder withConnectionPooling()
         {
             additionalPropertiesBuilder.put("connection-pool.enabled", "true");
+            additionalPropertiesBuilder.put("connection-pool.max-size", "50");
             return this;
         }
 

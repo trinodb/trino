@@ -9,16 +9,20 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import io.prestosql.testing.QueryRunner;
+
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationEnabled;
 
 public class TestDistributedSnowflakeDistributedQueries
         extends BaseSnowflakeDistributedQueries
 {
-    TestDistributedSnowflakeDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> distributedBuilder()
+        return distributedBuilder()
                 .withAdditionalProperties(impersonationEnabled())
-                .build());
+                .build();
     }
 }

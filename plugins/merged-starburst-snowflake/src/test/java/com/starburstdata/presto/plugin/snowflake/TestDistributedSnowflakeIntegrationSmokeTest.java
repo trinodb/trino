@@ -9,23 +9,22 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import io.prestosql.testing.QueryRunner;
+
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 
 public class TestDistributedSnowflakeIntegrationSmokeTest
         extends BaseSnowflakeIntegrationSmokeTest
 {
-    public TestDistributedSnowflakeIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new SnowflakeServer());
-    }
-
-    private TestDistributedSnowflakeIntegrationSmokeTest(SnowflakeServer server)
-    {
-        super(server, () -> distributedBuilder()
+        return distributedBuilder()
                 .withServer(server)
                 .withAdditionalProperties(impersonationDisabled())
                 .withConnectionPooling()
-                .build());
+                .build();
     }
 }

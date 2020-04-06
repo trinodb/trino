@@ -13,19 +13,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.jayway.jsonpath.DocumentContext;
+import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.jdbc.AuthToLocal;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.spi.security.AccessDeniedException;
 import okhttp3.Credentials;
 import okhttp3.FormBody;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.utils.URIBuilder;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -134,15 +133,15 @@ public class NativeSnowflakeAuthClient
                                     .build()));
             String redirectUrl = jsonPath(sfAuthorizeJson, "$.data.redirectUrl");
             // the redirect URL should look like http://localhost?code=XXX
-            String code = new URIBuilder(redirectUrl)
-                    .getQueryParams().stream()
-                    .filter(param -> "code".equals(param.getName()))
-                    .map(NameValuePair::getValue)
-                    .findFirst()
-                    .orElseThrow(() -> new AccessDeniedException(format(
-                            "Code for obtaining OAuth token on behalf of %s not found in redirect URL %s",
-                            samlResponse.getUser(),
-                            redirectUrl)));
+
+            HttpUrl parsedRedirectUrl = HttpUrl.parse(redirectUrl);
+            if (parsedRedirectUrl == null) {
+                throw new AccessDeniedException("Invalid OAuth redirect URL: " + redirectUrl);
+            }
+            String code = parsedRedirectUrl.queryParameter("code");
+            if (code == null) {
+                throw new AccessDeniedException(format("Code for obtaining OAuth token on behalf of user '%s' not found in redirect URL: %s", samlResponse.getUser(), redirectUrl));
+            }
 
             // use the code to obtain the OAuth token
             log.debug("Using the code to get an OAuth token");
@@ -179,7 +178,7 @@ public class NativeSnowflakeAuthClient
         catch (AccessDeniedException e) {
             throw e;
         }
-        catch (Exception e) {
+        catch (IOException | RuntimeException e) {
             throw new RuntimeException("Failed to obtain OAuth token for " + samlResponse.getUser(), e);
         }
     }

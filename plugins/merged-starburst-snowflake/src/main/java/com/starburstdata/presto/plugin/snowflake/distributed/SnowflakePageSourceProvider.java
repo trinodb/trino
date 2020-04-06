@@ -13,8 +13,8 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.spi.PrestoException;
@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -40,25 +41,25 @@ import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.S
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory.createParquetPageSource;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class SnowflakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final TypeManager typeManager;
     private final SnowflakeHiveTypeTranslator typeTranslator = new SnowflakeHiveTypeTranslator();
     private final FileFormatDataSourceStats stats;
-    private final HiveConfig hiveConfig;
     private final ParquetReaderConfig parquetReaderConfig;
 
     @Inject
     public SnowflakePageSourceProvider(TypeManager typeManager, FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.hiveConfig = requireNonNull(config, "config is null").getHiveConfig();
         this.parquetReaderConfig = new ParquetReaderConfig().setMaxReadBlockSize(config.getParquetMaxReadBlockSize());
     }
 
@@ -68,7 +69,8 @@ class SnowflakePageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         SnowflakeSplit snowflakeSplit = (SnowflakeSplit) split;
         HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(
@@ -77,12 +79,7 @@ class SnowflakePageSourceProvider
                 snowflakeSplit.getS3AwsSecretKey(),
                 snowflakeSplit.getS3AwsSessionToken(),
                 Optional.of(snowflakeSplit.getQueryStageMasterKey()));
-        SnowflakePageSourceFactory parquetPageSourceFactory = new SnowflakePageSourceFactory(
-                new ParquetPageSourceFactory(
-                        typeManager,
-                        hdfsEnvironment,
-                        stats,
-                        parquetReaderConfig));
+
         Path path = new Path(snowflakeSplit.getPath());
         Configuration configuration = hdfsEnvironment.getConfiguration(
                 new HdfsContext(session, snowflakeSplit.getDatabase(), snowflakeSplit.getTable()),
@@ -91,26 +88,47 @@ class SnowflakePageSourceProvider
         int paddedBytes = getPaddedBytes(session, hdfsEnvironment, configuration, snowflakeSplit, path);
         long unpaddedFileSize = snowflakeSplit.getFileSize() - paddedBytes;
 
-        return parquetPageSourceFactory.createPageSource(
+        List<HiveColumnHandle> hiveColumns = getHiveColumnHandles(
+                typeTranslator,
+                columns.stream()
+                        .map(JdbcColumnHandle.class::cast)
+                        .collect(toImmutableList()));
+
+        List<HiveColumnHandle> transformedColumns = hiveColumns.stream()
+                .map(column -> {
+                    if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {
+                        return new HiveColumnHandle(
+                                column.getName(),
+                                column.getHiveType(),
+                                createDecimalType(19),
+                                column.getHiveColumnIndex(),
+                                column.getColumnType(),
+                                column.getComment());
+                    }
+                    return column;
+                })
+                .collect(toImmutableList());
+
+        ParquetPageSource pageSource = createParquetPageSource(
+                hdfsEnvironment,
+                session.getUser(),
                 configuration,
-                session,
                 path,
                 snowflakeSplit.getStart(),
                 snowflakeSplit.getLength(),
                 unpaddedFileSize,
-                snowflakeSplit.getSchema(),
-                getHiveColumnHandles(
-                        typeTranslator,
-                        columns.stream()
-                                .map(JdbcColumnHandle.class::cast)
-                                .collect(toImmutableList())),
+                transformedColumns,
+                true,
+                parquetReaderConfig.toParquetReaderOptions()
+                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                 snowflakeSplit.getEffectivePredicate(),
-                hiveConfig.getDateTimeZone(),
-                Optional.empty()).orElseThrow(() -> new IllegalStateException("Could not create Parquet page source"));
+                stats);
+
+        return new TranslatingPageSource(pageSource, hiveColumns, session);
     }
 
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237
-    private int getPaddedBytes(ConnectorSession session, HdfsEnvironment hdfsEnvironment, Configuration configuration, SnowflakeSplit split, Path path)
+    private static int getPaddedBytes(ConnectorSession session, HdfsEnvironment hdfsEnvironment, Configuration configuration, SnowflakeSplit split, Path path)
     {
         try (FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).open(path)) {
             byte[] buffer = new byte[SYMMETRIC_CIPHER_BLOCK_SIZE];
@@ -119,10 +137,8 @@ class SnowflakePageSourceProvider
             if (readBytes > 0) {
                 return SYMMETRIC_CIPHER_BLOCK_SIZE - readBytes;
             }
-            else {
-                // entire last block is padded
-                return SYMMETRIC_CIPHER_BLOCK_SIZE;
-            }
+            // entire last block is padded
+            return SYMMETRIC_CIPHER_BLOCK_SIZE;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error during obtaining padding length for Hive split %s: %s", path, e.getMessage()), e);

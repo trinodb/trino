@@ -79,7 +79,7 @@ public class TestAuthenticationStressTest
                 nonCachingService;
         log.info("Calling getCredential()");
         for (int i = 0; i < 1000; i++) {
-            OauthCredential credential = service.getCredential(new JdbcIdentity(OKTA_USER, Optional.empty(), ImmutableMap.of(), Optional.empty()));
+            OauthCredential credential = service.getCredential(new JdbcIdentity(OKTA_USER, Optional.empty(), ImmutableMap.of()));
             assertEquals(credential.getSnowflakeUsername(), "OKTA_TEST");
             if (i % 50 == 49) {
                 log.info("Made %s calls to getCredential()", i + 1);

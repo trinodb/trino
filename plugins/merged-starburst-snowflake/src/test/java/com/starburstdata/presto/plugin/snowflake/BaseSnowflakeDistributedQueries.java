@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestQueries;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -19,17 +19,12 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
 
-public class BaseSnowflakeDistributedQueries
+public abstract class BaseSnowflakeDistributedQueries
         extends AbstractTestQueries
 {
-    BaseSnowflakeDistributedQueries(QueryRunnerSupplier queryRunnerSupplier)
-    {
-        super(queryRunnerSupplier);
-    }
-
     @Override
     public void testShowColumns()
     {
@@ -51,42 +46,6 @@ public class BaseSnowflakeDistributedQueries
         assertEquals(actual, expectedParametrizedVarchar);
     }
 
-    @Override
-    public void testApproxSetBigint()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testApproxSetBigintGroupBy()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testApproxSetGroupByWithOnlyNullsInOneGroup()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testApproxSetWithNulls()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testCustomAdd()
-    {
-        // custom_add does not support decimal arguments
-    }
-
-    @Override
-    public void testCustomSum()
-    {
-        // custom_sum does not support decimal arguments
-    }
-
     @Test
     public void testDescribeInput()
     {
@@ -102,7 +61,7 @@ public class BaseSnowflakeDistributedQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
-    @Override
+    @Test
     public void testDescribeOutput()
     {
         Session session = Session.builder(getSession())
@@ -136,6 +95,7 @@ public class BaseSnowflakeDistributedQueries
     }
 
     @Test
+    @Override
     public void testInformationSchemaFiltering()
     {
         assertQuery(
@@ -144,66 +104,6 @@ public class BaseSnowflakeDistributedQueries
         assertQuery(
                 "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(38,0)' AND table_schema = 'test_schema' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
                 "SELECT 'customer'");
-    }
-
-    @Override
-    public void testMergeHyperLogLog()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeHyperLogLogGroupBy()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeHyperLogLogGroupByWithNulls()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeHyperLogLogWithNulls()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testMergeEmptyNonEmptyApproxSet()
-    {
-        // create_hll does not support decimal arguments
-    }
-
-    @Override
-    public void testP4ApproxSetBigint()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetBigintGroupBy()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetGroupByWithNulls()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetGroupByWithOnlyNullsInOneGroup()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
-    }
-
-    @Override
-    public void testP4ApproxSetWithNulls()
-    {
-        // test fail due to result mismatch because approx_set yields different results for bigint vs decimal.
     }
 
     @Override

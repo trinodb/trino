@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveCoercionPolicy;
 import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HivePartitionManager;
 import io.prestosql.plugin.hive.HiveSplit;
@@ -39,7 +40,6 @@ import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
-import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
@@ -119,7 +119,6 @@ public class SnowflakeSplitSource
     private final ListeningExecutorService executorService;
     private final TypeManager typeManager;
     private final JdbcClient client;
-    private final QueryBuilder queryBuilder;
     private final ConnectorSession session;
     private final JdbcTableHandle jdbcTableHandle;
     private final List<JdbcColumnHandle> columns;
@@ -136,7 +135,6 @@ public class SnowflakeSplitSource
             ListeningExecutorService executorService,
             TypeManager typeManager,
             JdbcClient client,
-            QueryBuilder queryBuilder,
             ConnectorSession session,
             JdbcTableHandle tableHandle,
             List<JdbcColumnHandle> columns,
@@ -147,7 +145,6 @@ public class SnowflakeSplitSource
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.client = requireNonNull(client, "client is null");
-        this.queryBuilder = requireNonNull(queryBuilder, "queryBuilder is null");
         this.session = requireNonNull(session, "session is null");
         this.jdbcTableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.columns = requireNonNull(columns, "columns is null");
@@ -214,7 +211,7 @@ public class SnowflakeSplitSource
                     String stageName = "export_" + randomUUID().toString().replace("-", "_");
                     execute(connection, format("CREATE TEMPORARY STAGE %s.%s FILE_FORMAT = (TYPE = PARQUET)", snowflakeConfig.getStageSchema(), stageName));
 
-                    try (PreparedStatement statement = queryBuilder.buildSql(
+                    try (PreparedStatement statement = new SnowflakeQueryBuilder().buildSql(
                             client,
                             session,
                             connection,
@@ -274,11 +271,12 @@ public class SnowflakeSplitSource
         HiveTableHandle tableLayoutHandle = new HiveTableHandle(
                 jdbcTableHandle.getSchemaName(),
                 jdbcTableHandle.getTableName(),
-                Optional.empty(),
+                Optional.of(ImmutableMap.of()),
                 getHiveColumnHandles(typeTranslator, columns),
                 Optional.of(ImmutableList.of(new HivePartition(schemaTableName))),
                 all(),
                 none(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -303,9 +301,13 @@ public class SnowflakeSplitSource
                 getCredential(AWS_SECRET_KEY),
                 getCredential(AWS_TOKEN),
                 Optional.of(getQueryStageMasterKey()));
+
+        SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore(typeTranslator, hiveConfig, hdfsEnvironment);
+        metastore.beginQuery(session);
+
         return new HiveSplitManager(
-                nullTransaction -> getSemiTransactionalHiveMetastore(typeTranslator, hiveConfig, hdfsEnvironment),
-                new HivePartitionManager(typeManager, hiveConfig),
+                ignored -> metastore,
+                new HivePartitionManager(hiveConfig),
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new CachingDirectoryLister(hiveConfig),
@@ -319,8 +321,7 @@ public class SnowflakeSplitSource
                 hiveConfig.getMaxInitialSplits(),
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
-                hiveConfig.getRecursiveDirWalkerEnabled(),
-                hiveConfig.isIgnoreAbsentPartitions());
+                hiveConfig.getRecursiveDirWalkerEnabled());
     }
 
     private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore(TypeTranslator typeTranslator, HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
@@ -342,12 +343,12 @@ public class SnowflakeSplitSource
         HiveMetastore metastore = new SnowflakeHiveMetastore(table);
         return new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                metastore,
+                new HiveMetastoreClosure(metastore),
                 executorService,
                 executorService,
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
-                new Duration(5, SECONDS),
+                Optional.of(new Duration(5, SECONDS)),
                 Executors.newScheduledThreadPool(1));
     }
 
@@ -365,7 +366,11 @@ public class SnowflakeSplitSource
 
     private String copyIntoStage(String sql, String stageName)
     {
-        return format("COPY INTO @%s.%s from (%s) MAX_FILE_SIZE=%s", snowflakeConfig.getStageSchema(), stageName, sql, snowflakeConfig.getExportFileMaxSize().toBytes());
+        return format("COPY INTO @%s.%s FROM (%s) MAX_FILE_SIZE=%s HEADER=TRUE",
+                snowflakeConfig.getStageSchema(),
+                stageName,
+                sql,
+                snowflakeConfig.getExportFileMaxSize().toBytes());
     }
 
     private static Function<String, String> tryApplyLimit(OptionalLong limit)

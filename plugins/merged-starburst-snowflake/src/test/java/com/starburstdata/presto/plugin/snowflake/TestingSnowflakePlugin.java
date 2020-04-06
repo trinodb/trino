@@ -10,35 +10,24 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedConnectorFactory;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
-import com.starburstdata.presto.plugin.toolkit.NonObfuscable;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-@NonObfuscable
-public class SnowflakePlugin
+public class TestingSnowflakePlugin
         implements Plugin
 {
-    static final String SNOWFLAKE_JDBC = "snowflake-jdbc";
-    static final String SNOWFLAKE_DISTRIBUTED = "snowflake-distributed";
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(
-                requireLicense(new JdbcConnectorFactory(
-                        SNOWFLAKE_JDBC,
+                new JdbcConnectorFactory(
+                        SnowflakePlugin.SNOWFLAKE_JDBC,
                         catalogName -> {
                             return new SnowflakeJdbcClientModule(catalogName, false);
-                        })),
-                requireLicense(new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED)));
-    }
-
-    private static LicenceCheckingConnectorFactory requireLicense(ConnectorFactory connectorFactory)
-    {
-        return new LicenceCheckingConnectorFactory(connectorFactory, "snowflake");
+                        }),
+                new SnowflakeDistributedConnectorFactory(SnowflakePlugin.SNOWFLAKE_DISTRIBUTED));
     }
 }

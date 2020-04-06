@@ -26,18 +26,15 @@ import static java.lang.String.format;
 public class TestDistributedSnowflakeOktaIntegrationSmokeTest
         extends BaseSnowflakeIntegrationSmokeTest
 {
-    public TestDistributedSnowflakeOktaIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new SnowflakeServer());
-    }
-
-    private TestDistributedSnowflakeOktaIntegrationSmokeTest(SnowflakeServer server)
-    {
-        super(server, () -> distributedBuilder()
+        return distributedBuilder()
                 .withServer(server)
                 .withAdditionalProperties(oktaImpersonationEnabled(false))
                 .withConnectionPooling()
-                .build());
+                .build();
     }
 
     @Test

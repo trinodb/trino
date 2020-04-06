@@ -11,8 +11,8 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.PartitionSchemaEvolution;
 import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
@@ -20,7 +20,6 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -31,12 +30,11 @@ public class SnowflakeDistributedSessionProperties
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
-    private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
-    private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
+    private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
+    private static final String PARTITION_USE_COLUMN_NAMES = "partition_use_column_names";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
-    private static final String PARTITION_SCHEMA_EVOLUTION = "partition_schema_evolution";
 
-    private SnowflakeDistributedConfig snowflakeConfig;
+    private final SnowflakeDistributedConfig snowflakeConfig;
 
     @Inject
     public SnowflakeDistributedSessionProperties(SnowflakeDistributedConfig snowflakeConfig)
@@ -67,29 +65,23 @@ public class SnowflakeDistributedSessionProperties
                 // these properties are irrelevant for Snowflake connector, but are required by Hive connector code
                 booleanProperty(
                         S3_SELECT_PUSHDOWN_ENABLED,
-                        "S3 Select pushdown enabled",
+                        "Internal Snowflake connector property",
                         false,
                         true),
                 booleanProperty(
                         FORCE_LOCAL_SCHEDULING,
-                        "Only schedule splits on workers colocated with data node",
+                        "Internal Snowflake connector property",
                         false,
                         true),
                 booleanProperty(
-                        PARQUET_USE_COLUMN_NAME,
-                        "Experimental: Parquet: Access Parquet columns using names from the file",
+                        IGNORE_ABSENT_PARTITIONS,
+                        "Internal Snowflake connector property",
                         false,
                         true),
                 booleanProperty(
-                        PARQUET_FAIL_WITH_CORRUPTED_STATISTICS,
-                        "Parquet: Fail when scanning Parquet files with corrupted statistics",
-                        true,
-                        true),
-                enumProperty(
-                        PARTITION_SCHEMA_EVOLUTION,
-                        "Determines how table and partition columns are mapped",
-                        PartitionSchemaEvolution.class,
-                        PartitionSchemaEvolution.BY_INDEX,
+                        PARTITION_USE_COLUMN_NAMES,
+                        "Internal Snowflake connector property",
+                        false,
                         true));
     }
 
@@ -104,5 +96,10 @@ public class SnowflakeDistributedSessionProperties
                 hidden,
                 value -> DataSize.valueOf((String) value),
                 DataSize::toString);
+    }
+
+    public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
     }
 }

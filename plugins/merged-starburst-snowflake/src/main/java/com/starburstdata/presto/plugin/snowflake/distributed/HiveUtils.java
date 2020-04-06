@@ -81,8 +81,8 @@ final class HiveUtils
     private static class SetS3SessionTokenAndEncryptionMaterials
             implements ConfigurationInitializer
     {
-        final String s3AwsSessionToken;
-        final Optional<String> queryStageMasterKey;
+        private final String s3AwsSessionToken;
+        private final Optional<String> queryStageMasterKey;
 
         SetS3SessionTokenAndEncryptionMaterials(String s3AwsSessionToken, Optional<String> queryStageMasterKey)
         {

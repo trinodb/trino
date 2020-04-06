@@ -9,9 +9,10 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
@@ -21,13 +22,15 @@ import static org.testng.Assert.assertEquals;
 public class TestSnowflakeJmxStats
         extends AbstractTestQueryFramework
 {
-    protected TestSnowflakeJmxStats()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> distributedBuilder()
+        return distributedBuilder()
                 // using single worker instance, because workers overwrites their JMX stats
                 .withAdditionalProperties(oktaImpersonationEnabled(false))
                 .withNodeCount(1)
-                .build());
+                .build();
     }
 
     @Test
@@ -38,7 +41,7 @@ public class TestSnowflakeJmxStats
         MaterializedResult rows = getQueryRunner().execute(
                 getSession(),
                 "SELECT \"authenticate.time.alltime.count\", \"obtainsamlassertion.time.alltime.count\" " +
-                        "FROM jmx.current.\"presto.plugin.snowflake.auth:name=snowflake,type=statscollectingoktaauthclient\"");
+                        "FROM jmx.current.\"starburst.plugin.snowflake.auth:name=snowflake,type=statscollectingoktaauthclient\"");
         // we are running with 2 nodes
         assertEquals(rows.getRowCount(), 1);
         MaterializedRow oktaStatsRow = rows.getMaterializedRows().get(0);
@@ -49,7 +52,7 @@ public class TestSnowflakeJmxStats
         rows = getQueryRunner().execute(
                 getSession(),
                 "SELECT \"generatesamlrequest.time.alltime.count\", \"requestoauthtoken.time.alltime.count\" " +
-                        "FROM jmx.current.\"presto.plugin.snowflake.auth:name=snowflake,type=statscollectingsnowflakeauthclient\"");
+                        "FROM jmx.current.\"starburst.plugin.snowflake.auth:name=snowflake,type=statscollectingsnowflakeauthclient\"");
         assertEquals(rows.getRowCount(), 1);
         MaterializedRow snowflakeStatsRow = rows.getMaterializedRows().get(0);
         // We should have made each call to Snowflake only once; after that, the cache should have been used

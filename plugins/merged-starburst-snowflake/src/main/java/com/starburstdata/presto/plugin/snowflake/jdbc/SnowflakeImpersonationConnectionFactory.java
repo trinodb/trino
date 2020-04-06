@@ -9,10 +9,10 @@
  */
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
-import io.prestosql.plugin.jdbc.AuthToLocal;
+import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
+import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.PreparingConnectionFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;

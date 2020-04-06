@@ -10,10 +10,10 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import io.airlift.units.Duration;
+import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.CachingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
-import io.prestosql.plugin.jdbc.caching.BaseJdbcCachingConfig;
-import io.prestosql.plugin.jdbc.caching.CachingJdbcClient;
 
 import javax.inject.Inject;
 
@@ -32,7 +32,7 @@ public class SnowflakeMetadataFactory
             SnowflakeConnectionManager connectionManager,
             JdbcClient jdbcClient,
             JdbcMetadataConfig config,
-            BaseJdbcCachingConfig cachingConfig)
+            BaseJdbcConfig cachingConfig)
     {
         this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
         this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), cachingConfig);

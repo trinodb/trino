@@ -9,9 +9,10 @@
  */
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
+import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
+import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.BaseJdbcStatisticsConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
@@ -21,10 +22,12 @@ import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
-import io.prestosql.plugin.jdbc.StatsCollecting;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.CharType;
@@ -55,11 +58,11 @@ import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
-import static io.prestosql.plugin.jdbc.WriteNullFunction.DEFAULT_WRITE_NULL_FUNCTION;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -71,6 +74,7 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.Types.VARCHAR;
 import static java.time.ZoneOffset.UTC;
 
@@ -80,7 +84,7 @@ public class SnowflakeClient
     public static final String IDENTIFIER_QUOTE = "\"";
 
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
-    private static final java.time.format.DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
+    private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
 
     private static final UnaryOperator<Domain> DISABLE_UNSUPPORTED_PUSHDOWN = domain -> {
@@ -90,11 +94,13 @@ public class SnowflakeClient
         return Domain.all(domain.getType());
     };
 
+    private final TableStatisticsClient tableStatisticsClient;
     private final boolean distributedConnector;
 
-    SnowflakeClient(BaseJdbcConfig config, BaseJdbcStatisticsConfig statisticsConfig, @StatsCollecting ConnectionFactory connectionFactory, boolean distributedConnector)
+    public SnowflakeClient(BaseJdbcConfig config, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, boolean distributedConnector)
     {
-        super(config, statisticsConfig, IDENTIFIER_QUOTE, connectionFactory);
+        super(config, IDENTIFIER_QUOTE, connectionFactory);
+        this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
         this.distributedConnector = distributedConnector;
     }
 
@@ -103,6 +109,12 @@ public class SnowflakeClient
             throws SQLException
     {
         return connectionFactory.openConnection(identity);
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return tableStatisticsClient.getTableStatistics(session, handle, tupleDomain);
     }
 
     @Override
@@ -122,6 +134,7 @@ public class SnowflakeClient
         return true;
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
@@ -129,13 +142,13 @@ public class SnowflakeClient
                 mapping.getType(),
                 mapping.getReadFunction(),
                 mapping.getWriteFunction(),
-                DEFAULT_WRITE_NULL_FUNCTION,
                 DISABLE_UNSUPPORTED_PUSHDOWN));
     }
 
     private Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
-        String typeName = typeHandle.getJdbcTypeName().get();
+        String typeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         int columnSize = typeHandle.getColumnSize();
 
         // TODO: Snowflake uses -5 (BIGINT) type for NUMBER data type: https://github.com/snowflakedb/snowflake-jdbc/issues/154
@@ -145,7 +158,7 @@ public class SnowflakeClient
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
             }
-            return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+            return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
         }
 
         if (typeName.equals("VARIANT")) {
@@ -184,15 +197,15 @@ public class SnowflakeClient
         }
 
         if (type instanceof TimeType) {
-            return WriteMapping.longMapping("time", timeWriteFunction(session), DEFAULT_WRITE_NULL_FUNCTION);
+            return WriteMapping.longMapping("time", timeWriteFunction(session));
         }
 
         if (type instanceof TimestampType) {
-            return WriteMapping.longMapping("timestamp_ntz", timestampWriteFunction(session), DEFAULT_WRITE_NULL_FUNCTION);
+            return WriteMapping.longMapping("timestamp_ntz", timestampWriteFunction(session));
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            return WriteMapping.longMapping("timestamp_tz", timestampWithTimezoneWriteFunction(), DEFAULT_WRITE_NULL_FUNCTION);
+            return WriteMapping.longMapping("timestamp_tz", timestampWithTimezoneWriteFunction());
         }
 
         return super.toWriteMapping(session, type);
@@ -356,8 +369,7 @@ public class SnowflakeClient
         return LocalTime.ofNanoOfDay(nanoOfDay);
     }
 
-    @Override
-    protected Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));

@@ -11,8 +11,6 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.plugin.base.jmx.MBeanServerModule;
-import io.prestosql.plugin.jdbc.JdbcDiagnosticModule;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
@@ -20,7 +18,6 @@ import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.type.TypeManager;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -58,9 +55,6 @@ public class SnowflakeDistributedConnectorFactory
             Bootstrap app = new Bootstrap(
                     new SnowflakeDistributedModule(catalogName),
                     new CredentialProviderModule(),
-                    new JdbcDiagnosticModule(catalogName),
-                    new MBeanServerModule(),
-                    new MBeanModule(),
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
 
             Injector injector = app

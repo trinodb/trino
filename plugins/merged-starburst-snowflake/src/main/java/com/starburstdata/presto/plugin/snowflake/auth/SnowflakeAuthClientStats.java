@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
-import io.prestosql.plugin.base.jmx.InvocationStats;
+import com.starburstdata.presto.plugin.toolkit.InvocationStats;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

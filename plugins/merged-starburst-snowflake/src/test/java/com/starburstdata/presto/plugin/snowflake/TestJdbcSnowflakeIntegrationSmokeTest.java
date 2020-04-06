@@ -21,18 +21,15 @@ import static java.lang.String.format;
 public class TestJdbcSnowflakeIntegrationSmokeTest
         extends BaseSnowflakeIntegrationSmokeTest
 {
-    public TestJdbcSnowflakeIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new SnowflakeServer());
-    }
-
-    private TestJdbcSnowflakeIntegrationSmokeTest(SnowflakeServer server)
-    {
-        super(server, () -> jdbcBuilder()
+        return jdbcBuilder()
                 .withServer(server)
                 .withAdditionalProperties(impersonationDisabled())
                 .withConnectionPooling()
-                .build());
+                .build();
     }
 
     // currently the JDBC connector cannot read timestamps greater than 9999-12-31 23:59:59.999

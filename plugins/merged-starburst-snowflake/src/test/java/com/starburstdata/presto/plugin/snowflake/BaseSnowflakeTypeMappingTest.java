@@ -17,15 +17,15 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.TestingSession;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.datatype.CreateAndInsertDataSetup;
-import io.prestosql.tests.datatype.CreateAsSelectDataSetup;
-import io.prestosql.tests.datatype.DataSetup;
-import io.prestosql.tests.datatype.DataType;
-import io.prestosql.tests.datatype.DataTypeTest;
-import io.prestosql.tests.sql.PrestoSqlExecutor;
-import io.prestosql.tests.sql.SqlExecutor;
+import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
+import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
+import io.prestosql.testing.datatype.DataSetup;
+import io.prestosql.testing.datatype.DataType;
+import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.SqlExecutor;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -36,7 +36,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -51,22 +50,22 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TES
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.tests.datatype.DataType.booleanDataType;
-import static io.prestosql.tests.datatype.DataType.dateDataType;
-import static io.prestosql.tests.datatype.DataType.stringDataType;
-import static io.prestosql.tests.datatype.DataType.timestampDataType;
-import static io.prestosql.tests.datatype.DataType.varcharDataType;
+import static io.prestosql.testing.datatype.DataType.booleanDataType;
+import static io.prestosql.testing.datatype.DataType.dateDataType;
+import static io.prestosql.testing.datatype.DataType.stringDataType;
+import static io.prestosql.testing.datatype.DataType.timestampDataType;
+import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.function.Function.identity;
 
-public class BaseSnowflakeTypeMappingTest
+public abstract class BaseSnowflakeTypeMappingTest
         extends AbstractTestQueryFramework
 {
     protected static final int MAX_VARCHAR = 16777216;
 
-    private SnowflakeServer server;
+    protected final SnowflakeServer server = new SnowflakeServer();
 
     private LocalDateTime dateTimeBeforeEpoch;
     private LocalDateTime dateTimeEpoch;
@@ -85,18 +84,12 @@ public class BaseSnowflakeTypeMappingTest
     private ZoneId kathmandu;
     private LocalDateTime dateTimeGapInKathmandu;
 
-    BaseSnowflakeTypeMappingTest(SnowflakeServer server, QueryRunnerSupplier queryRunnerSupplier)
-    {
-        super(queryRunnerSupplier);
-        this.server = server;
-    }
-
     @BeforeClass
     public void setUp()
     {
         dateTimeBeforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
         dateTimeEpoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-        dateTimeAfterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
+        dateTimeAfterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
         jvmZone = ZoneId.systemDefault();
 
@@ -133,7 +126,7 @@ public class BaseSnowflakeTypeMappingTest
     {
         DataType<Double> dataType = doubleDataType();
         testTypeMapping(DataTypeTest.create()
-                .addRoundTrip(dataType, 1e100d)
+                .addRoundTrip(dataType, 1.0e100d)
                 .addRoundTrip(dataType, Double.NaN)
                 .addRoundTrip(dataType, Double.POSITIVE_INFINITY)
                 .addRoundTrip(dataType, Double.NEGATIVE_INFINITY)
@@ -145,11 +138,11 @@ public class BaseSnowflakeTypeMappingTest
     {
         testTypeReadMapping(
                 DataTypeTest.create()
-                        .addRoundTrip(dataType("double precision", DoubleType.DOUBLE), 1e100d)
+                        .addRoundTrip(dataType("double precision", DoubleType.DOUBLE), 1.0e100d)
                         .addRoundTrip(dataType("double", DoubleType.DOUBLE), 1.0)
                         .addRoundTrip(dataType("real", DoubleType.DOUBLE), 123456.123456)
                         .addRoundTrip(dataType("float", DoubleType.DOUBLE), null)
-                        .addRoundTrip(dataType("float8", DoubleType.DOUBLE), 1e15d)
+                        .addRoundTrip(dataType("float8", DoubleType.DOUBLE), 1.0e15d)
                         .addRoundTrip(dataType("float4", DoubleType.DOUBLE), 1.0)
                         .addRoundTrip(dataType("float8", DoubleType.DOUBLE), 1234567890.01234)
                         .addRoundTrip(dataType("real", DoubleType.DOUBLE), null)
@@ -319,19 +312,19 @@ public class BaseSnowflakeTypeMappingTest
     public void testTime(boolean legacyTimestamp, boolean insertWithPresto)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
+        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(timeDataType(), LocalTime.of(13, 18, 3, 123_000_000))
                     .addRoundTrip(timeDataType(), LocalTime.of(14, 18, 3, 423_000_000))
                     .addRoundTrip(timeDataType(), LocalTime.of(15, 18, 3, 523_000_000))
                     .addRoundTrip(timeDataType(), LocalTime.of(16, 18, 3, 623_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(10, 01, 17, 987_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(19, 01, 17, 987_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(20, 01, 17, 987_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(21, 01, 17, 987_000_000))
+                    .addRoundTrip(timeDataType(), LocalTime.of(10, 1, 17, 987_000_000))
+                    .addRoundTrip(timeDataType(), LocalTime.of(19, 1, 17, 987_000_000))
+                    .addRoundTrip(timeDataType(), LocalTime.of(20, 1, 17, 987_000_000))
+                    .addRoundTrip(timeDataType(), LocalTime.of(21, 1, 17, 987_000_000))
                     .addRoundTrip(timeDataType(), LocalTime.of(1, 33, 17, 456_000_000))
                     .addRoundTrip(timeDataType(), LocalTime.of(3, 17, 17))
-                    .addRoundTrip(timeDataType(), LocalTime.of(22, 59, 59, 000_000_000))
+                    .addRoundTrip(timeDataType(), LocalTime.of(22, 59, 59, 0))
                     .addRoundTrip(timeDataType(), LocalTime.of(22, 59, 59, 999_000_000));
 
             if (!legacyTimestamp) {
@@ -358,7 +351,7 @@ public class BaseSnowflakeTypeMappingTest
     public void testTimeArray(boolean legacyTimestamp)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
+        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(timeArrayDataType("[" +
                                     "\"13:18:03.123000000\"," +
@@ -398,7 +391,7 @@ public class BaseSnowflakeTypeMappingTest
     public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
+        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(timestampDataType(), dateTimeBeforeEpoch)
                     .addRoundTrip(timestampDataType(), dateTimeAfterEpoch)
@@ -432,7 +425,7 @@ public class BaseSnowflakeTypeMappingTest
     public void testTimestampArray(boolean legacyTimestamp)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
+        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(timestampArrayDataType("[" +
                                     "\"1958-01-01T13:18:03.123000000Z\"," +
@@ -711,7 +704,7 @@ public class BaseSnowflakeTypeMappingTest
 
     private static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral)
     {
-        return DataType.dataType(insertType, prestoResultType, toLiteral, Function.identity());
+        return DataType.dataType(insertType, prestoResultType, toLiteral, identity());
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

@@ -9,12 +9,13 @@
  */
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.snowflake.auth.OauthCredential;
 import com.starburstdata.presto.plugin.snowflake.auth.SnowflakeOauthService;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialPropertiesProvider;
 
-import java.util.Properties;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,14 +30,13 @@ public class SnowflakeOauthPropertiesProvider
     }
 
     @Override
-    public Properties getCredentialProperties(JdbcIdentity identity)
+    public Map<String, String> getCredentialProperties(JdbcIdentity identity)
     {
         OauthCredential cred = snowflakeOauthService.getCredential(identity);
 
-        Properties props = new Properties();
-        props.put("authenticator", "oauth");
-        props.put("token", cred.getAccessToken());
-
-        return props;
+        return ImmutableMap.<String, String>builder()
+                .put("authenticator", "oauth")
+                .put("token", cred.getAccessToken())
+                .build();
     }
 }

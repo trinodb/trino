@@ -9,9 +9,9 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.starburstdata.presto.plugin.toolkit.NonObfuscable;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.prestosql.spi.NonObfuscable;
 
 import java.util.Optional;
 

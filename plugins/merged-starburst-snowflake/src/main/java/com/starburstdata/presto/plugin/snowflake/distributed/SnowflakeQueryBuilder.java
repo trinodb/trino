@@ -9,21 +9,21 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
-import io.prestosql.plugin.jdbc.DefaultSqlCustomization;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
+import io.prestosql.plugin.jdbc.QueryBuilder;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.type.DateTimeEncoding.MILLIS_SHIFT;
+import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.IDENTIFIER_QUOTE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 /**
  * Customizes the SQL generation to return timestamp with timezone columns as numeric values.
  * We need this to work around the fact that Snowflake cannot export timestamp with time zone
  * columns to Parquet.
- *
+ * <p>
  * The builder generates an expression that encodes the information storing the milliseconds
  * in the upper 52 bits and the offset (in minutes) in the lower 12 bits (as 2048 + number of
  * offset minutes, to make it easier to deal with negative numbers).  Note that the millisecond
@@ -31,18 +31,24 @@ import static java.lang.String.format;
  * so this encoding has the same precision as Presto's type (the least significant 12 bits
  * have a different meaning there - they represent a timezone id, so a translation is necessary).
  */
-public class SnowflakeSqlCustomization
-        extends DefaultSqlCustomization
+public class SnowflakeQueryBuilder
+        extends QueryBuilder
 {
-    public SnowflakeSqlCustomization(String quoteString)
+    // from io.prestosql.spi.type.DateTimeEncoding
+    private static final int MILLIS_SHIFT = 12;
+
+    public SnowflakeQueryBuilder()
     {
-        super(quoteString);
+        super(IDENTIFIER_QUOTE);
     }
 
     @Override
-    public List<String> buildColumnNames(List<JdbcColumnHandle> jdbcColumnHandles)
+    protected String getProjection(List<JdbcColumnHandle> columns)
     {
-        return jdbcColumnHandles.stream()
+        if (columns.isEmpty()) {
+            return "null";
+        }
+        return columns.stream()
                 .map(columnHandle ->
                         // milliseconds shifted left by 12 ORed with 2048 +
                         // offset hours * 60 + offset minutes
@@ -56,6 +62,6 @@ public class SnowflakeSqlCustomization
                                         MILLIS_SHIFT,
                                         2048) :
                                 quote(columnHandle.getColumnName()))
-                .collect(toImmutableList());
+                .collect(joining(", "));
     }
 }

@@ -83,12 +83,12 @@ public class SnowflakeOauthConfig
         return this;
     }
 
+    @NotNull
     public Duration getCredentialTtl()
     {
         return credentialTtl;
     }
 
-    @NotNull
     @Config("snowflake.credential.cache-ttl")
     @ConfigDescription("Time after which the user should be prompted to reauthorize the connection (MFA push)")
     public SnowflakeOauthConfig setCredentialTtl(Duration credentialTtl)

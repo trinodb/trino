@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
@@ -23,17 +24,14 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public class TestDistributedSnowflakeOktaRoleIntegrationSmokeTest
         extends BaseSnowflakeIntegrationSmokeTest
 {
-    public TestDistributedSnowflakeOktaRoleIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new SnowflakeServer());
-    }
-
-    private TestDistributedSnowflakeOktaRoleIntegrationSmokeTest(SnowflakeServer server)
-    {
-        super(server, () -> distributedBuilder()
+        return distributedBuilder()
                 .withServer(server)
                 .withAdditionalProperties(oktaImpersonationEnabled(true))
-                .build());
+                .build();
     }
 
     @Override

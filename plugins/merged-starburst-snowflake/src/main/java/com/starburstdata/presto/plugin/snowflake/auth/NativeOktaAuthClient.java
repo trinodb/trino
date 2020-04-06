@@ -17,26 +17,27 @@ import io.prestosql.spi.security.AccessDeniedException;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import okhttp3.Call;
+import okhttp3.HttpUrl;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.apache.http.client.utils.URIBuilder;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.starburstdata.presto.plugin.snowflake.auth.RestUtils.executeWithRetries;
 import static com.starburstdata.presto.plugin.snowflake.auth.RestUtils.jsonPath;
@@ -52,7 +53,7 @@ public class NativeOktaAuthClient
     private static final Logger log = Logger.get(NativeOktaAuthClient.class);
 
     private final CookieManager cookieManager;
-    private final OktaConfig oktaConfig;
+    private final HttpUrl accountUrl;
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -60,7 +61,11 @@ public class NativeOktaAuthClient
     public NativeOktaAuthClient(OktaConfig oktaConfig)
     {
         cookieManager = new CookieManager();
-        this.oktaConfig = requireNonNull(oktaConfig, "oktaConfig is null");
+
+        requireNonNull(oktaConfig, "oktaConfig is null");
+        accountUrl = HttpUrl.parse(oktaConfig.getAccountUrl());
+        checkArgument(accountUrl != null, "Invalid account URL: %s", oktaConfig.getAccountUrl());
+
         httpClient = new OkHttpClient.Builder()
                 .connectTimeout(oktaConfig.getHttpConnectTimeout().roundTo(SECONDS), SECONDS)
                 .readTimeout(oktaConfig.getHttpReadTimeout().roundTo(SECONDS), SECONDS)
@@ -76,7 +81,9 @@ public class NativeOktaAuthClient
             log.debug("Verifying credentials for user %s with Okta", user);
             Response response = executeWithRetries(httpClient.newCall(
                     new Request.Builder()
-                            .url(format("%s/api/v1/authn", oktaConfig.getAccountUrl()))
+                            .url(accountUrl.newBuilder()
+                                    .encodedPath("/api/v1/authn")
+                                    .build())
                             .post(RequestBody.create(
                                     MediaType.parse("application/json"),
                                     objectMapper.writeValueAsString(new AuthenticationPayload(user, password))))
@@ -92,7 +99,7 @@ public class NativeOktaAuthClient
                 log.debug("Successfully verified credentials for user %s with Okta (no MFA)", user);
                 return new OktaAuthenticationResult(jsonPath(authenticationResult, "$.sessionToken"), user);
             }
-            else if ("MFA_REQUIRED".equalsIgnoreCase(status)) {
+            if ("MFA_REQUIRED".equalsIgnoreCase(status)) {
                 String stateToken = jsonPath(authenticationResult, "$.stateToken");
                 // find the device where the MFA push notification should be sent
                 List<String> factors = jsonPath(authenticationResult, "$._embedded.factors[?(@.factorType == \"push\")].id");
@@ -100,7 +107,11 @@ public class NativeOktaAuthClient
                 log.debug("Sending push notification for user %s", user);
                 Call pushMfa = httpClient.newCall(
                         new Request.Builder()
-                                .url(format("%s/api/v1/authn/factors/%s/verify", oktaConfig.getAccountUrl(), factors.get(0)))
+                                .url(accountUrl.newBuilder()
+                                        .encodedPath("/api/v1/authn/factors")
+                                        .addPathSegment(factors.get(0))
+                                        .addPathSegment("verify")
+                                .build())
                                 .post(RequestBody.create(
                                         MediaType.parse("application/json"),
                                         objectMapper.writeValueAsString(new VerifyPayload(stateToken))))
@@ -138,13 +149,12 @@ public class NativeOktaAuthClient
     public SamlResponse obtainSamlAssertion(SamlRequest samlRequest, OktaAuthenticationResult authenticationResult)
     {
         try {
-            URL sessionCookieRedirectUri = new URIBuilder(oktaConfig.getAccountUrl())
-                    .setPath("/login/sessionCookieRedirect")
-                    .addParameter("token", authenticationResult.getSessionToken())
-                    .addParameter("redirectUrl", samlRequest.getRedirectUrl())
-                    .addParameter("checkAccountSetupComplete", "true")
-                    .build()
-                    .toURL();
+            HttpUrl sessionCookieRedirectUri = accountUrl.newBuilder()
+                    .encodedPath("/login/sessionCookieRedirect")
+                    .addQueryParameter("token", authenticationResult.getSessionToken())
+                    .addQueryParameter("redirectUrl", samlRequest.getRedirectUrl())
+                    .addQueryParameter("checkAccountSetupComplete", "true")
+                    .build();
             log.debug("Using state token to get a session id for user %s", authenticationResult.getUser());
             Request.Builder builder = new Request.Builder()
                     .url(sessionCookieRedirectUri)
@@ -163,12 +173,13 @@ public class NativeOktaAuthClient
                     .orElseThrow(() -> new AccessDeniedException(format("HTTP response is missing session cookie for %s", authenticationResult.getUser())));
 
             // get the SAML response using the session id cookie to prove our identity
+            HttpUrl redirectUrl = HttpUrl.parse(samlRequest.getRedirectUrl());
+            checkArgument(redirectUrl != null, "Invalid redirect URL: %s", samlRequest.getRedirectUrl());
             Call saml = httpClient.newCall(
                     new Request.Builder()
-                            .url(new URIBuilder(samlRequest.getRedirectUrl())
-                                    .addParameter("fromLoginToken", authenticationResult.getSessionToken())
-                                    .build()
-                                    .toURL())
+                            .url(redirectUrl.newBuilder()
+                                    .addQueryParameter("fromLoginToken", authenticationResult.getSessionToken())
+                                    .build())
                             .header("Cookie", format("sid=%s", sessionCookie))
                             .get()
                             .build());
@@ -196,7 +207,7 @@ public class NativeOktaAuthClient
         catch (AccessDeniedException e) {
             throw e;
         }
-        catch (Exception e) {
+        catch (IOException | RuntimeException e) {
             throw new RuntimeException(format("Failed to get SAML assertion for user %s", authenticationResult.getUser()), e);
         }
     }

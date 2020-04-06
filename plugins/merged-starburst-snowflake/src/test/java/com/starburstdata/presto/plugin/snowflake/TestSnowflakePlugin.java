@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -17,8 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
+import static com.starburstdata.presto.license.LicenseTesting.unlicensed;
 import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakePlugin
@@ -27,11 +27,10 @@ public class TestSnowflakePlugin
     public void testCreateConnector()
     {
         Plugin plugin = new SnowflakePlugin();
-        List<ConnectorFactory> connectorFactories = stream(plugin.getConnectorFactories())
-                .collect(toImmutableList());
+        List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
         assertEquals(connectorFactories.size(), 2);
 
-        connectorFactories.get(0).create(
+        unlicensed(connectorFactories.get(0)).create(
                 "test",
                 ImmutableMap.of(
                         "connection-url", "test",
@@ -40,7 +39,7 @@ public class TestSnowflakePlugin
                         "snowflake.warehouse", "test"),
                 new TestingConnectorContext())
                 .shutdown();
-        connectorFactories.get(1).create(
+        unlicensed(connectorFactories.get(1)).create(
                 "test",
                 ImmutableMap.of(
                         "connection-url", "test",

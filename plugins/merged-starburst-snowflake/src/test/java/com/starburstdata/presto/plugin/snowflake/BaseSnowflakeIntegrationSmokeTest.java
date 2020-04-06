@@ -13,12 +13,12 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.H2QueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryAssertions;
 import io.prestosql.testing.TestingSession;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
-import io.prestosql.tests.H2QueryRunner;
-import io.prestosql.tests.QueryAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -37,17 +37,11 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class BaseSnowflakeIntegrationSmokeTest
+public abstract class BaseSnowflakeIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private SnowflakeServer server;
-    private String tableSuffix = randomTableSuffix();
-
-    BaseSnowflakeIntegrationSmokeTest(SnowflakeServer server, QueryRunnerSupplier queryRunnerSupplier)
-    {
-        super(queryRunnerSupplier);
-        this.server = server;
-    }
+    protected final SnowflakeServer server = new SnowflakeServer();
+    private final String tableSuffix = randomTableSuffix();
 
     @Override
     public void testDescribeTable()
@@ -245,11 +239,6 @@ public class BaseSnowflakeIntegrationSmokeTest
                 false,
                 false);
         server.execute(format("DROP TABLE test_schema.%s", tableName));
-    }
-
-    protected SnowflakeServer getSnowflakeServer()
-    {
-        return server;
     }
 
     protected static String randomTableSuffix()

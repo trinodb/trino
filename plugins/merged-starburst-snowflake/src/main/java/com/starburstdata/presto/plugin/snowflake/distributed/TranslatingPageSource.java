@@ -31,8 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkState;
 import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTime;
 import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTimestamp;
-import static io.prestosql.spi.type.DateTimeEncoding.MILLIS_SHIFT;
-import static io.prestosql.spi.type.DateTimeEncoding.TIME_ZONE_MASK;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -234,6 +232,9 @@ public class TranslatingPageSource
     private static class TimestampWithTimeZoneTranslation
             implements TranslateToLong
     {
+        // from io.prestosql.spi.type.DateTimeEncoding
+        private static final int TIME_ZONE_MASK = 0xFFF;
+        private static final int MILLIS_SHIFT = 12;
         private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(19);
 
         @Override

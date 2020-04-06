@@ -9,7 +9,8 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.BaseSnowflakeTypeMappingTest.randomTableSuffix;
@@ -20,11 +21,13 @@ import static java.lang.String.format;
 public class TestSnowflakeTableStatistics
         extends AbstractTestQueryFramework
 {
-    public TestSnowflakeTableStatistics()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> jdbcBuilder()
+        return jdbcBuilder()
                 .withAdditionalProperties(impersonationDisabled())
-                .build());
+                .build();
     }
 
     @Test
