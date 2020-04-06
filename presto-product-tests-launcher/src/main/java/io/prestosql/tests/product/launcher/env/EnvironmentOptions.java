@@ -17,6 +17,10 @@ import com.google.inject.Module;
 import io.airlift.airline.Option;
 
 import java.io.File;
+import java.util.Locale;
+
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentOptions
 {
@@ -33,7 +37,7 @@ public final class EnvironmentOptions
     public boolean withoutPrestoMaster;
 
     @Option(name = "--bind", description = "bind ports on localhost")
-    public boolean bindPorts = true;
+    public boolean bindPorts = toBoolean(firstNonNull(System.getenv("PTL_BIND_PORTS"), "true"));
 
     @Option(name = "--debug", description = "open Java debug ports")
     public boolean debug;
@@ -43,5 +47,17 @@ public final class EnvironmentOptions
         return binder -> {
             binder.bind(EnvironmentOptions.class).toInstance(this);
         };
+    }
+
+    private static boolean toBoolean(String value)
+    {
+        requireNonNull(value, "value is null");
+        switch (value.toLowerCase(Locale.ENGLISH)) {
+            case "true":
+                return true;
+            case "false":
+                return false;
+        }
+        throw new IllegalArgumentException("Cannot convert to boolean: " + value);
     }
 }
