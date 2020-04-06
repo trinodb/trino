@@ -22,13 +22,10 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Function;
 
-import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.base.Throwables.getCausalChain;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOracleDistributedQueries
         extends AbstractTestDistributedQueries
@@ -60,15 +57,6 @@ public class TestOracleDistributedQueries
     protected boolean supportsArrays()
     {
         return false;
-    }
-
-    @Override
-    public void testLargeIn()
-    {
-        // TODO: remove when https://github.com/prestosql/presto/issues/3191 is fixed
-        assertThatThrownBy(super::testLargeIn)
-                .matches(t -> getCausalChain(t).stream()
-                        .anyMatch(e -> nullToEmpty(e.getMessage()).contains("Compiler failed")));
     }
 
     @Override
