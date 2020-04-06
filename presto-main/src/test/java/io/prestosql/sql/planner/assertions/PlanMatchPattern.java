@@ -36,6 +36,7 @@ import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
+import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -241,6 +242,22 @@ public final class PlanMatchPattern
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
+    }
+
+    public static PlanMatchPattern distinctLimit(long limit, List<String> distinctSymbols, PlanMatchPattern source)
+    {
+        return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
+                limit,
+                toSymbolAliases(distinctSymbols),
+                Optional.empty()));
+    }
+
+    public static PlanMatchPattern distinctLimit(long limit, List<String> distinctSymbols, String hashSymbol, PlanMatchPattern source)
+    {
+        return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
+                limit,
+                toSymbolAliases(distinctSymbols),
+                Optional.of(new SymbolAlias(hashSymbol))));
     }
 
     public static PlanMatchPattern markDistinct(

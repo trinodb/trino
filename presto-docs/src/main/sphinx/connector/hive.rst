@@ -316,6 +316,9 @@ Property Name                                        Description
 
 ``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
                                                      Catalog.
+
+``hive.metastore.glue.external-id``                  External ID for the IAM role trust policy when connecting
+                                                     to the Glue Catalog.
 ==================================================== ============================================================
 
 .. _hive-s3:
@@ -341,6 +344,8 @@ Property Name                                Description
 ``hive.s3.aws-secret-key``                   Default AWS secret key to use.
 
 ``hive.s3.iam-role``                         IAM role to assume.
+
+``hive.s3.external-id``                      External ID for the IAM role trust policy.
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead

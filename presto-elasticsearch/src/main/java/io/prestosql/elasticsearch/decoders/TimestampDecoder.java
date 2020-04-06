@@ -29,6 +29,7 @@ import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampDecoder
         implements Decoder
@@ -39,7 +40,7 @@ public class TimestampDecoder
 
     public TimestampDecoder(ConnectorSession session, String path)
     {
-        this.path = path;
+        this.path = requireNonNull(path, "path is null");
         this.zoneId = ZoneId.of(session.getTimeZoneKey().getId());
     }
 
@@ -51,7 +52,7 @@ public class TimestampDecoder
 
         if (documentField != null) {
             if (documentField.getValues().size() > 1) {
-                throw new PrestoException(TYPE_MISMATCH, "Expected single value for column: " + path);
+                throw new PrestoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
             }
             value = documentField.getValue();
         }
@@ -72,9 +73,10 @@ public class TimestampDecoder
             }
             else {
                 throw new PrestoException(NOT_SUPPORTED, format(
-                        "Unsupported representation for timestamp type: %s [%s]",
-                        value.getClass().getSimpleName(),
-                        value));
+                        "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
+                        path,
+                        value,
+                        value.getClass().getSimpleName()));
             }
 
             long epochMillis = timestamp.atZone(zoneId)

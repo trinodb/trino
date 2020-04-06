@@ -42,6 +42,7 @@ public class HiveS3Config
     private String s3SignerClass;
     private boolean s3PathStyleAccess;
     private String s3IamRole;
+    private String s3ExternalId;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
     private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
@@ -158,10 +159,23 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.iam-role")
-    @ConfigDescription("ARN of an IAM role to assume when connecting to the S3")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to S3")
     public HiveS3Config setS3IamRole(String s3IamRole)
     {
         this.s3IamRole = s3IamRole;
+        return this;
+    }
+
+    public String getS3ExternalId()
+    {
+        return s3ExternalId;
+    }
+
+    @Config("hive.s3.external-id")
+    @ConfigDescription("External ID for the IAM role trust policy when connecting to S3")
+    public HiveS3Config setS3ExternalId(String s3ExternalId)
+    {
+        this.s3ExternalId = s3ExternalId;
         return this;
     }
 
