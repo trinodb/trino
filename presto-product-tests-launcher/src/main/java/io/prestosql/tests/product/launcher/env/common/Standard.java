@@ -21,6 +21,7 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -58,6 +59,7 @@ public final class Standard
 
     private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
 
     private final String imagesVersion;
     private final File serverPackage;
@@ -67,10 +69,12 @@ public final class Standard
     public Standard(
             PathResolver pathResolver,
             DockerFiles dockerFiles,
+            PortBinder portBinder,
             EnvironmentOptions environmentOptions)
     {
         this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
         requireNonNull(environmentOptions, "environmentOptions is null");
         imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
         serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
@@ -92,7 +96,7 @@ public final class Standard
                 createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
                         .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
 
-        exposePort(container, 8080); // Presto default port
+        portBinder.exposePort(container, 8080); // Presto default port
 
         if (debug) {
             container.withCreateContainerCmdModifier(this::enableDebuggerInJvmConfig);
