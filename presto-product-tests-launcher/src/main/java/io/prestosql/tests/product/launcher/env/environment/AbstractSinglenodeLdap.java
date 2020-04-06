@@ -19,6 +19,7 @@ import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
@@ -28,7 +29,6 @@ import java.util.List;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
@@ -37,14 +37,16 @@ public abstract class AbstractSinglenodeLdap
         extends AbstractEnvironmentProvider
 {
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
     private final String imagesVersion;
 
     private static final int LDAP_PORT = 636;
 
-    protected AbstractSinglenodeLdap(List<EnvironmentExtender> bases, DockerFiles dockerFiles, EnvironmentOptions environmentOptions)
+    protected AbstractSinglenodeLdap(List<EnvironmentExtender> bases, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentOptions environmentOptions)
     {
         super(bases);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
     }
 
@@ -66,7 +68,7 @@ public abstract class AbstractSinglenodeLdap
                     CONTAINER_PRESTO_CONFIG_PROPERTIES,
                     READ_ONLY);
 
-            exposePort(dockerContainer, 8443);
+            portBinder.exposePort(dockerContainer, 8443);
         });
 
         builder.configureContainer("tests", dockerContainer -> {
@@ -81,7 +83,7 @@ public abstract class AbstractSinglenodeLdap
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(LDAP_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
-        exposePort(container, LDAP_PORT);
+        portBinder.exposePort(container, LDAP_PORT);
 
         builder.addContainer("ldapserver", container);
     }

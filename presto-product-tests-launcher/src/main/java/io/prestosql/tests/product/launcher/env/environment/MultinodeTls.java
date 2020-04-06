@@ -23,6 +23,7 @@ import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvide
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
@@ -33,7 +34,6 @@ import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PR
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.prestosql.tests.product.launcher.env.common.Standard.createPrestoContainer;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -43,6 +43,7 @@ public final class MultinodeTls
 {
     private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
 
     private final String imagesVersion;
     private final File serverPackage;
@@ -51,6 +52,7 @@ public final class MultinodeTls
     public MultinodeTls(
             PathResolver pathResolver,
             DockerFiles dockerFiles,
+            PortBinder portBinder,
             Standard standard,
             Hadoop hadoop,
             EnvironmentOptions environmentOptions)
@@ -58,6 +60,7 @@ public final class MultinodeTls
         super(ImmutableList.of(standard, hadoop));
         this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
         imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
         serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
     }
@@ -72,7 +75,7 @@ public final class MultinodeTls
                     .withNetworkAliases("presto-master.docker.cluster")
                     .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls/config-master.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
 
-            exposePort(container, 7778);
+            portBinder.exposePort(container, 7778);
         });
 
         addPrestoWorker(builder, "presto-worker-1");

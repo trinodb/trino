@@ -16,12 +16,12 @@ package io.prestosql.tests.product.launcher.env.common;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -29,6 +29,7 @@ public class Kerberos
         implements EnvironmentExtender
 {
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
 
     private final String hadoopBaseImage;
     private final String imagesVersion;
@@ -36,9 +37,11 @@ public class Kerberos
     @Inject
     public Kerberos(
             DockerFiles dockerFiles,
+            PortBinder portBinder,
             EnvironmentOptions environmentOptions)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
         requireNonNull(environmentOptions, "environmentOptions is null");
         hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
         imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
@@ -50,11 +53,11 @@ public class Kerberos
         String dockerImageName = hadoopBaseImage + "-kerberized:" + imagesVersion;
         builder.configureContainer("hadoop-master", container -> {
             container.setDockerImageName(dockerImageName);
-            exposePort(container, 88);
+            portBinder.exposePort(container, 88);
         });
         builder.configureContainer("presto-master", container -> {
             container.setDockerImageName(dockerImageName);
-            exposePort(container, 7778);
+            portBinder.exposePort(container, 7778);
             container
                     .withNetworkAliases("presto-master.docker.cluster")
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))

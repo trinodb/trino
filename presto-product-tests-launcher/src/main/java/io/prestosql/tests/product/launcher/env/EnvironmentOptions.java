@@ -32,6 +32,9 @@ public final class EnvironmentOptions
     @Option(name = "--without-presto", title = "without Presto", description = "do not start presto-master")
     public boolean withoutPrestoMaster;
 
+    @Option(name = "--bind", description = "bind ports on localhost")
+    public boolean bindPorts = true;
+
     @Option(name = "--debug", description = "open Java debug ports")
     public boolean debug;
 
