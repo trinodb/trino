@@ -62,14 +62,9 @@ public class JdbcModule
         binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
     }
 
-    public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
-    {
-        return newSetBinder(binder, SessionPropertiesProvider.class);
-    }
-
     public static void bindSessionPropertiesProvider(Binder binder, Class<? extends SessionPropertiesProvider> type)
     {
-        sessionPropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(type).in(Scopes.SINGLETON);
     }
 
     public static Multibinder<Procedure> procedureBinder(Binder binder)
