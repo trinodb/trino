@@ -10,6 +10,13 @@ fi
 set -x
 
 tar xf /docker/presto-server.tar.gz -C /docker
+
+if test -d /docker/presto-init.d; then
+    for init_script in /docker/presto-init.d/*; do
+        "${init_script}"
+    done
+fi
+
 exec /docker/presto-server-*/bin/launcher \
   -Dpresto-temporarily-allow-java8=true \
   -Dnode.id="${HOSTNAME}" \
