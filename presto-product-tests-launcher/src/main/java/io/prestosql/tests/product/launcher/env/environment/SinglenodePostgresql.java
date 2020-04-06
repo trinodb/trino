@@ -21,13 +21,13 @@ import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -39,12 +39,14 @@ public final class SinglenodePostgresql
     public static final int POSTGRESQL_PORT = 15432;
 
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
 
     @Inject
-    public SinglenodePostgresql(Standard standard, DockerFiles dockerFiles)
+    public SinglenodePostgresql(Standard standard, DockerFiles dockerFiles, PortBinder portBinder)
     {
         super(ImmutableList.of(standard));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 
     @Override
@@ -70,7 +72,7 @@ public final class SinglenodePostgresql
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(POSTGRESQL_PORT));
 
-        exposePort(container, POSTGRESQL_PORT);
+        portBinder.exposePort(container, POSTGRESQL_PORT);
 
         return container;
     }

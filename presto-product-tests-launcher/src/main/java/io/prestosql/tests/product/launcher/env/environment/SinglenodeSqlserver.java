@@ -21,13 +21,13 @@ import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -38,12 +38,14 @@ public final class SinglenodeSqlserver
     public static final int SQLSERVER_PORT = 1433;
 
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
 
     @Inject
-    public SinglenodeSqlserver(Standard standard, DockerFiles dockerFiles)
+    public SinglenodeSqlserver(Standard standard, DockerFiles dockerFiles, PortBinder portBinder)
     {
         super(ImmutableList.of(standard));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 
     @Override
@@ -67,7 +69,7 @@ public final class SinglenodeSqlserver
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(SQLSERVER_PORT));
 
-        exposePort(container, 1433);
+        portBinder.exposePort(container, 1433);
 
         return container;
     }

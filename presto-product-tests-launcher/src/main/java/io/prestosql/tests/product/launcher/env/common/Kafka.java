@@ -16,15 +16,26 @@ package io.prestosql.tests.product.launcher.env.common;
 
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
+import javax.inject.Inject;
+
+import static java.util.Objects.requireNonNull;
 
 public class Kafka
         implements EnvironmentExtender
 {
     private static final String CONFLUENT_VERSION = "5.2.1";
+
+    private final PortBinder portBinder;
+
+    @Inject
+    public Kafka(PortBinder portBinder)
+    {
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
+    }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
@@ -42,7 +53,7 @@ public class Kafka
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(2181));
 
-        exposePort(container, 2181);
+        portBinder.exposePort(container, 2181);
 
         return container;
     }
@@ -59,7 +70,7 @@ public class Kafka
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(9092));
 
-        exposePort(container, 9092);
+        portBinder.exposePort(container, 9092);
 
         return container;
     }
