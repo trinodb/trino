@@ -15,6 +15,7 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -31,10 +32,13 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
+import io.prestosql.spi.connector.ProjectionApplicationResult.Assignment;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
@@ -107,10 +111,46 @@ public class JdbcMetadata
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTableName(),
+                handle.getColumns(),
                 newDomain,
                 handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+    }
+
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        List<JdbcColumnHandle> newColumns = assignments.values().stream()
+                .map(JdbcColumnHandle.class::cast)
+                .collect(toImmutableList());
+
+        if (handle.getColumns().isPresent() && containSameElements(newColumns, handle.getColumns().get())) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ProjectionApplicationResult<>(
+                new JdbcTableHandle(
+                        handle.getSchemaTableName(),
+                        handle.getCatalogName(),
+                        handle.getSchemaName(),
+                        handle.getTableName(),
+                        Optional.of(newColumns),
+                        handle.getConstraint(),
+                        handle.getLimit()),
+                projections,
+                assignments.entrySet().stream()
+                        .map(assignment -> new Assignment(
+                                assignment.getKey(),
+                                assignment.getValue(),
+                                ((JdbcColumnHandle) assignment.getValue()).getColumnType()))
+                        .collect(toImmutableList())));
     }
 
     @Override
@@ -131,6 +171,7 @@ public class JdbcMetadata
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTableName(),
+                handle.getColumns(),
                 handle.getConstraint(),
                 OptionalLong.of(limit));
 
@@ -321,5 +362,10 @@ public class JdbcMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         jdbcClient.dropSchema(JdbcIdentity.from(session), schemaName);
+    }
+
+    private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
+    {
+        return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
     }
 }
