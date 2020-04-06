@@ -606,7 +606,7 @@ public class PostgreSqlClient
                 return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
             }
             catch (JsonProcessingException e) {
-                throw new PrestoException(JDBC_ERROR, "Cast to JSON failed for  " + type.getDisplayName(), e);
+                throw new PrestoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
             }
         };
     }
