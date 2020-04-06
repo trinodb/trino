@@ -217,5 +217,6 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
+          export PTL_BIND_PORTS=false &&
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
             presto-product-tests/bin/product-tests-${{ matrix.suite }}.sh
