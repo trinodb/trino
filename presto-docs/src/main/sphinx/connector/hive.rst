@@ -729,6 +729,8 @@ to bypass the network (*short-circuit*). See `Performance Tuning Tips for Presto
 <https://www.alluxio.io/blog/top-5-performance-tuning-tips-for-running-presto-on-alluxio-1/?utm_source=prestosql&utm_medium=prestodocs>`_
 for more details.
 
+.. _alluxio_catalog_service:
+
 Alluxio Catalog Service
 ^^^^^^^^^^^^^^^^^^^^^^^
 
