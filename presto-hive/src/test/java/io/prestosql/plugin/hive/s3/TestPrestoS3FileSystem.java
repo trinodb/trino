@@ -30,6 +30,8 @@ import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClient;
 import com.google.common.base.VerifyException;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
 import org.apache.hadoop.conf.Configuration;
@@ -89,6 +91,19 @@ public class TestPrestoS3FileSystem
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
 
     @Test
+    public void testEmbeddedCredentials()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            AWSCredentials credentials = getStaticCredentials(config, fs, "s3n://testAccess:testSecret@test-bucket/");
+            assertEquals(credentials.getAWSAccessKeyId(), "testAccess");
+            assertEquals(credentials.getAWSSecretKey(), "testSecret");
+            assertThat(credentials).isNotInstanceOf(AWSSessionCredentials.class);
+        }
+    }
+
+    @Test
     public void testStaticCredentials()
             throws Exception
     {
@@ -135,18 +150,49 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
-    public void testAssumeRoleCredentials()
+    public void testAssumeRoleDefaultCredentials()
             throws Exception
     {
         Configuration config = new Configuration(false);
-        config.set(S3_IAM_ROLE, "role");
+        config.set(S3_IAM_ROLE, "test_role");
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
-            AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fs);
-            assertInstanceOf(awsCredentialsProvider, STSAssumeRoleSessionCredentialsProvider.class);
-            assertEquals(getFieldValue(awsCredentialsProvider, "roleArn", String.class), "role");
+            AWSCredentialsProvider tokenService = getStsCredentialsProvider(fs, "test_role");
+            assertInstanceOf(tokenService, DefaultAWSCredentialsProviderChain.class);
         }
+    }
+
+    @Test
+    public void testAssumeRoleStaticCredentials()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+        config.set(S3_ACCESS_KEY, "test_access_key");
+        config.set(S3_SECRET_KEY, "test_secret_key");
+        config.set(S3_IAM_ROLE, "test_role");
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            AWSCredentialsProvider tokenService = getStsCredentialsProvider(fs, "test_role");
+            assertInstanceOf(tokenService, AWSStaticCredentialsProvider.class);
+
+            AWSCredentials credentials = tokenService.getCredentials();
+            assertEquals(credentials.getAWSAccessKeyId(), "test_access_key");
+            assertEquals(credentials.getAWSSecretKey(), "test_secret_key");
+        }
+    }
+
+    private static AWSCredentialsProvider getStsCredentialsProvider(PrestoS3FileSystem fs, String expectedRole)
+    {
+        AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fs);
+        assertInstanceOf(awsCredentialsProvider, STSAssumeRoleSessionCredentialsProvider.class);
+
+        assertEquals(getFieldValue(awsCredentialsProvider, "roleArn", String.class), expectedRole);
+
+        AWSSecurityTokenService tokenService = getFieldValue(awsCredentialsProvider, "securityTokenService", AWSSecurityTokenService.class);
+        assertInstanceOf(tokenService, AWSSecurityTokenServiceClient.class);
+        return getFieldValue(tokenService, "awsCredentialsProvider", AWSCredentialsProvider.class);
     }
 
     @Test
