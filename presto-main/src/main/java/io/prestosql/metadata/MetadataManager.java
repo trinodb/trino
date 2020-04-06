@@ -480,9 +480,6 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
-        if (tableMetadata.getColumns().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Table has no columns: " + tableHandle);
-        }
 
         return new TableMetadata(catalogName, tableMetadata);
     }
