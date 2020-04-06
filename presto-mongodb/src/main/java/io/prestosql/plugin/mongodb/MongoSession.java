@@ -18,6 +18,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
@@ -607,8 +608,17 @@ public class MongoSession
 
     private boolean isView(SchemaTableName tableName)
     {
-        MongoCollection views = client.getDatabase(tableName.getSchemaName()).getCollection("system.views");
-        Object view = views.find(new Document("_id", tableName.toString())).first();
-        return view != null;
+        Document listCollectionsCommand = new Document(new ImmutableMap.Builder<String, Object>()
+                .put("listCollections", 1.0)
+                .put("filter", documentOf("name", tableName.getTableName()))
+                .put("nameOnly", true)
+                .build());
+        Document cursor = client.getDatabase(tableName.getSchemaName()).runCommand(listCollectionsCommand).get("cursor", Document.class);
+        List<Document> firstBatch = cursor.get("firstBatch", List.class);
+        if (firstBatch.isEmpty()) {
+            return false;
+        }
+        String type = firstBatch.get(0).getString("type");
+        return "view".equals(type);
     }
 }
