@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -184,6 +185,7 @@ public class TestJdbcRecordSetProvider
                 jdbcTableHandle.getCatalogName(),
                 jdbcTableHandle.getSchemaName(),
                 jdbcTableHandle.getTableName(),
+                Optional.empty(),
                 domain,
                 OptionalLong.empty());
 
