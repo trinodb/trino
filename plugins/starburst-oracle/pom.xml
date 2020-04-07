@@ -15,7 +15,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.oracle.version>12.2.0.1</dep.oracle.version>
 
         <air.test.thread-count>1</air.test.thread-count>
     </properties>
