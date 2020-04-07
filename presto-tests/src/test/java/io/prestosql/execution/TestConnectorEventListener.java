@@ -71,7 +71,7 @@ public class TestConnectorEventListener
     public void testConnectorEventHandlerReceivingEvents()
             throws Exception
     {
-        queries.runQueryAndWaitForEvents("SELECT 1", 2, session);
+        queries.runQueryAndWaitForEvents("SELECT 1", 3, session);
 
         assertThat(generatedEvents.getQueryCreatedEvents())
                 .size().isEqualTo(1);
