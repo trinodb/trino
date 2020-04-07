@@ -43,7 +43,8 @@ class Conversions
                 BigQueryType.valueOf(field.getType().name()),
                 getMode(field),
                 subColumns,
-                field.getDescription());
+                field.getDescription(),
+                false);
     }
 
     static ColumnMetadata toColumnMetadata(Field field)

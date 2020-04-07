@@ -33,6 +33,8 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.NotFoundException;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
@@ -41,6 +43,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -53,6 +56,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 public class BigQueryMetadata
@@ -164,11 +168,26 @@ public class BigQueryMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
-        TableInfo table = bigQueryClient.getTable(((BigQueryTableHandle) tableHandle).getTableId());
-        Schema schema = table.getDefinition().getSchema();
-        return schema == null ?
-                ImmutableMap.of() :
-                schema.getFields().stream().collect(toMap(Field::getName, Conversions::toColumnHandle));
+        List<BigQueryColumnHandle> columnHandles = getTableColumns(((BigQueryTableHandle) tableHandle).getTableId());
+        return columnHandles.stream().collect(toMap(BigQueryColumnHandle::getName, identity()));
+    }
+
+    List<BigQueryColumnHandle> getTableColumns(TableId tableId)
+    {
+        return getTableColumns(bigQueryClient.getTable(tableId));
+    }
+
+    private List<BigQueryColumnHandle> getTableColumns(TableInfo table)
+    {
+        ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
+        TableDefinition tableDefinition = table.getDefinition();
+        Schema schema = tableDefinition.getSchema();
+        if (schema != null) {
+            for (Field field : schema.getFields()) {
+                columns.add(Conversions.toColumnHandle(field));
+            }
+        }
+        return columns.build();
     }
 
     @Override
@@ -266,5 +285,26 @@ public class BigQueryMetadata
         bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(projectedColumns.build());
 
         return Optional.of(new ProjectionApplicationResult<>(bigQueryTableHandle, projections, assignmentList.build()));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            Constraint constraint)
+    {
+        log.debug("applyFilter(session=%s, handle=%s, summary=%s, predicate=%s, columns=%s)",
+                session, handle, constraint.getSummary(), constraint.predicate(), constraint.getColumns());
+        BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
+
+        TupleDomain<ColumnHandle> oldDomain = bigQueryTableHandle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        BigQueryTableHandle updatedHandle = bigQueryTableHandle.withConstraint(newDomain);
+
+        return Optional.of(new ConstraintApplicationResult<>(updatedHandle, constraint.getSummary()));
     }
 }

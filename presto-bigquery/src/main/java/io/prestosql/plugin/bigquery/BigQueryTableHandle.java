@@ -63,7 +63,7 @@ public class BigQueryTableHandle
     {
         TableId tableId = tableInfo.getTableId();
         String type = tableInfo.getDefinition().getType().toString();
-        return new BigQueryTableHandle(tableId.getProject(), tableId.getDataset(), tableId.getTable(), type, TupleDomain.none(), Optional.empty(), OptionalLong.empty());
+        return new BigQueryTableHandle(tableId.getProject(), tableId.getDataset(), tableId.getTable(), type, TupleDomain.all(), Optional.empty(), OptionalLong.empty());
     }
 
     @JsonProperty
