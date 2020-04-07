@@ -257,6 +257,8 @@ public class HiveMetadata
     private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = serdeConstants.ESCAPE_CHAR;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
+    public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
+    public static final String DELTA_LAKE_PROVIDER = "delta";
 
     private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
@@ -339,6 +341,10 @@ public class HiveMetadata
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent()) {
             return null;
+        }
+
+        if (isDeltaLakeTable(table.get())) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Cannot query Delta Lake table");
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
@@ -2294,6 +2300,12 @@ public class HiveMetadata
         if (!allColumns.containsAll(sortedBy)) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), ImmutableSet.copyOf(allColumns))));
         }
+    }
+
+    private static boolean isDeltaLakeTable(Table table)
+    {
+        return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && table.getParameters().get(SPARK_TABLE_PROVIDER_KEY).toLowerCase(ENGLISH).equals(DELTA_LAKE_PROVIDER);
     }
 
     private static void validatePartitionColumns(ConnectorTableMetadata tableMetadata)
