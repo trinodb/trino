@@ -1,0 +1,74 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.prestosql.plugin.bigquery;
+
+import org.testng.annotations.Test;
+
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
+import static java.math.BigDecimal.ONE;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Test
+public class TestBigQueryType
+{
+    @Test
+    public void testTimeToStringConverter()
+    {
+        assertThat(BigQueryType.timeToStringConverter(
+                Long.valueOf(303497217825L)))
+                .isEqualTo("'12:34:56'");
+    }
+
+    @Test
+    public void testTimestampToStringConverter()
+    {
+        assertThat(BigQueryType.timestampToStringConverter(
+                Long.valueOf(6494958783649569L)))
+                .isEqualTo("'2020-03-31 12:34:56.789'");
+    }
+
+    @Test
+    public void testDateToStringConverter()
+    {
+        assertThat(BigQueryType.dateToStringConverter(
+                Long.valueOf(18352)))
+                .isEqualTo("'2020-03-31'");
+    }
+
+    @Test
+    public void testStringToStringConverter()
+    {
+        assertThat(BigQueryType.stringToStringConverter(
+                utf8Slice("test")))
+                .isEqualTo("'test'");
+    }
+
+    @Test
+    public void testNumericToStringConverter()
+    {
+        assertThat(BigQueryType.numericToStringConverter(
+                encodeScaledValue(ONE, 9)))
+                .isEqualTo("1.000000000");
+    }
+
+    @Test
+    public void testBytesToStringConverter()
+    {
+        assertThat(BigQueryType.bytesToStringConverter(
+                wrappedBuffer((byte) 1, (byte) 2, (byte) 3, (byte) 4)))
+                .isEqualTo("FROM_BASE64('AQIDBA==')");
+    }
+}

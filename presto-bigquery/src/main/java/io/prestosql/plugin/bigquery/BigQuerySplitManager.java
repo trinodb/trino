@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -81,7 +82,8 @@ public class BigQuerySplitManager
 
         TableId tableId = bigQueryTableHandle.getTableId();
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
-        Optional<String> filter = Optional.empty();
+        TupleDomain<ColumnHandle> constraint = bigQueryTableHandle.getConstraint();
+        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(constraint);
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(tableId, actualParallelism, filter) :
                 readFromBigQuery(tableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
