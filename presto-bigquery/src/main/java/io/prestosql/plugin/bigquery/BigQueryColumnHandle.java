@@ -16,6 +16,7 @@ package io.prestosql.plugin.bigquery;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.Field;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -38,6 +39,7 @@ public class BigQueryColumnHandle
     private final Field.Mode mode;
     private final List<BigQueryColumnHandle> subColumns;
     private final String description;
+    private final boolean hidden;
 
     @JsonCreator
     public BigQueryColumnHandle(
@@ -45,13 +47,26 @@ public class BigQueryColumnHandle
             @JsonProperty("bigQueryType") BigQueryType bigQueryType,
             @JsonProperty("mode") Field.Mode mode,
             @JsonProperty("subColumns") List<BigQueryColumnHandle> subColumns,
-            @JsonProperty("description") String description)
+            @JsonProperty("description") String description,
+            @JsonProperty("hidden") boolean hidden)
     {
         this.name = requireNonNull(name, "column name cannot be null");
         this.bigQueryType = requireNonNull(bigQueryType, () -> format("column type cannot be null for column [%s]", name));
         this.mode = requireNonNull(mode, "Field mode cannot be null");
         this.subColumns = ImmutableList.copyOf(requireNonNull(subColumns, "subColumns is null"));
         this.description = description;
+        this.hidden = hidden;
+    }
+
+    @VisibleForTesting
+    BigQueryColumnHandle(
+            String name,
+            BigQueryType bigQueryType,
+            Field.Mode mode,
+            List<BigQueryColumnHandle> subColumns,
+            String description)
+    {
+        this(name, bigQueryType, mode, subColumns, description, false);
     }
 
     @JsonProperty
@@ -92,6 +107,12 @@ public class BigQueryColumnHandle
         return description;
     }
 
+    @JsonProperty
+    public boolean isHidden()
+    {
+        return hidden;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
@@ -99,6 +120,7 @@ public class BigQueryColumnHandle
                 .setType(getPrestoType())
                 .setComment(Optional.ofNullable(description))
                 .setNullable(mode == Field.Mode.NULLABLE)
+                .setHidden(hidden)
                 .build();
     }
 

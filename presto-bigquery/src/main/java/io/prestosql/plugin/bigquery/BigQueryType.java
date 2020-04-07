@@ -15,11 +15,14 @@ package io.prestosql.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeWithTimeZoneType;
@@ -29,9 +32,15 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Month;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +49,8 @@ import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PR
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Month.APRIL;
 import static java.time.Month.AUGUST;
 import static java.time.Month.DECEMBER;
@@ -57,18 +68,18 @@ import static java.util.stream.Collectors.toList;
 
 public enum BigQueryType
 {
-    BOOLEAN(BooleanType.BOOLEAN),
-    BYTES(VarbinaryType.VARBINARY),
-    DATE(DateType.DATE),
-    DATETIME(TimestampType.TIMESTAMP),
-    FLOAT(DoubleType.DOUBLE),
-    GEOGRAPHY(VarcharType.VARCHAR),
-    INTEGER(BigintType.BIGINT),
-    NUMERIC(DecimalType.createDecimalType(NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE)),
-    RECORD(null),
-    STRING(createUnboundedVarcharType()),
-    TIME(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+    BOOLEAN(BooleanType.BOOLEAN, BigQueryType::simpleToStringConverter),
+    BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter),
+    DATE(DateType.DATE, BigQueryType::dateToStringConverter),
+    DATETIME(TimestampType.TIMESTAMP, BigQueryType::datetimeToStringConverter),
+    FLOAT(DoubleType.DOUBLE, BigQueryType::simpleToStringConverter),
+    GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
+    INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
+    NUMERIC(DecimalType.createDecimalType(NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE), BigQueryType::numericToStringConverter),
+    RECORD(null, BigQueryType::simpleToStringConverter),
+    STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
+    TIME(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE, BigQueryType::timeToStringConverter),
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE, BigQueryType::timestampToStringConverter);
 
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply
@@ -96,11 +107,15 @@ public enum BigQueryType
             .put("11", NOVEMBER)
             .put("12", DECEMBER)
             .build();
-    private final Type nativeType;
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSS''");
 
-    BigQueryType(Type nativeType)
+    private final Type nativeType;
+    private final ToStringConverter toStringConverter;
+
+    BigQueryType(Type nativeType, ToStringConverter toStringConverter)
     {
         this.nativeType = nativeType;
+        this.toStringConverter = toStringConverter;
     }
 
     static RowType.Field toRawTypeField(Map.Entry<String, BigQueryType.Adaptor> entry)
@@ -133,6 +148,77 @@ public enum BigQueryType
         return toLocalDateTime(datetime).atZone(systemDefault()).toInstant().toEpochMilli();
     }
 
+    static String simpleToStringConverter(Object value)
+    {
+        return String.valueOf(value);
+    }
+
+    static String dateToStringConverter(Object value)
+    {
+        LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
+        return quote(date.toString());
+    }
+
+    static String datetimeToStringConverter(Object value)
+    {
+        return formatTimestamp(((Long) value).longValue(), systemDefault());
+    }
+
+    static String timeToStringConverter(Object value)
+    {
+        long longValue = ((Long) value).longValue();
+        long millisUtc = DateTimeEncoding.unpackMillisUtc(longValue);
+        ZoneId zoneId = ZoneId.of(DateTimeEncoding.unpackZoneKey(longValue).getId());
+        LocalTime time = toZonedDateTime(millisUtc, zoneId).toLocalTime();
+        return quote(time.toString());
+    }
+
+    static String timestampToStringConverter(Object value)
+    {
+        long longValue = ((Long) value).longValue();
+        long millisUtc = DateTimeEncoding.unpackMillisUtc(longValue);
+        ZoneId zoneId = ZoneId.of(DateTimeEncoding.unpackZoneKey(longValue).getId());
+        return formatTimestamp(millisUtc, zoneId);
+    }
+
+    private static String formatTimestamp(long millisUtc, ZoneId zoneId)
+    {
+        return DATETIME_FORMATTER.format(toZonedDateTime(millisUtc, zoneId));
+    }
+
+    private static ZonedDateTime toZonedDateTime(long millisUtc, ZoneId zoneId)
+    {
+        return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), zoneId);
+    }
+
+    static String stringToStringConverter(Object value)
+    {
+        Slice slice = (Slice) value;
+        return quote(new String(slice.getBytes(), UTF_8));
+    }
+
+    static String numericToStringConverter(Object value)
+    {
+        Slice slice = (Slice) value;
+        return Decimals.toString(slice, NUMERIC_DATA_TYPE_SCALE);
+    }
+
+    static String bytesToStringConverter(Object value)
+    {
+        Slice slice = (Slice) value;
+        return format("FROM_BASE64('%s')", Base64.getEncoder().encodeToString(slice.getBytes()));
+    }
+
+    private static String quote(String value)
+    {
+        return "'" + value + "'";
+    }
+
+    String convertToString(Object value)
+    {
+        return toStringConverter.convertToString(value);
+    }
+
     public Type getNativeType(BigQueryType.Adaptor typeAdaptor)
     {
         switch (this) {
@@ -160,5 +246,11 @@ public enum BigQueryType
             Type rawType = getBigQueryType().getNativeType(this);
             return getMode() == Field.Mode.REPEATED ? new ArrayType(rawType) : rawType;
         }
+    }
+
+    @FunctionalInterface
+    interface ToStringConverter
+    {
+        String convertToString(Object value);
     }
 }

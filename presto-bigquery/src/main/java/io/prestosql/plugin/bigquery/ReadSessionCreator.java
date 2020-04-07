@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.spi.PrestoException;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -41,6 +42,7 @@ import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTI
 import static io.prestosql.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 
 // A helper class, also handles view materialization
 public class ReadSessionCreator
@@ -73,9 +75,13 @@ public class ReadSessionCreator
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
 
+        List<String> filteredSelectedFields = selectedFields.stream()
+                .filter(BigQueryUtil::validColumnName)
+                .collect(toList());
+
         try (BigQueryStorageClient bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient()) {
             ReadOptions.TableReadOptions.Builder readOptions = ReadOptions.TableReadOptions.newBuilder()
-                    .addAllSelectedFields(selectedFields);
+                    .addAllSelectedFields(filteredSelectedFields);
             filter.ifPresent(readOptions::setRowRestriction);
 
             TableReferenceProto.TableReference tableReference = toTableReference(actualTable.getTableId());
