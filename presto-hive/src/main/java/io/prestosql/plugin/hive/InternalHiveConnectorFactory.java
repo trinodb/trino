@@ -26,6 +26,7 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorAccessContro
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeEventListener;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
@@ -54,6 +55,7 @@ import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
@@ -62,6 +64,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
@@ -104,6 +108,7 @@ public final class InternalHiveConnectorFactory
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                     },
+                    binder -> newSetBinder(binder, EventListener.class),
                     module);
 
             Injector injector = app
@@ -133,6 +138,10 @@ public final class InternalHiveConnectorFactory
                     classLoader);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
             Set<SystemTable> systemTables = injector.getInstance(Key.get(new TypeLiteral<Set<SystemTable>>() {}));
+            Set<EventListener> eventListeners = injector.getInstance(Key.get(new TypeLiteral<Set<EventListener>>() {}))
+                    .stream()
+                    .map(listener -> new ClassLoaderSafeEventListener(listener, classLoader))
+                    .collect(toImmutableSet());
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -144,6 +153,7 @@ public final class InternalHiveConnectorFactory
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
                     systemTables,
                     procedures,
+                    eventListeners,
                     hiveSessionProperties.getSessionProperties(),
                     HiveSchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
