@@ -16,10 +16,12 @@ package io.prestosql.plugin.hive.rubix;
 import com.qubole.rubix.spi.CacheConfig;
 import io.airlift.configuration.Config;
 
+import javax.validation.constraints.NotNull;
+
 public class RubixConfig
 {
     private boolean parallelWarmupEnabled = true;
-    private String cacheLocation = "/tmp";
+    private String cacheLocation;
     private int bookKeeperServerPort = CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT;
     private int dataTransferServerPort = CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT;
 
@@ -35,6 +37,7 @@ public class RubixConfig
         return this;
     }
 
+    @NotNull
     public String getCacheLocation()
     {
         return cacheLocation;

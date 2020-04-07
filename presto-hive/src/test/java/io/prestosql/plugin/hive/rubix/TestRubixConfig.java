@@ -31,7 +31,7 @@ public class TestRubixConfig
         assertRecordedDefaults(recordDefaults(RubixConfig.class)
                 .setBookKeeperServerPort(CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT)
                 .setDataTransferServerPort(CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT)
-                .setCacheLocation("/tmp")
+                .setCacheLocation(null)
                 .setParallelWarmupEnabled(true));
     }
 
@@ -40,14 +40,14 @@ public class TestRubixConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.cache.parallel-warmup-enabled", "false")
-                .put("hive.cache.location", "/etc")
+                .put("hive.cache.location", "/some-directory")
                 .put("hive.cache.bookkeeper-port", "1234")
                 .put("hive.cache.data-transfer-port", "1235")
                 .build();
 
         RubixConfig expected = new RubixConfig()
                 .setParallelWarmupEnabled(false)
-                .setCacheLocation("/etc")
+                .setCacheLocation("/some-directory")
                 .setBookKeeperServerPort(1234)
                 .setDataTransferServerPort(1235);
 
