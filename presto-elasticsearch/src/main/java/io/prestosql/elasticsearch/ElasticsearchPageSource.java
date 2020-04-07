@@ -24,6 +24,7 @@ import io.prestosql.elasticsearch.decoders.Decoder;
 import io.prestosql.elasticsearch.decoders.DoubleDecoder;
 import io.prestosql.elasticsearch.decoders.IdColumnDecoder;
 import io.prestosql.elasticsearch.decoders.IntegerDecoder;
+import io.prestosql.elasticsearch.decoders.IpAddressDecoder;
 import io.prestosql.elasticsearch.decoders.RealDecoder;
 import io.prestosql.elasticsearch.decoders.RowDecoder;
 import io.prestosql.elasticsearch.decoders.ScoreColumnDecoder;
@@ -41,6 +42,7 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
@@ -315,6 +317,9 @@ public class ElasticsearchPageSource
         }
         if (type.equals(BIGINT)) {
             return new BigintDecoder(path);
+        }
+        if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
+            return new IpAddressDecoder(path, type);
         }
         if (type instanceof RowType) {
             RowType rowType = (RowType) type;

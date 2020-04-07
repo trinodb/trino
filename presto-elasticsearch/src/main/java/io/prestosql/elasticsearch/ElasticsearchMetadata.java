@@ -36,7 +36,10 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
@@ -67,15 +70,17 @@ public class ElasticsearchMetadata
     private static final String ORIGINAL_NAME = "original-name";
     public static final String SUPPORTS_PREDICATES = "supports-predicates";
 
+    private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
 
     @Inject
-    public ElasticsearchMetadata(ElasticsearchClient client, ElasticsearchConfig config)
+    public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
-        requireNonNull(config, "config is null");
-
+        requireNonNull(typeManager, "typeManager is null");
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
+        requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
     }
 
@@ -195,10 +200,11 @@ public class ElasticsearchMetadata
                     return INTEGER;
                 case "long":
                     return BIGINT;
-                case "string":
                 case "text":
                 case "keyword":
                     return VARCHAR;
+                case "ip":
+                    return ipAddressType;
                 case "boolean":
                     return BOOLEAN;
                 case "binary":

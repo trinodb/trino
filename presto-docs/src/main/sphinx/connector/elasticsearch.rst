@@ -182,6 +182,7 @@ Elasticsearch Presto
 ``keyword``   ``VARCHAR``
 ``text``      ``VARCHAR``
 ``date``      ``TIMESTAMP``
+``ip``        ``IPADDRESS``
 (all others)  (unsupported)
 ============= =============
 
