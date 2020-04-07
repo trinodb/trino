@@ -71,13 +71,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.oracle.jdbc</groupId>
+            <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc8</artifactId>
             <version>${dep.oracle.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.oracle.jdbc</groupId>
+            <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ucp</artifactId>
             <version>${dep.oracle.version}</version>
         </dependency>
@@ -193,11 +193,11 @@
                     <configuration>
                         <ignoredDependencies>
                             <dependency>
-                                <groupId>com.oracle.jdbc</groupId>
+                                <groupId>com.oracle.database.jdbc</groupId>
                                 <artifactId>ucp</artifactId>
                             </dependency>
                             <dependency>
-                                <groupId>com.oracle.jdbc</groupId>
+                                <groupId>com.oracle.database.jdbc</groupId>
                                 <artifactId>ojdbc8</artifactId>
                             </dependency>
                         </ignoredDependencies>
