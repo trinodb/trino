@@ -88,6 +88,7 @@ public class MongoSession
 {
     private static final Logger log = Logger.get(MongoSession.class);
     private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version");
+    private static final List<String> ESCAPE_CHARACTERS = Arrays.asList(".", "$");
 
     private static final String TABLE_NAME_KEY = "table";
     private static final String FIELDS_KEY = "fields";
@@ -597,7 +598,7 @@ public class MongoSession
                     return Optional.empty();
                 }
 
-                parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
+                parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(quote(key))), fieldType.get())));
             }
             typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }
@@ -610,5 +611,14 @@ public class MongoSession
         MongoCollection views = client.getDatabase(tableName.getSchemaName()).getCollection("system.views");
         Object view = views.find(new Document("_id", tableName.toString())).first();
         return view != null;
+    }
+
+    private static String quote(String name)
+    {
+        boolean escaped = ESCAPE_CHARACTERS.stream().anyMatch(name::contains);
+        if (escaped) {
+            return "\"" + name + "\"";
+        }
+        return name;
     }
 }
