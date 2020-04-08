@@ -186,7 +186,7 @@ public class TypeSignatureTranslator
                         typeSignature.getParameters().stream()
                                 .map(parameter -> new RowDataType.Field(
                                         Optional.empty(),
-                                        parameter.getNamedTypeSignature().getFieldName().map(fieldName -> new Identifier(fieldName.getName(), false)),
+                                        parameter.getNamedTypeSignature().getFieldName().map(fieldName -> new Identifier(fieldName.getName())),
                                         toDataType(parameter.getNamedTypeSignature().getTypeSignature())))
                                 .collect(toImmutableList()));
             case StandardTypes.VARCHAR:
