@@ -61,6 +61,7 @@ import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraIntegrationSmokeTest
@@ -109,6 +110,23 @@ public class TestCassandraIntegrationSmokeTest
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE cassandra.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate varchar,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   clerk varchar,\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar\n" +
+                        ")");
     }
 
     @Test
@@ -481,15 +499,15 @@ public class TestCassandraIntegrationSmokeTest
 
         session.execute("INSERT INTO keyspace_test_nested_collection.table_set (column_5, nested_collection) VALUES (1, {{1, 2, 3}})");
         assertEquals(execute("SELECT nested_collection FROM cassandra.keyspace_test_nested_collection.table_set").getMaterializedRows().get(0),
-                     new MaterializedRow(DEFAULT_PRECISION, "[[1,2,3]]"));
+                new MaterializedRow(DEFAULT_PRECISION, "[[1,2,3]]"));
 
         session.execute("INSERT INTO keyspace_test_nested_collection.table_list (column_5, nested_collection) VALUES (1, [[4, 5, 6]])");
         assertEquals(execute("SELECT nested_collection FROM cassandra.keyspace_test_nested_collection.table_list").getMaterializedRows().get(0),
-                     new MaterializedRow(DEFAULT_PRECISION, "[[4,5,6]]"));
+                new MaterializedRow(DEFAULT_PRECISION, "[[4,5,6]]"));
 
         session.execute("INSERT INTO keyspace_test_nested_collection.table_map (column_5, nested_collection) VALUES (1, {7:{8:9}})");
         assertEquals(execute("SELECT nested_collection FROM cassandra.keyspace_test_nested_collection.table_map").getMaterializedRows().get(0),
-                     new MaterializedRow(DEFAULT_PRECISION, "{7:{8:9}}"));
+                new MaterializedRow(DEFAULT_PRECISION, "{7:{8:9}}"));
 
         session.execute("DROP KEYSPACE keyspace_test_nested_collection");
     }

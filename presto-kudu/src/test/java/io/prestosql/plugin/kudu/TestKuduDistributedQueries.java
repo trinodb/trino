@@ -78,6 +78,22 @@ public class TestKuduDistributedQueries
     }
 
     @Override
+    public void testPredicatePushdown()
+    {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_is_null (" +
+                "id INT WITH (primary_key=true), " +
+                "col_nullable bigint with (nullable=true)" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("INSERT INTO test_is_null VALUES (1, 1)", 1);
+        assertUpdate("INSERT INTO test_is_null(id) VALUES (2)", 1);
+        assertQuery("SELECT id FROM test_is_null WHERE col_nullable = 1 OR col_nullable IS NULL", "VALUES (1), (2)");
+    }
+
+    @Override
     public void testAddColumn()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
