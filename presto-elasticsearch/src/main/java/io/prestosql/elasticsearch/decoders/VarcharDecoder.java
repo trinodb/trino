@@ -42,7 +42,7 @@ public class VarcharDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
+        else if (value instanceof String || value instanceof Number) {
             VARCHAR.writeSlice(output, Slices.utf8Slice(value.toString()));
         }
         else {
