@@ -3233,6 +3233,19 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   c1 ROW(\"$a\" bigint, \"$b\" varchar)\n)\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_show_create_table_with_special_characters");
+        assertUpdate(createTableSql);
+        actualResult = computeActual("SHOW CREATE TABLE test_show_create_table_with_special_characters");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
     @Test
