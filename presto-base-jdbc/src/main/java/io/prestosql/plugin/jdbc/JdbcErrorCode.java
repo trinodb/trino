@@ -18,12 +18,14 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.ErrorType;
 
 import static io.prestosql.spi.ErrorType.EXTERNAL;
+import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;
 
 public enum JdbcErrorCode
         implements ErrorCodeSupplier
 {
     JDBC_ERROR(0, EXTERNAL),
-    JDBC_NON_TRANSIENT_ERROR(1, EXTERNAL);
+    JDBC_NON_TRANSIENT_ERROR(1, EXTERNAL),
+    DRIVER_NOT_FOUND(2, INTERNAL_ERROR);
 
     private final ErrorCode errorCode;
 

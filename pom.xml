@@ -139,6 +139,7 @@
         <module>presto-iceberg</module>
         <module>presto-google-sheets</module>
         <module>presto-bigquery</module>
+        <module>presto-genericjdbc</module>
     </modules>
 
     <dependencyManagement>
@@ -435,6 +436,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-sqlserver</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-genericjdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
