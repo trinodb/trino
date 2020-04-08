@@ -46,7 +46,7 @@ public class VarcharDecoder
             VARCHAR.writeSlice(output, Slices.utf8Slice(value.toString()));
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new PrestoException(TYPE_MISMATCH, format("Expected a string or numeric value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }
