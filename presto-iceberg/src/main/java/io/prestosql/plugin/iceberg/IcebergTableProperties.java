@@ -84,7 +84,7 @@ public class IcebergTableProperties
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
     }
 
-    public static String getLocation(Map<String, Object> tableProperties)
+    public static String getTableLocation(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(LOCATION_PROPERTY);
     }
