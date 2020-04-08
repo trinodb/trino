@@ -28,6 +28,7 @@ class SnowflakeHiveMetastore
         this.table = requireNonNull(table, "table is null");
     }
 
+    @Override
     public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
     {
         checkArgument(table.getDatabaseName().toLowerCase(ENGLISH).equals(databaseName), "databaseName does not match");
