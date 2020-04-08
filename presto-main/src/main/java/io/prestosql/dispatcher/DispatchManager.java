@@ -28,6 +28,7 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.SessionContext;
+import io.prestosql.server.SessionDecorator;
 import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.server.SessionSupplier;
 import io.prestosql.server.protocol.Slug;
@@ -66,6 +67,7 @@ public class DispatchManager
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final SessionSupplier sessionSupplier;
+    private final Optional<SessionDecorator> sessionDecorator;
     private final SessionPropertyDefaults sessionPropertyDefaults;
 
     private final int maxQueryLength;
@@ -86,6 +88,7 @@ public class DispatchManager
             TransactionManager transactionManager,
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
+            Optional<SessionDecorator> sessionDecorator,
             SessionPropertyDefaults sessionPropertyDefaults,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor)
@@ -98,6 +101,7 @@ public class DispatchManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
+        this.sessionDecorator = requireNonNull(sessionDecorator, "sessionDecorator is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
 
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
@@ -169,6 +173,9 @@ public class DispatchManager
 
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
+            if (sessionDecorator.isPresent()) {
+                session = sessionDecorator.get().decorate(session, query);
+            }
 
             // check query execute permissions
             accessControl.checkCanExecuteQuery(sessionContext.getIdentity());
