@@ -297,6 +297,12 @@ public class PhoenixClient
         return super.toWriteMapping(session, type);
     }
 
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return false;
+    }
+
     private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName)
     {
         return ColumnMapping.blockMapping(
