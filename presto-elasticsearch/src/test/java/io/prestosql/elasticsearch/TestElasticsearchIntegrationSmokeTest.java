@@ -706,7 +706,10 @@ public class TestElasticsearchIntegrationSmokeTest
 
         assertQuery(
                 "SELECT numeric_keyword FROM numeric_keyword",
-                "VALUES (20)");
+                "VALUES 20");
+        assertQuery(
+                "SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'",
+                "VALUES 20");
     }
 
     @Test
