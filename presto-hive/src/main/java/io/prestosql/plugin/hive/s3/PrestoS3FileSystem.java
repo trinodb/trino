@@ -59,6 +59,7 @@ import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
@@ -794,23 +795,31 @@ public class PrestoS3FileSystem
 
     private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
     {
-        Optional<AWSCredentials> credentials = getAwsCredentials(uri, conf);
+        // credentials embedded in the URI take precedence and are used alone
+        Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
         if (credentials.isPresent()) {
             return new AWSStaticCredentialsProvider(credentials.get());
         }
 
-        if (iamRole != null) {
-            return new STSAssumeRoleSessionCredentialsProvider.Builder(this.iamRole, "presto-session")
-                    .withExternalId(this.externalId)
-                    .build();
-        }
-
+        // a custom credential provider is also used alone
         String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);
         if (!isNullOrEmpty(providerClass)) {
             return getCustomAWSCredentialsProvider(uri, conf, providerClass);
         }
 
-        return DefaultAWSCredentialsProviderChain.getInstance();
+        // use configured credentials or default chain with optional role
+        AWSCredentialsProvider provider = getAwsCredentials(conf)
+                .map(value -> (AWSCredentialsProvider) new AWSStaticCredentialsProvider(value))
+                .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
+
+        if (iamRole != null) {
+            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "presto-session")
+                    .withExternalId(externalId)
+                    .withLongLivedCredentialsProvider(provider)
+                    .build();
+        }
+
+        return provider;
     }
 
     private static AWSCredentialsProvider getCustomAWSCredentialsProvider(URI uri, Configuration conf, String providerClass)
@@ -827,22 +836,24 @@ public class PrestoS3FileSystem
         }
     }
 
-    private static Optional<AWSCredentials> getAwsCredentials(URI uri, Configuration conf)
+    private static Optional<AWSCredentials> getEmbeddedAwsCredentials(URI uri)
+    {
+        String userInfo = nullToEmpty(uri.getUserInfo());
+        List<String> parts = Splitter.on(':').limit(2).splitToList(userInfo);
+        if (parts.size() == 2) {
+            String accessKey = parts.get(0);
+            String secretKey = parts.get(1);
+            if (!accessKey.isEmpty() && !secretKey.isEmpty()) {
+                return Optional.of(new BasicAWSCredentials(accessKey, secretKey));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<AWSCredentials> getAwsCredentials(Configuration conf)
     {
         String accessKey = conf.get(S3_ACCESS_KEY);
         String secretKey = conf.get(S3_SECRET_KEY);
-
-        String userInfo = uri.getUserInfo();
-        if (userInfo != null) {
-            int index = userInfo.indexOf(':');
-            if (index < 0) {
-                accessKey = userInfo;
-            }
-            else {
-                accessKey = userInfo.substring(0, index);
-                secretKey = userInfo.substring(index + 1);
-            }
-        }
 
         if (isNullOrEmpty(accessKey) || isNullOrEmpty(secretKey)) {
             return Optional.empty();

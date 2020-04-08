@@ -3,9 +3,20 @@ Web UI
 ======
 
 Presto provides a web-based user interface (UI) for monitoring a Presto cluster
-and managing queries. The web UI is accessible on the Presto coordinator via
+and managing queries. The Web UI is accessible on the coordinator via
 HTTP/HTTPS, using the corresponding port number specified in the coordinator
-:ref:`config_properties`.
+:ref:`config_properties`. It can be configured with :ref:`specific related
+properties <web-ui-properties>`.
+
+The Web UI requires users to log in. If Presto is not configured to require
+authentication, then any username can be used, and no password is required or
+allowed. Typically, users should login with the same username that they use for
+running queries.
+
+When the server is configured to use HTTPS, a :doc:`password authenticator
+</develop/password-authenticator>` such as :doc:`LDAP </security/ldap>` or
+:doc:`password file </security/password-file>` must be configured in order to
+use the Web UI.
 
 The main page has a list of queries along with information like unique query ID, query text,
 query state, percentage completed, username and source from which this query originated.
