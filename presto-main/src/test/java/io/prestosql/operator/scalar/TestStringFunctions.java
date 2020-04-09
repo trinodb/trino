@@ -284,6 +284,17 @@ public class TestStringFunctions
         testStrPosAndPosition("", null, null);
         testStrPosAndPosition(null, null, null);
 
+        assertFunction("STARTS_WITH('foo', 'foo')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('foo', 'bar')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('foo', '')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('', 'foo')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('', '')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('foo_bar_baz', 'foo')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('foo_bar_baz', 'bar')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('foo', 'foo_bar_baz')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('信念 爱 希望', '信念')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('信念 爱 希望', '爱')", BOOLEAN, false);
+
         assertFunction("STRPOS(NULL, '')", BIGINT, null);
         assertFunction("STRPOS('', NULL)", BIGINT, null);
         assertFunction("STRPOS(NULL, NULL)", BIGINT, null);
