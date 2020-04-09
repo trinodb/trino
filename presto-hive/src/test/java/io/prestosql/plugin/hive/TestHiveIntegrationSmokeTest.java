@@ -484,6 +484,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testIsNotNullWithNestedData()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+        assertUpdate(admin, "create table nest_test(id int, a row(x varchar, y integer, z varchar), b varchar) WITH (format='PARQUET')");
+        assertUpdate(admin, "insert into nest_test values(0, null, '1')", 1);
+        assertUpdate(admin, "insert into nest_test values(1, ('a', null, 'b'), '1')", 1);
+        assertUpdate(admin, "insert into nest_test values(2, ('b', 1, 'd'), '1')", 1);
+        assertQuery(admin, "select a.y from nest_test", "values (null), (null), (1)");
+        assertQuery(admin, "select id from nest_test where a.y IS NOT NULL", "values (2)");
+        assertUpdate(admin, "DROP TABLE nest_test");
+    }
+
+    @Test
     public void testSchemaOperations()
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -6353,8 +6371,8 @@ public class TestHiveIntegrationSmokeTest
     public void testColumnPruning()
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "orc_use_column_names", "true")
-                .setCatalogSessionProperty("hive", "parquet_use_column_names", "true")
+                .setCatalogSessionProperty(catalog, "orc_use_column_names", "true")
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
                 .build();
 
         testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.ORC), this::testColumnPruning);
