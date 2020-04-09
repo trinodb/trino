@@ -135,6 +135,10 @@ String Functions
     Returns the starting position of the first instance of ``substring`` in
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
+.. function:: starts_with(string, substring) -> boolean
+
+    Tests whether ``substring`` is a prefix of ``string``.
+
 .. function:: substr(string, start) -> varchar
 
     Returns the rest of ``string`` from the starting position ``start``.
