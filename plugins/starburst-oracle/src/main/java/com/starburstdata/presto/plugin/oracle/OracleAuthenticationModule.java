@@ -13,8 +13,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.starburstdata.presto.kerberos.ConnectorKerberosManagerModule;
 import com.starburstdata.presto.kerberos.KerberosManager;
-import com.starburstdata.presto.kerberos.KerberosManagerModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
@@ -200,7 +200,7 @@ public class OracleAuthenticationModule
         @Override
         public void configure(Binder binder)
         {
-            binder.install(new KerberosManagerModule());
+            binder.install(new ConnectorKerberosManagerModule());
         }
 
         @Provides
