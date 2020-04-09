@@ -43,7 +43,6 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.event.EventLogProcessor;
 import io.prestosql.eventlistener.EventListenerConfig;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.QueryInfo;
@@ -148,7 +147,6 @@ public class TestingPrestoServer
     private final Announcer announcer;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
-    private final EventLogProcessor eventLogProcessor;
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
@@ -290,7 +288,6 @@ public class TestingPrestoServer
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
-            eventLogProcessor = injector.getInstance(EventLogProcessor.class);
             resourceGroupManager = Optional.of((InternalResourceGroupManager<?>) injector.getInstance(InternalResourceGroupManager.class));
             sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
@@ -300,7 +297,6 @@ public class TestingPrestoServer
         else {
             dispatchManager = null;
             queryManager = null;
-            eventLogProcessor = null;
             resourceGroupManager = Optional.empty();
             sessionPropertyDefaults = null;
             nodePartitioningManager = null;
@@ -353,11 +349,6 @@ public class TestingPrestoServer
     public QueryManager getQueryManager()
     {
         return queryManager;
-    }
-
-    public EventLogProcessor getEventLogProcessor()
-    {
-        return eventLogProcessor;
     }
 
     public Plan getQueryPlan(QueryId queryId)

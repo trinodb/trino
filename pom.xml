@@ -139,6 +139,7 @@
         <module>presto-iceberg</module>
         <module>presto-google-sheets</module>
         <module>presto-bigquery</module>
+        <module>presto-eventlog</module>
     </modules>
 
     <dependencyManagement>
@@ -459,6 +460,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-thrift-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-eventlog</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

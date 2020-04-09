@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.event;
+package io.presto.eventlog;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.log.Logger;
-import io.prestosql.execution.QueryInfo;
+import io.presto.eventlog.conf.EventLogConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -37,9 +36,8 @@ public class EventLogProcessor
 {
     private static final Logger logger = Logger.get(EventLogProcessor.class);
 
-    private Configuration conf = new Configuration(false);
+    private Configuration conf;
     private FileSystem fileSystem;
-    private final ObjectMapper objectMapper;
 
     private boolean enableEventLog;
     private String dir;
@@ -48,14 +46,19 @@ public class EventLogProcessor
     private String hadoopConfPath;
 
     @Inject
-    public EventLogProcessor(EventLogConfig config, ObjectMapper objectMapper)
+    public EventLogProcessor(EventLogConfig config)
     {
-        this.objectMapper = objectMapper;
+        this.enableEventLog = config.isEnableEventLog();
         this.dir = config.getEventLogDir();
         this.keytab = config.getEventLogKeytab();
         this.principal = config.getEventLogPrincipal();
-        this.enableEventLog = config.isEnableEventLog();
         this.hadoopConfPath = config.getHadoopConfPath();
+
+        Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
+        conf = new Configuration(false);
+        conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+        conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+
         if (this.enableEventLog) {
             requireNonNull(this.dir, "event-log.dir not set");
             try {
@@ -74,21 +77,6 @@ public class EventLogProcessor
         }
     }
 
-    public void writeEventLog(QueryInfo queryInfo)
-    {
-        String sqlId = queryInfo.getQueryId().getId();
-        try {
-            String event = objectMapper.writeValueAsString(queryInfo);
-            Path path = new Path(dir + "/" + sqlId);
-            FSDataOutputStream outputStream = fileSystem.create(path);
-            outputStream.write(event.getBytes(StandardCharsets.UTF_8));
-            outputStream.close();
-        }
-        catch (IOException e) {
-            logger.error(e, e.getMessage());
-        }
-    }
-
     public void writeEventLog(String eventLog, String queryId)
     {
         try {
@@ -102,13 +90,12 @@ public class EventLogProcessor
         }
     }
 
-    public QueryInfo readQueryInfo(String sqlId)
+    public String readQueryInfo(String sqlId)
             throws IOException
     {
         Path path = new Path(dir + "/" + sqlId);
         FSDataInputStream is = fileSystem.open(path);
-        String eventLog = inputStreamToString(is);
-        return objectMapper.readValue(eventLog, QueryInfo.class);
+        return inputStreamToString(is);
     }
 
     private String inputStreamToString(InputStream inputStream)
@@ -121,8 +108,7 @@ public class EventLogProcessor
         while ((line = br.readLine()) != null) {
             sb.append(line);
         }
-        String str = sb.toString();
-        return str;
+        return sb.toString();
     }
 
     private void initLocalFileSystem()

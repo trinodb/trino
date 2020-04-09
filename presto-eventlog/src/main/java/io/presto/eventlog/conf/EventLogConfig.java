@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.event;
+package io.presto.eventlog.conf;
 
 import io.airlift.configuration.Config;
 
@@ -55,6 +55,11 @@ public class EventLogConfig
         this.hadoopConfPath = hadoopConfPath;
     }
 
+    public String getHadoopConfPath()
+    {
+        return hadoopConfPath;
+    }
+
     public String getEventLogKeytab()
     {
         return eventLogKeytab;
@@ -73,10 +78,5 @@ public class EventLogConfig
     public String getEventLogDir()
     {
         return eventLogDir;
-    }
-
-    public String getHadoopConfPath()
-    {
-        return hadoopConfPath;
     }
 }

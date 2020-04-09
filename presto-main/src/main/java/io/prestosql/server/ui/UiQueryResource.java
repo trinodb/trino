@@ -14,9 +14,12 @@
 package io.prestosql.server.ui;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.ResponseHandler;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.event.EventLogProcessor;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.security.AccessControl;
@@ -39,12 +42,23 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.io.ByteStreams.toByteArray;
+import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static io.prestosql.security.AccessControlUtil.checkCanKillQueryOwnedBy;
@@ -52,24 +66,33 @@ import static io.prestosql.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 
 @Path("/ui/api/query")
 public class UiQueryResource
 {
     private static final Logger logger = Logger.get(UiQueryResource.class);
+    private static final File CONFIG_FILE = new File("etc/event-listener.properties");
+    private static final String eventLogUri = "/ui/api/eventlog";
 
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
-    private final EventLogProcessor eventLogProcessor;
+    private final HttpClient httpClient;
+    private final JsonCodec<QueryInfo> codec;
 
     @Inject
-    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, GroupProvider groupProvider, EventLogProcessor eventLogProcessor)
+    public UiQueryResource(DispatchManager dispatchManager,
+            AccessControl accessControl,
+            GroupProvider groupProvider,
+            @ForWebUi HttpClient httpClient,
+            JsonCodec<QueryInfo> codec)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.eventLogProcessor = requireNonNull(eventLogProcessor, "eventLogProcessor is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.codec = requireNonNull(codec, "queryInfoCodec is null");
     }
 
     @GET
@@ -96,18 +119,19 @@ public class UiQueryResource
         requireNonNull(queryId, "queryId is null");
 
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
-        if (eventLogProcessor.isEnableEventLog()) {
-            if (!queryInfo.isPresent() ||
-                    !queryInfo.get().getOutputStage().isPresent() ||
-                    queryInfo.get().getOutputStage().get().getPlan() == null) {
-                try {
-                    queryInfo = Optional.of(eventLogProcessor.readQueryInfo(queryId.getId()));
-                }
-                catch (IOException e) {
-                    logger.error(e, e.getMessage());
-                }
+
+        if (!queryInfo.isPresent() ||
+                !queryInfo.get().getOutputStage().isPresent() ||
+                queryInfo.get().getOutputStage().get().getPlan() == null) {
+            try {
+                QueryInfo queryInfoFromEventLog = redirectToEventLogApi(queryId);
+                queryInfo = queryInfoFromEventLog == null ? Optional.empty() : Optional.of(queryInfoFromEventLog);
+            }
+            catch (Exception e) {
+                logger.error(e, e.getMessage());
             }
         }
+
         if (queryInfo.isPresent()) {
             try {
                 checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queryInfo.get().getSession().getUser(), accessControl);
@@ -157,6 +181,53 @@ public class UiQueryResource
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
+        }
+    }
+
+    private QueryInfo redirectToEventLogApi(QueryId queryId) throws Exception
+    {
+        Map<String, String> properties = loadEventListenerProperties(CONFIG_FILE.getAbsoluteFile());
+        String address = properties.getOrDefault("node.internal-address", "localhost");
+        String port = properties.get("http-server.http.port");
+        if (isNullOrEmpty(port)) {
+            throw new Exception("Missing node.internal-address in etc/event-listener.properties");
+        }
+        String redirectUri = String.format("http://%s:%s%s", address, port, eventLogUri);
+        URI uri = uriBuilderFrom(new URI(redirectUri)).appendPath(queryId.getId()).build();
+        Request request = prepareGet()
+                .setUri(uri)
+                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .build();
+        QueryInfo queryInfoFromEventLog = httpClient.execute(request, new ResponseHandler<QueryInfo, Exception>()
+        {
+            @Override
+            public QueryInfo handleException(Request request, Exception exception)
+                    throws Exception
+            {
+                return null;
+            }
+
+            @Override
+            public QueryInfo handle(Request request, io.airlift.http.client.Response response)
+                    throws Exception
+            {
+                if (response.getStatusCode() == Response.Status.GONE.getStatusCode()) {
+                    return null;
+                }
+                byte[] bytes = toByteArray(response.getInputStream());
+                return codec.fromJson(bytes);
+            }
+        });
+        return queryInfoFromEventLog;
+    }
+
+    private Map<String, String> loadEventListenerProperties(File configFile)
+    {
+        try {
+            return new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);
         }
     }
 }

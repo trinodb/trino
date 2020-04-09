@@ -134,6 +134,18 @@ public class EventListenerManager
         }
     }
 
+    public void queryCompleted(String queryInfoJson, String queryId)
+    {
+        for (EventListener listener : configuredEventListeners.get()) {
+            try {
+                listener.queryCompleted(queryInfoJson, queryId);
+            }
+            catch (Throwable e) {
+                log.warn(e, "Failed to publish QueryCompletedEvent for query %s", queryId);
+            }
+        }
+    }
+
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         for (EventListener listener : configuredEventListeners.get()) {
