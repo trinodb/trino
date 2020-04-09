@@ -134,6 +134,7 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testSelectInformationSchemaTables()
     {
         String schema = getSession().getSchema().get();
@@ -141,6 +142,7 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testSelectInformationSchemaColumns()
     {
         String schema = getSession().getSchema().get();
