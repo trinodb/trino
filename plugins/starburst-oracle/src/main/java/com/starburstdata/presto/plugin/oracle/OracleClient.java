@@ -614,7 +614,8 @@ public class OracleClient
     @Override
     public boolean isLimitGuaranteed()
     {
-        return true;
+        // TODO: Limit is not guaranteed when using parallel read. Make it session dependent.
+        return false;
     }
 
     @Override

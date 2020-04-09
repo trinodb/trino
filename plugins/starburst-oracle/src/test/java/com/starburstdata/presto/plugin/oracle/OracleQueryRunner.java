@@ -48,6 +48,7 @@ public final class OracleQueryRunner
     public static final String BOB_USER = "bob";
     public static final String CHARLIE_USER = "charlie";
     public static final String UNKNOWN_USER = "non_existing_user";
+    public static final String PARTITIONED_USER = "partitioned_user";
 
     private OracleQueryRunner() {}
 
@@ -87,6 +88,7 @@ public final class OracleQueryRunner
             createUser(ALICE_USER, kerberizedUser);
             createUser(BOB_USER, kerberizedUser);
             createUser(CHARLIE_USER, kerberizedUser);
+            createUser(PARTITIONED_USER, kerberizedUser);
 
             executeInOracle(
                     "CREATE OR REPLACE VIEW user_context AS " +
@@ -98,6 +100,7 @@ public final class OracleQueryRunner
                             "FROM dual");
             executeInOracle(format("GRANT SELECT ON user_context to %s", ALICE_USER));
             executeInOracle(format("GRANT SELECT ON user_context to %s", BOB_USER));
+            executeInOracle(format("GRANT SELECT ON user_context to %s", PARTITIONED_USER));
 
             queryRunner.installPlugin(new TestingOraclePlugin());
             queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
