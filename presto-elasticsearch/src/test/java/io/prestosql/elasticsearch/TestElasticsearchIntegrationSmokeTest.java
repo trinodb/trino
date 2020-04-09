@@ -696,6 +696,34 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testNumericKeyword()
+            throws IOException
+    {
+        String indexName = "numeric_keyword";
+        @Language("JSON") String mapping = "" +
+                "{" +
+                "  \"mappings\": {" +
+                "    \"doc\": {" +
+                "      \"properties\": {" +
+                "        \"numeric_keyword\":   { \"type\": \"keyword\" }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+        createIndex(indexName, mapping);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("numeric_keyword", 20)
+                .build());
+
+        assertQuery(
+                "SELECT numeric_keyword FROM numeric_keyword",
+                "VALUES 20");
+        assertQuery(
+                "SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'",
+                "VALUES 20");
+    }
+
+    @Test
     public void testQueryStringError()
     {
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
