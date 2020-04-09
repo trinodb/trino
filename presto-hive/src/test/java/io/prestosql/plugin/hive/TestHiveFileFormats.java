@@ -24,6 +24,7 @@ import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
+import io.prestosql.plugin.hive.parquet.ParquetFileWriterFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
@@ -435,6 +436,22 @@ public class TestHiveFileFormats
                 .withSession(PARQUET_SESSION)
                 .withCompressionCodec(HiveCompressionCodec.GZIP)
                 .withRowsCount(rowCount)
+                .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig()));
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testOptimizedParquetWriter(int rowCount)
+            throws Exception
+    {
+        ConnectorSession session = getHiveSession(new HiveConfig(), new ParquetWriterConfig().setParquetOptimizedWriterEnabled(true));
+        assertTrue(HiveSessionProperties.isParquetOptimizedWriterEnabled(session));
+
+        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
+        assertThatFileFormat(PARQUET)
+                .withSession(session)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), new HiveConfig(), new ParquetWriterConfig()))
                 .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig()));
     }
 
