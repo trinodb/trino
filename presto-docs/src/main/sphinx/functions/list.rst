@@ -390,6 +390,7 @@ S
 - :func:`ST_Y`
 - :func:`ST_YMax`
 - :func:`ST_YMin`
+- :func:`starts_with`
 - :func:`stddev`
 - :func:`stddev_pop`
 - :func:`stddev_samp`
