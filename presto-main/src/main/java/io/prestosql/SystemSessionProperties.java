@@ -18,8 +18,10 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.MemoryManagerConfig;
 import io.prestosql.memory.NodeMemoryConfig;
+import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -134,7 +136,14 @@ public final class SystemSessionProperties
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig());
+        this(
+                new QueryManagerConfig(),
+                new TaskManagerConfig(),
+                new MemoryManagerConfig(),
+                new FeaturesConfig(),
+                new ServerConfig(),
+                new NodeSchedulerConfig(),
+                new NodeMemoryConfig());
     }
 
     @Inject
@@ -143,6 +152,8 @@ public final class SystemSessionProperties
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
+            ServerConfig serverConfig,
+            NodeSchedulerConfig nodeSchedulerConfig,
             NodeMemoryConfig nodeMemoryConfig)
     {
         sessionProperties = ImmutableList.of(
@@ -365,7 +376,9 @@ public final class SystemSessionProperties
                         false,
                         value -> {
                             boolean spillEnabled = (Boolean) value;
-                            if (spillEnabled && featuresConfig.getSpillerSpillPaths().isEmpty()) {
+                            if (spillEnabled
+                                    && featuresConfig.getSpillerSpillPaths().isEmpty()
+                                    && (!serverConfig.isCoordinator() || nodeSchedulerConfig.isIncludeCoordinator())) {
                                 throw new PrestoException(
                                         INVALID_SESSION_PROPERTY,
                                         format("%s cannot be set to true; no spill paths configured", SPILL_ENABLED));

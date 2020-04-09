@@ -23,9 +23,11 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.prestosql.execution.buffer.PagesSerde;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.SpillContext;
+import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.Type;
@@ -81,7 +83,13 @@ public class FileSingleStreamSpillerFactory
     private final LoadingCache<Path, Boolean> spillPathHealthCache;
 
     @Inject
-    public FileSingleStreamSpillerFactory(Metadata metadata, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
+    public FileSingleStreamSpillerFactory(
+            Metadata metadata,
+            SpillerStats spillerStats,
+            ServerConfig serverConfig,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            FeaturesConfig featuresConfig,
+            NodeSpillConfig nodeSpillConfig)
     {
         this(
                 listeningDecorator(newFixedThreadPool(
@@ -89,10 +97,25 @@ public class FileSingleStreamSpillerFactory
                         daemonThreadsNamed("binary-spiller-%s"))),
                 requireNonNull(metadata, "metadata is null").getBlockEncodingSerde(),
                 spillerStats,
-                requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),
+                getSpillPaths(
+                        requireNonNull(serverConfig, "serverConfig is null"),
+                        requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null"),
+                        requireNonNull(featuresConfig, "featuresConfig is null")),
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled());
+    }
+
+    private static List<Path> getSpillPaths(
+            ServerConfig serverConfig,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            FeaturesConfig featuresConfig)
+    {
+        if (serverConfig.isCoordinator() && !nodeSchedulerConfig.isIncludeCoordinator()) {
+            return ImmutableList.of();
+        }
+
+        return featuresConfig.getSpillerSpillPaths();
     }
 
     @VisibleForTesting
