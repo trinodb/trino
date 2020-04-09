@@ -9,13 +9,11 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.starburstdata.presto.plugin.toolkit.NonObfuscable;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
 import java.util.Optional;
 
-@NonObfuscable
 public class SnowflakeConfig
 {
     private SnowflakeImpersonationType impersonationType = SnowflakeImpersonationType.NONE;

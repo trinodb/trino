@@ -13,12 +13,10 @@ import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedConnectorFactory;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
-import com.starburstdata.presto.plugin.toolkit.NonObfuscable;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-@NonObfuscable
 public class SnowflakePlugin
         implements Plugin
 {
