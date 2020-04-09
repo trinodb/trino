@@ -34,6 +34,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TES
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -241,6 +242,24 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                 false,
                 false);
         server.execute(format("DROP TABLE test_schema.%s", tableName));
+    }
+
+    @Test
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
+                        "   orderkey decimal(38, 0),\n" +
+                        "   custkey decimal(38, 0),\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority decimal(38, 0),\n" +
+                        "   comment varchar(79)\n" +
+                        ")");
     }
 
     protected static String randomTableSuffix()
