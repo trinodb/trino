@@ -230,6 +230,31 @@
                     </packages>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-file-size</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesSize>
+                                    <!-- Maven Central has a 1GB limit -->
+                                    <maxsize>1073741824</maxsize>
+                                    <files>
+                                        <file>${project.build.directory}/${project.build.finalName}.x86_64.rpm</file>
+                                    </files>
+                                </requireFilesSize>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
