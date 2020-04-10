@@ -41,7 +41,6 @@ import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
@@ -356,23 +355,11 @@ public final class SystemSessionProperties
                         "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
                         featuresConfig.getConcurrentLifespansPerTask(),
                         false),
-                new PropertyMetadata<>(
+                booleanProperty(
                         SPILL_ENABLED,
                         "Enable spilling",
-                        BOOLEAN,
-                        Boolean.class,
                         featuresConfig.isSpillEnabled(),
-                        false,
-                        value -> {
-                            boolean spillEnabled = (Boolean) value;
-                            if (spillEnabled && featuresConfig.getSpillerSpillPaths().isEmpty()) {
-                                throw new PrestoException(
-                                        INVALID_SESSION_PROPERTY,
-                                        format("%s cannot be set to true; no spill paths configured", SPILL_ENABLED));
-                            }
-                            return spillEnabled;
-                        },
-                        value -> value),
+                        false),
                 booleanProperty(
                         SPILL_ORDER_BY,
                         "Spill in OrderBy if spill_enabled is also set",

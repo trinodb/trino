@@ -27,7 +27,6 @@ import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 
-import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
@@ -678,12 +677,6 @@ public class FeaturesConfig
         List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
         this.spillerSpillPaths = spillPathsSplit.stream().map(Paths::get).collect(toImmutableList());
         return this;
-    }
-
-    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true")
-    public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
-    {
-        return !isSpillEnabled() || !spillerSpillPaths.isEmpty();
     }
 
     @Min(1)
