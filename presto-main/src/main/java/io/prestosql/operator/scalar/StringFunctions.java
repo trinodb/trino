@@ -56,6 +56,7 @@ import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
 import static java.lang.Math.abs;
 import static java.lang.Math.toIntExact;
+import static java.util.Locale.ENGLISH;
 
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
@@ -898,5 +899,38 @@ public final class StringFunctions
         result.setBytes(leftLength, right);
 
         return result;
+    }
+
+    @Description("Capitalize First Letter")
+    @ScalarFunction("initcap")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice initcap(@SqlType("varchar(x)") Slice input)
+    {
+        if (input.length() == 0) {
+            return Slices.EMPTY_SLICE;
+        }
+        String str = input.toStringUtf8().toLowerCase(ENGLISH);
+
+        int sz = str.length();
+        StringBuilder buffer = new StringBuilder(sz);
+        boolean space = true;
+
+        for (int i = 0; i < sz; ++i) {
+            char ch = str.charAt(i);
+            if (Character.isWhitespace(ch)) {
+                buffer.append(ch);
+                space = true;
+            }
+            else if (space) {
+                buffer.append(String.valueOf(ch).toUpperCase(ENGLISH));
+                space = false;
+            }
+            else {
+                buffer.append(ch);
+            }
+        }
+
+        return Slices.utf8Slice(buffer.toString());
     }
 }
