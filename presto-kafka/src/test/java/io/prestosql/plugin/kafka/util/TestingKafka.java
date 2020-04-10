@@ -34,7 +34,7 @@ public class TestingKafka
 
     public TestingKafka()
     {
-        container = new KafkaContainer("5.2.1");
+        container = new KafkaContainer("5.4.1");
     }
 
     public void start()
