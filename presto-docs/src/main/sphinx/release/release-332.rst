@@ -59,7 +59,7 @@ Hive Connector Changes
   from partitioned tables would return zero rows, and reading from
   unpartitioned tables would fail with a cryptic error. (:issue:`3366`)
 * Add ``hive.fs.new-directory-permissions`` configuration property for setting the permissions of new directories
-  created by Presto. Default value is ``0777``. (:issue:`3126`)
+  created by Presto. Default value is ``0777``, which corresponds to previous behavior. (:issue:`3126`)
 * Add ``hive.partition-use-column-names`` configuration property and matching ``partition_use_column_names`` catalog
   session property that allows to match columns between table and partition schemas by names. By default they are mapped
   by index. (:issue:`2933`)
