@@ -26,6 +26,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
 import io.prestosql.operator.PageWithPositionComparator;
 import io.prestosql.operator.PagesIndex;
