@@ -21,6 +21,7 @@ import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -29,7 +30,7 @@ public class DriverConnectionFactory
         implements ConnectionFactory
 {
     private final Driver driver;
-    private final String connectionUrl;
+    private final Function<JdbcIdentity, String> connectionUrl;
     private final Properties connectionProperties;
     private final CredentialPropertiesProvider credentialPropertiesProvider;
 
@@ -48,6 +49,15 @@ public class DriverConnectionFactory
 
     public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialPropertiesProvider credentialPropertiesProvider)
     {
+        this(driver, jdbcIdentity -> connectionUrl, connectionProperties, credentialPropertiesProvider);
+    }
+
+    public DriverConnectionFactory(
+            Driver driver,
+            Function<JdbcIdentity, String> connectionUrl,
+            Properties connectionProperties,
+            CredentialPropertiesProvider credentialPropertiesProvider)
+    {
         this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
         this.connectionProperties = new Properties();
@@ -60,7 +70,7 @@ public class DriverConnectionFactory
             throws SQLException
     {
         Properties properties = getCredentialProperties(identity);
-        Connection connection = driver.connect(connectionUrl, properties);
+        Connection connection = driver.connect(connectionUrl.apply(identity), properties);
         checkState(connection != null, "Driver returned null connection");
         return connection;
     }
