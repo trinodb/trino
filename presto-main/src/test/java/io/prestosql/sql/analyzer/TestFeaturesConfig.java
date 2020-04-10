@@ -14,7 +14,6 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
@@ -34,8 +33,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
-import static io.prestosql.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -261,12 +258,5 @@ public class TestFeaturesConfig
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
                 .setIgnoreDownstreamPreferences(true);
         assertFullMapping(properties, expected);
-    }
-
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*\\Q" + SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true\\E.*")
-    public void testValidateSpillConfiguredIfEnabled()
-    {
-        new ConfigurationFactory(ImmutableMap.of(SPILL_ENABLED, "true"))
-                .build(FeaturesConfig.class);
     }
 }
