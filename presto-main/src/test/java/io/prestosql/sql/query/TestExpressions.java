@@ -48,4 +48,11 @@ public class TestExpressions
         assertions.assertQuery("VALUES CASE 1 < 2 WHEN true THEN 10 ELSE 20 END", "VALUES 10");
         assertions.assertQuery("VALUES CASE 1 > 2 WHEN true THEN 10 ELSE 20 END", "VALUES 20");
     }
+
+    @Test
+    public void testInlineNullBind()
+    {
+        // https://github.com/prestosql/presto/issues/3411
+        assertions.assertQuery("SELECT try(k) FROM (SELECT null) t(k)", "VALUES null");
+    }
 }
