@@ -62,7 +62,7 @@ Hive Connector Changes
   created by Presto. Default value is ``0777``. (:issue:`3126`)
 * Add ``hive.partition-use-column-names`` configuration property and matching ``partition_use_column_names`` catalog
   session property that allows to match columns between table and partition schemas by names. By default they are mapped
-  by index. (:issue:2933`)
+  by index. (:issue:`2933`)
 * Add support for ``CREATE SCHEMA ... AUTHORIZATION`` to create a schema with specified owner. (:issue:`3066`).
 * Allow specifying the Glue metastore endpoint URL using the
   ``hive.metastore.glue.endpoint-url`` configuration property. (:issue:`3239`)
@@ -108,5 +108,5 @@ SPI Changes
 * Expose row filters and column masks in ``QueryCompletedEvent``. (:issue:`3183`)
 * Expose referenced functions and procedures in ``QueryCompletedEvent``. (:issue:`3246`)
 * Allow ``Connector`` to provide ``EventListener`` instances. (:issue:`3166`)
-* Deprecate the ``ConnectorPageSourceProvider.createPageSource()` variant without the
+* Deprecate the ``ConnectorPageSourceProvider.createPageSource()`` variant without the
   ``dynamicFilter`` parameter. The method will be removed in a future release. (:issue:`3255`)
