@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multiset;
 import com.google.common.math.IntMath;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
@@ -27,7 +28,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -64,6 +67,9 @@ public class OracleSplitManager
                 return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty()));
             }
 
+            List<String> duplicatedPartitions = getDuplicates(partitions);
+            verify(duplicatedPartitions.isEmpty(), "Partition names are not unique for table %s: %s", tableHandle, duplicatedPartitions);
+
             // Partition partitions into batches to limit total number of splits
             return Lists.partition(partitions, IntMath.divide(partitions.size(), maxSplits, CEILING)).stream()
                     .map(batch -> new OracleSplit(Optional.of(batch), Optional.empty()))
@@ -71,6 +77,15 @@ public class OracleSplitManager
         }
 
         throw new IllegalArgumentException(format("Parallelism type %s is not supported", parallelismType));
+    }
+
+    private List<String> getDuplicates(List<String> values)
+    {
+        return values.stream()
+                .collect(toImmutableMultiset()).entrySet().stream()
+                .filter(entry -> entry.getCount() > 1)
+                .map(Multiset.Entry::getElement)
+                .collect(toImmutableList());
     }
 
     private List<String> listPartitionsForTable(JdbcIdentity identity, JdbcTableHandle tableHandle)
