@@ -56,7 +56,6 @@ public class SalesforceClientModule
     @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(
             BaseJdbcConfig baseConfig,
-            CredentialConfig credentialConfig,
             SalesforceConfig salesforceConfig,
             CredentialProvider credentialProvider)
     {
