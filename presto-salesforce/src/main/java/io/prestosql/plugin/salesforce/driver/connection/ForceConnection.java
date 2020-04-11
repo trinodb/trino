@@ -72,6 +72,11 @@ public class ForceConnection
         this.metadata.setConnection(this);
     }
 
+    public Map getCache()
+    {
+        return connectionCache;
+    }
+
     public PartnerConnection getPartnerConnection()
     {
         return partnerConnection;
@@ -99,12 +104,7 @@ public class ForceConnection
     public void setSchema(String schema)
             throws SQLException
     {
-        // TODO Auto-generated method stub
-    }
-
-    public Map getCache()
-    {
-        return connectionCache;
+        throw new SQLException("Salesforce does not have a concept of schema.");
     }
 
     @Override
@@ -146,7 +146,6 @@ public class ForceConnection
 
     @Override
     public boolean getAutoCommit()
-            throws SQLException
     {
         // TODO Auto-generated method stub
         return false;
@@ -154,22 +153,23 @@ public class ForceConnection
 
     @Override
     public void setAutoCommit(boolean autoCommit)
+            throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void commit()
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void rollback()
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
@@ -191,15 +191,15 @@ public class ForceConnection
     public boolean isReadOnly()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return false;
+        // Always return true because the driver does not support writing yet.
+        return true;
     }
 
     @Override
     public void setReadOnly(boolean readOnly)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
@@ -214,269 +214,245 @@ public class ForceConnection
     public void setCatalog(String catalog)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public int getTransactionIsolation()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return 0;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void setTransactionIsolation(int level)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public SQLWarning getWarnings()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void clearWarnings()
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Map<String, Class<?>> getTypeMap()
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> map)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public int getHoldability()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return 0;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void setHoldability(int holdability)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Savepoint setSavepoint()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Savepoint setSavepoint(String name)
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void rollback(Savepoint savepoint)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames)
             throws SQLException
     {
-        Logger.getLogger(SF_JDBC_DRIVER_NAME).info(Object.class.getEnclosingMethod().getName());
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Clob createClob()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Blob createBlob()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public NClob createNClob()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public SQLXML createSQLXML()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public boolean isValid(int timeout)
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return false;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void setClientInfo(String name, String value)
             throws SQLClientInfoException
     {
-        // TODO Auto-generated method stub
+        throw new SQLClientInfoException();
     }
 
     @Override
     public String getClientInfo(String name)
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Properties getClientInfo()
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void setClientInfo(Properties properties)
             throws SQLClientInfoException
     {
-        // TODO Auto-generated method stub
+        throw new SQLClientInfoException();
     }
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements)
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes)
             throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void abort(Executor executor)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
     public void setNetworkTimeout(Executor executor, int milliseconds)
             throws SQLException
     {
-        // TODO Auto-generated method stub
+        throw new SQLException(Object.class.getEnclosingMethod().getName() + " is not implemented by this driver");
     }
 
     @Override
