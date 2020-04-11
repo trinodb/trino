@@ -78,7 +78,7 @@ public class ForceResultField
         }
 
         ForceResultField other = (ForceResultField) obj;
-        return Objects.equals(entityType, other. entityType) &&
+        return Objects.equals(entityType, other.entityType) &&
                 Objects.equals(name, other.name) &&
                 Objects.equals(value, other.value);
     }

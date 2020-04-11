@@ -71,9 +71,7 @@ public class SalesforceClient
         connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
 
-        statement.setFetchSize(
-                salesforceConfig.getFetchSize().orElse(2000)
-        );
+        statement.setFetchSize(salesforceConfig.getFetchSize().orElse(2000));
 
         return statement;
     }

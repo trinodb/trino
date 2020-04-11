@@ -62,9 +62,7 @@ public class SalesforceClientModule
     {
         Properties properties = new Properties();
 
-        salesforceConfig.getSecurityToken().ifPresent(
-                token -> properties.setProperty("securityToken", token)
-        );
+        salesforceConfig.getSecurityToken().ifPresent(token -> properties.setProperty("securityToken", token));
 
         return new DriverConnectionFactory(new ForceDriver(), baseConfig.getConnectionUrl(), properties, credentialProvider);
     }
