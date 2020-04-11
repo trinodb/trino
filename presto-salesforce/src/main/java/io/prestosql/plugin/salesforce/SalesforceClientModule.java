@@ -24,7 +24,6 @@ import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
-import io.prestosql.plugin.jdbc.credential.CredentialConfig;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.salesforce.driver.ForceDriver;
 import io.prestosql.plugin.salesforce.driver.ForceModule;
