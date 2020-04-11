@@ -21,6 +21,15 @@ public class ForceConnectionInfo
     private Boolean sandbox;
     private String securityToken;
 
+    public ForceConnectionInfo(String userName, String password, String securityToken, String sessionId, Boolean sandbox)
+    {
+        this.userName = userName;
+        this.password = password;
+        this.securityToken = securityToken;
+        this.sessionId = sessionId;
+        this.sandbox = sandbox;
+    }
+
     public String getUserName()
     {
         return userName;

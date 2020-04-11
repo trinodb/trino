@@ -69,14 +69,14 @@ public class ForceDriver
             return null;
         }
         try {
-            Properties connStringProps = getConnStringProperties(url);
-            properties.putAll(connStringProps);
-            ForceConnectionInfo info = new ForceConnectionInfo();
-            info.setUserName(properties.getProperty("user"));
-            info.setPassword(properties.getProperty("password"));
-            info.setSecurityToken(properties.getProperty("securityToken"));
-            info.setSessionId(properties.getProperty("sessionId"));
-            info.setSandbox(resolveSandboxProperty(properties));
+            properties.putAll(getConnStringProperties(url));
+
+            ForceConnectionInfo info = new ForceConnectionInfo(
+                    properties.getProperty("user"),
+                    properties.getProperty("password"),
+                    properties.getProperty("securityToken"),
+                    properties.getProperty("sessionId"),
+                    resolveSandboxProperty(properties));
 
             PartnerConnection partnerConnection = ForceService.createPartnerConnection(info);
             return new ForceConnection(partnerConnection);
