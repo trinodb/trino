@@ -42,6 +42,8 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.logging.Logger;
 
+import static java.util.Objects.requireNonNull;
+
 public class ForceConnection
         implements Connection
 {
@@ -54,6 +56,8 @@ public class ForceConnection
 
     public ForceConnection(PartnerConnection partnerConnection)
     {
+        requireNonNull(partnerConnection);
+
         this.partnerConnection = partnerConnection;
 
         Map<String, ForceDatabaseMetaData> metadataCache = metadataCacheProvider.get();
@@ -105,16 +109,18 @@ public class ForceConnection
 
     @Override
     public <T> T unwrap(Class<T> iface)
+            throws SQLException
     {
-        // TODO Auto-generated method stub
-        return null;
+        if (isWrapperFor(iface)) {
+            return (T) this;
+        }
+        throw new SQLException("No wrapper for " + iface);
     }
 
     @Override
     public boolean isWrapperFor(Class<?> iface)
     {
-        // TODO Auto-generated method stub
-        return false;
+        return iface.isInstance(this);
     }
 
     @Override
