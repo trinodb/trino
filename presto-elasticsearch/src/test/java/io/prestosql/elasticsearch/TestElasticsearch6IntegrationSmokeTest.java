@@ -13,26 +13,27 @@
  */
 package io.prestosql.elasticsearch;
 
-import com.google.common.net.HostAndPort;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
+import static java.lang.String.format;
 
-public class ElasticsearchServer
+public class TestElasticsearch6IntegrationSmokeTest
+        extends BaseElasticsearchSmokeTest
 {
-    private final ElasticsearchContainer container;
-
-    public ElasticsearchServer(String version)
+    public TestElasticsearch6IntegrationSmokeTest()
     {
-        container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:" + version);
-        container.start();
+        super("6.0.0");
     }
 
-    public void stop()
+    @Override
+    protected String indexEndpoint(String index, String docId)
     {
-        container.close();
+        return format("/%s/doc/%s", index, docId);
     }
 
-    public HostAndPort getAddress()
+    @Override
+    protected String indexMapping(String properties)
     {
-        return HostAndPort.fromString(container.getHttpHostAddress());
+        return "{\"mappings\": " +
+               "  {\"doc\": " + properties + "}" +
+               "}";
     }
 }
