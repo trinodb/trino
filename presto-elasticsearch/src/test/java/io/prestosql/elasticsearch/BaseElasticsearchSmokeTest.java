@@ -13,6 +13,7 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -23,8 +24,6 @@ import io.prestosql.tpch.TpchTable;
 import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
@@ -44,17 +43,23 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestElasticsearchIntegrationSmokeTest
+public abstract class BaseElasticsearchSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private final String elasticVersion;
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
+
+    BaseElasticsearchSmokeTest(String elasticVersion)
+    {
+        this.elasticVersion = elasticVersion;
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer();
+        elasticsearch = new ElasticsearchServer(elasticVersion);
 
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
@@ -144,10 +149,9 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "test_arrays";
 
+        @Language("JSON")
         String mapping = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
                 "      \"_meta\": {" +
                 "        \"presto\": {" +
                 "          \"a\": {" +
@@ -222,8 +226,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 "          \"type\": \"long\"" +
                 "        }" +
                 "      }" +
-                "    }" +
-                "  }" +
                 "}";
 
         createIndex(indexName, mapping);
@@ -322,28 +324,25 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "types";
 
-        String mapping = "" +
+        @Language("JSON")
+        String mappings = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"properties\": {" +
-                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "        \"float_column\":     { \"type\": \"float\" }," +
-                "        \"double_column\":    { \"type\": \"double\" }," +
-                "        \"integer_column\":   { \"type\": \"integer\" }," +
-                "        \"long_column\":      { \"type\": \"long\" }," +
-                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "        \"text_column\":      { \"type\": \"text\" }," +
-                "        \"binary_column\":    { \"type\": \"binary\" }," +
-                "        \"timestamp_column\": { \"type\": \"date\" }," +
-                "        \"ipv4_column\": { \"type\": \"ip\" }," +
-                "        \"ipv6_column\": { \"type\": \"ip\" }" +
-                "      }" +
-                "    }" +
+                "  \"properties\": { " +
+                "    \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "    \"float_column\":     { \"type\": \"float\" }," +
+                "    \"double_column\":    { \"type\": \"double\" }," +
+                "    \"integer_column\":   { \"type\": \"integer\" }," +
+                "    \"long_column\":      { \"type\": \"long\" }," +
+                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "    \"text_column\":      { \"type\": \"text\" }," +
+                "    \"binary_column\":    { \"type\": \"binary\" }," +
+                "    \"timestamp_column\": { \"type\": \"date\" }," +
+                "    \"ipv4_column\":      { \"type\": \"ip\" }," +
+                "    \"ipv6_column\":      { \"type\": \"ip\" }" +
                 "  }" +
                 "}";
 
-        createIndex(indexName, mapping);
+        createIndex(indexName, mappings);
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", true)
@@ -388,28 +387,25 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "filter_pushdown";
 
-        String mapping = "" +
+        @Language("JSON")
+        String mappings = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"properties\": {" +
-                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "        \"float_column\":     { \"type\": \"float\" }," +
-                "        \"double_column\":    { \"type\": \"double\" }," +
-                "        \"integer_column\":   { \"type\": \"integer\" }," +
-                "        \"long_column\":      { \"type\": \"long\" }," +
-                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "        \"text_column\":      { \"type\": \"text\" }," +
-                "        \"binary_column\":    { \"type\": \"binary\" }," +
-                "        \"timestamp_column\": { \"type\": \"date\" }," +
-                "        \"ipv4_column\": { \"type\": \"ip\" }," +
-                "        \"ipv6_column\": { \"type\": \"ip\" }" +
-                "      }" +
-                "    }" +
+                "  \"properties\": { " +
+                "    \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "    \"float_column\":     { \"type\": \"float\" }," +
+                "    \"double_column\":    { \"type\": \"double\" }," +
+                "    \"integer_column\":   { \"type\": \"integer\" }," +
+                "    \"long_column\":      { \"type\": \"long\" }," +
+                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "    \"text_column\":      { \"type\": \"text\" }," +
+                "    \"binary_column\":    { \"type\": \"binary\" }," +
+                "    \"timestamp_column\": { \"type\": \"date\" }," +
+                "    \"ipv4_column\":      { \"type\": \"ip\" }," +
+                "    \"ipv6_column\":      { \"type\": \"ip\" }" +
                 "  }" +
                 "}";
 
-        createIndex(indexName, mapping);
+        createIndex(indexName, mappings);
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", true)
@@ -525,32 +521,29 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "types_nested";
 
-        String mapping = "" +
+        @Language("JSON")
+        String properties = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
+                "  \"properties\":{" +
+                "    \"field\": {" +
                 "      \"properties\": {" +
-                "        \"field\": {" +
-                "          \"properties\": {" +
-                "            \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "            \"float_column\":     { \"type\": \"float\" }," +
-                "            \"double_column\":    { \"type\": \"double\" }," +
-                "            \"integer_column\":   { \"type\": \"integer\" }," +
-                "            \"long_column\":      { \"type\": \"long\" }," +
-                "            \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "            \"text_column\":      { \"type\": \"text\" }," +
-                "            \"binary_column\":    { \"type\": \"binary\" }," +
-                "            \"timestamp_column\": { \"type\": \"date\" }," +
-                "            \"ipv4_column\": { \"type\": \"ip\" }," +
-                "            \"ipv6_column\": { \"type\": \"ip\" }" +
-                "          }" +
-                "        }" +
+                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "        \"float_column\":     { \"type\": \"float\" }," +
+                "        \"double_column\":    { \"type\": \"double\" }," +
+                "        \"integer_column\":   { \"type\": \"integer\" }," +
+                "        \"long_column\":      { \"type\": \"long\" }," +
+                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "        \"text_column\":      { \"type\": \"text\" }," +
+                "        \"binary_column\":    { \"type\": \"binary\" }," +
+                "        \"timestamp_column\": { \"type\": \"date\" }," +
+                "        \"ipv4_column\":      { \"type\": \"ip\" }," +
+                "        \"ipv6_column\":      { \"type\": \"ip\" }" +
                 "      }" +
                 "    }" +
                 "  }" +
                 "}";
 
-        createIndex(indexName, mapping);
+        createIndex(indexName, properties);
 
         index(indexName, ImmutableMap.of(
                 "field",
@@ -597,33 +590,30 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         String indexName = "nested_type_nested";
 
-        String mapping = "" +
+        @Language("JSON")
+        String mappings = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
+                "  \"properties\":{" +
+                "    \"nested_field\": {" +
+                "      \"type\":\"nested\"," +
                 "      \"properties\": {" +
-                "        \"nested_field\": {" +
-                "          \"type\":\"nested\"," +
-                "          \"properties\": {" +
-                "            \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "            \"float_column\":     { \"type\": \"float\" }," +
-                "            \"double_column\":    { \"type\": \"double\" }," +
-                "            \"integer_column\":   { \"type\": \"integer\" }," +
-                "            \"long_column\":      { \"type\": \"long\" }," +
-                "            \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "            \"text_column\":      { \"type\": \"text\" }," +
-                "            \"binary_column\":    { \"type\": \"binary\" }," +
-                "            \"timestamp_column\": { \"type\": \"date\" }," +
-                "            \"ipv4_column\": { \"type\": \"ip\" }," +
-                "            \"ipv6_column\": { \"type\": \"ip\" }" +
-                "          }" +
-                "        }" +
+                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "        \"float_column\":     { \"type\": \"float\" }," +
+                "        \"double_column\":    { \"type\": \"double\" }," +
+                "        \"integer_column\":   { \"type\": \"integer\" }," +
+                "        \"long_column\":      { \"type\": \"long\" }," +
+                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "        \"text_column\":      { \"type\": \"text\" }," +
+                "        \"binary_column\":    { \"type\": \"binary\" }," +
+                "        \"timestamp_column\": { \"type\": \"date\" }," +
+                "        \"ipv4_column\":      { \"type\": \"ip\" }," +
+                "        \"ipv6_column\":      { \"type\": \"ip\" }" +
                 "      }" +
                 "    }" +
                 "  }" +
                 "}";
 
-        createIndex(indexName, mapping);
+        createIndex(indexName, mappings);
 
         index(indexName, ImmutableMap.of(
                 "nested_field",
@@ -700,17 +690,14 @@ public class TestElasticsearchIntegrationSmokeTest
             throws IOException
     {
         String indexName = "numeric_keyword";
-        @Language("JSON") String mapping = "" +
+        @Language("JSON")
+        String properties = "" +
                 "{" +
-                "  \"mappings\": {" +
-                "    \"doc\": {" +
-                "      \"properties\": {" +
-                "        \"numeric_keyword\":   { \"type\": \"keyword\" }" +
-                "      }" +
-                "    }" +
+                "  \"properties\":{" +
+                "    \"numeric_keyword\":   { \"type\": \"keyword\" }" +
                 "  }" +
                 "}";
-        createIndex(indexName, mapping);
+        createIndex(indexName, properties);
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("numeric_keyword", 20)
                 .build());
@@ -752,12 +739,15 @@ public class TestElasticsearchIntegrationSmokeTest
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
     }
 
+    protected abstract String indexEndpoint(String index, String docId);
+
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "doc")
-                .source(document)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE));
+        String json = new ObjectMapper().writeValueAsString(document);
+        String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
+        client.getLowLevelClient()
+                .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
     }
 
     private void addAlias(String index, String alias)
@@ -769,11 +759,14 @@ public class TestElasticsearchIntegrationSmokeTest
         refreshIndex(alias);
     }
 
-    private void createIndex(String indexName, @Language("JSON") String mapping)
+    protected abstract String indexMapping(@Language("JSON") String properties);
+
+    private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
+        String mappings = indexMapping(properties);
         client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
+                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
     }
 
     private void refreshIndex(String index)
