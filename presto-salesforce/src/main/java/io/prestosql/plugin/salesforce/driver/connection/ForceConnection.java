@@ -72,11 +72,6 @@ public class ForceConnection
         this.metadata.setConnection(this);
     }
 
-    public Map getCache()
-    {
-        return connectionCache;
-    }
-
     public PartnerConnection getPartnerConnection()
     {
         return partnerConnection;

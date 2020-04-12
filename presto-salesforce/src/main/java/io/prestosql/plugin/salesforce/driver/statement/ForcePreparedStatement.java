@@ -22,10 +22,6 @@ import io.prestosql.plugin.salesforce.driver.metadata.ColumnMap;
 import io.prestosql.plugin.salesforce.driver.metadata.ForceDatabaseMetaData;
 import io.prestosql.plugin.salesforce.driver.resultset.ForceResultSet;
 import org.apache.commons.lang3.StringUtils;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
-import org.mapdb.HTreeMap;
-import org.mapdb.Serializer;
 import org.mule.tools.soql.exception.SOQLParsingException;
 
 import javax.sql.rowset.RowSetMetaDataImpl;
@@ -59,26 +55,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class ForcePreparedStatement
         implements PreparedStatement
 {
-    private static final String CACHE_HINT = "(?is)\\A\\s*(CACHE\\s*(GLOBAL|SESSION)).*";
-    private static final int GB = 1073741824;
     private static final DateFormat SF_DATETIME_FORMATTER = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-    private static DB cacheDb = DBMaker.tempFileDB().closeOnJvmShutdown().make();
-    // TODO: Join caches and move it to ForceConnection class. Divide to session
-    // and static global cache.
-    private static HTreeMap<String, ResultSet> dataCache = cacheDb.hashMap("DataCache", Serializer.STRING, Serializer.ELSA).expireAfterCreate(60, TimeUnit.MINUTES).expireStoreSize(16 * GB).create();
-    private static HTreeMap<String, ResultSetMetaData> metadataCache = cacheDb.hashMap("MetadataCache", Serializer.STRING, Serializer.ELSA).expireAfterCreate(60, TimeUnit.MINUTES).expireStoreSize(1 * GB).create();
     private static Map<Class<?>, Function<Object, String>> paramConverters = new HashMap<>();
-    private final CacheMode cacheMode;
     private String soqlQuery;
     private QueryResult queryResult;
     private ForceConnection connection;
@@ -93,8 +78,7 @@ public class ForcePreparedStatement
     public ForcePreparedStatement(ForceConnection connection, String soql)
     {
         this.connection = connection;
-        this.cacheMode = getCacheMode(soql);
-        this.soqlQuery = removeCacheHints(soql);
+        this.soqlQuery = soql;
     }
 
     public static <T extends Throwable> RuntimeException rethrowAsNonChecked(Throwable throwable)
@@ -127,15 +111,7 @@ public class ForcePreparedStatement
     public ResultSet executeQuery()
             throws SQLException
     {
-        return cacheMode == CacheMode.NO_CACHE ? query() : dataCache.computeIfAbsent(getCacheKey(), s -> {
-            try {
-                return query();
-            }
-            catch (SQLException e) {
-                rethrowAsNonChecked(e);
-                return null;
-            }
-        });
+        return query();
     }
 
     private ResultSet query()
@@ -163,36 +139,6 @@ public class ForcePreparedStatement
             columnMap.put(field.getFullName(), field.getValue());
         });
         return columnMap;
-    }
-
-    protected String removeCacheHints(String query)
-    {
-        Matcher matcher = Pattern.compile(CACHE_HINT).matcher(query);
-        if (matcher.matches()) {
-            String hint = matcher.group(1);
-            return query.replaceFirst(hint, "");
-        }
-        else {
-            return query;
-        }
-    }
-
-    protected CacheMode getCacheMode(String query)
-    {
-        Matcher matcher = Pattern.compile(CACHE_HINT).matcher(query);
-        if (matcher.matches()) {
-            String mode = matcher.group(2);
-            return CacheMode.valueOf(mode.toUpperCase());
-        }
-        else {
-            return CacheMode.NO_CACHE;
-        }
-    }
-
-    private String getCacheKey()
-    {
-        String preparedQuery = prepareQuery();
-        return cacheMode == CacheMode.GLOBAL ? preparedQuery : connection.getPartnerConnection().getSessionHeader().getSessionId() + preparedQuery;
     }
 
     public List<Object> getParameters()
@@ -269,7 +215,7 @@ public class ForcePreparedStatement
                 catch (ConnectionException e) {
                     throw new RuntimeException(e);
                 }
-            }, connection.getCache());
+            });
         }
         return queryAnalyzer;
     }
@@ -285,15 +231,7 @@ public class ForcePreparedStatement
     public ResultSetMetaData getMetaData()
             throws SQLException
     {
-        return cacheMode == CacheMode.NO_CACHE ? loadMetaData() : metadataCache.computeIfAbsent(getCacheKey(), s -> {
-            try {
-                return loadMetaData();
-            }
-            catch (SQLException e) {
-                rethrowAsNonChecked(e);
-                return null;
-            }
-        });
+        return loadMetaData();
     }
 
     public PartnerService getPartnerService()
@@ -1068,11 +1006,6 @@ public class ForcePreparedStatement
             throws SQLException
     {
         // TODO Auto-generated method stub
-    }
-
-    protected enum CacheMode
-    {
-        NO_CACHE, GLOBAL, SESSION
     }
 
     static {

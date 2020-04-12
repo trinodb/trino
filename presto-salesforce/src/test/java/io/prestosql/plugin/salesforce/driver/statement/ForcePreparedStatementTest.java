@@ -81,22 +81,4 @@ public class ForcePreparedStatementTest
 
         assertEquals("SELECT Something FROM Anything WERE name = 'one' AND age > 123", actual);
     }
-
-    @Test
-    public void testGetCacheMode()
-    {
-        ForcePreparedStatement statement = new ForcePreparedStatement(null, "");
-
-        assertEquals(ForcePreparedStatement.CacheMode.SESSION, statement.getCacheMode("CACHE SESSION select name from Account"));
-        assertEquals(ForcePreparedStatement.CacheMode.GLOBAL, statement.getCacheMode(" Cache global select name from Account"));
-        assertEquals(ForcePreparedStatement.CacheMode.NO_CACHE, statement.getCacheMode("select name from Account"));
-        assertEquals(ForcePreparedStatement.CacheMode.NO_CACHE, statement.getCacheMode(" Cache unknown select name from Account"));
-    }
-
-    @Test
-    public void removeCacheHints()
-    {
-        ForcePreparedStatement statement = new ForcePreparedStatement(null, "");
-        assertEquals("  select name from Account", statement.removeCacheHints(" Cache global select name from Account"));
-    }
 }
