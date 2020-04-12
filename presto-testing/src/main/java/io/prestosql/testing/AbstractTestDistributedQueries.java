@@ -1279,6 +1279,12 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
         assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES ('sample value'), ('high value')");
 
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES ('null value'), ('sample value'), ('high value')");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 

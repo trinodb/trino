@@ -79,6 +79,7 @@ public class TestKuduDistributedQueries
     }
 
     @Test
+    @Deprecated // TODO remove when testDataMappingSmokeTest is enabled for Kudu
     public void testKuduPredicatePushdown()
     {
         assertUpdate("CREATE TABLE IF NOT EXISTS test_is_null (" +
