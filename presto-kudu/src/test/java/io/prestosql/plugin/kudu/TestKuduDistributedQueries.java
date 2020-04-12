@@ -20,6 +20,7 @@ import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 
@@ -77,8 +78,8 @@ public class TestKuduDistributedQueries
         // TODO Support these test once kudu connector can create tables with default partitions
     }
 
-    @Override
-    public void testPredicatePushdown()
+    @Test
+    public void testKuduPredicatePushdown()
     {
         assertUpdate("CREATE TABLE IF NOT EXISTS test_is_null (" +
                 "id INT WITH (primary_key=true), " +
