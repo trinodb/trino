@@ -14,7 +14,6 @@
 package io.prestosql.testing;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +26,6 @@ import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
@@ -41,7 +39,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -49,6 +46,7 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.IN
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
+import static io.prestosql.testing.QueryAssertions.getPrestoExceptionCause;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
@@ -1318,15 +1316,6 @@ public abstract class AbstractTestDistributedQueries
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         return Optional.of(dataMappingTestSetup);
-    }
-
-    private static RuntimeException getPrestoExceptionCause(Throwable e)
-    {
-        return Throwables.getCausalChain(e).stream()
-                .filter(cause -> cause.toString().startsWith(PrestoException.class.getName() + ": ")) // e.g. io.prestosql.client.FailureInfo
-                .map(RuntimeException.class::cast)
-                .collect(toOptional())
-                .orElseThrow(() -> new IllegalArgumentException("Exception does not have PrestoException cause", e));
     }
 
     protected static final class DataMappingTestSetup
