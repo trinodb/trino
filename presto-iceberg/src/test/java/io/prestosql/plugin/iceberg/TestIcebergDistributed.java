@@ -76,7 +76,6 @@ public class TestIcebergDistributed
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("tinyint")
                 || typeName.equals("smallint")
-                || typeName.equals("timestamp")
                 || typeName.startsWith("char(")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
