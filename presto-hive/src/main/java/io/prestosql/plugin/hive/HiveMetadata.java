@@ -2001,18 +2001,18 @@ public class HiveMetadata
         HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
                 // Merge indices
                 ImmutableList.<Integer>builder()
-                    .addAll(column.getHiveColumnProjectionInfo()
-                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                        .orElse(ImmutableList.of()))
-                    .addAll(indices)
-                    .build(),
+                        .addAll(column.getHiveColumnProjectionInfo()
+                                .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                                .orElse(ImmutableList.of()))
+                        .addAll(indices)
+                        .build(),
                 // Merge names
                 ImmutableList.<String>builder()
-                    .addAll(column.getHiveColumnProjectionInfo()
-                        .map(HiveColumnProjectionInfo::getDereferenceNames)
-                        .orElse(ImmutableList.of()))
-                    .addAll(oldHiveType.getHiveDereferenceNames(indices))
-                    .build(),
+                        .addAll(column.getHiveColumnProjectionInfo()
+                                .map(HiveColumnProjectionInfo::getDereferenceNames)
+                                .orElse(ImmutableList.of()))
+                        .addAll(oldHiveType.getHiveDereferenceNames(indices))
+                        .build(),
                 newHiveType,
                 newHiveType.getType(typeManager));
 
