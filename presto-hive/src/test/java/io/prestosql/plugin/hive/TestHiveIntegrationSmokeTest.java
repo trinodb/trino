@@ -1494,6 +1494,13 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableWithUnsupportedType()
+    {
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "Unsupported Hive type: time");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "Unsupported Hive type: time");
+    }
+
+    @Test
     public void testPropertiesTable()
     {
         @Language("SQL") String createTable = "" +

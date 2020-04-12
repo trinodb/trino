@@ -810,7 +810,7 @@ public class HiveMetadata
             throw new PrestoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
         }
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session, schemaName, tableName));
 
@@ -1232,7 +1232,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session, schemaName, tableName));
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
 
         // unpartitioned tables ignore the partition storage format
@@ -2222,7 +2222,7 @@ public class HiveMetadata
     {
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
-        validateCsvColumns(tableMetadata);
+        validateColumns(tableMetadata);
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         if (!bucketProperty.isPresent()) {
             // return preferred layout which is partitioned by partition columns
@@ -2433,11 +2433,11 @@ public class HiveMetadata
         }
     }
 
-    private static List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
+    private List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
     {
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
-        validateCsvColumns(tableMetadata);
+        validateColumns(tableMetadata);
 
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         int ordinal = 0;
@@ -2465,8 +2465,13 @@ public class HiveMetadata
         return columnHandles.build();
     }
 
-    private static void validateCsvColumns(ConnectorTableMetadata tableMetadata)
+    private void validateColumns(ConnectorTableMetadata tableMetadata)
     {
+        // Validate types are supported
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            toHiveType(typeTranslator, column.getType());
+        }
+
         if (getHiveStorageFormat(tableMetadata.getProperties()) != HiveStorageFormat.CSV) {
             return;
         }
