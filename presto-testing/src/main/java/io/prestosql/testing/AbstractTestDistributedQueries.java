@@ -1249,11 +1249,16 @@ public abstract class AbstractTestDistributedQueries
         String tableName = "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
 
         Runnable setup = () -> {
-            String createTable = format("CREATE TABLE %s(id varchar, value %s)", tableName, prestoTypeName);
-            assertUpdate(createTable);
-            assertUpdate(
-                    format("INSERT INTO %s VALUES ('null value', NULL), ('sample value', %s), ('high value', %s)", tableName, sampleValueLiteral, highValueLiteral),
-                    3);
+            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
+            String createTable = "" +
+                    "CREATE TABLE " + tableName + " AS " +
+                    "SELECT CAST(id AS varchar) id, CAST(value AS " + prestoTypeName + ") value " +
+                    "FROM (VALUES " +
+                    "  ('null value', NULL), " +
+                    "  ('sample value', " + sampleValueLiteral + "), " +
+                    "  ('high value', " + highValueLiteral + ")) " +
+                    " t(id, value)";
+            assertUpdate(createTable, 3);
         };
         if (dataMappingTestSetup.isUnsupportedType()) {
             String typeNameBase = prestoTypeName.replaceFirst("\\(.*", "");
