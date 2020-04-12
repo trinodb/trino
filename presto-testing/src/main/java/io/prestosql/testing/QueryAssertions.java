@@ -81,7 +81,7 @@ public final class QueryAssertions
 
         if (results.getUpdateCount().isPresent()) {
             if (!count.isPresent()) {
-                fail("update count should be present");
+                fail("expected no update count, but got " + results.getUpdateCount().getAsLong());
             }
             assertEquals(results.getUpdateCount().getAsLong(), count.getAsLong(), "update count");
         }
