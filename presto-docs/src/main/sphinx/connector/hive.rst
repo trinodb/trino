@@ -775,6 +775,54 @@ Now, Presto queries can take advantage of the Alluxio catalog service, such as
 transparent caching and transparent transformations, without any modifications
 to existing Hive metastore deployments.
 
+Source Data Caching
+-------------------
+
+Presto can cache data read from remote sources, e.g. cloud stores, on the cluster to speed up the subsequent reads.
+Data caching can be enabled by setting the following properties:
+
+============================================ ======================================================================
+Property Name                                Description
+============================================ ======================================================================
+``hive.cache.enabled``                       Enables data caching when set to ``true``
+
+``hive.cache.location``                      The location on nodes to use to store the cached data.
+                                             In-memory caching can be achieved by providing RAM disk location here.
+                                             For on-disk caching, it is recommended to use SSD disks
+============================================ ======================================================================
+
+Setting these configs for a hive catalog enables data caching on all tables in that catalog.
+Following optional configurations can be used to control the caching behavior:
+
+============================================ ================================================================== ===========
+Property Name                                Description                                                          Default
+============================================ ================================================================== ===========
+``hive.cache.parallel-warmup-enabled``       Enables asynchronous cache warmup to minimize the impact of        ``true``
+                                             cold-cache.
+
+``hive.cache.bookkeeper-port``               Defines the port to be used by the BookKeeper server.              8899
+                                             All nodes should be configured with same port.
+
+``hive.cache.data-transfer-port``            Defines the port to be used by the Data transfer server.           8898
+                                             All nodes should be configured with same port.
+============================================ ================================================================== ===========
+
+Presto uses `Rubix <https://github.com/qubole/rubix>`_ for caching data. Apart from above mentioned configs, advanced Rubix configs can be
+found in `Rubix documentation <https://rubix.readthedocs.io/en/latest/configuration.html>`_ . Ones marked
+"Yes" under "Applicable to Embedded mode" can be provided via a Hadoop Configuration style file through
+``hive.config.resources`` config.
+
+Data Caching Statistics
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Rubix publishes jmx metrics like hit-ratio, data read from cache, data read from remote source, etc under the name
+``rubix:name=stats,catalog=<Catalog Name>``. If you have enabled data caching in your catalog named ``myHiveConnector``
+then you can run the following command to see all the caching related statistics:
+
+.. code-block:: sql
+
+    SELECT * FROM jmx.CURRENT."rubix:name=stats,catalog=myHiveConnector"
+
 Table Statistics
 ----------------
 
