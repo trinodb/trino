@@ -327,6 +327,25 @@ Approximate Aggregate Functions
     for all ``value``\ s. This function is equivalent to the variant of
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
 
+.. function:: approx_most_frequent(buckets, value, capacity) -> map<[same as value], bigint>
+
+    Computes the top frequent values up to ``buckets`` elements approximately.
+    Approximate estimation of the function enables us to pick up the frequent
+    values with less memory. Larger ``capacity`` improves the accuracy of
+    underlying algorithm with sacrificing the memory capacity. The returned
+    value is a map containing the top elements with corresponding estimated
+    frequency.
+
+    The error of the function depends on the permutation of the values and its
+    cardinality. We can set the capacity same as the cardinality of the
+    underlying data to achieve the least error.
+
+    ``buckets`` and ``capacity`` must be ``bigint``. ``value`` can be numeric
+    or string type.
+
+    The function uses the stream summary data structure proposed in the paper
+    `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwalley, D.Agrawl and A.Abbadi.
+
 Statistical Aggregate Functions
 -------------------------------
 
