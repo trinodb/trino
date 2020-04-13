@@ -311,6 +311,12 @@
                         <!-- io.airlift:joni and phoenix-client's org.jruby.joni:joni resource duplicates-->
                         <ignoredResourcePattern>tables/.*\.bin</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredDependencies>
+                        <dependency>
+                            <groupId>com.clearspring.analytics</groupId>
+                            <artifactId>stream</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
         </plugins>

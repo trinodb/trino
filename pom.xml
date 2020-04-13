@@ -1218,6 +1218,12 @@
                 <artifactId>rubix-presto-shaded</artifactId>
                 <version>${rubix.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.clearspring.analytics</groupId>
+                <artifactId>stream</artifactId>
+                <version>2.9.5</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
