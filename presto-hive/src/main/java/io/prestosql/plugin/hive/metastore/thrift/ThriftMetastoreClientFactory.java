@@ -202,10 +202,10 @@ public class ThriftMetastoreClientFactory
                 ((X509Certificate) certificate).checkValidity();
             }
             catch (CertificateExpiredException e) {
-                throw new CertificateExpiredException("KeyStore certificate is expired: " + e.getMessage());
+                throw new CertificateExpiredException(String.format("KeyStore certificate %s is expired: %s", alias, e.getMessage()));
             }
             catch (CertificateNotYetValidException e) {
-                throw new CertificateNotYetValidException("KeyStore certificate is not yet valid: " + e.getMessage());
+                throw new CertificateNotYetValidException(String.format("KeyStore certificate %s is not yet valid: %s", alias, e.getMessage()));
             }
         }
     }
