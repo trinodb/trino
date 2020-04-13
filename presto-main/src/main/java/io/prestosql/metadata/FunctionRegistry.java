@@ -26,6 +26,7 @@ import io.prestosql.operator.aggregation.ApproximateDoublePercentileAggregations
 import io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
 import io.prestosql.operator.aggregation.ApproximateLongPercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateLongPercentileArrayAggregations;
+import io.prestosql.operator.aggregation.ApproximateMostFrequentFunction;
 import io.prestosql.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.prestosql.operator.aggregation.ApproximateSetAggregation;
@@ -638,7 +639,8 @@ public class FunctionRegistry
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
-                .scalars(WilsonInterval.class);
+                .scalars(WilsonInterval.class)
+                .aggregate(ApproximateMostFrequentFunction.class);
 
         // timestamp operators and functions
         builder
