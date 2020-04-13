@@ -263,7 +263,7 @@ public class TestWebUi
         try (TestingPrestoServer server = TestingPrestoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
-                        .put("web-ui.enabled", "false")
+                        .put("web-ui", String.valueOf(WebUiType.DISABLED))
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);

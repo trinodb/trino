@@ -73,6 +73,6 @@ public class DisabledWebUiAuthenticationManager
 
     private static String getRedirectLocation(HttpServletRequest request, String path)
     {
-        return FormWebUiAuthenticationManager.getRedirectLocation(request, path, null);
+        return WebUiUtil.getRedirectLocation(request, path, null);
     }
 }

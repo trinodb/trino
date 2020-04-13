@@ -15,9 +15,6 @@ package io.prestosql.server.ui;
 
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
-import com.google.common.net.HostAndPort;
-import com.google.common.primitives.Ints;
-import io.airlift.http.client.HttpUriBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -49,19 +46,19 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.HOST;
-import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.prestosql.server.ui.WebUiUtil.LOGIN_FORM;
+import static io.prestosql.server.ui.WebUiUtil.UI_LOCATION;
+import static io.prestosql.server.ui.WebUiUtil.getLoginFormLocation;
+import static io.prestosql.server.ui.WebUiUtil.getRedirectLocation;
+import static io.prestosql.server.ui.WebUiUtil.getUiLocation;
+import static io.prestosql.server.ui.WebUiUtil.sendRedirect;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
 public class FormWebUiAuthenticationManager
@@ -69,9 +66,7 @@ public class FormWebUiAuthenticationManager
 {
     private static final String PRESTO_UI_AUDIENCE = "presto-ui";
     private static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
-    private static final String LOGIN_FORM = "/ui/login.html";
     private static final String DISABLED_LOCATION = "/ui/disabled.html";
-    private static final String UI_LOCATION = "/ui/";
 
     private final Function<String, String> jwtParser;
     private final Function<String, String> jwtGenerator;
@@ -297,37 +292,6 @@ public class FormWebUiAuthenticationManager
                 pathInfo.startsWith("/ui/assets");
     }
 
-    private static void sendRedirect(HttpServletResponse response, String location)
-    {
-        response.setHeader(LOCATION, location);
-        response.setStatus(SC_SEE_OTHER);
-    }
-
-    private static String getLoginFormLocation(HttpServletRequest request)
-    {
-        return getRedirectLocation(request, LOGIN_FORM);
-    }
-
-    private static String getUiLocation(HttpServletRequest request)
-    {
-        return getRedirectLocation(request, UI_LOCATION);
-    }
-
-    private static String getRedirectLocation(HttpServletRequest request, String path)
-    {
-        return getRedirectLocation(request, path, null);
-    }
-
-    static String getRedirectLocation(HttpServletRequest request, String path, String queryParameter)
-    {
-        HttpUriBuilder builder = toUriBuilderWithForwarding(request);
-        builder.replacePath(path);
-        if (queryParameter != null) {
-            builder.addParameter(queryParameter);
-        }
-        return builder.toString();
-    }
-
     private static boolean isHttps(HttpServletRequest request)
     {
         return "https".equals(firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_PROTO)), request.getScheme()));
@@ -356,27 +320,5 @@ public class FormWebUiAuthenticationManager
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();
-    }
-
-    private static HttpUriBuilder toUriBuilderWithForwarding(HttpServletRequest request)
-    {
-        HttpUriBuilder builder;
-        if (isNullOrEmpty(request.getHeader(X_FORWARDED_PROTO)) && isNullOrEmpty(request.getHeader(X_FORWARDED_HOST))) {
-            // not forwarded
-            builder = uriBuilder()
-                    .scheme(request.getScheme())
-                    .hostAndPort(HostAndPort.fromString(request.getHeader(HOST)));
-        }
-        else {
-            // forwarded
-            builder = uriBuilder()
-                    .scheme(firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_PROTO)), request.getScheme()))
-                    .hostAndPort(HostAndPort.fromString(firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_HOST)), request.getHeader(HOST))));
-
-            Optional.ofNullable(emptyToNull(request.getHeader(X_FORWARDED_PORT)))
-                    .map(Ints::tryParse)
-                    .ifPresent(builder::port);
-        }
-        return builder;
     }
 }

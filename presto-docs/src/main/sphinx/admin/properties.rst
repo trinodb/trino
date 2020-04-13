@@ -843,13 +843,15 @@ Web UI Properties
 
 The following properties can be used to configure the :doc:`./web-interface`.
 
-``web-ui.enabled``
+``web-ui``
 ^^^^^^^^^^^^^^^^^^
 
-    * **Type:** ``boolean``
-    * **Default value:** ``true``
+    * **Type:** ``string``
+    * **Allowed values:** ``JWT``, ``NOAUTH``, ``DISABLED``
+    * **Default value:** ``JWT``
 
-    This property controls whether or not the Web UI is available.
+    This property controls whether or not the Web UI is available and whether or
+    not the authorization is enable.
 
 ``web-ui.shared-secret``
 ^^^^^^^^^^^^^^^^^^^^^^^^

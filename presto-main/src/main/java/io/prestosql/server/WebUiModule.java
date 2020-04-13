@@ -20,6 +20,7 @@ import io.prestosql.server.ui.ClusterResource;
 import io.prestosql.server.ui.ClusterStatsResource;
 import io.prestosql.server.ui.DisabledWebUiAuthenticationManager;
 import io.prestosql.server.ui.FormWebUiAuthenticationManager;
+import io.prestosql.server.ui.NoAuthWebUiAuthenticationManager;
 import io.prestosql.server.ui.UiQueryResource;
 import io.prestosql.server.ui.WebUiAuthenticationManager;
 import io.prestosql.server.ui.WebUiConfig;
@@ -38,14 +39,25 @@ public class WebUiModule
 
         configBinder(binder).bindConfig(WebUiConfig.class);
 
-        if (buildConfigObject(WebUiConfig.class).isEnabled()) {
-            binder.bind(WebUiAuthenticationManager.class).to(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
-            jaxrsBinder(binder).bind(ClusterResource.class);
-            jaxrsBinder(binder).bind(ClusterStatsResource.class);
-            jaxrsBinder(binder).bind(UiQueryResource.class);
+        switch (buildConfigObject(WebUiConfig.class).getType()) {
+            case DISABLED:
+                binder.bind(WebUiAuthenticationManager.class).to(DisabledWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+                break;
+            case JWT:
+                binder.bind(WebUiAuthenticationManager.class).to(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+                webUiSetup(binder);
+                break;
+            case NOAUTH:
+                binder.bind(WebUiAuthenticationManager.class).to(NoAuthWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+                webUiSetup(binder);
+                break;
         }
-        else {
-            binder.bind(WebUiAuthenticationManager.class).to(DisabledWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
-        }
+    }
+
+    private void webUiSetup(Binder binder)
+    {
+        jaxrsBinder(binder).bind(ClusterResource.class);
+        jaxrsBinder(binder).bind(ClusterStatsResource.class);
+        jaxrsBinder(binder).bind(UiQueryResource.class);
     }
 }

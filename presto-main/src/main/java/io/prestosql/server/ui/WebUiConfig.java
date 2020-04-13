@@ -24,19 +24,19 @@ import static java.util.concurrent.TimeUnit.DAYS;
 
 public class WebUiConfig
 {
-    private boolean enabled = true;
+    private WebUiType type = WebUiType.JWT;
     private Optional<String> sharedSecret = Optional.empty();
     private Duration sessionTimeout = new Duration(1, DAYS);
 
-    public boolean isEnabled()
+    public WebUiType getType()
     {
-        return enabled;
+        return type;
     }
 
-    @Config("web-ui.enabled")
-    public WebUiConfig setEnabled(boolean enabled)
+    @Config("web-ui")
+    public WebUiConfig setType(WebUiType type)
     {
-        this.enabled = enabled;
+        this.type = type;
         return this;
     }
 
