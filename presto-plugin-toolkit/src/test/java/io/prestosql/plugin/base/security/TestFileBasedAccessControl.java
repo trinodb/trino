@@ -200,20 +200,9 @@ public class TestFileBasedAccessControl
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)
     {
-        return new ConnectorSecurityContext()
-        {
-            @Override
-            public ConnectorTransactionHandle getTransactionHandle()
-            {
-                return new ConnectorTransactionHandle() {};
-            }
-
-            @Override
-            public ConnectorIdentity getIdentity()
-            {
-                return ConnectorIdentity.forUser(name).withGroups(groups).build();
-            }
-        };
+        return new ConnectorSecurityContext(
+                new ConnectorTransactionHandle() {},
+                ConnectorIdentity.forUser(name).withGroups(groups).build());
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)
