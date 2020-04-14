@@ -22,6 +22,7 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
+import io.prestosql.server.security.SecurityConfig;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
@@ -57,6 +58,7 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.prestosql.server.ServletSecurityUtils.isSecure;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -75,10 +77,14 @@ public class FormWebUiAuthenticationManager
 
     private final Function<String, String> jwtParser;
     private final Function<String, String> jwtGenerator;
+    private final boolean httpsForwardingEnabled;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
 
     @Inject
-    public FormWebUiAuthenticationManager(WebUiConfig config, PasswordAuthenticatorManager passwordAuthenticatorManager)
+    public FormWebUiAuthenticationManager(
+            WebUiConfig config,
+            SecurityConfig securityConfig,
+            PasswordAuthenticatorManager passwordAuthenticatorManager)
     {
         byte[] hmac;
         if (config.getSharedSecret().isPresent()) {
@@ -93,6 +99,8 @@ public class FormWebUiAuthenticationManager
 
         long sessionTimeoutNanos = config.getSessionTimeout().roundTo(NANOSECONDS);
         this.jwtGenerator = username -> generateJwt(hmac, username, sessionTimeoutNanos);
+
+        this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
 
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
     }
@@ -204,7 +212,7 @@ public class FormWebUiAuthenticationManager
             return Optional.empty();
         }
 
-        if (!isHttps(request)) {
+        if (!isSecure(request, httpsForwardingEnabled)) {
             return Optional.of(username);
         }
 
@@ -266,17 +274,17 @@ public class FormWebUiAuthenticationManager
     {
         String jwt = jwtGenerator.apply(userName);
         Cookie cookie = new Cookie(PRESTO_UI_COOKIE, jwt);
-        cookie.setSecure(isHttps(request));
+        cookie.setSecure(isSecure(request, httpsForwardingEnabled));
         cookie.setHttpOnly(true);
         cookie.setPath("/ui");
         return cookie;
     }
 
-    private static Cookie getDeleteCookie(HttpServletRequest request)
+    private Cookie getDeleteCookie(HttpServletRequest request)
     {
         Cookie cookie = new Cookie(PRESTO_UI_COOKIE, "delete");
         cookie.setMaxAge(0);
-        cookie.setSecure(isHttps(request));
+        cookie.setSecure(isSecure(request, httpsForwardingEnabled));
         cookie.setHttpOnly(true);
         return cookie;
     }
@@ -328,14 +336,9 @@ public class FormWebUiAuthenticationManager
         return builder.toString();
     }
 
-    private static boolean isHttps(HttpServletRequest request)
-    {
-        return "https".equals(firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_PROTO)), request.getScheme()));
-    }
-
     private boolean isAuthenticationEnabled(HttpServletRequest request)
     {
-        return !isHttps(request) || passwordAuthenticatorManager.isLoaded();
+        return !isSecure(request, httpsForwardingEnabled) || passwordAuthenticatorManager.isLoaded();
     }
 
     private static String generateJwt(byte[] hmac, String username, long sessionTimeoutNanos)
