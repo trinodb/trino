@@ -32,7 +32,7 @@ public class WebUiModule
         configBinder(binder).bindConfig(WebUiConfig.class);
 
         if (buildConfigObject(WebUiConfig.class).isEnabled()) {
-            binder.bind(WebUiAuthenticationManager.class).to(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+            install(new WebUiAuthenticationModule());
             jaxrsBinder(binder).bind(ClusterResource.class);
             jaxrsBinder(binder).bind(ClusterStatsResource.class);
             jaxrsBinder(binder).bind(UiQueryResource.class);
