@@ -45,11 +45,13 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
@@ -72,6 +74,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
 import static org.testng.Assert.assertEquals;
@@ -227,6 +230,18 @@ public class TestServer
                 {"SELECT 1 / 0"}, // fails during optimization
                 {"select 1 / a from (values 0) t(a)"}, // fails during execution
         };
+    }
+
+    @Test
+    public void testStatusPing()
+    {
+        Request request = prepareHead()
+                .setUri(uriFor("/v1/status"))
+                .setFollowRedirects(false)
+                .build();
+        StatusResponse response = client.execute(request, createStatusResponseHandler());
+        assertEquals(response.getStatusCode(), OK.getStatusCode(), "Status code");
+        assertEquals(response.getHeader(CONTENT_TYPE), APPLICATION_JSON, "Content Type");
     }
 
     @Test
