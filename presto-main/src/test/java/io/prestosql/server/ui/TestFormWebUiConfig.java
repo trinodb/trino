@@ -14,32 +14,37 @@
 package io.prestosql.server.ui;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestWebUiConfig
+public class TestFormWebUiConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(WebUiConfig.class)
-                .setEnabled(true));
+        assertRecordedDefaults(recordDefaults(FormWebUiConfig.class)
+                .setSessionTimeout(new Duration(1, TimeUnit.DAYS))
+                .setSharedSecret(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("web-ui.enabled", "false")
+                .put("web-ui.session-timeout", "33s")
+                .put("web-ui.shared-secret", "test-secret")
                 .build();
 
-        WebUiConfig expected = new WebUiConfig()
-                .setEnabled(false);
+        FormWebUiConfig expected = new FormWebUiConfig()
+                .setSessionTimeout(new Duration(33, TimeUnit.SECONDS))
+                .setSharedSecret("test-secret");
 
         assertFullMapping(properties, expected);
     }

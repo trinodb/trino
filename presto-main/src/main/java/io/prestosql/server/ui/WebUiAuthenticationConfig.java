@@ -14,20 +14,22 @@
 package io.prestosql.server.ui;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
-public class WebUiConfig
+public class WebUiAuthenticationConfig
 {
-    private boolean enabled = true;
+    private String authentication;
 
-    public boolean isEnabled()
+    public String getAuthentication()
     {
-        return enabled;
+        return authentication;
     }
 
-    @Config("web-ui.enabled")
-    public WebUiConfig setEnabled(boolean enabled)
+    @Config("web-ui.authentication.type")
+    @ConfigDescription("Authentication type for the web ui")
+    public WebUiAuthenticationConfig setAuthentication(String authentication)
     {
-        this.enabled = enabled;
+        this.authentication = authentication;
         return this;
     }
 }
