@@ -382,4 +382,14 @@ public class FormWebUiAuthenticationManager
         }
         return builder;
     }
+
+    public static boolean redirectAllFormLoginToUi(HttpServletRequest request, HttpServletResponse response)
+    {
+        // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back ot the main UI page.
+        if (request.getPathInfo().equals(LOGIN_FORM) || request.getPathInfo().equals("/ui/login") || request.getPathInfo().equals("/ui/logout")) {
+            sendRedirect(response, getRedirectLocation(request, UI_LOCATION));
+            return true;
+        }
+        return false;
+    }
 }
