@@ -14,10 +14,13 @@
 package io.prestosql.server.ui;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class FormUiAuthenticatorModule
@@ -29,5 +32,6 @@ public class FormUiAuthenticatorModule
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
         binder.bind(WebUiAuthenticationManager.class).to(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FormWebUiConfig.class);
+        newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class));
     }
 }
