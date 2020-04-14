@@ -81,6 +81,8 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -97,6 +99,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 
 public class HiveWriterFactory
@@ -130,6 +133,8 @@ public class HiveWriterFactory
     private final Table table;
     private final DataSize sortBufferSize;
     private final int maxOpenSortFiles;
+    private final boolean sortedWritingTempStagingPathEnabled;
+    private final String sortedWritingTempStagingPath;
     private final boolean immutablePartitions;
     private final InsertExistingPartitionsBehavior insertExistingPartitionsBehavior;
     private final DateTimeZone parquetTimeZone;
@@ -192,6 +197,8 @@ public class HiveWriterFactory
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.sortBufferSize = requireNonNull(sortBufferSize, "sortBufferSize is null");
         this.maxOpenSortFiles = maxOpenSortFiles;
+        this.sortedWritingTempStagingPathEnabled = isTemporaryStagingDirectoryEnabled(session);
+        this.sortedWritingTempStagingPath = getTemporaryStagingDirectoryPath(session);
         this.immutablePartitions = immutablePartitions;
         this.insertExistingPartitionsBehavior = HiveSessionProperties.getInsertExistingPartitionsBehavior(session);
         if (immutablePartitions) {
@@ -501,8 +508,21 @@ public class HiveWriterFactory
 
         if (!sortedBy.isEmpty()) {
             FileSystem fileSystem;
+            Path tempFilePath;
+            if (sortedWritingTempStagingPathEnabled) {
+                String tempPrefix = sortedWritingTempStagingPath.replace(
+                        "${USER}",
+                        new HdfsContext(session, schemaName, tableName).getIdentity().getUser());
+                tempFilePath = new Path(tempPrefix, ".tmp-sort." + path.getParent().getName() + "." + path.getName());
+            }
+            else {
+                tempFilePath = new Path(path.getParent(), ".tmp-sort." + path.getName());
+            }
             try {
-                fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, conf);
+                Configuration configuration = new Configuration(conf);
+                // Explicitly set the default FS to local file system to avoid getting HDFS when sortedWritingTempStagingPath specifies no scheme
+                configuration.set(FS_DEFAULT_NAME_KEY, "file:///");
+                fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), tempFilePath, configuration);
             }
             catch (IOException e) {
                 throw new PrestoException(HIVE_WRITER_OPEN_ERROR, e);
@@ -530,7 +550,7 @@ public class HiveWriterFactory
 
             hiveFileWriter = new SortingFileWriter(
                     fileSystem,
-                    new Path(path.getParent(), ".tmp-sort." + path.getName()),
+                    tempFilePath,
                     hiveFileWriter,
                     sortBufferSize,
                     maxOpenSortFiles,
