@@ -15,6 +15,7 @@ package io.prestosql.plugin.base.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
@@ -202,7 +203,8 @@ public class TestFileBasedAccessControl
     {
         return new ConnectorSecurityContext(
                 new ConnectorTransactionHandle() {},
-                ConnectorIdentity.forUser(name).withGroups(groups).build());
+                ConnectorIdentity.forUser(name).withGroups(groups).build(),
+                new QueryId("query_id"));
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

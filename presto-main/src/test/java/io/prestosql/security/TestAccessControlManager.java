@@ -28,6 +28,7 @@ import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.Connector;
@@ -72,6 +73,7 @@ public class TestAccessControlManager
 {
     private static final Principal PRINCIPAL = new BasicPrincipal("principal");
     private static final String USER_NAME = "user_name";
+    private static final QueryId queryId = new QueryId("query_id");
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
     public void testInitializing()
@@ -102,7 +104,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    SecurityContext context = new SecurityContext(transactionId, identity);
+                    SecurityContext context = new SecurityContext(transactionId, identity, queryId);
                     accessControlManager.checkCanSetCatalogSessionProperty(context, "catalog", "property");
                     accessControlManager.checkCanShowSchemas(context, "catalog");
                     accessControlManager.checkCanShowTables(context, new CatalogSchemaName("catalog", "schema"));
@@ -121,7 +123,7 @@ public class TestAccessControlManager
         try {
             transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
-                        accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity), tableName);
+                        accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId), tableName);
                     });
             fail();
         }
@@ -240,7 +242,7 @@ public class TestAccessControlManager
     private static SecurityContext context(TransactionId transactionId)
     {
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
-        return new SecurityContext(transactionId, identity);
+        return new SecurityContext(transactionId, identity, queryId);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")

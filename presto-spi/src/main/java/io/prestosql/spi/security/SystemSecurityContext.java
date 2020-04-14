@@ -13,19 +13,30 @@
  */
 package io.prestosql.spi.security;
 
+import io.prestosql.spi.QueryId;
+
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class SystemSecurityContext
 {
     private final Identity identity;
+    private final Optional<QueryId> queryId;
 
-    public SystemSecurityContext(Identity identity)
+    public SystemSecurityContext(Identity identity, Optional<QueryId> queryId)
     {
         this.identity = requireNonNull(identity, "identity is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
     }
 
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public Optional<QueryId> getQueryId()
+    {
+        return queryId;
     }
 }
