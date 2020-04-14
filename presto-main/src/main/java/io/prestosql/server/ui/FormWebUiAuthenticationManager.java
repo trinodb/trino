@@ -82,7 +82,7 @@ public class FormWebUiAuthenticationManager
 
     @Inject
     public FormWebUiAuthenticationManager(
-            WebUiConfig config,
+            FormWebUiConfig config,
             SecurityConfig securityConfig,
             PasswordAuthenticatorManager passwordAuthenticatorManager)
     {
