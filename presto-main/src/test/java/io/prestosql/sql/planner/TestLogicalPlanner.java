@@ -74,7 +74,6 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
@@ -178,7 +177,6 @@ public class TestLogicalPlanner
                                 ImmutableMap.of(
                                         "output_1", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f0"),
                                         "output_2", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f1")),
-                                enforceSingleRow(
                                         project(
                                                 ImmutableMap.of("row", expression("ROW(min, max)")),
                                                 aggregation(
@@ -192,7 +190,7 @@ public class TestLogicalPlanner
                                                                                 "min_regionkey", functionCall("min", ImmutableList.of("REGIONKEY")),
                                                                                 "max_name", functionCall("max", ImmutableList.of("NAME"))),
                                                                         PARTIAL,
-                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))))));
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))))));
     }
 
     @Test
@@ -406,13 +404,13 @@ public class TestLogicalPlanner
         assertEquals(
                 countOfMatchingNodes(
                         plan("SELECT * FROM orders WHERE CAST(orderkey AS INTEGER) = (SELECT 1) AND custkey = (SELECT 2) AND CAST(custkey as REAL) != (SELECT 1)"),
-                        EnforceSingleRowNode.class::isInstance),
+                        ValuesNode.class::isInstance),
                 2);
         // same query used for left, right and complex join condition
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 1)"),
-                        EnforceSingleRowNode.class::isInstance),
+                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey > (SELECT 1)"),
+                        ValuesNode.class::isInstance),
                 1);
     }
 
