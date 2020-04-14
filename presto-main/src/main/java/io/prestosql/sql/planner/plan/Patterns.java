@@ -250,7 +250,7 @@ public final class Patterns
 
         public static Property<CorrelatedJoinNode, Lookup, PlanNode> subquery()
         {
-            return property("subquery", CorrelatedJoinNode::getSubquery);
+            return property("subquery", (node, context) -> context.resolve(node.getSubquery()));
         }
 
         public static Property<CorrelatedJoinNode, Lookup, Expression> filter()
