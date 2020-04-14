@@ -11,18 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server;
+package io.prestosql.server.ui;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.server.ui.ClusterResource;
-import io.prestosql.server.ui.ClusterStatsResource;
-import io.prestosql.server.ui.DisabledWebUiAuthenticationManager;
-import io.prestosql.server.ui.FormWebUiAuthenticationManager;
-import io.prestosql.server.ui.UiQueryResource;
-import io.prestosql.server.ui.WebUiAuthenticationManager;
-import io.prestosql.server.ui.WebUiConfig;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
