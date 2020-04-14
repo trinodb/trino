@@ -62,7 +62,6 @@ public class TestWebUi
             .put("http-server.https.enabled", "true")
             .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
             .put("http-server.https.keystore.key", "")
-            .put("http-server.authentication.type", "PASSWORD")
             .build();
     private static final String TEST_USER = "test-user";
     private static final String TEST_PASSWORD = "test-password";
@@ -321,6 +320,56 @@ public class TestWebUi
         assertOk(client, getValidAssetsLocation(baseUri));
 
         assertOk(client, getValidVendorLocation(baseUri));
+    }
+
+    @Test
+    public void testFixedAuthenticator()
+            throws Exception
+    {
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "fixed")
+                        .put("web-ui.user", "test-user")
+                        .build())
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            testAlwaysAuthorized(httpServerInfo.getHttpUri(), client);
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), client);
+
+            testFixedAuthenticator(httpServerInfo.getHttpUri());
+            testFixedAuthenticator(httpServerInfo.getHttpsUri());
+        }
+    }
+
+    private void testFixedAuthenticator(URI baseUri)
+            throws Exception
+    {
+        assertOk(client, getUiLocation(baseUri));
+
+        assertOk(client, getValidApiLocation(baseUri));
+
+        assertResponseCode(client, getLocation(baseUri, "/ui/unknown"), SC_NOT_FOUND);
+
+        assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
+    }
+
+    private static void testAlwaysAuthorized(URI baseUri, OkHttpClient authorizedClient)
+            throws IOException
+    {
+        assertOk(authorizedClient, getUiLocation(baseUri));
+
+        assertOk(authorizedClient, getValidApiLocation(baseUri));
+
+        assertRedirect(authorizedClient, getLoginHtmlLocation(baseUri), getUiLocation(baseUri));
+
+        assertRedirect(authorizedClient, getLoginLocation(baseUri), getUiLocation(baseUri));
+
+        assertRedirect(authorizedClient, getLogoutLocation(baseUri), getUiLocation(baseUri));
+
+        assertResponseCode(authorizedClient, getLocation(baseUri, "/ui/unknown"), SC_NOT_FOUND);
+
+        assertResponseCode(authorizedClient, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
     }
 
     private static Response assertOk(OkHttpClient client, String url)
