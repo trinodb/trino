@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.prestosql.FullConnectorSecurityContext;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
@@ -933,7 +932,7 @@ public class AccessControlManager
 
         public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity)
         {
-            return new FullConnectorSecurityContext(
+            return new ConnectorSecurityContext(
                     transactionManager.getConnectorTransaction(requiredTransactionId, catalogName),
                     identity.toConnectorIdentity(catalogName.getCatalogName()));
         }
