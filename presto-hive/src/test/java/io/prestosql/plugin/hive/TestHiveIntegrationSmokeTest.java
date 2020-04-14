@@ -171,7 +171,10 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.allow-register-partition-procedure", "true",
+                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
+                        "hive.writer-sort-buffer-size", "1MB"))
                 .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
@@ -6855,6 +6858,33 @@ public class TestHiveIntegrationSmokeTest
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
                     return hiveInsertTableHandle;
                 });
+    }
+
+    @Test
+    public void testSortedWritingTempStaging()
+    {
+        String tableName = "test_sorted_writing";
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s " +
+                        "WITH (" +
+                        "   bucket_count = 7," +
+                        "   bucketed_by = ARRAY['shipmode']," +
+                        "   sorted_by = ARRAY['shipmode']" +
+                        ") AS " +
+                        "SELECT * FROM tpch.tiny.lineitem",
+                tableName);
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "sorted_writing_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .build();
+
+        assertUpdate(session, createTableSql, 60175L);
+        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.lineitem");
+        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
