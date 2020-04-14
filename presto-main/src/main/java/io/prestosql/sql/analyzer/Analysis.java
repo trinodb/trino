@@ -27,6 +27,7 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.eventlistener.ColumnInfo;
@@ -1002,9 +1003,9 @@ public class Analysis
             return accessControl;
         }
 
-        public SecurityContext getSecurityContext(TransactionId transactionId)
+        public SecurityContext getSecurityContext(TransactionId transactionId, QueryId queryId)
         {
-            return new SecurityContext(transactionId, identity);
+            return new SecurityContext(transactionId, identity, queryId);
         }
 
         @Override

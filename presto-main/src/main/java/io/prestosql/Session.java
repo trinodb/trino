@@ -316,7 +316,7 @@ public final class Session
 
             for (Entry<String, String> property : catalogProperties.entrySet()) {
                 // verify permissions
-                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId, identity), catalogName, property.getKey());
+                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId, identity, queryId), catalogName, property.getKey());
 
                 // validate session property value
                 sessionPropertyManager.validateCatalogSessionProperty(catalog, catalogName, property.getKey(), property.getValue());
@@ -332,7 +332,7 @@ public final class Session
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(new SecurityContext(transactionId, identity), role.getRole().get(), catalogName);
+                accessControl.checkCanSetRole(new SecurityContext(transactionId, identity, queryId), role.getRole().get(), catalogName);
             }
             roles.put(catalog.getCatalogName(), role);
 
@@ -518,7 +518,7 @@ public final class Session
 
     public SecurityContext toSecurityContext()
     {
-        return new SecurityContext(getRequiredTransactionId(), getIdentity());
+        return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId);
     }
 
     public static class SessionBuilder
