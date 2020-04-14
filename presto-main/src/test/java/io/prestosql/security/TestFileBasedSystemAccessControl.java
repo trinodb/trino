@@ -64,7 +64,6 @@ public class TestFileBasedSystemAccessControl
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
     private static final QualifiedObjectName staffTable = new QualifiedObjectName("staff-catalog", "schema2", "table");
     private static final QualifiedObjectName staffView = new QualifiedObjectName("staff-catalog", "schema2", "view");
-    private static final CatalogSchemaName staffSchema = new CatalogSchemaName("staff-catalog", "schema2");
 
     @Test
     public void testCanImpersonateUserOperations()
