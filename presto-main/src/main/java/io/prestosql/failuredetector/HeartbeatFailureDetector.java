@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.prestosql.failuredetector.FailureDetector.State.ALIVE;
 import static io.prestosql.failuredetector.FailureDetector.State.GONE;
@@ -257,7 +258,7 @@ public class HeartbeatFailureDetector
                 URI uri = getHttpUri(service);
 
                 if (uri != null) {
-                    tasks.put(service.getId(), new MonitoringTask(service, uri));
+                    tasks.put(service.getId(), new MonitoringTask(service, uriBuilderFrom(uri).appendPath("/v1/status").build()));
                 }
             }
 
