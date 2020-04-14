@@ -71,7 +71,7 @@ public class ScalarAggregationToJoinRewriter
     public PlanNode rewriteScalarAggregation(CorrelatedJoinNode correlatedJoinNode, AggregationNode aggregation)
     {
         List<Symbol> correlation = correlatedJoinNode.getCorrelation();
-        Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
+        Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(aggregation.getSource(), correlation);
         if (!source.isPresent()) {
             return correlatedJoinNode;
         }
@@ -107,7 +107,7 @@ public class ScalarAggregationToJoinRewriter
                 symbolAllocator.newSymbol("unique", BigintType.BIGINT));
 
         JoinNode leftOuterJoin = new JoinNode(
-                idAllocator.getNextId(),
+                correlatedJoinNode.getId(),
                 JoinNode.Type.LEFT,
                 inputWithUniqueColumns,
                 scalarAggregationSource,
@@ -122,21 +122,17 @@ public class ScalarAggregationToJoinRewriter
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Optional<AggregationNode> aggregationNode = createAggregationNode(
+        AggregationNode aggregationNode = createAggregationNode(
                 scalarAggregation,
                 leftOuterJoin,
                 nonNull);
-
-        if (!aggregationNode.isPresent()) {
-            return correlatedJoinNode;
-        }
 
         Optional<ProjectNode> subqueryProjection = searchFrom(correlatedJoinNode.getSubquery(), lookup)
                 .where(ProjectNode.class::isInstance)
                 .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
                 .findFirst();
 
-        List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(correlatedJoinNode, aggregationNode.get());
+        List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(correlatedJoinNode, aggregationNode);
 
         if (subqueryProjection.isPresent()) {
             Assignments assignments = Assignments.builder()
@@ -146,13 +142,13 @@ public class ScalarAggregationToJoinRewriter
 
             return new ProjectNode(
                     idAllocator.getNextId(),
-                    aggregationNode.get(),
+                    aggregationNode,
                     assignments);
         }
         else {
             return new ProjectNode(
                     idAllocator.getNextId(),
-                    aggregationNode.get(),
+                    aggregationNode,
                     Assignments.identity(aggregationOutputSymbols));
         }
     }
@@ -165,7 +161,7 @@ public class ScalarAggregationToJoinRewriter
                 .collect(toImmutableList());
     }
 
-    private Optional<AggregationNode> createAggregationNode(
+    private AggregationNode createAggregationNode(
             AggregationNode scalarAggregation,
             JoinNode leftOuterJoin,
             Symbol nonNullableAggregationSourceSymbol)
@@ -192,14 +188,14 @@ public class ScalarAggregationToJoinRewriter
             }
         }
 
-        return Optional.of(new AggregationNode(
-                idAllocator.getNextId(),
+        return new AggregationNode(
+                scalarAggregation.getId(),
                 leftOuterJoin,
                 aggregations.build(),
                 singleGroupingSet(leftOuterJoin.getLeft().getOutputSymbols()),
                 ImmutableList.of(),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashSymbol(),
-                Optional.empty()));
+                Optional.empty());
     }
 }
