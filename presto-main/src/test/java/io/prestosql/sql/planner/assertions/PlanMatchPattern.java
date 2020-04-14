@@ -496,8 +496,19 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, Set<String> partitionedBy, PlanMatchPattern... sources)
     {
+        return exchange(scope, type, orderBy, partitionedBy, Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(
+            ExchangeNode.Scope scope,
+            ExchangeNode.Type type,
+            List<Ordering> orderBy,
+            Set<String> partitionedBy,
+            Optional<List<List<String>>> inputs,
+            PlanMatchPattern... sources)
+    {
         return node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type, orderBy, partitionedBy));
+                .with(new ExchangeMatcher(scope, type, orderBy, partitionedBy, inputs));
     }
 
     public static PlanMatchPattern union(PlanMatchPattern... sources)
