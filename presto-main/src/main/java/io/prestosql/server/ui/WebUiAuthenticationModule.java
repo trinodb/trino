@@ -14,13 +14,25 @@
 package io.prestosql.server.ui;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.util.Modules;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.server.security.Authenticator;
+import io.prestosql.server.security.CertificateAuthenticator;
+import io.prestosql.server.security.CertificateConfig;
+import io.prestosql.server.security.JsonWebTokenAuthenticator;
+import io.prestosql.server.security.JsonWebTokenConfig;
+import io.prestosql.server.security.KerberosAuthenticator;
+import io.prestosql.server.security.KerberosConfig;
 import io.prestosql.server.security.SecurityConfig;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -35,6 +47,10 @@ public class WebUiAuthenticationModule
 
         installWebUiAuthenticator("form", new FormUiAuthenticatorModule());
         installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule());
+
+        installWebUiAuthenticator("certificate", CertificateAuthenticator.class, CertificateConfig.class);
+        installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
+        installWebUiAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
     }
 
     private void installWebUiAuthenticator(String type, Module module)
@@ -42,9 +58,24 @@ public class WebUiAuthenticationModule
         install(webUiAuthenticator(type, module));
     }
 
+    private void installWebUiAuthenticator(String name, Class<? extends Authenticator> authenticator, Class<?> config)
+    {
+        install(webUiAuthenticator(name, authenticator, binder -> configBinder(binder).bindConfig(config)));
+    }
+
     public static Module webUiAuthenticator(String type, Module module)
     {
         return new ConditionalWebUiAuthenticationModule(type, module);
+    }
+
+    public static Module webUiAuthenticator(String name, Class<? extends Authenticator> clazz, Module module)
+    {
+        checkArgument(name.toLowerCase(ENGLISH).equals(name), "name is not lower case: %s", name);
+        Module authModule = binder -> {
+            binder.install(new FormUiAuthenticatorModule());
+            newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class)).setBinding().to(clazz).in(SINGLETON);
+        };
+        return webUiAuthenticator(name, Modules.combine(module, authModule));
     }
 
     private static class ConditionalWebUiAuthenticationModule
