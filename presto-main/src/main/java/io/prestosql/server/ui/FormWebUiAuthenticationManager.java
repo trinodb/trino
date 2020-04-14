@@ -21,6 +21,9 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.prestosql.server.ServletSecurityUtils;
+import io.prestosql.server.security.AuthenticationException;
+import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.SecurityConfig;
 import io.prestosql.spi.security.AccessDeniedException;
@@ -79,12 +82,14 @@ public class FormWebUiAuthenticationManager
     private final Function<String, String> jwtGenerator;
     private final boolean httpsForwardingEnabled;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
+    private final Optional<Authenticator> authenticator;
 
     @Inject
     public FormWebUiAuthenticationManager(
             FormWebUiConfig config,
             SecurityConfig securityConfig,
-            PasswordAuthenticatorManager passwordAuthenticatorManager)
+            PasswordAuthenticatorManager passwordAuthenticatorManager,
+            @ForWebUi Optional<Authenticator> authenticator)
     {
         byte[] hmac;
         if (config.getSharedSecret().isPresent()) {
@@ -103,6 +108,7 @@ public class FormWebUiAuthenticationManager
         this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
 
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
+        this.authenticator = requireNonNull(authenticator, "authenticator is null");
     }
 
     @Override
@@ -118,8 +124,15 @@ public class FormWebUiAuthenticationManager
             nextFilter.doFilter(request, response);
             return;
         }
+
+        // authenticator over a secure connection bypasses the form login
+        if (authenticator.isPresent() && isSecure(request, httpsForwardingEnabled)) {
+            handleProtocolLoginRequest(authenticator.get(), request, response, nextFilter);
+            return;
+        }
+
         if (request.getPathInfo().equals("/ui/login")) {
-            handleLoginRequest(request, response);
+            handleFormLoginRequest(request, response);
             return;
         }
         if (request.getPathInfo().equals("/ui/logout")) {
@@ -179,7 +192,41 @@ public class FormWebUiAuthenticationManager
         return path;
     }
 
-    private void handleLoginRequest(HttpServletRequest request, HttpServletResponse response)
+    private static void handleProtocolLoginRequest(Authenticator authenticator, HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
+            throws IOException, ServletException
+    {
+        Identity authenticatedIdentity;
+        try {
+            authenticatedIdentity = authenticator.authenticate(request);
+        }
+        catch (AuthenticationException e) {
+            // authentication failed
+            ServletSecurityUtils.skipRequestBody(request);
+
+            e.getAuthenticateHeader().ifPresent(value -> response.addHeader(WWW_AUTHENTICATE, value));
+
+            ServletSecurityUtils.sendErrorMessage(response, SC_UNAUTHORIZED, firstNonNull(e.getMessage(), "Unauthorized"));
+            return;
+        }
+
+        if (redirectFormLoginToUi(request, response)) {
+            return;
+        }
+
+        ServletSecurityUtils.withAuthenticatedIdentity(nextFilter, request, response, authenticatedIdentity);
+    }
+
+    public static boolean redirectFormLoginToUi(HttpServletRequest request, HttpServletResponse response)
+    {
+        // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back to the main UI page.
+        if (request.getPathInfo().equals(LOGIN_FORM) || request.getPathInfo().equals("/ui/login") || request.getPathInfo().equals("/ui/logout")) {
+            sendRedirect(response, getRedirectLocation(request, UI_LOCATION));
+            return true;
+        }
+        return false;
+    }
+
+    private void handleFormLoginRequest(HttpServletRequest request, HttpServletResponse response)
     {
         if (!isAuthenticationEnabled(request)) {
             sendRedirect(response, getRedirectLocation(request, DISABLED_LOCATION));
@@ -338,7 +385,9 @@ public class FormWebUiAuthenticationManager
 
     private boolean isAuthenticationEnabled(HttpServletRequest request)
     {
-        return !isSecure(request, httpsForwardingEnabled) || passwordAuthenticatorManager.isLoaded();
+        // unsecured requests support username-only authentication (no password)
+        // secured requests require a password authenticator or a protocol level authenticator
+        return !isSecure(request, httpsForwardingEnabled) || passwordAuthenticatorManager.isLoaded() || authenticator.isPresent();
     }
 
     private static String generateJwt(byte[] hmac, String username, long sessionTimeoutNanos)

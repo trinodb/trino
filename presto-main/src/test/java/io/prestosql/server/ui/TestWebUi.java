@@ -18,6 +18,8 @@ import com.google.common.io.Resources;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.node.NodeInfo;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.security.AccessDeniedException;
@@ -35,10 +37,15 @@ import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.Principal;
+import java.time.ZonedDateTime;
+import java.util.Date;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
@@ -47,6 +54,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
@@ -65,6 +73,7 @@ public class TestWebUi
             .build();
     private static final String TEST_USER = "test-user";
     private static final String TEST_PASSWORD = "test-password";
+    private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
 
     private TestingPrestoServer server;
     private OkHttpClient client;
@@ -354,6 +363,69 @@ public class TestWebUi
         assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
     }
 
+    @Test
+    public void testCertAuthenticator()
+            throws Exception
+    {
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "certificate")
+                        .put("http-server.https.truststore.path", LOCALHOST_KEYSTORE)
+                        .put("http-server.https.truststore.key", "")
+                        .build())
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            testLogIn(httpServerInfo.getHttpUri());
+
+            testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
+
+            OkHttpClient.Builder clientBuilder = client.newBuilder();
+            setupSsl(
+                    clientBuilder,
+                    Optional.of(LOCALHOST_KEYSTORE),
+                    Optional.empty(),
+                    Optional.of(LOCALHOST_KEYSTORE),
+                    Optional.empty());
+            OkHttpClient clientWithCert = clientBuilder.build();
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithCert);
+        }
+    }
+
+    @Test
+    public void testJwtAuthenticator()
+            throws Exception
+    {
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "jwt")
+                        .put("http-server.authentication.jwt.key-file", HMAC_KEY)
+                        .build())
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            testLogIn(httpServerInfo.getHttpUri());
+
+            testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
+
+            String hmac = new String(Files.readAllBytes(Paths.get(HMAC_KEY)), UTF_8);
+            String token = Jwts.builder()
+                    .signWith(SignatureAlgorithm.HS256, hmac)
+                    .setSubject("test-user")
+                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .compact();
+
+            OkHttpClient clientWithJwt = client.newBuilder()
+                    .authenticator((route, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token)
+                            .build())
+                    .build();
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithJwt);
+        }
+    }
+
     private static void testAlwaysAuthorized(URI baseUri, OkHttpClient authorizedClient)
             throws IOException
     {
@@ -370,6 +442,17 @@ public class TestWebUi
         assertResponseCode(authorizedClient, getLocation(baseUri, "/ui/unknown"), SC_NOT_FOUND);
 
         assertResponseCode(authorizedClient, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
+    }
+
+    private static void testNeverAuthorized(URI baseUri, OkHttpClient notAuthorizedClient)
+            throws IOException
+    {
+        assertResponseCode(notAuthorizedClient, getUiLocation(baseUri), SC_UNAUTHORIZED);
+        assertResponseCode(notAuthorizedClient, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
+        assertResponseCode(notAuthorizedClient, getLoginLocation(baseUri), SC_UNAUTHORIZED);
+        assertResponseCode(notAuthorizedClient, getLogoutLocation(baseUri), SC_UNAUTHORIZED);
+        assertResponseCode(notAuthorizedClient, getLocation(baseUri, "/ui/unknown"), SC_UNAUTHORIZED);
+        assertResponseCode(notAuthorizedClient, getLocation(baseUri, "/ui/api/unknown"), SC_UNAUTHORIZED);
     }
 
     private static Response assertOk(OkHttpClient client, String url)
