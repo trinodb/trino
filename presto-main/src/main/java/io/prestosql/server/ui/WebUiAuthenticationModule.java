@@ -34,6 +34,7 @@ public class WebUiAuthenticationModule
         configBinder(binder).bindConfig(WebUiAuthenticationConfig.class);
 
         installWebUiAuthenticator("form", new FormUiAuthenticatorModule());
+        installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule());
     }
 
     private void installWebUiAuthenticator(String type, Module module)
