@@ -40,8 +40,6 @@
         <dependency>
             <groupId>jconn4</groupId>
             <artifactId>jconn4</artifactId>
-            <scope>system</scope>
-            <systemPath>C:\Users\siddh\Desktop\prestosql\presto\presto-sybase\src\main\java\io\prestosql\plugin\sybase\lib\jconn4.jar</systemPath>
         </dependency>
 
         <dependency>
