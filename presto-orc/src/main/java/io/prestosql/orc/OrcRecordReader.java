@@ -51,6 +51,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -129,7 +130,7 @@ public class OrcRecordReader
             long splitLength,
             ColumnMetadata<OrcType> orcTypes,
             Optional<OrcDecompressor> decompressor,
-            int rowsInRowGroup,
+            OptionalInt rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
@@ -166,9 +167,6 @@ public class OrcRecordReader
 
         requireNonNull(options, "options is null");
         this.maxBlockBytes = options.getMaxBlockSize().toBytes();
-
-        // it is possible that old versions of orc use 0 to mean there are no row groups
-        checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
 
         // sort stripes by file position
         List<StripeInfo> stripeInfos = new ArrayList<>();

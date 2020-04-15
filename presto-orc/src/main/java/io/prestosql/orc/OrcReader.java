@@ -182,7 +182,7 @@ public class OrcReader
         this.rootColumn = createOrcColumn("", "", new OrcColumnId(0), footer.getTypes(), orcDataSource.getId());
 
         validateWrite(validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
-        validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
+        validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup().orElse(0), "Unexpected rows in group");
         if (writeValidation.isPresent()) {
             writeValidation.get().validateMetadata(orcDataSource.getId(), footer.getUserMetadata());
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());

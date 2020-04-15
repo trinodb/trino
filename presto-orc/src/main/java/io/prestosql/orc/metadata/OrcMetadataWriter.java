@@ -114,7 +114,7 @@ public class OrcMetadataWriter
     {
         OrcProto.Footer.Builder builder = OrcProto.Footer.newBuilder()
                 .setNumberOfRows(footer.getNumberOfRows())
-                .setRowIndexStride(footer.getRowsInRowGroup())
+                .setRowIndexStride(footer.getRowsInRowGroup().orElse(0))
                 .addAllStripes(footer.getStripes().stream()
                         .map(OrcMetadataWriter::toStripeInformation)
                         .collect(toList()))
