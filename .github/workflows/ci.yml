@@ -137,9 +137,9 @@ jobs:
             !presto-redis,
             !presto-sqlserver,!presto-postgresql,!presto-mysql,
             !presto-oracle,
+            !presto-kudu,
             !presto-phoenix,!presto-iceberg,
-            !presto-docs,!presto-server,!presto-server-rpm,
-            !presto-kudu'
+            !presto-docs,!presto-server,!presto-server-rpm'
 
   test:
     runs-on: ubuntu-latest
@@ -158,9 +158,9 @@ jobs:
           - "presto-mongodb,presto-kafka,presto-elasticsearch"
           - "presto-redis"
           - "presto-sqlserver,presto-postgresql,presto-mysql"
-          - "presto-phoenix,presto-iceberg"
-          - "presto-kudu"
           - "presto-oracle"
+          - "presto-kudu"
+          - "presto-phoenix,presto-iceberg"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
