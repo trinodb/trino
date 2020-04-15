@@ -17,7 +17,10 @@ import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.execution.buffer.SerializedPage;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 
+import javax.inject.Inject;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
@@ -34,7 +37,10 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPages;
+import static java.util.Objects.requireNonNull;
 
 @Provider
 @Produces(PRESTO_PAGES)
@@ -53,6 +59,15 @@ public class PagesResponseWriter
         catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private final boolean dataIntegrityVerificationEnabled;
+
+    @Inject
+    public PagesResponseWriter(FeaturesConfig featuresConfig)
+    {
+        requireNonNull(featuresConfig, "featuresConfig is null");
+        this.dataIntegrityVerificationEnabled = featuresConfig.getExchangeDataIntegrityVerification() != DataIntegrityVerification.NONE;
     }
 
     @Override
@@ -82,6 +97,7 @@ public class PagesResponseWriter
         try {
             SliceOutput sliceOutput = new OutputStreamSliceOutput(output);
             sliceOutput.writeInt(SERIALIZED_PAGES_MAGIC);
+            sliceOutput.writeLong(dataIntegrityVerificationEnabled ? calculateChecksum(serializedPages) : NO_CHECKSUM);
             sliceOutput.writeInt(serializedPages.size());
             writeSerializedPages(sliceOutput, serializedPages);
             // We use flush instead of close, because the underlying stream would be closed and that is not allowed.

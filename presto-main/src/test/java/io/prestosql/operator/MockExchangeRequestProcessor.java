@@ -27,7 +27,6 @@ import io.airlift.units.DataSize;
 import io.prestosql.client.PrestoHeaders;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerdeUtil;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.spi.Page;
 
@@ -47,6 +46,8 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.calculateChecksum;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.prestosql.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static org.testng.Assert.assertEquals;
@@ -99,8 +100,9 @@ public class MockExchangeRequestProcessor
         if (!result.getSerializedPages().isEmpty()) {
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
             sliceOutput.writeInt(SERIALIZED_PAGES_MAGIC);
+            sliceOutput.writeLong(calculateChecksum(result.getSerializedPages()));
             sliceOutput.writeInt(result.getSerializedPages().size());
-            PagesSerdeUtil.writeSerializedPages(sliceOutput, result.getSerializedPages());
+            writeSerializedPages(sliceOutput, result.getSerializedPages());
             bytes = sliceOutput.slice().getBytes();
             status = HttpStatus.OK;
         }

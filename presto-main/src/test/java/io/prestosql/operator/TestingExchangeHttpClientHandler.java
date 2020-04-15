@@ -24,7 +24,7 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerdeUtil;
+import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.spi.Page;
 
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
@@ -32,6 +32,8 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.calculateChecksum;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.prestosql.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
@@ -73,10 +75,12 @@ public class TestingExchangeHttpClientHandler
         if (page != null) {
             headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
+            SerializedPage serializedPage = PAGES_SERDE.serialize(page);
             DynamicSliceOutput output = new DynamicSliceOutput(256);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
+            output.writeLong(calculateChecksum(ImmutableList.of(serializedPage)));
             output.writeInt(1);
-            PagesSerdeUtil.writePages(PAGES_SERDE, output, page);
+            writeSerializedPage(output, serializedPage);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
         else if (taskBuffer.isFinished()) {
@@ -84,6 +88,7 @@ public class TestingExchangeHttpClientHandler
             headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(true));
             DynamicSliceOutput output = new DynamicSliceOutput(8);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
+            output.writeLong(calculateChecksum(ImmutableList.of()));
             output.writeInt(0);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
