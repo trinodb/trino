@@ -405,12 +405,15 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new RemoveUnreferencedScalarSubqueries(),
-                                new TransformUncorrelatedSubqueryToJoin(),
-                                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                                new TransformCorrelatedScalarAggregationToJoin(metadata),
-                                new TransformCorrelatedJoinToJoin(metadata))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(
+                                        new RemoveRedundantEnforceSingleRowNode(),
+                                        new RemoveUnreferencedScalarSubqueries(),
+                                        new TransformUncorrelatedSubqueryToJoin(),
+                                        new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                                        new TransformCorrelatedJoinToJoin(metadata))
+                                .addAll(new TransformCorrelatedScalarAggregationToJoin(metadata).rules())
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

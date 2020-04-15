@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin.TransformCorrelatedScalarAggregationWithProjection;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -30,13 +31,13 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 
-public class TestTransformCorrelatedScalarAggregationToJoin
+public class TestTransformCorrelatedScalarAggregationWithProjection
         extends BaseRuleTest
 {
     @Test
-    public void doesNotFireOnPlanWithoutApplyNode()
+    public void doesNotFireOnPlanWithoutCorrelatedJoinNode()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationWithProjection(tester().getMetadata()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -44,7 +45,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationWithProjection(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -55,7 +56,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationWithProjection(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -66,7 +67,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationWithProjection(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -78,9 +79,27 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     }
 
     @Test
-    public void rewritesOnSubqueryWithoutProjection()
+    public void doesNotFireOnMultipleProjections()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationWithProjection(tester().getMetadata()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.project(
+                                Assignments.of(p.symbol("expr_2"), p.expression("expr - 1")),
+                                p.project(
+                                        Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
+                                        p.aggregation(ab -> ab
+                                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                                .globalGrouping())))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void doesNotFireOnSubqueryWithoutProjection()
+    {
+        tester().assertThat(new TransformCorrelatedScalarAggregationWithProjection(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -88,21 +107,13 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
                                 .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
-                .matches(
-                        project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
-                                aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                        join(JoinNode.Type.LEFT,
-                                                ImmutableList.of(),
-                                                assignUniqueId("unique",
-                                                        values(ImmutableMap.of("corr", 0))),
-                                                project(ImmutableMap.of("non_null", expression("true")),
-                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
+                .doesNotFire();
     }
 
     @Test
     public void rewritesOnSubqueryWithProjection()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationWithProjection(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -114,31 +125,6 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                        join(JoinNode.Type.LEFT,
-                                                ImmutableList.of(),
-                                                assignUniqueId("unique",
-                                                        values(ImmutableMap.of("corr", 0))),
-                                                project(ImmutableMap.of("non_null", expression("true")),
-                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
-    }
-
-    @Test
-    public void testSubqueryWithCount()
-    {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
-                .on(p -> p.correlatedJoin(
-                        ImmutableList.of(p.symbol("corr")),
-                        p.values(p.symbol("corr")),
-                        p.aggregation(ab -> ab
-                                .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("count_rows"), PlanBuilder.expression("count(*)"), ImmutableList.of())
-                                .addAggregation(p.symbol("count_non_null_values"), PlanBuilder.expression("count(a)"), ImmutableList.of(BIGINT))
-                                .globalGrouping())))
-                .matches(
-                        project(
-                                aggregation(ImmutableMap.of(
-                                        "count_rows", functionCall("count", ImmutableList.of("non_null")),
-                                        "count_non_null_values", functionCall("count", ImmutableList.of("a"))),
                                         join(JoinNode.Type.LEFT,
                                                 ImmutableList.of(),
                                                 assignUniqueId("unique",
