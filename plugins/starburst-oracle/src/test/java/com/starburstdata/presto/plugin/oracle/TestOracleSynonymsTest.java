@@ -32,8 +32,8 @@ public class TestOracleSynonymsTest
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", TestingOracleServer.USER)
-                        .put("connection-password", TestingOracleServer.PASSWORD)
+                        .put("connection-user", OracleTestUsers.USER)
+                        .put("connection-password", OracleTestUsers.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("oracle.synonyms.enabled", "true")
                         .build())
@@ -59,7 +59,7 @@ public class TestOracleSynonymsTest
         // See OracleClient#getColumns for more details.
         executeInOracle("CREATE TABLE ordersx AS SELECT 'a' some_additional_column FROM dual");
         assertQuery(
-                format("SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND table_schema = '%s'", TestingOracleServer.USER),
+                format("SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND table_schema = '%s'", OracleTestUsers.USER),
                 "VALUES 'orderkey', 'custkey', 'orderstatus', 'totalprice', 'orderdate', 'orderpriority', 'clerk', 'shippriority', 'comment'");
         executeInOracle("DROP TABLE ordersx");
     }

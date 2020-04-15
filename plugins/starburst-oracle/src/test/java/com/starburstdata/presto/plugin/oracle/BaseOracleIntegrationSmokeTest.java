@@ -17,7 +17,6 @@ import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Strings.repeat;
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.USER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
@@ -31,7 +30,7 @@ public abstract class BaseOracleIntegrationSmokeTest
 {
     protected String getUser()
     {
-        return USER;
+        return OracleTestUsers.USER;
     }
 
     @Override

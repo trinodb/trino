@@ -34,8 +34,8 @@ public class TestOracleTableStatistics
         return OracleQueryRunner.builder()
             .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", TestingOracleServer.USER)
-                        .put("connection-password", TestingOracleServer.PASSWORD)
+                        .put("connection-user", OracleTestUsers.USER)
+                        .put("connection-password", OracleTestUsers.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
                         .build())
@@ -327,7 +327,7 @@ public class TestOracleTableStatistics
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
-            assertUpdate(format("CALL system.analyze('%s', '%s')", TestingOracleServer.USER, tableName));
+            assertUpdate(format("CALL system.analyze('%s', '%s')", OracleTestUsers.USER, tableName));
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
@@ -351,7 +351,7 @@ public class TestOracleTableStatistics
     {
         executeInOracle(connection -> {
             try (CallableStatement statement = connection.prepareCall("{CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?)}")) {
-                statement.setString(1, TestingOracleServer.USER);
+                statement.setString(1, OracleTestUsers.USER);
                 statement.setString(2, tableName);
                 statement.execute();
             }

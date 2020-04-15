@@ -34,8 +34,8 @@ public class TestOracleDistributedQueries
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", TestingOracleServer.USER)
-                        .put("connection-password", TestingOracleServer.PASSWORD)
+                        .put("connection-user", OracleTestUsers.USER)
+                        .put("connection-password", OracleTestUsers.PASSWORD)
                         .put("oracle.connection-pool.enabled", "true")
                         .put("oracle.connection-pool.max-size", "10")
                         .put("allow-drop-table", "true")
@@ -140,8 +140,8 @@ public class TestOracleDistributedQueries
     private JdbcSqlExecutor createJdbcSqlExecutor()
     {
         Properties properties = new Properties();
-        properties.setProperty("user", TestingOracleServer.USER);
-        properties.setProperty("password", TestingOracleServer.PASSWORD);
+        properties.setProperty("user", OracleTestUsers.USER);
+        properties.setProperty("password", OracleTestUsers.PASSWORD);
         return new JdbcSqlExecutor(TestingOracleServer.getJdbcUrl(), properties);
     }
 }

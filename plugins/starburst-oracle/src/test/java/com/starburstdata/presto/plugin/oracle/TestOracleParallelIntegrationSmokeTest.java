@@ -14,34 +14,42 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.PARTITIONED_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createStandardUsers;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createUser;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 
 public class TestOracleParallelIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
 {
+    public static final String PARTITIONED_USER = "partitioned_user";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner runner = OracleQueryRunner.builder()
+        return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", TestingOracleServer.USER)
-                        .put("connection-password", TestingOracleServer.PASSWORD)
+                        .put("connection-user", OracleTestUsers.USER)
+                        .put("connection-password", OracleTestUsers.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.concurrent.max-splits-per-scan", "17")
                         .build())
                 .withSessionModifier(session -> createSession(PARTITIONED_USER, PARTITIONED_USER))
                 .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .withCreateUsers(TestOracleParallelIntegrationSmokeTest::createUsers)
+                .withProvisionTables(TestOracleParallelIntegrationSmokeTest::partitionTables)
                 .build();
+    }
 
-        partitionTables();
-
-        return runner;
+    private static void createUsers()
+    {
+        createStandardUsers();
+        createUser(PARTITIONED_USER, OracleTestUsers.KERBERIZED_USER);
+        executeInOracle(format("GRANT SELECT ON user_context to %s", PARTITIONED_USER));
     }
 
     private static void partitionTables()

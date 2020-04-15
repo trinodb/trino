@@ -13,11 +13,11 @@ import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.ALICE_USER;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.BOB_USER;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.CHARLIE_USER;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.UNKNOWN_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.ALICE_USER;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.BOB_USER;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.CHARLIE_USER;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.UNKNOWN_USER;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;

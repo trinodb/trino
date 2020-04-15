@@ -22,13 +22,10 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 
 public final class TestingOracleServer
 {
-    public static final String USER = "presto_test_user";
-    public static final String PASSWORD = "testsecret";
-
     private static final OracleContainer CONTAINER = new CustomOracleContainer(
             "docker-proxy.aws.starburstdata.com:5001/oracledb:12.2.0.1-ee")
-            .withUsername(USER)
-            .withPassword(PASSWORD)
+            .withUsername(OracleTestUsers.USER)
+            .withPassword(OracleTestUsers.PASSWORD)
             .withEnv("ORACLE_SID", "testdbsid")
             .withEnv("ORACLE_PDB", "testdb")
             .withEnv("ORACLE_PWD", "secret")
@@ -60,7 +57,7 @@ public final class TestingOracleServer
 
     public static void executeInOracle(Consumer<Connection> connectionCallback)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), USER, PASSWORD)) {
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), OracleTestUsers.USER, OracleTestUsers.PASSWORD)) {
             connectionCallback.accept(connection);
         }
         catch (SQLException e) {

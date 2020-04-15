@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import com.google.common.util.concurrent.Runnables;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -23,21 +24,20 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
-import java.sql.SQLException;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.USER;
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.ALICE_USER;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.PASSWORD;
+import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.USER;
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTable;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -47,11 +47,6 @@ public final class OracleQueryRunner
     private static final Logger LOG = Logger.get(OracleQueryRunner.class);
 
     private static final String ORACLE_CATALOG = "oracle";
-    public static final String ALICE_USER = "alice";
-    public static final String BOB_USER = "bob";
-    public static final String CHARLIE_USER = "charlie";
-    public static final String UNKNOWN_USER = "non_existing_user";
-    public static final String PARTITIONED_USER = "partitioned_user";
 
     private OracleQueryRunner() {}
 
@@ -60,7 +55,9 @@ public final class OracleQueryRunner
             Function<Session, Session> sessionModifier,
             Iterable<TpchTable<?>> tables,
             int nodesCount,
-            Map<String, String> coordinatorProperties)
+            Map<String, String> coordinatorProperties,
+            Runnable createUsers,
+            Runnable provisionTables)
             throws Exception
     {
         Logging logging = Logging.initialize();
@@ -76,26 +73,7 @@ public final class OracleQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-            String kerberizedUser = "test";
-            createKerberizedUser(kerberizedUser);
-
-            createUser(ALICE_USER, kerberizedUser);
-            createUser(BOB_USER, kerberizedUser);
-            createUser(CHARLIE_USER, kerberizedUser);
-            createUser(PARTITIONED_USER, kerberizedUser);
-
-            executeInOracle(
-                    "CREATE OR REPLACE VIEW user_context AS " +
-                            "SELECT " +
-                            "sys_context('USERENV', 'SESSION_USER') AS session_user_column," +
-                            "sys_context('USERENV', 'SESSION_SCHEMA') AS session_schema_column," +
-                            "sys_context('USERENV', 'CURRENT_SCHEMA') AS current_schema_column," +
-                            "sys_context('USERENV', 'PROXY_USER') AS proxy_user_column " +
-                            "FROM dual");
-
-            executeInOracle(format("GRANT SELECT ON user_context to %s", ALICE_USER));
-            executeInOracle(format("GRANT SELECT ON user_context to %s", BOB_USER));
-            executeInOracle(format("GRANT SELECT ON user_context to %s", PARTITIONED_USER));
+            createUsers.run();
 
             queryRunner.installPlugin(new TestingOraclePlugin());
             queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
@@ -104,55 +82,14 @@ public final class OracleQueryRunner
             queryRunner.createCatalog("jmx", "jmx", ImmutableMap.of());
 
             provisionTables(session, queryRunner, tables);
+
+            provisionTables.run();
         }
         catch (Throwable e) {
             closeAllSuppress(e, queryRunner);
             throw e;
         }
         return queryRunner;
-    }
-
-    private static void createKerberizedUser(String user)
-    {
-        try {
-            executeInOracle(format("CREATE USER %s IDENTIFIED EXTERNALLY AS '%s@TESTING-KRB.STARBURSTDATA.COM'", user, user));
-        }
-        catch (RuntimeException e) {
-            propagateUnlessUserAlreadyExists(e);
-        }
-        executeInOracle("GRANT CONNECT,RESOURCE TO " + user);
-        executeInOracle("GRANT UNLIMITED TABLESPACE TO " + user);
-        executeInOracle("GRANT CREATE ANY TABLE TO " + user);
-        executeInOracle("GRANT DROP ANY TABLE TO " + user);
-        executeInOracle("GRANT INSERT ANY TABLE TO " + user);
-        executeInOracle("GRANT SELECT ANY TABLE TO " + user);
-        executeInOracle("GRANT ALTER ANY TABLE TO " + user);
-        executeInOracle("GRANT LOCK ANY TABLE TO " + user);
-        executeInOracle("GRANT ANALYZE ANY TO " + user);
-    }
-
-    private static void createUser(String user, String kerberizedUser)
-    {
-        try {
-            executeInOracle(format("CREATE USER %s IDENTIFIED BY \"vier1Str0ngP@55vvord\"", user));
-        }
-        catch (RuntimeException e) {
-            propagateUnlessUserAlreadyExists(e);
-        }
-        executeInOracle(format("ALTER USER %s GRANT CONNECT THROUGH %s", user, USER));
-        executeInOracle(format("ALTER USER %s GRANT CONNECT THROUGH %s", user, kerberizedUser));
-        executeInOracle(format("ALTER USER %s QUOTA UNLIMITED ON USERS", user));
-        executeInOracle(format("GRANT CREATE SESSION TO %s", user));
-    }
-
-    private static void propagateUnlessUserAlreadyExists(RuntimeException e)
-    {
-        if (e.getCause() instanceof SQLException && ((SQLException) e.getCause()).getErrorCode() == 1920) {
-            // ORA-01920: user name '<user>' conflicts with another user or role name
-        }
-        else {
-            throw e;
-        }
     }
 
     private static synchronized void provisionTables(Session session, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
@@ -192,6 +129,8 @@ public final class OracleQueryRunner
         private Iterable<TpchTable<?>> tables = TpchTable.getTables();
         private int nodesCount = 3;
         private Map<String, String> coordinatorProperties = emptyMap();
+        private Runnable createUsers = OracleTestUsers::createStandardUsers;
+        private Runnable provisionTables = Runnables.doNothing();
 
         private Builder() {}
 
@@ -226,9 +165,21 @@ public final class OracleQueryRunner
             return this;
         }
 
+        public Builder withCreateUsers(Runnable runnable)
+        {
+            this.createUsers = requireNonNull(runnable, "createUsers is null");
+            return this;
+        }
+
+        public Builder withProvisionTables(Runnable runnable)
+        {
+            this.provisionTables = requireNonNull(runnable, "provisionTables is null");
+            return this;
+        }
+
         public QueryRunner build() throws Exception
         {
-            return createOracleQueryRunner(connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties);
+            return createOracleQueryRunner(connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables);
         }
     }
 
@@ -242,8 +193,8 @@ public final class OracleQueryRunner
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", TestingOracleServer.USER)
-                        .put("connection-password", TestingOracleServer.PASSWORD)
+                        .put("connection-user", USER)
+                        .put("connection-password", PASSWORD)
                         .put("allow-drop-table", "true")
                         .build())
                 .withNodesCount(1)

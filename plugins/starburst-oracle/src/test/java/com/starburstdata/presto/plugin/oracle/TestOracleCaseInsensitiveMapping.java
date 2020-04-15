@@ -36,8 +36,8 @@ public class TestOracleCaseInsensitiveMapping
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", TestingOracleServer.USER)
-                        .put("connection-password", TestingOracleServer.PASSWORD)
+                        .put("connection-user", OracleTestUsers.USER)
+                        .put("connection-password", OracleTestUsers.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
                         .build())
@@ -139,8 +139,8 @@ public class TestOracleCaseInsensitiveMapping
 
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
-                try (AutoCloseable ignore1 = withTable(TestingOracleServer.USER + "." + nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable(TestingOracleServer.USER + "." + nameVariants[j], "(d varchar(5))")) {
+                try (AutoCloseable ignore1 = withTable(OracleTestUsers.USER + "." + nameVariants[i], "(c varchar(5))");
+                        AutoCloseable ignore2 = withTable(OracleTestUsers.USER + "." + nameVariants[j], "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name:.*Multiple entries with same key.*");
