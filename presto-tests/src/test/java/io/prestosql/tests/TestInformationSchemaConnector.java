@@ -153,7 +153,7 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'",
                 "VALUES 2",
                 new MetadataCallsCount()
-                        .withListSchemasCount(3));
+                        .withListSchemasCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'",
                 "VALUES 2",
