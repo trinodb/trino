@@ -41,6 +41,8 @@ import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 public class PagesResponseWriter
         implements MessageBodyWriter<List<SerializedPage>>
 {
+    public static final int SERIALIZED_PAGES_MAGIC = 0xfea4f001;
+
     private static final MediaType PRESTO_PAGES_TYPE = MediaType.valueOf(PRESTO_PAGES);
     private static final Type LIST_GENERIC_TOKEN;
 
@@ -79,6 +81,8 @@ public class PagesResponseWriter
     {
         try {
             SliceOutput sliceOutput = new OutputStreamSliceOutput(output);
+            sliceOutput.writeInt(SERIALIZED_PAGES_MAGIC);
+            sliceOutput.writeInt(serializedPages.size());
             writeSerializedPages(sliceOutput, serializedPages);
             // We use flush instead of close, because the underlying stream would be closed and that is not allowed.
             sliceOutput.flush();
