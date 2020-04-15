@@ -31,7 +31,6 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.ALICE_USER;
-import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.PASSWORD;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.USER;
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -192,9 +191,7 @@ public final class OracleQueryRunner
         // using single node so JMX stats can be queried
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", USER)
-                        .put("connection-password", PASSWORD)
+                        .putAll(TestingOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .build())
                 .withNodesCount(1)

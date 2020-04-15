@@ -31,9 +31,7 @@ public class TestOracleSynonymsTest
     {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .put("connection-url", TestingOracleServer.getJdbcUrl())
-                        .put("connection-user", OracleTestUsers.USER)
-                        .put("connection-password", OracleTestUsers.PASSWORD)
+                        .putAll(TestingOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("oracle.synonyms.enabled", "true")
                         .build())

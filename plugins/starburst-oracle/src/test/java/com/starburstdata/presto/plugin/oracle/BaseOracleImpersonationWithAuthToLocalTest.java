@@ -28,9 +28,7 @@ public abstract class BaseOracleImpersonationWithAuthToLocalTest
     protected BaseOracleImpersonationWithAuthToLocalTest(Map<String, String> additionalProperties)
     {
         properties = ImmutableMap.<String, String>builder()
-                .put("connection-url", TestingOracleServer.getJdbcUrl())
-                .put("connection-user", OracleTestUsers.USER)
-                .put("connection-password", OracleTestUsers.PASSWORD)
+                .putAll(TestingOracleServer.connectionProperties())
                 .put("allow-drop-table", "true")
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.synonyms.enabled", "true")

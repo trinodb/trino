@@ -9,12 +9,14 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
+import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.OracleContainer;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static java.lang.String.format;
@@ -41,6 +43,15 @@ public final class TestingOracleServer
     public static String getJdbcUrl()
     {
         return CONTAINER.getJdbcUrl();
+    }
+
+    public static Map<String, String> connectionProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("connection-url", getJdbcUrl())
+                .put("connection-user", OracleTestUsers.USER)
+                .put("connection-password", OracleTestUsers.PASSWORD)
+                .build();
     }
 
     public static void executeInOracle(String sql)
