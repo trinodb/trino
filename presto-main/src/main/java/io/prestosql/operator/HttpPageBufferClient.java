@@ -73,6 +73,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static io.prestosql.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static io.prestosql.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
+import static io.prestosql.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static io.prestosql.spi.HostAddress.fromUri;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
@@ -593,7 +594,13 @@ public final class HttpPageBufferClient
                 boolean complete = getComplete(response);
 
                 try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                    int magic = input.readInt();
+                    if (magic != SERIALIZED_PAGES_MAGIC) {
+                        throw new IllegalStateException(format("Invalid stream header, expected 0x%08x, but was 0x%08x", SERIALIZED_PAGES_MAGIC, magic));
+                    }
+                    int pagesCount = input.readInt();
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
+                    checkState(pages.size() == pagesCount, "Wrong number of pages, expected %s, but read %s", pagesCount, pages.size());
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
                 }
                 catch (IOException e) {
