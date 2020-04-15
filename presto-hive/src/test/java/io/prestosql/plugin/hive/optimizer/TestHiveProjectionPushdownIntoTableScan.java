@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
+import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -33,6 +34,7 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.sql.planner.assertions.BasePushdownPlanTest;
@@ -48,10 +50,16 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
@@ -116,14 +124,14 @@ public class TestHiveProjectionPushdownIntoTableScan
     }
 
     @Test
-    public void testProjectionPushdown()
+    public void testDereferencePushdown()
     {
         String testTable = "test_simple_projection_pushdown";
         QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable);
 
         getQueryRunner().execute(format(
-                "CREATE TABLE %s (col0) AS" +
-                        " SELECT cast(row(5, 6) as row(a bigint, b bigint)) AS col0 WHERE false",
+                "CREATE TABLE %s (col0, col1) AS" +
+                        " SELECT cast(row(5, 6) as row(x bigint, y bigint)) AS col0, 5 AS col1 WHERE false",
                 testTable));
 
         Session session = getQueryRunner().getDefaultSession();
@@ -132,18 +140,70 @@ public class TestHiveProjectionPushdownIntoTableScan
         assertTrue(tableHandle.isPresent(), "expected the table handle to be present");
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
-        assertTrue(columns.containsKey("col0"), "expected column not found");
 
-        HiveColumnHandle baseColumnHandle = (HiveColumnHandle) columns.get("col0");
+        HiveColumnHandle column0Handle = (HiveColumnHandle) columns.get("col0");
+        HiveColumnHandle column1Handle = (HiveColumnHandle) columns.get("col1");
 
+        HiveColumnHandle columnX = createProjectedColumnHandle(column0Handle, ImmutableList.of(0));
+        HiveColumnHandle columnY = createProjectedColumnHandle(column0Handle, ImmutableList.of(1));
+
+        // Simple Projection pushdown
         assertPlan(
-                "SELECT col0.a expr_a, col0.b expr_b FROM " + testTable,
+                "SELECT col0.x expr_x, col0.y expr_y FROM " + testTable,
                 any(tableScan(
-                    equalTo(tableHandle.get().getConnectorHandle()),
-                    TupleDomain.all(),
-                    ImmutableMap.of(
-                        "col0#a", equalTo(createProjectedColumnHandle(baseColumnHandle, ImmutableList.of(0))),
-                        "col0#b", equalTo(createProjectedColumnHandle(baseColumnHandle, ImmutableList.of(1)))))));
+                        equalTo(tableHandle.get().getConnectorHandle()),
+                        TupleDomain.all(),
+                        ImmutableMap.of("col0#x", equalTo(columnX), "col0#y", equalTo(columnY)))));
+
+        // Projection and predicate pushdown
+        assertPlan(
+                format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
+                anyTree(
+                        filter(
+                                "col0_y = bigint '2' AND (col0_x =  cast((col1 + 3) as bigint))",
+                                tableScan(
+                                        table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
+                                                .equals(ImmutableMap.of(columnY, Domain.singleValue(BIGINT, 2L))),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of("col0_y", equalTo(columnY), "col0_x", equalTo(columnX), "col1", equalTo(column1Handle))))));
+
+        // Projection and predicate pushdown with overlapping columns
+        assertPlan(
+                format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
+                anyTree(
+                        filter(
+                                "col0_x = bigint '5'",
+                                tableScan(
+                                        table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
+                                                .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 5L))),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of("col0", equalTo(column0Handle), "col0_x", equalTo(columnX))))));
+
+        // Projection and predicate pushdown with joins
+        assertPlan(
+                format("SELECT T.col0.x, T.col0, T.col0.y FROM %s T join %s S on T.col1 = S.col1 WHERE (T.col0.x = 2)", testTable, testTable),
+                anyTree(
+                        project(
+                                ImmutableMap.of(
+                                       "expr_0_x", expression("expr_0.x"),
+                                       "expr_0", expression("expr_0"),
+                                       "expr_0_y", expression("expr_0.y")),
+                                        join(
+                                                INNER,
+                                                ImmutableList.of(equiJoinClause("t_expr_1", "s_expr_1")),
+                                                anyTree(
+                                                        filter(
+                                                                "expr_0_x = BIGINT '2'",
+                                                                tableScan(
+                                                                        table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
+                                                                                .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),
+                                                                    TupleDomain.all(),
+                                                                    ImmutableMap.of("expr_0_x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))),
+                                                anyTree(
+                                                        tableScan(
+                                                                equalTo(tableHandle.get().getConnectorHandle()),
+                                                                TupleDomain.all(),
+                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle))))))));
     }
 
     @AfterClass(alwaysRun = true)
