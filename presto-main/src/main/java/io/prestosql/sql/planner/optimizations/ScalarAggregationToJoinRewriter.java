@@ -30,22 +30,17 @@ import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.QualifiedName;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
@@ -122,43 +117,10 @@ public class ScalarAggregationToJoinRewriter
                 ImmutableMap.of(),
                 Optional.empty());
 
-        AggregationNode aggregationNode = createAggregationNode(
+        return createAggregationNode(
                 scalarAggregation,
                 leftOuterJoin,
                 nonNull);
-
-        Optional<ProjectNode> subqueryProjection = searchFrom(correlatedJoinNode.getSubquery(), lookup)
-                .where(ProjectNode.class::isInstance)
-                .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
-                .findFirst();
-
-        List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(correlatedJoinNode, aggregationNode);
-
-        if (subqueryProjection.isPresent()) {
-            Assignments assignments = Assignments.builder()
-                    .putIdentities(aggregationOutputSymbols)
-                    .putAll(subqueryProjection.get().getAssignments())
-                    .build();
-
-            return new ProjectNode(
-                    idAllocator.getNextId(),
-                    aggregationNode,
-                    assignments);
-        }
-        else {
-            return new ProjectNode(
-                    idAllocator.getNextId(),
-                    aggregationNode,
-                    Assignments.identity(aggregationOutputSymbols));
-        }
-    }
-
-    private static List<Symbol> getTruncatedAggregationSymbols(CorrelatedJoinNode correlatedJoinNode, AggregationNode aggregationNode)
-    {
-        Set<Symbol> applySymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());
-        return aggregationNode.getOutputSymbols().stream()
-                .filter(applySymbols::contains)
-                .collect(toImmutableList());
     }
 
     private AggregationNode createAggregationNode(
