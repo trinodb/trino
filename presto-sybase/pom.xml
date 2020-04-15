@@ -40,6 +40,7 @@
         <dependency>
             <groupId>jconn4</groupId>
             <artifactId>jconn4</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
