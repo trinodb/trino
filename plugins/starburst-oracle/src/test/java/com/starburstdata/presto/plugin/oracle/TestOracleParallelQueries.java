@@ -30,14 +30,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.MAX_SPLITS_PER_SCAN;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.PARALLELISM_TYPE;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
@@ -51,16 +49,16 @@ public class TestOracleParallelQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("oracle.number.default-scale", "3")
-                        .build(),
-                Function.identity(),
-                ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION));
+                        .build())
+                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .build();
     }
 
     @Test

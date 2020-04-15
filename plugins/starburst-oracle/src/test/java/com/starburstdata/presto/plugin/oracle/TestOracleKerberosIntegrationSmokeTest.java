@@ -17,7 +17,6 @@ import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 
 import static com.google.common.io.Resources.getResource;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 
 public class TestOracleKerberosIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
@@ -26,7 +25,7 @@ public class TestOracleKerberosIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
+        return OracleQueryRunner.builder().withConnectorProperties(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("oracle.authentication.type", "KERBEROS")
@@ -34,11 +33,12 @@ public class TestOracleKerberosIntegrationSmokeTest
                         .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
                         .put("kerberos.config", getResource("krb/krb5.conf").getPath())
                         .put("allow-drop-table", "true")
-                        .build(),
-                session -> Session.builder(session)
+                        .build())
+                .withSessionModifier(session -> Session.builder(session)
                         .setSchema("test")
-                        .build(),
-                ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION));
+                        .build())
+                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .build();
     }
 
     @Override

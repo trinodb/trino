@@ -16,11 +16,9 @@ import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -35,16 +33,16 @@ public class TestOracleCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
-                        .build(),
-                Function.identity(),
-                ImmutableList.of());
+                        .build())
+                .withTables(ImmutableList.of())
+                .build();
     }
 
     @Test

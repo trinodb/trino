@@ -15,14 +15,11 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Function;
 
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -34,17 +31,16 @@ public class TestOracleDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("oracle.connection-pool.enabled", "true")
                         .put("oracle.connection-pool.max-size", "10")
                         .put("allow-drop-table", "true")
-                        .build(),
-                Function.identity(),
-                TpchTable.getTables());
+                        .build())
+                .build();
     }
 
     @Override

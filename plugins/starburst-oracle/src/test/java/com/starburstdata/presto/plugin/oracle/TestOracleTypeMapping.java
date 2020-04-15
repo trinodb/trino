@@ -67,7 +67,6 @@ import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.tooLargeCha
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.varchar2DataType;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.basicCharacterTests;
@@ -101,15 +100,15 @@ public class TestOracleTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
-                        .build(),
-                Function.identity(),
-                ImmutableList.of());
+                        .build())
+                .withTables(ImmutableList.of())
+                .build();
     }
 
     @Test

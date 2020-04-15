@@ -15,7 +15,6 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.PARTITIONED_USER;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
@@ -27,17 +26,18 @@ public class TestOracleParallelIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner runner = createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        QueryRunner runner = OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.concurrent.max-splits-per-scan", "17")
-                        .build(),
-                session -> createSession(PARTITIONED_USER, PARTITIONED_USER),
-                ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION));
+                        .build())
+                .withSessionModifier(session -> createSession(PARTITIONED_USER, PARTITIONED_USER))
+                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .build();
 
         partitionTables();
 

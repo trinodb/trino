@@ -16,9 +16,6 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
-import java.util.function.Function;
-
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -32,16 +29,16 @@ public class TestOracleSynonymsTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("oracle.synonyms.enabled", "true")
-                        .build(),
-                Function.identity(),
-                ImmutableList.of(TpchTable.ORDERS));
+                        .build())
+                .withTables(ImmutableList.of(TpchTable.ORDERS))
+                .build();
     }
 
     @Test

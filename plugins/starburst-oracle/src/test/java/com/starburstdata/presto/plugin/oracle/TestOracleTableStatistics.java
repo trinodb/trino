@@ -19,9 +19,7 @@ import org.testng.annotations.Test;
 
 import java.sql.CallableStatement;
 import java.sql.SQLException;
-import java.util.function.Function;
 
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 
@@ -33,16 +31,16 @@ public class TestOracleTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return OracleQueryRunner.builder()
+            .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
-                        .build(),
-                Function.identity(),
-                ImmutableList.of(TpchTable.ORDERS));
+                        .build())
+                .withTables(ImmutableList.of(TpchTable.ORDERS))
+                .build();
     }
 
     @Test

@@ -15,10 +15,8 @@ import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.function.Function;
 
 import static com.google.common.io.Resources.getResource;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 
 @Test
 public abstract class BaseOracleKerberosImpersonationTest
@@ -44,7 +42,11 @@ public abstract class BaseOracleKerberosImpersonationTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(properties, Function.identity(), ImmutableList.of());
+        return OracleQueryRunner
+                .builder()
+                .withConnectorProperties(properties)
+                .withTables(ImmutableList.of())
+                .build();
     }
 
     @Override

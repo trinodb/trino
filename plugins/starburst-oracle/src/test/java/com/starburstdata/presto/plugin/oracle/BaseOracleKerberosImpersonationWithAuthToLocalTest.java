@@ -17,7 +17,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.google.common.io.Resources.getResource;
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
 
 @Test
@@ -46,10 +45,12 @@ public abstract class BaseOracleKerberosImpersonationWithAuthToLocalTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                properties,
-                session -> createSession(session.getIdentity().getUser() + "/admin@company.com"),
-                ImmutableList.of());
+        return OracleQueryRunner
+                .builder()
+                .withConnectorProperties(properties)
+                .withSessionModifier(session -> createSession(session.getIdentity().getUser() + "/admin@company.com"))
+                .withTables(ImmutableList.of())
+                .build();
     }
 
     @Override

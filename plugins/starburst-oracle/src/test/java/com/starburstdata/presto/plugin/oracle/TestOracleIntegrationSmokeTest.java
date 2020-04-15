@@ -14,10 +14,6 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
-import java.util.function.Function;
-
-import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-
 public class TestOracleIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
 {
@@ -25,14 +21,14 @@ public class TestOracleIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
-                        .build(),
-                Function.identity(),
-                ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION));
+                        .build())
+                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .build();
     }
 }

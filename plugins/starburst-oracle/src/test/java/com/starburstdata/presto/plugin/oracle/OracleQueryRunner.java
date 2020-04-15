@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.USER;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
@@ -37,7 +38,9 @@ import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTable;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class OracleQueryRunner
 {
@@ -52,16 +55,7 @@ public final class OracleQueryRunner
 
     private OracleQueryRunner() {}
 
-    public static QueryRunner createOracleQueryRunner(
-            Map<String, String> connectorProperties,
-            Function<Session, Session> sessionModifier,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createOracleQueryRunner(connectorProperties, sessionModifier, tables, 3, ImmutableMap.of());
-    }
-
-    public static QueryRunner createOracleQueryRunner(
+    private static QueryRunner createOracleQueryRunner(
             Map<String, String> connectorProperties,
             Function<Session, Session> sessionModifier,
             Iterable<TpchTable<?>> tables,
@@ -98,6 +92,7 @@ public final class OracleQueryRunner
                             "sys_context('USERENV', 'CURRENT_SCHEMA') AS current_schema_column," +
                             "sys_context('USERENV', 'PROXY_USER') AS proxy_user_column " +
                             "FROM dual");
+
             executeInOracle(format("GRANT SELECT ON user_context to %s", ALICE_USER));
             executeInOracle(format("GRANT SELECT ON user_context to %s", BOB_USER));
             executeInOracle(format("GRANT SELECT ON user_context to %s", PARTITIONED_USER));
@@ -185,6 +180,58 @@ public final class OracleQueryRunner
                 .build();
     }
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private Map<String, String> connectorProperties = emptyMap();
+        private Function<Session, Session> sessionModifier = Function.identity();
+        private Iterable<TpchTable<?>> tables = TpchTable.getTables();
+        private int nodesCount = 3;
+        private Map<String, String> coordinatorProperties = emptyMap();
+
+        private Builder() {}
+
+        public Builder withConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties = requireNonNull(connectorProperties, "connectorProperties is null");
+            return this;
+        }
+
+        public Builder withSessionModifier(Function<Session, Session> sessionModifier)
+        {
+            this.sessionModifier = requireNonNull(sessionModifier, "sessionModifier is null");
+            return this;
+        }
+
+        public Builder withTables(Iterable<TpchTable<?>> tables)
+        {
+            this.tables = requireNonNull(tables, "tables is null");
+            return this;
+        }
+
+        public Builder withNodesCount(int nodesCount)
+        {
+            verify(nodesCount > 0, "nodesCount should be greater than 0");
+            this.nodesCount = nodesCount;
+            return this;
+        }
+
+        public Builder withCoordinatorProperties(Map<String, String> coordinatorProperties)
+        {
+            this.coordinatorProperties = requireNonNull(coordinatorProperties, "coordinatorProperties is null");
+            return this;
+        }
+
+        public QueryRunner build() throws Exception
+        {
+            return createOracleQueryRunner(connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties);
+        }
+    }
+
     public static void main(String[] args)
             throws Exception
     {
@@ -192,17 +239,17 @@ public final class OracleQueryRunner
         logging.setLevel(KerberosConnectionFactory.class.getName(), DEBUG);
 
         // using single node so JMX stats can be queried
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) createOracleQueryRunner(
-                ImmutableMap.<String, String>builder()
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("connection-url", TestingOracleServer.getJdbcUrl())
                         .put("connection-user", TestingOracleServer.USER)
                         .put("connection-password", TestingOracleServer.PASSWORD)
                         .put("allow-drop-table", "true")
-                        .build(),
-                Function.identity(),
-                TpchTable.getTables(),
-                1,
-                ImmutableMap.of("http-server.http.port", "8080"));
+                        .build())
+                .withNodesCount(1)
+                .withCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .build();
+
         LOG.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
