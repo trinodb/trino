@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 
@@ -116,7 +117,14 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector);
+            try {
+                return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector);
+            }
+            catch (Throwable e) {
+                stateMachine.transitionToFailed(e);
+                queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(e));
+                throw e;
+            }
         });
 
         return new LocalDispatchQuery(

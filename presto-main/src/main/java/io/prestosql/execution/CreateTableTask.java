@@ -136,6 +136,7 @@ public class CreateTableTask
                         sqlProperties,
                         session,
                         metadata,
+                        accessControl,
                         parameterLookup);
 
                 columns.put(name, ColumnMetadata.builder()
@@ -161,7 +162,7 @@ public class CreateTableTask
                 TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
 
                 Optional<LikeClause.PropertiesOption> propertiesOption = likeClause.getPropertiesOption();
-                if (propertiesOption.isPresent() && propertiesOption.get().equals(LikeClause.PropertiesOption.INCLUDING)) {
+                if (propertiesOption.isPresent() && propertiesOption.get() == LikeClause.PropertiesOption.INCLUDING) {
                     if (includingProperties) {
                         throw semanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
@@ -192,6 +193,7 @@ public class CreateTableTask
                 sqlProperties,
                 session,
                 metadata,
+                accessControl,
                 parameterLookup);
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);

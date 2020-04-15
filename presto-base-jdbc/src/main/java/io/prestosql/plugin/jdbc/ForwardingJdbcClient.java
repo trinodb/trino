@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -94,9 +95,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle layoutHandle)
     {
-        return delegate().getSplits(identity, layoutHandle);
+        return delegate().getSplits(session, layoutHandle);
     }
 
     @Override
@@ -228,5 +229,17 @@ public abstract class ForwardingJdbcClient
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
         delegate().createSchema(identity, schemaName);
+    }
+
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate().dropSchema(identity, schemaName);
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return delegate().getSystemTable(session, tableName);
     }
 }

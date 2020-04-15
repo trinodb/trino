@@ -91,6 +91,7 @@ public class TestBasicQueryInfo
                                 ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY),
                                 DataSize.valueOf("271GB"),
                                 281,
+                                Duration.valueOf("20m"),
                                 DataSize.valueOf("272GB"),
                                 282,
                                 DataSize.valueOf("27GB"),
@@ -126,6 +127,8 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         ImmutableSet.of(),
                         Optional.empty(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
                         false,
                         Optional.empty()));
 

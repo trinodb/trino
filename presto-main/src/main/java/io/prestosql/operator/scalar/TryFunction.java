@@ -32,7 +32,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 
-@Description("internal try function for desugaring TRY")
+@Description("Internal try function for desugaring TRY")
 @ScalarFunction(value = NAME, hidden = true, deterministic = false)
 public final class TryFunction
 {

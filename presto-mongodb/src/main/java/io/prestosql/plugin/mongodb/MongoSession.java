@@ -19,6 +19,9 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Primitives;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
@@ -37,6 +40,7 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
@@ -44,6 +48,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 
@@ -58,15 +63,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -250,39 +260,48 @@ public class MongoSession
         if (tupleDomain.getDomains().isPresent()) {
             for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
                 MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
-                query.putAll(buildPredicate(column, entry.getValue()));
+                Optional<Document> predicate = buildPredicate(column, entry.getValue());
+                predicate.ifPresent(query::putAll);
             }
         }
 
         return query;
     }
 
-    private static Document buildPredicate(MongoColumnHandle column, Domain domain)
+    private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
     {
         String name = column.getName();
         Type type = column.getType();
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
-            return documentOf(name, isNullPredicate());
+            return Optional.of(documentOf(name, isNullPredicate()));
         }
         if (domain.getValues().isAll() && !domain.isNullAllowed()) {
-            return documentOf(name, isNotNullPredicate());
+            return Optional.of(documentOf(name, isNotNullPredicate()));
         }
 
         List<Object> singleValues = new ArrayList<>();
         List<Document> disjuncts = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             if (range.isSingleValue()) {
-                singleValues.add(translateValue(range.getSingleValue(), type));
+                Optional<Object> translated = translateValue(range.getSingleValue(), type);
+                if (!translated.isPresent()) {
+                    return Optional.empty();
+                }
+                singleValues.add(translated.get());
             }
             else {
                 Document rangeConjuncts = new Document();
                 if (!range.getLow().isLowerUnbounded()) {
+                    Optional<Object> translated = translateValue(range.getLow().getValue(), type);
+                    if (!translated.isPresent()) {
+                        return Optional.empty();
+                    }
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.put(GT_OP, translateValue(range.getLow().getValue(), type));
+                            rangeConjuncts.put(GT_OP, translated.get());
                             break;
                         case EXACTLY:
-                            rangeConjuncts.put(GTE_OP, translateValue(range.getLow().getValue(), type));
+                            rangeConjuncts.put(GTE_OP, translated.get());
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
@@ -291,14 +310,18 @@ public class MongoSession
                     }
                 }
                 if (!range.getHigh().isUpperUnbounded()) {
+                    Optional<Object> translated = translateValue(range.getHigh().getValue(), type);
+                    if (!translated.isPresent()) {
+                        return Optional.empty();
+                    }
                     switch (range.getHigh().getBound()) {
                         case ABOVE:
                             throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
                         case EXACTLY:
-                            rangeConjuncts.put(LTE_OP, translateValue(range.getHigh().getValue(), type));
+                            rangeConjuncts.put(LTE_OP, translated.get());
                             break;
                         case BELOW:
-                            rangeConjuncts.put(LT_OP, translateValue(range.getHigh().getValue(), type));
+                            rangeConjuncts.put(LT_OP, translated.get());
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -322,23 +345,42 @@ public class MongoSession
             disjuncts.add(isNullPredicate());
         }
 
-        return orPredicate(disjuncts.stream()
+        return Optional.of(orPredicate(disjuncts.stream()
                 .map(disjunct -> new Document(name, disjunct))
-                .collect(toList()));
+                .collect(toImmutableList())));
     }
 
-    private static Object translateValue(Object source, Type type)
+    private static Optional<Object> translateValue(Object prestoNativeValue, Type type)
     {
-        if (source instanceof Slice) {
-            if (type instanceof ObjectIdType) {
-                return new ObjectId(((Slice) source).getBytes());
-            }
-            else {
-                return ((Slice) source).toStringUtf8();
-            }
+        requireNonNull(prestoNativeValue, "prestoNativeValue is null");
+        requireNonNull(type, "type is null");
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(prestoNativeValue), "%s (%s) is not a valid representation for %s", prestoNativeValue, prestoNativeValue.getClass(), type);
+
+        if (type == TINYINT) {
+            return Optional.of((long) SignedBytes.checkedCast(((Long) prestoNativeValue)));
         }
 
-        return source;
+        if (type == SMALLINT) {
+            return Optional.of((long) Shorts.checkedCast(((Long) prestoNativeValue)));
+        }
+
+        if (type == IntegerType.INTEGER) {
+            return Optional.of((long) toIntExact(((Long) prestoNativeValue)));
+        }
+
+        if (type == BIGINT) {
+            return Optional.of(prestoNativeValue);
+        }
+
+        if (type instanceof ObjectIdType) {
+            return Optional.of(new ObjectId(((Slice) prestoNativeValue).getBytes()));
+        }
+
+        if (type instanceof VarcharType) {
+            return Optional.of(((Slice) prestoNativeValue).toStringUtf8());
+        }
+
+        return Optional.empty();
     }
 
     private static Document documentOf(String key, Object value)
@@ -452,7 +494,8 @@ public class MongoSession
         String tableName = schemaTableName.getTableName();
 
         MongoDatabase db = client.getDatabase(schemaName);
-        if (!collectionExists(db, tableName)) {
+        if (!collectionExists(db, tableName) &&
+                db.getCollection(schemaCollection).find(new Document(TABLE_NAME_KEY, tableName)).first().isEmpty()) {
             return false;
         }
 

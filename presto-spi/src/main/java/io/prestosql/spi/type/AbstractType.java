@@ -144,13 +144,13 @@ public abstract class AbstractType
     @Override
     public Object getObject(Block block, int position)
     {
-        throw new UnsupportedOperationException(getClass().getName());
+        return getSlice(block, position);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        throw new UnsupportedOperationException(getClass().getName());
+        writeSlice(blockBuilder, (Slice) value);
     }
 
     @Override

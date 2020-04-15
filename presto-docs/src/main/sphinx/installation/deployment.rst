@@ -43,15 +43,18 @@ Presto is first installed. The following is a minimal ``etc/node.properties``:
 The above properties are described below:
 
 * ``node.environment``:
-  The name of the environment. All Presto nodes in a cluster must
-  have the same environment name.
+  The name of the environment. All Presto nodes in a cluster must have the same
+  environment name. The name must start with an alphanumeric character and
+  only contain alphanumeric, ``-``, or ``_`` characters.
 
 * ``node.id``:
   The unique identifier for this installation of Presto. This must be
   unique for every node. This identifier should remain consistent across
   reboots or upgrades of Presto. If running multiple installations of
   Presto on a single machine (i.e. multiple nodes on the same machine),
-  each installation must have a unique identifier.
+  each installation must have a unique identifier. The identifier must start
+  with an alphanumeric character and only contain alphanumeric, ``-``, or ``_``
+  characters.
 
 * ``node.data-dir``:
   The location (filesystem path) of the data directory. Presto stores
@@ -89,6 +92,12 @@ Because an ``OutOfMemoryError`` typically leaves the JVM in an
 inconsistent state, we write a heap dump, for debugging, and forcibly
 terminate the process when this occurs.
 
+The temporary directory used by the JVM must allow execution of code.
+Specifically, the mount must not have the ``noexec`` flag set. The default
+``/tmp`` directory is mounted with this flag in some installations, which
+prevents Presto from starting. You can workaround this by overriding the
+temporary directory by adding ``-Djava.io.tmpdir=/path/to/other/tmpdir`` to the
+list of JVM options.
 
 .. _config_properties:
 
@@ -247,7 +256,7 @@ Presto can be started as a daemon by running the following:
     bin/launcher start
 
 Alternatively, it can be run in the foreground, with the logs and other
-output written to stdout/stderr. Bboth streams should be captured
+output written to stdout/stderr. Both streams should be captured
 if using a supervision system like daemontools:
 
 .. code-block:: none
@@ -258,7 +267,17 @@ Run the launcher with ``--help`` to see the supported commands and
 command line options. In particular, the ``--verbose`` option is
 very useful for debugging the installation.
 
-After launching, you can find the log files in ``var/log``:
+The launcher configures default values for the configuration
+directory ``etc``, configuration files, the data directory ``var``,
+and log files in the data directory. You can change these values
+to adjust your Presto usage to any requirements, such as using a
+directory outside the installation directory, specific mount points
+or locations, and even using other file names. For example, the Presto
+RPM adjusts the used directories to better follow the Linux Filesystem
+Hierarchy Standard (FHS).
+
+After starting Presto, you can find log files in the ``log`` directory inside
+the data directory ``var``:
 
 * ``launcher.log``:
   This log is created by the launcher and is connected to the stdout

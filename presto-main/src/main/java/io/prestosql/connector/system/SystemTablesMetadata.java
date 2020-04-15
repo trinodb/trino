@@ -95,7 +95,7 @@ public class SystemTablesMetadata
         String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
-        checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
+        checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
         return columnMetadata;
     }
 
@@ -111,7 +111,7 @@ public class SystemTablesMetadata
         SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
         return tables.getSystemTable(session, systemTableHandle.getSchemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table %s not found", systemTableHandle.getSchemaTableName())));
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.getSchemaTableName())));
     }
 
     @Override

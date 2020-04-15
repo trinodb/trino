@@ -36,6 +36,7 @@ import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
@@ -50,11 +51,9 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -63,6 +62,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,6 +84,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.SystemSessionProperties.COLOCATED_JOIN;
 import static io.prestosql.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static io.prestosql.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
+import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.GROUPED_EXECUTION;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -99,6 +100,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
+import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -127,6 +129,7 @@ import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -157,17 +160,351 @@ public class TestHiveIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER);
+        return HiveQueryRunner.builder()
+                .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .build();
     }
 
-    @Override
-    protected TestTable createTableWithDefaultColumns()
+    @Test
+    public void testLackOfPartitionFilterNotAllowed()
     {
-        throw new SkipException("Hive connector does not support column default values");
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test1(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test1(id,a,ds) values(1, 'a','a')", 1);
+        String query = "select id from partition_test1 where a = 'a'";
+        String msgRegExp = "Filter required on tpch\\.partition_test1 for at least one partition column:.*";
+        assertQueryFails(session, query, msgRegExp);
+        assertQueryFails(session, "explain " + query, msgRegExp);
+        assertUpdate(session, "DROP TABLE partition_test1");
+    }
+
+    @Test
+    public void testPartitionFilterRemoved()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test2(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test2(id,a,ds) values(1, 'a','a')", 1);
+        assertQueryFails(session, "select id from partition_test2 where ds is not null or true", "Filter required on tpch\\.partition_test2 for at least one partition column:.*");
+        assertUpdate(session, "DROP TABLE partition_test2");
+    }
+
+    @Test
+    public void testPartitionFilterIncluded()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test3(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test3(id,a,ds) values(1, 'a','a')", 1);
+        String query = "select id from partition_test3 where ds = 'a'";
+        assertQuery(session, query, "select 1");
+        computeActual(session, "explain " + query);
+        assertUpdate(session, "DROP TABLE partition_test3");
+    }
+
+    @Test
+    public void testPartitionFilterIncluded2()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test4(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test4(id,a,ds) values(1, 'a','a')", 1);
+        assertQuery(session, "select id from partition_test4 where ds is not null", "select 1");
+        assertUpdate(session, "DROP TABLE partition_test4");
+    }
+
+    @Test
+    public void testPartitionFilterInferred()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test5(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(
+                session,
+                "create table partition_test6(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test5(id,a,ds) values(1, 'a','a')", 1);
+        assertUpdate(session, "insert into partition_test6(id,a,ds) values(1, 'a','a')", 1);
+        assertQuery(session, "select a.id, b.id from partition_test5 a join partition_test6 b on (a.ds = b.ds) where a.ds = 'a'", "select 1,1");
+        assertUpdate(session, "DROP TABLE partition_test5");
+        assertUpdate(session, "DROP TABLE partition_test6");
+    }
+
+    @Test
+    public void testJoinPartitionedWithMissingPartitionFilter()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test7(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(
+                session,
+                "create table partition_test8(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test7(id,a,ds) values(1, 'a','a')", 1);
+        assertUpdate(session, "insert into partition_test8(id,a,ds) values(1, 'a','a')", 1);
+        assertQueryFails(session, "select a.id, b.id from partition_test7 a join partition_test8 b on (a.id = b.id) where a.ds = 'a'", "Filter required on tpch\\.partition_test8 for at least one partition column:.*");
+        assertUpdate(session, "DROP TABLE partition_test7");
+        assertUpdate(session, "DROP TABLE partition_test8");
+    }
+
+    @Test
+    public void testJoinWithPartitionFilterOnPartionedTable()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test9(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(
+                session,
+                "create table partition_test10(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET')");
+        assertUpdate(session, "insert into partition_test9(id,a,ds) values(1, 'a','a')", 1);
+        assertUpdate(session, "insert into partition_test10(id,a,ds) values(1, 'a','a')", 1);
+        assertQuery(session, "select a.id, b.id from partition_test9 a join partition_test10 b on (a.id = b.id) where a.ds = 'a'", "SELECT 1, 1");
+        assertUpdate(session, "DROP TABLE partition_test9");
+        assertUpdate(session, "DROP TABLE partition_test10");
+    }
+
+    @Test
+    public void testPartitionPredicateAllowed()
+            throws Exception
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test11(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test11(id,a,ds) values(1, '1','1')", 1);
+        String query = "select id from partition_test11 where cast(ds as integer) = 1";
+        assertQuery(session, query, "select 1");
+        computeActual(session, "explain " + query);
+        assertUpdate(session, "DROP TABLE partition_test11");
+    }
+
+    @Test
+    public void testNestedQueryWithInnerPartitionPredicate()
+            throws Exception
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test12(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test12(id,a,ds) values(1, '1','1')", 1);
+        String query = "select id from (select * from partition_test12 where cast(ds as integer) = 1) where cast(a as integer) = 1";
+        assertQuery(session, query, "select 1");
+        computeActual(session, "explain " + query);
+        assertUpdate(session, "DROP TABLE partition_test12");
+    }
+
+    @Test
+    public void testPartitionPredicateDisallowed()
+            throws Exception
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "create table partition_test12(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "insert into partition_test12(id,a,ds) values(1, '1','1')", 1);
+        String query = "select id from partition_test12 where cast(b as integer) = 1";
+        assertQueryFails(session, query, "Filter required on tpch\\.partition_test12 for at least one partition column:.*");
+        assertQueryFails(session, "explain " + query, "Filter required on tpch\\.partition_test12 for at least one partition column:.*");
+        assertUpdate(session, "DROP TABLE partition_test12");
+    }
+
+    @Test
+    public void testAnalyzeWithPartitionsAllowed()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "CREATE TABLE partition_test14(id integer, a varchar, b varchar, ds varchar) "
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO partition_test14(id,a,ds) VALUES(1, 'a','a')", 1);
+        String query = "ANALYZE partition_test14 WITH (PARTITIONS=ARRAY[ARRAY['a']])";
+        computeActual(session, query);
+        computeActual(session, "EXPLAIN " + query);
+        assertUpdate(session, "DROP TABLE partition_test14");
+    }
+
+    @Test
+    public void testAnalyzeFullTableDisallowed()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(
+                session,
+                "CREATE TABLE partition_test15(id integer, a varchar, b varchar, ds varchar) "
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO partition_test15(id,a,ds) VALUES(1, 'a','a')", 1);
+        String query = "ANALYZE partition_test15";
+        String regExpMessage = "Filter required on tpch\\.partition_test15 for at least one partition column:.*";
+        assertQueryFails(session, query, regExpMessage);
+        assertQueryFails(session, "explain " + query, regExpMessage);
+        assertUpdate(session, "DROP TABLE partition_test15");
     }
 
     @Test
     public void testSchemaOperations()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        assertUpdate(session, "CREATE SCHEMA new_schema");
+
+        assertUpdate(session, "CREATE TABLE new_schema.test (x bigint)");
+
+        assertQueryFails(session, "DROP SCHEMA new_schema", "Schema not empty: new_schema");
+
+        assertUpdate(session, "DROP TABLE new_schema.test");
+
+        assertUpdate(session, "DROP SCHEMA new_schema");
+    }
+
+    @Test
+    public void testSchemaAuthorizationForUser()
     {
         Session admin = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -175,31 +512,224 @@ public class TestHiveIntegrationSmokeTest
                         .build())
                 .build();
 
-        assertUpdate(admin, "CREATE SCHEMA new_schema");
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization_user");
 
-        assertUpdate(admin, "CREATE TABLE new_schema.test (x bigint)");
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_user")
+                .setIdentity(Identity.forUser("user")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
 
-        assertQueryFails(admin, "DROP SCHEMA new_schema", "Schema not empty: new_schema");
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_user")
+                .setIdentity(Identity.forUser("anotheruser")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
 
-        assertUpdate(admin, "DROP TABLE new_schema.test");
+        // ordinary users cannot drop a schema or create a table in a schema the do not own
+        assertQueryFails(user, "DROP SCHEMA test_schema_authorization_user", "Access Denied: Cannot drop schema test_schema_authorization_user");
+        assertQueryFails(user, "CREATE TABLE test_schema_authorization_user.test (x bigint)", "Access Denied: Cannot create table test_schema_authorization_user.test");
 
-        assertUpdate(admin, "DROP SCHEMA new_schema");
+        // change owner to user
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_user SET AUTHORIZATION user");
+
+        // another user still cannot create tables
+        assertQueryFails(anotherUser, "CREATE TABLE test_schema_authorization_user.test (x bigint)", "Access Denied: Cannot create table test_schema_authorization_user.test");
+
+        assertUpdate(user, "CREATE TABLE test_schema_authorization_user.test (x bigint)");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_schema_authorization_user.test", "Access Denied: Cannot drop table test_schema_authorization_user.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_schema_authorization_user.test", "Access Denied: Cannot select from table test_schema_authorization_user.test");
+
+        assertUpdate(user, "DROP TABLE test_schema_authorization_user.test");
+        assertUpdate(user, "DROP SCHEMA test_schema_authorization_user");
+    }
+
+    @Test
+    public void testSchemaAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization_role");
+
+        // make sure role-grants only work on existing roles
+        assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+
+        assertUpdate(admin, "CREATE ROLE authorized_users");
+        assertUpdate(admin, "GRANT authorized_users TO user");
+
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE authorized_users");
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_role")
+                .setIdentity(Identity.forUser("user")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
+
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization_role")
+                .setIdentity(Identity.forUser("anotheruser")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
+
+        assertUpdate(user, "CREATE TABLE test_schema_authorization_role.test (x bigint)");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_schema_authorization_role.test", "Access Denied: Cannot drop table test_schema_authorization_role.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_schema_authorization_role.test", "Access Denied: Cannot select from table test_schema_authorization_role.test");
+
+        assertUpdate(user, "DROP TABLE test_schema_authorization_role.test");
+        assertUpdate(user, "DROP SCHEMA test_schema_authorization_role");
+
+        assertUpdate(admin, "DROP ROLE authorized_users");
+    }
+
+    @Test
+    public void testCreateSchemaWithAuthorizationForUser()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_user")
+                .setIdentity(Identity.forUser("user")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
+
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_user")
+                .setIdentity(Identity.forUser("anotheruser")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_user AUTHORIZATION user");
+        assertUpdate(user, "CREATE TABLE test_createschema_authorization_user.test (x bigint)");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_createschema_authorization_user.test", "Access Denied: Cannot drop table test_createschema_authorization_user.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_createschema_authorization_user.test", "Access Denied: Cannot select from table test_createschema_authorization_user.test");
+
+        assertUpdate(user, "DROP TABLE test_createschema_authorization_user.test");
+        assertUpdate(user, "DROP SCHEMA test_createschema_authorization_user");
+    }
+
+    @Test
+    public void testCreateSchemaWithAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_role")
+                .setIdentity(Identity.forUser("user")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
+
+        Session userWithoutRole = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_role")
+                .setIdentity(Identity.forUser("user")
+                        .withRoles(Collections.emptyMap())
+                        .build())
+                .build();
+
+        Session anotherUser = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_createschema_authorization_role")
+                .setIdentity(Identity.forUser("anotheruser")
+                        .withPrincipal(getSession().getIdentity().getPrincipal())
+                        .build())
+                .build();
+
+        assertUpdate(admin, "CREATE ROLE authorized_users");
+        assertUpdate(admin, "GRANT authorized_users TO user");
+
+        assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+        assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE authorized_users");
+        assertUpdate(user, "CREATE TABLE test_createschema_authorization_role.test (x bigint)");
+
+        // "user" without the role enabled cannot create new tables
+        assertQueryFails(userWithoutRole, "CREATE TABLE test_schema_authorization_role.test1 (x bigint)", "Access Denied: Cannot create table test_schema_authorization_role.test1");
+
+        // another user should not be able to drop the table
+        assertQueryFails(anotherUser, "DROP TABLE test_createschema_authorization_role.test", "Access Denied: Cannot drop table test_createschema_authorization_role.test");
+        // or access the table in any way
+        assertQueryFails(anotherUser, "SELECT 1 FROM test_createschema_authorization_role.test", "Access Denied: Cannot select from table test_createschema_authorization_role.test");
+
+        assertUpdate(user, "DROP TABLE test_createschema_authorization_role.test");
+        assertUpdate(user, "DROP SCHEMA test_createschema_authorization_role");
+
+        assertUpdate(admin, "DROP ROLE authorized_users");
+    }
+
+    @Test
+    public void testSchemaAuthorization()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_schema_authorization")
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
+        assertUpdate(admin, "CREATE ROLE admin");
+
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
+        assertUpdate(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin");
+        assertQueryFails(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin", "Access Denied: Cannot set authorization for schema test_schema_authorization to ROLE admin");
+
+        assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
+        assertUpdate(admin, "DROP ROLE admin");
     }
 
     @Test
     public void testIoExplain()
     {
         // Test IO explain with small number of discrete components.
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
+        computeActual("CREATE TABLE test_io_explain WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(2.0, 40.0, 40.0, 0.0, 0.0);
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders WHERE custkey <= 10");
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey, processing FROM test_io_explain WHERE custkey <= 10");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -221,24 +751,33 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY)))))),
+                                                                                new FormattedMarker(Optional.of("false"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
                                         estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
 
-        assertUpdate("DROP TABLE test_orders");
+        assertUpdate("DROP TABLE test_io_explain");
 
         // Test IO explain with large number of discrete components where Domain::simpify comes into play.
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WHERE orderkey < 200");
+        computeActual("CREATE TABLE test_io_explain WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WHERE orderkey < 200");
 
         estimate = new EstimatedStatsAndCost(55.0, 990.0, 990.0, 0.0, 0.0);
-        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders WHERE custkey <= 10");
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey + 10 FROM test_io_explain WHERE custkey <= 10");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
                         ImmutableSet.of(
                                 new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
@@ -248,12 +787,281 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("199"), EXACTLY)))))),
+                                                                                new FormattedMarker(Optional.of("199"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
                                         estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
 
-        assertUpdate("DROP TABLE test_orders");
+        EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
+        estimate = new EstimatedStatsAndCost(1.0, 18.0, 18, 0.0, 0.0);
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey FROM test_io_explain WHERE orderkey = 100");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
+                        finalEstimate));
+
+        assertUpdate("DROP TABLE test_io_explain");
+    }
+
+    @Test
+    public void testIoExplainColumnFilters()
+    {
+        // Test IO explain with small number of discrete components.
+        computeActual("CREATE TABLE test_io_explain_column_filters WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderstatus, orderkey FROM orders WHERE orderkey < 3");
+
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(2.0, 48.0, 48.0, 0.0, 0.0);
+        EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(0.0, 0.0, 96.0, 0.0, 0.0);
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and orderstatus='P'");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "orderstatus",
+                                                        VarcharType.createVarcharType(1),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.empty(),
+                        finalEstimate));
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and (orderstatus='P' or orderstatus='S')");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "orderstatus",
+                                                        VarcharType.createVarcharType(1),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("S"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("S"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.empty(),
+                        finalEstimate));
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and cast(orderstatus as integer) = 5");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.empty(),
+                        finalEstimate));
+
+        assertUpdate("DROP TABLE test_io_explain_column_filters");
+    }
+
+    @Test
+    public void testIoExplainNoFilter()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        assertUpdate(
+                admin,
+                "create table io_explain_test_no_filter(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(admin, "insert into io_explain_test_no_filter(id,a,ds) values(1, 'a','a')", 1);
+
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 22.0, 22.0, 0.0, 0.0);
+        EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(1.0, 22.0, 22.0, 0.0, 22.0);
+        MaterializedResult result =
+                computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM io_explain_test_no_filter");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "ds",
+                                                        VARCHAR,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.empty(),
+                        finalEstimate));
+        assertUpdate("DROP TABLE io_explain_test_no_filter");
+    }
+
+    @Test
+    public void testIoExplainFilterOnAgg()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        assertUpdate(
+                admin,
+                "create table io_explain_test_filter_on_agg(\n"
+                        + "id integer,\n"
+                        + "a varchar,\n"
+                        + "b varchar,\n"
+                        + "ds varchar)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(admin, "insert into io_explain_test_filter_on_agg(id,a,ds) values(1, 'a','a')", 1);
+
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 5.0, 5.0, 0.0, 0.0);
+        EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
+        MaterializedResult result =
+                computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM (SELECT COUNT(*) cnt FROM io_explain_test_filter_on_agg WHERE b = 'b') WHERE cnt > 0");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_filter_on_agg"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "ds",
+                                                        VARCHAR,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "b",
+                                                        VARCHAR,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("b"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.empty(),
+                        finalEstimate));
+        assertUpdate("DROP TABLE io_explain_test_filter_on_agg");
     }
 
     @Test
@@ -1196,7 +2004,7 @@ public class TestHiveIntegrationSmokeTest
 
         String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
 
-        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition part=empty does not exist");
+        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition 'part=empty' does not exist");
         assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName));
 
         assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
@@ -1243,7 +2051,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertQueryFails(
                 format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, "non_existing_table", "empty"),
-                format("Table %s.%s does not exist", TPCH_SCHEMA, "non_existing_table"));
+                format("Table '%s.%s' does not exist", TPCH_SCHEMA, "non_existing_table"));
     }
 
     @Test
@@ -1831,12 +2639,12 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"test_partitions_invalid$partitions$partitions\"",
-                ".*Table .*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions does not exist");
+                ".*Table '.*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"non_existent$partitions\"",
-                ".*Table .*\\.tpch\\.non_existent\\$partitions does not exist");
+                ".*Table '.*\\.tpch\\.non_existent\\$partitions' does not exist");
     }
 
     @Test
@@ -2108,12 +2916,30 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testRows()
+    public void testRowsWithAllFormats()
     {
-        assertUpdate("CREATE TABLE tmp_row1 AS SELECT cast(row(CAST(1 as BIGINT), CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a", 1);
-        assertQuery(
-                "SELECT a.col0, a.col1 FROM tmp_row1",
-                "SELECT 1, cast(null as bigint)");
+        testWithAllStorageFormats(this::testRows);
+    }
+
+    private void testRows(Session session, HiveStorageFormat format)
+    {
+        String tableName = "test_dereferences";
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName +
+                " WITH (" +
+                "format = '" + format + "'" +
+                ") " +
+                "AS SELECT " +
+                "CAST(row(CAST(1 as BIGINT), CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a, " +
+                "CAST(row(row(CAST('abc' as VARCHAR), CAST(5 as BIGINT)), CAST(3.0 AS DOUBLE)) AS row(field0 row(col0 varchar, col1 bigint), field1 double)) AS b";
+
+        assertUpdate(session, createTable, 1);
+
+        assertQuery(session,
+                "SELECT a.col0, a.col1, b.field0.col0, b.field0.col1, b.field1 FROM " + tableName,
+                "SELECT 1, cast(null as bigint), CAST('abc' as VARCHAR), CAST(5 as BIGINT), CAST(3.0 AS DOUBLE)");
+
+        assertUpdate(session, "DROP TABLE " + tableName);
     }
 
     @Test
@@ -2229,8 +3055,25 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testShowCreateTable()
     {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE hive.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   c1 bigint,\n" +
@@ -2972,7 +3815,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * FROM view_rename.rename_view_new", "SELECT COUNT(*) FROM orders");
 
-        assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original does not exist");
+        assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original' does not exist");
 
         assertUpdate("DROP VIEW view_rename.rename_view_new");
     }
@@ -3034,11 +3877,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testAvroTypeValidation()
     {
-        assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column x has a non-varchar map key, which is not supported by Avro");
-        assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column x is tinyint, which is not supported by Avro. Use integer instead.");
-        assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column x is smallint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column 'x' has a non-varchar map key, which is not supported by Avro");
+        assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column 'x' is tinyint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column 'x' is smallint, which is not supported by Avro. Use integer instead.");
 
-        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column z is smallint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column 'z' is smallint, which is not supported by Avro. Use integer instead.");
     }
 
     @Test
@@ -3245,6 +4088,81 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void schemaMismatchesWithDereferenceProjections()
+    {
+        for (TestingHiveStorageFormat format : getAllTestingHiveStorageFormat()) {
+            schemaMismatchesWithDereferenceProjections(format.getFormat());
+        }
+    }
+
+    private void schemaMismatchesWithDereferenceProjections(HiveStorageFormat format)
+    {
+        // Verify reordering of subfields between a partition column and a table column is not supported
+        // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
+            assertUpdate("INSERT INTO evolve_test values (2, row('def', 2), 2)", 1);
+            assertQueryFails("SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+
+        // Subfield absent in partition schema is reported as null
+        // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
+            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
+            assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+    }
+
+    @Test
+    public void testSubfieldReordering()
+    {
+        // Validate for formats for which subfield access is name based
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET);
+
+        for (HiveStorageFormat format : formats) {
+            // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
+            // column type is row(c varchar, b bigint), "a.b" should read the correct field from the file.
+            try {
+                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'))", 1);
+                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
+                assertQuery("SELECT a.b FROM evolve_test", "VALUES 1");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            }
+
+            // Assert that reordered subfields are read correctly for a two-level nesting. This is useful for asserting correct adaptation
+            // of residue projections in HivePageSourceProvider
+            try {
+                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO evolve_test values (1, row(1, row(3, 'abc')))", 1);
+                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
+                // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
+                assertQuerySucceeds("SELECT a.c.y, a.c FROM evolve_test");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            }
+        }
+    }
+
+    @Test
     public void testMismatchedBucketing()
     {
         try {
@@ -3265,10 +4183,12 @@ public class TestHiveIntegrationSmokeTest
 
             Session withMismatchOptimization = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
                     .build();
             Session withoutMismatchOptimization = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
                     .build();
 
@@ -3359,6 +4279,7 @@ public class TestHiveIntegrationSmokeTest
             Session notColocated = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "false")
                     .setSystemProperty(GROUPED_EXECUTION, "false")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
             // Co-located JOIN with all groups at once, fixed schedule
             Session colocatedAllGroupsAtOnce = Session.builder(getSession())
@@ -3366,6 +4287,7 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, fixed schedule
             Session colocatedOneGroupAtATime = Session.builder(getSession())
@@ -3373,6 +4295,7 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
             // Co-located JOIN with all groups at once, dynamic schedule
             Session colocatedAllGroupsAtOnceDynamic = Session.builder(getSession())
@@ -3380,6 +4303,7 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, dynamic schedule
             Session colocatedOneGroupAtATimeDynamic = Session.builder(getSession())
@@ -3387,6 +4311,7 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
             // Broadcast JOIN, 1 group per worker at a time
             Session broadcastOneGroupAtATime = Session.builder(getSession())
@@ -3394,6 +4319,7 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
 
             // Broadcast JOIN, 1 group per worker at a time, dynamic schedule
@@ -3403,6 +4329,7 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
 
             //
@@ -3914,6 +4841,37 @@ public class TestHiveIntegrationSmokeTest
         });
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShowViews()
+    {
+        String viewName = "test_show_views";
+
+        Session testSession = testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_view_access_owner"))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT abs(1) as whatever");
+
+        String showViews = format("SELECT * FROM information_schema.views WHERE table_name = '%s'", viewName);
+        assertQuery(
+                format("SELECT table_name FROM information_schema.views WHERE table_name = '%s'", viewName),
+                format("VALUES '%s'", viewName));
+
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyTables(table -> false);
+                assertQueryReturnsEmptyResult(testSession, showViews);
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+
+        assertUpdate("DROP VIEW " + viewName);
     }
 
     @Test
@@ -5007,7 +5965,7 @@ public class TestHiveIntegrationSmokeTest
                 "Partition '.*' not found");
         assertQueryFails(
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, "non_existing_table"),
-                format("Table %s.non_existing_table does not exist", TPCH_SCHEMA));
+                format("Table '%s.non_existing_table' does not exist", TPCH_SCHEMA));
 
         assertUpdate("DROP TABLE " + unpartitionedTableName);
         assertUpdate("DROP TABLE " + partitionedTableName);
@@ -5335,6 +6293,84 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testColumnPruning()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "orc_use_column_names", "true")
+                .setCatalogSessionProperty("hive", "parquet_use_column_names", "true")
+                .build();
+
+        testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.ORC), this::testColumnPruning);
+        testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.PARQUET), this::testColumnPruning);
+    }
+
+    private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH);
+        String evolvedTableName = tableName + "_evolved";
+
+        assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        assertUpdate(session, "DROP TABLE IF EXISTS " + evolvedTableName);
+
+        assertUpdate(session, format(
+                "CREATE TABLE %s(" +
+                        "  a bigint, " +
+                        "  b varchar, " +
+                        "  c row(" +
+                        "    f1 row(" +
+                        "      g1 bigint," +
+                        "      g2 bigint), " +
+                        "    f2 varchar, " +
+                        "    f3 varbinary), " +
+                        "  d integer) " +
+                        "WITH (format='%s')",
+                tableName,
+                storageFormat));
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (42, 'ala', ROW(ROW(177, 873321), 'ma kota', X'abcdef'), 12345678)", 1);
+
+        // All data
+        assertQuery(
+                session,
+                "SELECT a, b, c.f1.g1, c.f1.g2, c.f2, c.f3, d FROM " + tableName,
+                "VALUES (42, 'ala', 177, 873321, 'ma kota', X'abcdef', 12345678)");
+
+        // Pruning
+        assertQuery(
+                session,
+                "SELECT b, c.f1.g2, c.f3, d FROM " + tableName,
+                "VALUES ('ala', 873321, X'abcdef', 12345678)");
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+
+        assertUpdate(session, format(
+                "CREATE TABLE %s(" +
+                        "  e tinyint, " + // added
+                        "  a bigint, " +
+                        "  bxx varchar, " + // renamed
+                        "  c row(" +
+                        "    f1 row(" +
+                        "      g1xx bigint," + // renamed
+                        "      g2 bigint), " +
+                        "    f2xx varchar, " + // renamed
+                        "    f3 varbinary), " +
+                        "  d integer, " +
+                        "  f smallint) " + // added
+                        "WITH (format='%s', external_location='%s')",
+                evolvedTableName,
+                storageFormat,
+                tableLocation));
+
+        // Pruning being an effected of renamed fields (schema evolution)
+        assertQuery(
+                session,
+                "SELECT a, bxx, c.f1.g1xx, c.f1.g2, c.f2xx, c.f3,  d, e, f FROM " + evolvedTableName + " t",
+                "VALUES (42, NULL, NULL, 873321, NULL, X'abcdef', 12345678, NULL, NULL)");
+
+        assertUpdate(session, "DROP TABLE " + evolvedTableName);
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testUnsupportedCsvTable()
     {
         assertQueryFails(
@@ -5376,7 +6412,7 @@ public class TestHiveIntegrationSmokeTest
                 .findFirst().get()
                 .getColumnConstraints();
 
-        assertEquals(constraints, expected);
+        assertTrue(constraints.containsAll(expected));
     }
 
     private void verifyPartition(boolean hasPartition, TableMetadata tableMetadata, List<String> partitionKeys)

@@ -19,9 +19,9 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
@@ -48,7 +48,6 @@ import javax.inject.Singleton;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -90,7 +89,7 @@ public class HiveModule
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(new TypeLiteral<Supplier<TransactionalMetadata>>() {}).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TransactionalMetadataFactory.class).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
@@ -129,10 +128,9 @@ public class HiveModule
         newSetBinder(binder, SystemTable.class);
     }
 
-    @ForHive
     @Singleton
     @Provides
-    public ExecutorService createHiveClientExecutor(HiveCatalogName catalogName)
+    public ExecutorService createHiveClientExecutor(CatalogName catalogName)
     {
         return newCachedThreadPool(daemonThreadsNamed("hive-" + catalogName + "-%s"));
     }
@@ -140,7 +138,7 @@ public class HiveModule
     @ForHiveTransactionHeartbeats
     @Singleton
     @Provides
-    public ScheduledExecutorService createHiveTransactionHeartbeatExecutor(HiveCatalogName catalogName, HiveConfig hiveConfig)
+    public ScheduledExecutorService createHiveTransactionHeartbeatExecutor(CatalogName catalogName, HiveConfig hiveConfig)
     {
         return newScheduledThreadPool(
                 hiveConfig.getHiveTransactionHeartbeatThreads(),

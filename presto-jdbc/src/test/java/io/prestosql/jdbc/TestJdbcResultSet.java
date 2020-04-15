@@ -58,7 +58,7 @@ public class TestJdbcResultSet
     public void setupServer()
     {
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
     }
 
     @AfterClass(alwaysRun = true)

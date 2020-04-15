@@ -29,10 +29,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.sql.DriverManager.getConnection;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testng.Assert.assertEquals;
 
@@ -42,7 +44,6 @@ public class ServerIT
     @Parameters("rpm")
     @Test
     public void testWithJava8(String rpm)
-            throws Exception
     {
         testServer("prestodev/centos7-oj8", rpm, "1.8");
     }
@@ -50,13 +51,11 @@ public class ServerIT
     @Parameters("rpm")
     @Test
     public void testWithJava11(String rpm)
-            throws Exception
     {
         testServer("prestodev/centos7-oj11", rpm, "11");
     }
 
     private static void testServer(String baseImage, String rpmHostPath, String expectedJavaVersion)
-            throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
 
@@ -94,7 +93,7 @@ public class ServerIT
             assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
             // TODO remove usage of assertEventually once https://github.com/prestosql/presto/issues/2214 is fixed
             assertEventually(
-                    Duration.ofMinutes(1),
+                    new io.airlift.units.Duration(1, MINUTES),
                     () -> assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(expectedJavaVersion))));
         }
     }
@@ -130,24 +129,6 @@ public class ServerIT
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
-        }
-    }
-
-    private static void assertEventually(Duration timeout, Runnable assertion)
-            throws Exception
-    {
-        long start = System.nanoTime();
-        while (!Thread.currentThread().isInterrupted()) {
-            try {
-                assertion.run();
-                return;
-            }
-            catch (Exception | AssertionError e) {
-                if (Duration.ofSeconds(0, System.nanoTime() - start).compareTo(timeout) > 0) {
-                    throw e;
-                }
-            }
-            Thread.sleep(50);
         }
     }
 }

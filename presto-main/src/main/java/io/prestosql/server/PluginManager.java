@@ -24,6 +24,7 @@ import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControlManager;
+import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.block.BlockEncoding;
@@ -31,6 +32,7 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.prestosql.spi.security.GroupProviderFactory;
 import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -77,6 +79,7 @@ public class PluginManager
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
+    private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
@@ -94,6 +97,7 @@ public class PluginManager
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
+            GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
@@ -114,6 +118,7 @@ public class PluginManager
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
+        this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
     }
 
@@ -218,6 +223,11 @@ public class PluginManager
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
         }
+
+        for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
+            log.info("Registering group provider %s", groupProviderFactory.getName());
+            groupProviderManager.addGroupProviderFactory(groupProviderFactory);
+        }
     }
 
     private PluginClassLoader buildClassLoader(String plugin)
@@ -242,7 +252,10 @@ public class PluginManager
         Artifact artifact = artifacts.get(0);
         Set<String> plugins = discoverPlugins(artifact, classLoader);
         if (!plugins.isEmpty()) {
-            writePluginServices(plugins, artifact.getFile());
+            File root = new File(artifact.getFile().getParentFile().getCanonicalFile(), "plugin-discovery");
+            writePluginServices(plugins, root);
+            log.debug("    %s", root);
+            classLoader = classLoader.withUrl(root.toURI().toURL());
         }
 
         return classLoader;

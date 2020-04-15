@@ -16,7 +16,6 @@ package io.prestosql.operator.aggregation.minmaxby;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -62,10 +61,8 @@ public class TestMinMaxByAggregation
 
         for (Type keyType : orderableTypes) {
             for (Type valueType : getTypes()) {
-                if (StateCompiler.getSupportedFieldTypes().contains(valueType.getJavaType())) {
-                    assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(valueType, keyType))));
-                    assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(valueType, keyType))));
-                }
+                assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(valueType, keyType))));
+                assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(valueType, keyType))));
             }
         }
     }
@@ -178,6 +175,23 @@ public class TestMinMaxByAggregation
                 2.0,
                 createDoublesBlock(3.0, 2.0, null),
                 createDoublesBlock(1.0, 1.5, null));
+    }
+
+    @Test
+    public void testMinVarcharDouble()
+    {
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR)));
+        assertAggregation(
+                function,
+                100.0,
+                createDoublesBlock(100.0, 1.0, 50.0, 2.0),
+                createStringsBlock("a", "b", "c", "d"));
+
+        assertAggregation(
+                function,
+                -1.0,
+                createDoublesBlock(100.0, 50.0, 2.0, -1.0),
+                createStringsBlock("x", "y", "z", "a"));
     }
 
     @Test

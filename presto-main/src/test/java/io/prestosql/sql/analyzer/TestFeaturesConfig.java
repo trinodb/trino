@@ -14,7 +14,6 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
@@ -34,8 +33,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
-import static io.prestosql.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -93,7 +90,8 @@ public class TestFeaturesConfig
                 .setExchangeCompressionEnabled(false)
                 .setLegacyTimestamp(true)
                 .setEnableIntermediateAggregations(false)
-                .setPushAggregationThroughJoin(true)
+                .setPushAggregationThroughOuterJoin(true)
+                .setPushPartialAggregationThoughJoin(false)
                 .setParseDecimalLiteralsAsDouble(false)
                 .setForceSingleNodeOutput(true)
                 .setPagesIndexEagerCompactionEnabled(false)
@@ -110,7 +108,7 @@ public class TestFeaturesConfig
                 .setLateMaterializationEnabled(false)
                 .setSkipRedundantSort(true)
                 .setPredicatePushdownUseTableProperties(true)
-                .setEnableDynamicFiltering(false)
+                .setEnableDynamicFiltering(true)
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
                 .setIgnoreDownstreamPreferences(false));
@@ -151,7 +149,8 @@ public class TestFeaturesConfig
                 .put("optimizer.unwrap-casts", "false")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.dictionary-aggregation", "true")
-                .put("optimizer.push-aggregation-through-join", "false")
+                .put("optimizer.push-aggregation-through-outer-join", "false")
+                .put("optimizer.push-partial-aggregation-through-join", "true")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -183,9 +182,9 @@ public class TestFeaturesConfig
                 .put("experimental.late-materialization.enabled", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("optimizer.predicate-pushdown-use-table-properties", "false")
-                .put("experimental.enable-dynamic-filtering", "true")
-                .put("experimental.dynamic-filtering-max-per-driver-row-count", "256")
-                .put("experimental.dynamic-filtering-max-per-driver-size", "64kB")
+                .put("enable-dynamic-filtering", "false")
+                .put("dynamic-filtering-max-per-driver-row-count", "256")
+                .put("dynamic-filtering-max-per-driver-size", "64kB")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .build();
 
@@ -220,7 +219,8 @@ public class TestFeaturesConfig
                 .setUnwrapCasts(false)
                 .setPushTableWriteThroughUnion(false)
                 .setDictionaryAggregation(true)
-                .setPushAggregationThroughJoin(false)
+                .setPushAggregationThroughOuterJoin(false)
+                .setPushPartialAggregationThoughJoin(true)
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
@@ -253,17 +253,10 @@ public class TestFeaturesConfig
                 .setLateMaterializationEnabled(true)
                 .setSkipRedundantSort(false)
                 .setPredicatePushdownUseTableProperties(false)
-                .setEnableDynamicFiltering(true)
+                .setEnableDynamicFiltering(false)
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
                 .setIgnoreDownstreamPreferences(true);
         assertFullMapping(properties, expected);
-    }
-
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*\\Q" + SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true\\E.*")
-    public void testValidateSpillConfiguredIfEnabled()
-    {
-        new ConfigurationFactory(ImmutableMap.of(SPILL_ENABLED, "true"))
-                .build(FeaturesConfig.class);
     }
 }

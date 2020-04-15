@@ -74,7 +74,7 @@ public final class MapZipWithFunction
                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "merge two maps into a single map by applying the lambda function to the pair of values with the same key",
+                "Merge two maps into a single map by applying the lambda function to the pair of values with the same key",
                 SCALAR));
     }
 

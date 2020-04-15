@@ -17,7 +17,8 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -34,15 +35,18 @@ public class JdbcConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Module module;
-    private final ClassLoader classLoader;
+    private final JdbcModuleProvider moduleProvider;
 
-    public JdbcConnectorFactory(String name, Module module, ClassLoader classLoader)
+    public JdbcConnectorFactory(String name, Module module)
+    {
+        this(name, JdbcModuleProvider.of(module));
+    }
+
+    public JdbcConnectorFactory(String name, JdbcModuleProvider moduleProvider)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.module = requireNonNull(module, "module is null");
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        this.moduleProvider = requireNonNull(moduleProvider, "moduleProvider is null");
     }
 
     @Override
@@ -62,20 +66,31 @@ public class JdbcConnectorFactory
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(
-                    binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                    new JdbcModule(catalogName),
-                    new CredentialProviderModule(),
-                    module);
+        Bootstrap app = new Bootstrap(
+                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
+                binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
+                binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
+                new JdbcModule(catalogName),
+                new CredentialProviderModule(),
+                moduleProvider.getModule(catalogName));
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(requiredConfig)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(requiredConfig)
+                .initialize();
 
-            return injector.getInstance(JdbcConnector.class);
+        return injector.getInstance(JdbcConnector.class);
+    }
+
+    public interface JdbcModuleProvider
+    {
+        Module getModule(String catalogName);
+
+        static JdbcModuleProvider of(Module module)
+        {
+            requireNonNull(module, "module is null");
+            return catalogName -> module;
         }
     }
 }

@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -49,7 +50,7 @@ public interface JdbcClient
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
-    ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle);
+    ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Connection getConnection(JdbcIdentity identity, JdbcSplit split)
             throws SQLException;
@@ -100,4 +101,11 @@ public interface JdbcClient
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain);
 
     void createSchema(JdbcIdentity identity, String schemaName);
+
+    void dropSchema(JdbcIdentity identity, String schemaName);
+
+    default Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
 }

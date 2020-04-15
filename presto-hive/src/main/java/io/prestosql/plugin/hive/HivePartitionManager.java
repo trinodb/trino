@@ -18,11 +18,13 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.prestosql.plugin.hive.util.Optionals;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -32,7 +34,6 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.CharType;
@@ -59,6 +60,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
@@ -127,7 +129,9 @@ public class HivePartitionManager
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(table, effectivePredicate);
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
+        TupleDomain<HiveColumnHandle> compactEffectivePredicate = effectivePredicate
+                .transform(HiveColumnHandle.class::cast)
+                .simplify(domainCompactionThreshold);
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
@@ -210,7 +214,7 @@ public class HivePartitionManager
         return partitionList.build();
     }
 
-    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions)
+    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Optional<Set<ColumnHandle>> columns)
     {
         return new HiveTableHandle(
                 handle.getSchemaName(),
@@ -223,32 +227,15 @@ public class HivePartitionManager
                 partitions.getBucketHandle(),
                 partitions.getBucketFilter(),
                 handle.getAnalyzePartitionValues(),
-                handle.getAnalyzeColumnNames());
+                handle.getAnalyzeColumnNames(),
+                Optionals.combine(handle.getConstraintColumns(), columns,
+                        (oldColumns, newColumns) -> Sets.union(oldColumns, newColumns)));
     }
 
     public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle table)
     {
         return table.getPartitions().orElseGet(() ->
                 getPartitionsAsList(getPartitions(metastore, identity, table, new Constraint(table.getEnforcedConstraint()))));
-    }
-
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
-    {
-        ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
-        effectivePredicate.getDomains().ifPresent(domains -> {
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
-
-                ValueSet values = entry.getValue().getValues();
-                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
-                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
-                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
-                        allOrNone -> Optional.empty())
-                        .orElse(values);
-                builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
-            }
-        });
-        return TupleDomain.withColumnDomains(builder.build());
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(

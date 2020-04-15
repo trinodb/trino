@@ -36,6 +36,7 @@ import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
+import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -241,6 +242,22 @@ public final class PlanMatchPattern
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
+    }
+
+    public static PlanMatchPattern distinctLimit(long limit, List<String> distinctSymbols, PlanMatchPattern source)
+    {
+        return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
+                limit,
+                toSymbolAliases(distinctSymbols),
+                Optional.empty()));
+    }
+
+    public static PlanMatchPattern distinctLimit(long limit, List<String> distinctSymbols, String hashSymbol, PlanMatchPattern source)
+    {
+        return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
+                limit,
+                toSymbolAliases(distinctSymbols),
+                Optional.of(new SymbolAlias(hashSymbol))));
     }
 
     public static PlanMatchPattern markDistinct(
@@ -479,8 +496,19 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, Set<String> partitionedBy, PlanMatchPattern... sources)
     {
+        return exchange(scope, type, orderBy, partitionedBy, Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(
+            ExchangeNode.Scope scope,
+            ExchangeNode.Type type,
+            List<Ordering> orderBy,
+            Set<String> partitionedBy,
+            Optional<List<List<String>>> inputs,
+            PlanMatchPattern... sources)
+    {
         return node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type, orderBy, partitionedBy));
+                .with(new ExchangeMatcher(scope, type, orderBy, partitionedBy, inputs));
     }
 
     public static PlanMatchPattern union(PlanMatchPattern... sources)

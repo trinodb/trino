@@ -63,6 +63,7 @@ public class TaskStats
 
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
 
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
@@ -110,6 +111,7 @@ public class TaskStats
                 ImmutableSet.of(),
                 DataSize.ofBytes(0),
                 0,
+                new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
@@ -155,6 +157,7 @@ public class TaskStats
 
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
@@ -215,6 +218,7 @@ public class TaskStats
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
         this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
 
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
@@ -384,6 +388,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
+    }
+
+    @JsonProperty
     public DataSize getInternalNetworkInputDataSize()
     {
         return internalNetworkInputDataSize;
@@ -495,6 +505,7 @@ public class TaskStats
                 blockedReasons,
                 physicalInputDataSize,
                 physicalInputPositions,
+                physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,
@@ -537,6 +548,7 @@ public class TaskStats
                 blockedReasons,
                 physicalInputDataSize,
                 physicalInputPositions,
+                physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,

@@ -20,9 +20,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
 import org.bson.Document;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -60,12 +58,6 @@ public class TestMongoIntegrationSmokeTest
     {
         server.close();
         client.close();
-    }
-
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        throw new SkipException("Mongo connector does not support column default values");
     }
 
     @Test
@@ -304,16 +296,12 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("DROP TABLE test.view_base");
     }
 
-    @Override
-    protected boolean canCreateSchema()
+    @Test
+    public void testDropTable()
     {
-        return false;
-    }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
+        assertUpdate("CREATE TABLE test.drop_table(col bigint)");
+        assertUpdate("DROP TABLE test.drop_table");
+        assertQueryFails("SELECT * FROM test.drop_table", ".*Table 'mongodb.test.drop_table' does not exist");
     }
 
     private void assertOneNotNullResult(String query)

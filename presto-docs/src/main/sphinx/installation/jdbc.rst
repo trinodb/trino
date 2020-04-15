@@ -82,6 +82,9 @@ Name                                   Description
 ``password``                           Password to use for LDAP authentication.
 ``socksProxy``                         SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                          HTTP proxy host and port. Example: ``localhost:8888``
+``clientInfo``                         Extra information about the client.
+``clientTags``                         Client tags for selecting resource groups. Example: ``abc,xyz``
+``traceToken``                         Trace token for correlating requests across systems.
 ``applicationNamePrefix``              Prefix to append to any specified ``ApplicationName`` client info
                                        property, which is used to set the source name for the Presto query.
                                        If neither this property nor ``ApplicationName`` are set, the source
@@ -108,7 +111,17 @@ Name                                   Description
 ``KerberosConfigPath``                 Kerberos configuration file.
 ``KerberosKeytabPath``                 Kerberos keytab file.
 ``KerberosCredentialCachePath``        Kerberos credential cache.
-``extraCredentials``                   Extra credentials for connecting to external services. The
-                                       extraCredentials is a list of key-value pairs. Example:
-                                       ``foo:bar;abc:xyz`` will create credentials ``abc=xyz`` and ``foo=bar``
+``extraCredentials``                   Extra credentials for connecting to external services,
+                                       specified as a list of key-value pairs. For example,
+                                       ``foo:bar;abc:xyz`` creates the credential named ``abc``
+                                       with value ``xyz`` and the credential named ``foo`` with value ``bar``.
+``roles``                              Authorization roles to use for catalogs, specified as a list of
+                                       key-value pairs for the catalog and role. For example,
+                                       ``catalog1:roleA;catalog2:roleB`` sets ``roleA``
+                                       for ``catalog1`` and ``roleB`` for ``catalog2``.
+``sessionProperties``                  Session properties to set for the system and for catalogs,
+                                       specified as a list of key-value pairs.
+                                       For example, ``abc:xyz;example.foo:bar`` sets the system property
+                                       ``abc`` to the value ``xyz`` and the ``foo`` property for
+                                       catalog ``example`` to the value ``bar``.
 ====================================== =======================================================================

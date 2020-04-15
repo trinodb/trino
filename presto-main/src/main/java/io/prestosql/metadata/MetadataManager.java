@@ -159,7 +159,7 @@ public final class MetadataManager
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
-    private final TypeRegistry typeRegistry = new TypeRegistry(ImmutableSet.of());
+    private final TypeRegistry typeRegistry;
 
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
@@ -174,6 +174,7 @@ public final class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
     {
+        typeRegistry = new TypeRegistry(featuresConfig);
         functions = new FunctionRegistry(this, featuresConfig);
         functionResolver = new FunctionResolver(this);
 
@@ -479,9 +480,6 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
-        if (tableMetadata.getColumns().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Table has no columns: " + tableHandle);
-        }
 
         return new TableMetadata(catalogName, tableMetadata);
     }
@@ -590,12 +588,12 @@ public final class MetadataManager
     }
 
     @Override
-    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties)
+    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties);
+        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties, principal);
     }
 
     @Override
@@ -614,6 +612,15 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName(), target);
+    }
+
+    @Override
+    public void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        metadata.setSchemaAuthorization(session.toConnectorSession(catalogName), source.getSchemaName(), principal);
     }
 
     @Override
@@ -1053,6 +1060,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void validateScan(Session session, TableHandle table)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        metadata.validateScan(session.toConnectorSession(catalogName), table.getConnectorHandle());
+    }
+
+    @Override
     public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
     {
         CatalogName catalogName = table.getCatalogName();
@@ -1140,23 +1155,23 @@ public final class MetadataManager
     }
 
     @Override
-    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, withAdminOption, grantor);
+        metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
     }
 
     @Override
-    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog)
+    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOptionFor, grantor);
+        metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
     }
 
     @Override

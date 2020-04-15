@@ -38,6 +38,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -121,13 +122,13 @@ public class KuduMetadata
         }
 
         String encoding = KuduTableProperties.lookupEncodingString(column.getEncoding());
-        if (!column.getEncoding().equals(ColumnSchema.Encoding.AUTO_ENCODING)) {
+        if (column.getEncoding() != ColumnSchema.Encoding.AUTO_ENCODING) {
             properties.put(KuduTableProperties.ENCODING, encoding);
         }
         extra.append("encoding=").append(encoding).append(", ");
 
         String compression = KuduTableProperties.lookupCompressionString(column.getCompressionAlgorithm());
-        if (!column.getCompressionAlgorithm().equals(ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION)) {
+        if (column.getCompressionAlgorithm() != ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION) {
             properties.put(KuduTableProperties.COMPRESSION, compression);
         }
         extra.append("compression=").append(compression);
@@ -207,7 +208,7 @@ public class KuduMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         clientSession.createSchema(schemaName);
     }

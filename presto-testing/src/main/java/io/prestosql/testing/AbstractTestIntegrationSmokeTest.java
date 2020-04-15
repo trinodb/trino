@@ -13,54 +13,28 @@
  */
 package io.prestosql.testing;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
-
-import java.security.SecureRandom;
-import java.util.List;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.lang.Character.MAX_RADIX;
-import static java.lang.Math.abs;
-import static java.lang.Math.min;
-import static java.lang.String.format;
+import static java.lang.String.join;
+import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    private static final SecureRandom random = new SecureRandom();
-    private static final int RANDOM_SUFFIX_LENGTH = 12;
-
-    protected boolean isDateTypeSupported()
+    /**
+     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
+     * shortcuts, not exercising certain aspects.
+     */
+    @Test
+    public void ensureDistributedQueryRunner()
     {
-        return true;
-    }
-
-    protected boolean isParameterizedVarcharSupported()
-    {
-        return true;
-    }
-
-    protected boolean canCreateSchema()
-    {
-        return true;
-    }
-
-    protected boolean canDropSchema()
-    {
-        return true;
-    }
-
-    protected void cleanUpSchemas(List<String> schemaNames)
-            throws Exception
-    {
-        if (!canDropSchema()) {
-            throw new IllegalStateException("cleanUpSchemas() must be implemented if canDropSchema is false");
-        }
+        assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
+                .isGreaterThanOrEqualTo(3);
     }
 
     @Test
@@ -128,6 +102,13 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
+    public void testConcurrentScans()
+    {
+        String unionMultipleTimes = join(" UNION ALL ", nCopies(25, "SELECT * FROM orders"));
+        assertQuery("SELECT sum(if(rand() >= 0, orderkey)) FROM (" + unionMultipleTimes + ")", "VALUES 11246812500");
+    }
+
+    @Test
     public void testSelectAll()
     {
         assertQuery("SELECT * FROM orders");
@@ -157,8 +138,37 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
-        assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(1)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(79)", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Test
+    public void testShowCreateTable()
+    {
+        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
+                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79)\n" +
+                        ")");
     }
 
     @Test
@@ -213,107 +223,5 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '_rders'", ordersTableWithColumns);
         assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_name LIKE '%'");
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
-    }
-
-    @Test
-    public void testDuplicatedRowCreateTable()
-    {
-        assertQueryFails("CREATE TABLE test (a integer, a integer)",
-                "line 1:31: Column name 'a' specified more than once");
-        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
-                "line 1:49: Column name 'orderkey' specified more than once");
-
-        assertQueryFails("CREATE TABLE test (a integer, A integer)",
-                "line 1:31: Column name 'A' specified more than once");
-        assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
-                "line 1:49: Column name 'orderkey' specified more than once");
-    }
-
-    private MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
-    {
-        String orderDateType;
-        if (dateSupported) {
-            orderDateType = "date";
-        }
-        else {
-            orderDateType = "varchar";
-        }
-        if (parametrizedVarchar) {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar(1)", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar(15)", "", "")
-                    .row("clerk", "varchar(15)", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar(79)", "", "")
-                    .build();
-        }
-        else {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar", "", "")
-                    .row("clerk", "varchar", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar", "", "")
-                    .build();
-        }
-    }
-
-    @Test
-    public void testCreateSchema()
-            throws Exception
-    {
-        skipTestUnless(canCreateSchema());
-        String schemaName = "schema_" + randomNameSuffix();
-        assertEquals(computeActual(format("SHOW SCHEMAS LIKE '%s'", schemaName)).getRowCount(), 0);
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
-        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' already exists", schemaName));
-        if (canDropSchema()) {
-            assertUpdate("DROP SCHEMA " + schemaName);
-            assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
-        }
-        else {
-            cleanUpSchemas(ImmutableList.of(schemaName));
-        }
-    }
-
-    @Test
-    public void testDropSchema()
-    {
-        skipTestUnless(canCreateSchema() && canDropSchema());
-        String schemaName = "schema_" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
-        assertUpdate("DROP SCHEMA " + schemaName);
-        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
-    }
-
-    @Test
-    public void testInsertForDefaultColumn()
-    {
-        try (TestTable testTable = createTableWithDefaultColumns()) {
-            assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (7, null, null, 8, 9)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
-
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
-        }
-    }
-
-    protected abstract TestTable createTableWithDefaultColumns();
-
-    private static String randomNameSuffix()
-    {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
-        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }

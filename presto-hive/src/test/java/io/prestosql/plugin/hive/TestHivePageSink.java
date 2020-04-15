@@ -31,6 +31,7 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
@@ -59,6 +60,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveCompressionCodec.NONE;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
@@ -233,9 +235,10 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 false,
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
-                false);
+                false,
+                Optional.empty());
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,
@@ -244,7 +247,7 @@ public class TestHivePageSink
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
                 new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
-        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
+        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), TupleDomain.all());
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
@@ -289,7 +292,7 @@ public class TestHivePageSink
         for (int i = 0; i < columns.size(); i++) {
             LineItemColumn column = columns.get(i);
             HiveType hiveType = getHiveType(column.getType());
-            handles.add(new HiveColumnHandle(column.getColumnName(), hiveType, hiveType.getType(TYPE_MANAGER), i, REGULAR, Optional.empty()));
+            handles.add(createBaseColumn(column.getColumnName(), i, hiveType, hiveType.getType(TYPE_MANAGER), REGULAR, Optional.empty()));
         }
         return handles.build();
     }

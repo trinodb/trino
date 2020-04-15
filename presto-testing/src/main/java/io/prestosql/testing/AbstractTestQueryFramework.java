@@ -382,10 +382,4 @@ public abstract class AbstractTestQueryFramework
         checkState(queryRunner != null, "queryRunner not set");
         return queryRunner;
     }
-
-    public interface QueryRunnerSupplier
-    {
-        QueryRunner get()
-                throws Exception;
-    }
 }

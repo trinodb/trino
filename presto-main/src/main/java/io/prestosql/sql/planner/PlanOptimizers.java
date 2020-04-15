@@ -60,10 +60,20 @@ import io.prestosql.sql.planner.iterative.rule.MergeLimits;
 import io.prestosql.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneApplyColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneApplySourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneAssignUniqueIdColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneCorrelatedJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
-import io.prestosql.sql.planner.iterative.rule.PruneCrossJoinColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneDeleteSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneDistinctLimitSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneEnforceSingleRowColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneExceptSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneExchangeColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneExchangeSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneFilterColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneIndexSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneIntersectSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneLimitColumns;
@@ -72,10 +82,13 @@ import io.prestosql.sql.planner.iterative.rule.PruneOffsetColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import io.prestosql.sql.planner.iterative.rule.PruneOutputColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneProjectColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneSampleColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneUnionColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneUnionSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
@@ -231,22 +244,35 @@ public class PlanOptimizers
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(),
-                new PruneCrossJoinColumns(),
+                new PruneApplyColumns(),
+                new PruneApplySourceColumns(),
+                new PruneAssignUniqueIdColumns(),
+                new PruneCorrelatedJoinColumns(),
+                new PruneDeleteSourceColumns(),
+                new PruneDistinctLimitSourceColumns(),
+                new PruneEnforceSingleRowColumns(),
+                new PruneExceptSourceColumns(),
+                new PruneExchangeColumns(),
+                new PruneExchangeSourceColumns(),
                 new PruneFilterColumns(),
                 new PruneIndexSourceColumns(),
+                new PruneIntersectSourceColumns(),
                 new PruneJoinChildrenColumns(),
                 new PruneJoinColumns(),
                 new PruneMarkDistinctColumns(),
                 new PruneOutputColumns(),
                 new PruneProjectColumns(),
+                new PruneSampleColumns(),
                 new PruneSemiJoinColumns(),
                 new PruneSemiJoinFilteringSourceColumns(),
                 new PruneTopNColumns(),
+                new PruneUnionColumns(),
+                new PruneUnionSourceColumns(),
                 new PruneValuesColumns(),
                 new PruneWindowColumns(),
                 new PruneOffsetColumns(),
                 new PruneLimitColumns(),
-                new PruneTableScanColumns());
+                new PruneTableScanColumns(metadata, typeAnalyzer));
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
                 new PushProjectionIntoTableScan(metadata, typeAnalyzer),
@@ -278,8 +304,6 @@ public class PlanOptimizers
                         .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
                         .add(new RemoveTrivialFilters())
                         .build());
-
-        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeAnalyzer, true));
 
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
@@ -362,7 +386,7 @@ public class PlanOptimizers
                                 new ImplementIntersectAsUnion(metadata),
                                 new ImplementExceptAsUnion(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PruneUnreferencedOutputs(),
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
                 inlineProjections,
                 new IterativeOptimizer(
                         ruleStats,
@@ -407,7 +431,7 @@ public class PlanOptimizers
                 new CheckSubqueryNodesAreRewritten(),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
-                        new PredicatePushDown(metadata, typeAnalyzer, false)),
+                        new PredicatePushDown(metadata, typeAnalyzer, false, false)),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -425,7 +449,7 @@ public class PlanOptimizers
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
                         ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
-                new PruneUnreferencedOutputs(),
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -438,7 +462,7 @@ public class PlanOptimizers
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
-                new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
                         ruleStats,
@@ -457,7 +481,7 @@ public class PlanOptimizers
                                 .addAll(GatherAndMergeWindows.rules())
                                 .build()),
                 inlineProjections,
-                new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -469,7 +493,9 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new EliminateCrossJoins(metadata))), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
-                predicatePushDown,
+                new StatsRecordingPlanOptimizer(
+                        optimizerStats,
+                        new PredicatePushDown(metadata, typeAnalyzer, true, false)),
                 simplifyOptimizer, // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
                         ruleStats,
@@ -477,7 +503,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer))),
                 projectionPushDown,
-                new PruneUnreferencedOutputs(),
+                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -485,7 +511,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
 
                 // Because ReorderJoins runs only once,
-                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
+                // PredicatePushDown, PruneUnreferencedOutputs and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 new IterativeOptimizer(
@@ -537,6 +563,9 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
+            // unalias symbols before adding exchanges to use same partitioning symbols in joins, aggregations and other
+            // operators that require node partitioning
+            builder.add(new UnaliasSymbolReferences(metadata));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, typeAnalyzer)));
         }
         //noinspection UnusedAssignment
@@ -549,7 +578,11 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
-        builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        // and to pushdown dynamic filters
+        builder.add(new StatsRecordingPlanOptimizer(
+                optimizerStats,
+                new PredicatePushDown(metadata, typeAnalyzer, true, true)));
         builder.add(new RemoveUnsupportedDynamicFilters(metadata));
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(new IterativeOptimizer(
@@ -560,7 +593,7 @@ public class PlanOptimizers
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(new PruneUnreferencedOutputs());
+        builder.add(new PruneUnreferencedOutputs(metadata, typeAnalyzer));
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
@@ -584,7 +617,8 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata),
-                        new PruneJoinColumns())));
+                        new PruneJoinColumns(),
+                        new PruneJoinChildrenColumns())));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

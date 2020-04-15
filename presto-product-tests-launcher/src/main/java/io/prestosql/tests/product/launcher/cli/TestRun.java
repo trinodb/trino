@@ -15,6 +15,7 @@ package io.prestosql.tests.product.launcher.cli;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.airline.Arguments;
@@ -42,6 +43,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -101,17 +104,20 @@ public final class TestRun
     {
         private static final int TESTS_READY_PORT = 1970;
 
+        private final EnvironmentFactory environmentFactory;
         private final PathResolver pathResolver;
+        private final boolean debug;
         private final File testJar;
         private final List<String> testArguments;
-        private final EnvironmentFactory environmentFactory;
         private final String environment;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, TestRunOptions testRunOptions)
+        public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
+            requireNonNull(environmentOptions, "environmentOptions is null");
+            this.debug = environmentOptions.debug;
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
@@ -151,8 +157,18 @@ public final class TestRun
 
             environment.configureContainer("tests", container -> {
                 container.addExposedPort(TESTS_READY_PORT);
+
+                List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
+                        container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
+
+                if (debug) {
+                    temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
+                    temptoJavaOptions.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:5007");
+                    exposePort(container, 5007); // debug port
+                }
+
                 container
-                        .withFileSystemBind(pathResolver.resolvePlaceholders(testJar).toString(), "/docker/test.jar", READ_ONLY)
+                        .withFileSystemBind(pathResolver.resolvePlaceholders(testJar).getPath(), "/docker/test.jar", READ_ONLY)
                         .withEnv("TESTS_HIVE_VERSION_MAJOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MAJOR", "1"))
                         .withEnv("TESTS_HIVE_VERSION_MINOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MINOR", "2"))
                         .withCommand(ImmutableList.<String>builder()
@@ -160,17 +176,22 @@ public final class TestRun
                                 .add(Integer.toString(TESTS_READY_PORT))
                                 .add(
                                         "java",
-                                        // "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007", // TODO implement sth like --debug switch
+                                        "-Xmx1g",
+                                        // Force Parallel GC to ensure MaxHeapFreeRatio is respected
+                                        "-XX:+UseParallelGC",
+                                        "-XX:MinHeapFreeRatio=10",
+                                        "-XX:MaxHeapFreeRatio=10",
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
-                                        "-Duser.timezone=Asia/Kathmandu",
-                                        "-jar", "/docker/test.jar", // TODO "-cp", "/docker/presto-jdbc.jar:..." "io.prestosql.tests.TemptoProductTestRunner"
-                                        // TODO "--report-dir" "/docker/test-reports/$(date "+%Y-%m-%dT%H:%M:%S")"
+                                        "-Duser.timezone=Asia/Kathmandu")
+                                .addAll(temptoJavaOptions)
+                                .add(
+                                        "-jar", "/docker/test.jar",
                                         "--config", String.join(",", ImmutableList.<String>builder()
                                                 .add("tempto-configuration.yaml") // this comes from classpath
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
-                                                .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml")
+                                                .add(CONTAINER_TEMPTO_PROFILE_CONFIG)
                                                 .add(System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
-                                                .add(System.getenv().getOrDefault("TEMPTO_EXTRA_CONFIG_FILE", "/dev/null"))
+                                                .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)
                                 .build().toArray(new String[0]));

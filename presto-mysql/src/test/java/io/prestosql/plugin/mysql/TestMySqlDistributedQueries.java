@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
+
+import java.util.Optional;
 
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -65,6 +68,19 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                mysqlServer::execute,
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
@@ -91,18 +107,6 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
-    public void testDescribeOutput()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
     public void testCommentTable()
     {
         // MySQL connector currently does not support comment on table
@@ -113,6 +117,24 @@ public class TestMySqlDistributedQueries
     public void testDelete()
     {
         // delete is not supported
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("real")
+                || typeName.equals("timestamp")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest

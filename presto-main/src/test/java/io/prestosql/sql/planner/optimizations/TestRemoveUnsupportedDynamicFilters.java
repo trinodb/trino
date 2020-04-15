@@ -34,6 +34,7 @@ import io.prestosql.sql.planner.assertions.PlanAssert;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
@@ -51,6 +52,7 @@ import static io.prestosql.sql.ExpressionUtils.combineDisjuncts;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
@@ -97,6 +99,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 lineitemTableScanNode,
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -123,6 +126,7 @@ public class TestRemoveUnsupportedDynamicFilters
                         lineitemTableScanNode),
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -131,7 +135,8 @@ public class TestRemoveUnsupportedDynamicFilters
                 removeUnsupportedDynamicFilters(root),
                 join(INNER,
                         ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                        filter(createDynamicFilterExpression(metadata, "DF", BIGINT, ordersOrderKeySymbol.toSymbolReference()),
+                        node(
+                                FilterNode.class,
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
@@ -152,6 +157,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                         createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty(),
@@ -190,6 +196,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                         ImmutableList.of(ordersOrderKeySymbol),
+                        ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -224,6 +231,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                         ImmutableList.of(ordersOrderKeySymbol),
+                        ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),

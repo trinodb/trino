@@ -16,7 +16,9 @@ package io.prestosql.plugin.cassandra;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
@@ -47,6 +49,12 @@ public class TestCassandraDistributedQueries
     protected boolean supportsViews()
     {
         return false;
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // Cassandra does not support creating schemas
     }
 
     @Override
@@ -134,18 +142,6 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testDescribeOutput()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
     public void testWrittenStats()
     {
         // TODO Cassandra connector supports CTAS and inserts, but the test would fail
@@ -156,5 +152,17 @@ public class TestCassandraDistributedQueries
     {
         // Cassandra connector currently does not support comment on table
         assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Cassandra connector does not support column default values");
+    }
+
+    @Override
+    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    {
+        // Cassandra connector currently does not support create table
     }
 }

@@ -22,7 +22,6 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -48,9 +47,10 @@ public class HiveSplit
     private final String partitionName;
     private final OptionalInt bucketNumber;
     private final boolean forceLocalScheduling;
-    private final Map<Integer, HiveType> columnCoercions; // key: hiveColumnIndex
+    private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
+    private final Optional<DeleteDeltaLocations> deleteDeltaLocations;
 
     @JsonCreator
     public HiveSplit(
@@ -67,9 +67,10 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions,
+            @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
-            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled)
+            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
+            @JsonProperty("deleteDeltaLocations") Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -82,8 +83,9 @@ public class HiveSplit
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(addresses, "addresses is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
-        requireNonNull(columnCoercions, "columnCoercions is null");
+        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
 
         this.database = database;
         this.table = table;
@@ -98,9 +100,10 @@ public class HiveSplit
         this.addresses = ImmutableList.copyOf(addresses);
         this.bucketNumber = bucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.columnCoercions = columnCoercions;
+        this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.deleteDeltaLocations = deleteDeltaLocations;
     }
 
     @JsonProperty
@@ -183,9 +186,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Map<Integer, HiveType> getColumnCoercions()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return columnCoercions;
+        return tableToPartitionMapping;
     }
 
     @JsonProperty
@@ -204,6 +207,12 @@ public class HiveSplit
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
+    }
+
+    @JsonProperty
+    public Optional<DeleteDeltaLocations> getDeleteDeltaLocations()
+    {
+        return deleteDeltaLocations;
     }
 
     @Override

@@ -32,6 +32,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -198,5 +199,44 @@ public class TestThriftProjectionPushdown
                                 equalTo(projectedThriftHandle),
                                 TupleDomain.all(),
                                 ImmutableMap.of(columnName, equalTo(columnHandle)))));
+    }
+
+    @Test
+    public void testPruneColumns()
+    {
+        PruneTableScanColumns rule = new PruneTableScanColumns(
+                tester().getMetadata(),
+                new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
+
+        ThriftColumnHandle nationKeyColumn = new ThriftColumnHandle("nationKey", VARCHAR, "", false);
+        ThriftColumnHandle nameColumn = new ThriftColumnHandle("name", VARCHAR, "", false);
+
+        tester().assertThat(rule)
+                .on(p -> {
+                    Symbol nationKey = p.symbol(nationKeyColumn.getColumnName(), VARCHAR);
+                    Symbol name = p.symbol(nameColumn.getColumnName(), VARCHAR);
+                    return p.project(
+                            Assignments.of(
+                                    p.symbol("expr", VARCHAR),
+                                    nationKey.toSymbolReference()),
+                            p.tableScan(
+                                    NATION_TABLE,
+                                    ImmutableList.of(nationKey, name),
+                                    ImmutableMap.<Symbol, ColumnHandle>builder()
+                                            .put(nationKey, nationKeyColumn)
+                                            .put(name, nameColumn)
+                                            .build()));
+                })
+                .withSession(SESSION)
+                .matches(project(
+                        ImmutableMap.of("expr", expression(new SymbolReference(nationKeyColumn.getColumnName()))),
+                        tableScan(
+                                equalTo(new ThriftTableHandle(
+                                        TINY_SCHEMA,
+                                        "nation",
+                                        TupleDomain.all(),
+                                        Optional.of(ImmutableSet.of(nationKeyColumn)))),
+                                TupleDomain.all(),
+                                ImmutableMap.of(nationKeyColumn.getColumnName(), equalTo(nationKeyColumn)))));
     }
 }

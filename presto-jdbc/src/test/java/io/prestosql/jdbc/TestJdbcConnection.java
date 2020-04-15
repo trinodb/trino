@@ -69,7 +69,9 @@ public class TestJdbcConnection
         Logging.initialize();
         Module systemTables = binder -> newSetBinder(binder, SystemTable.class)
                 .addBinding().to(ExtraCredentialsSystemTable.class).in(Scopes.SINGLETON);
-        server = new TestingPrestoServer(ImmutableList.of(systemTables));
+        server = TestingPrestoServer.builder()
+                .setAdditionalModule(systemTables)
+                .build();
         server.installPlugin(new HiveHadoop2Plugin());
         server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
@@ -300,6 +302,33 @@ public class TestJdbcConnection
             PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
             assertEquals(prestoConnection.getExtraCredentials(), expectedCredentials);
             assertEquals(listExtraCredentials(connection), expectedCredentials);
+        }
+    }
+
+    @Test
+    public void testClientInfoParameter()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("clientInfo=hello%20world")) {
+            assertEquals(connection.getClientInfo("ClientInfo"), "hello world");
+        }
+    }
+
+    @Test
+    public void testClientTags()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("clientTags=c2,c3")) {
+            assertEquals(connection.getClientInfo("ClientTags"), "c2,c3");
+        }
+    }
+
+    @Test
+    public void testTraceToken()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("traceToken=trace%20me")) {
+            assertEquals(connection.getClientInfo("TraceToken"), "trace me");
         }
     }
 

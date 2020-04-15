@@ -26,6 +26,9 @@ import io.prestosql.Session;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.CostProvider;
 import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsAndCostSummary;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsProvider;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
@@ -56,7 +59,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -164,6 +166,7 @@ public class ReorderJoins
     {
         private final Metadata metadata;
         private final Session session;
+        private final StatsProvider statsProvider;
         private final CostProvider costProvider;
         // Using Ordering to facilitate rule determinism
         private final Ordering<JoinEnumerationResult> resultComparator;
@@ -181,6 +184,7 @@ public class ReorderJoins
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.context = requireNonNull(context);
             this.session = requireNonNull(context.getSession(), "session is null");
+            this.statsProvider = requireNonNull(context.getStatsProvider(), "statsProvider is null");
             this.costProvider = requireNonNull(context.getCostProvider(), "costProvider is null");
             this.resultComparator = costComparator.forSession(session).onResultOf(result -> result.cost);
             this.idAllocator = requireNonNull(context.getIdAllocator(), "idAllocator is null");
@@ -313,8 +317,10 @@ public class ReorderJoins
 
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            // sort output symbols so that the left input symbols are first
-            List<Symbol> sortedOutputSymbols = Stream.concat(left.getOutputSymbols().stream(), right.getOutputSymbols().stream())
+            List<Symbol> leftOutputSymbols = left.getOutputSymbols().stream()
+                    .filter(outputSymbols::contains)
+                    .collect(toImmutableList());
+            List<Symbol> rightOutputSymbols = right.getOutputSymbols().stream()
                     .filter(outputSymbols::contains)
                     .collect(toImmutableList());
 
@@ -324,13 +330,15 @@ public class ReorderJoins
                     left,
                     right,
                     joinConditions,
-                    sortedOutputSymbols,
+                    leftOutputSymbols,
+                    rightOutputSymbols,
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(and(joinFilters)),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of()));
+                    ImmutableMap.of(),
+                    Optional.empty()));
         }
 
         private List<Expression> getJoinPredicates(Set<Symbol> leftSymbols, Set<Symbol> rightSymbols)
@@ -443,6 +451,20 @@ public class ReorderJoins
                     joinNode.withDistributionType(distributionType),
                     joinNode.flipChildren().withDistributionType(distributionType));
             return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
+        }
+
+        private JoinEnumerationResult createJoinEnumerationResult(JoinNode joinNode)
+        {
+            PlanCostEstimate costEstimate = costProvider.getCost(joinNode);
+            PlanNodeStatsEstimate statsEstimate = statsProvider.getStats(joinNode);
+            return JoinEnumerationResult.createJoinEnumerationResult(
+                    Optional.of(joinNode.withReorderJoinStatsAndCost(new PlanNodeStatsAndCostSummary(
+                            statsEstimate.getOutputRowCount(),
+                            statsEstimate.getOutputSizeInBytes(joinNode.getOutputSymbols(), context.getSymbolAllocator().getTypes()),
+                            costEstimate.getCpuCost(),
+                            costEstimate.getMaxMemory(),
+                            costEstimate.getNetworkCost()))),
+                    costEstimate);
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)

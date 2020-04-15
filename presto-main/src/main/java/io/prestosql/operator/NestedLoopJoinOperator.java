@@ -14,6 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.Page;
@@ -42,14 +43,23 @@ public class NestedLoopJoinOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final JoinBridgeManager<NestedLoopJoinBridge> joinBridgeManager;
+        private final List<Integer> probeChannels;
+        private final List<Integer> buildChannels;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager)
+        public NestedLoopJoinOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager,
+                List<Integer> probeChannels,
+                List<Integer> buildChannels)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.joinBridgeManager = nestedLoopJoinBridgeManager;
             this.joinBridgeManager.incrementProbeFactoryCount();
+            this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
+            this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
         }
 
         private NestedLoopJoinOperatorFactory(NestedLoopJoinOperatorFactory other)
@@ -59,6 +69,9 @@ public class NestedLoopJoinOperator
             this.planNodeId = other.planNodeId;
 
             this.joinBridgeManager = other.joinBridgeManager;
+
+            this.probeChannels = ImmutableList.copyOf(other.probeChannels);
+            this.buildChannels = ImmutableList.copyOf(other.buildChannels);
 
             // closed is intentionally not copied
             closed = false;
@@ -78,6 +91,8 @@ public class NestedLoopJoinOperator
             return new NestedLoopJoinOperator(
                     operatorContext,
                     nestedLoopJoinBridge,
+                    probeChannels,
+                    buildChannels,
                     () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()));
         }
 
@@ -109,6 +124,8 @@ public class NestedLoopJoinOperator
     private final OperatorContext operatorContext;
     private final Runnable afterClose;
 
+    private final List<Integer> probeChannels;
+    private final List<Integer> buildChannels;
     private List<Page> buildPages;
     private Page probePage;
     private Iterator<Page> buildPageIterator;
@@ -116,10 +133,12 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    private NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinBridge joinBridge, Runnable afterClose)
+    private NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinBridge joinBridge, List<Integer> probeChannels, List<Integer> buildChannels, Runnable afterClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinPagesFuture = joinBridge.getPagesFuture();
+        this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
+        this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
     }
 
@@ -196,7 +215,7 @@ public class NestedLoopJoinOperator
         }
 
         if (buildPageIterator.hasNext()) {
-            nestedLoopPageBuilder = new NestedLoopPageBuilder(probePage, buildPageIterator.next());
+            nestedLoopPageBuilder = new NestedLoopPageBuilder(probePage, buildPageIterator.next(), probeChannels, buildChannels);
             return nestedLoopPageBuilder.next();
         }
 
@@ -225,8 +244,8 @@ public class NestedLoopJoinOperator
     static class NestedLoopPageBuilder
             implements Iterator<Page>
     {
-        private final int numberOfProbeColumns;
-        private final int numberOfBuildColumns;
+        private final List<Integer> probeChannels;
+        private final List<Integer> buildChannels;
         private final boolean buildPageLarger;
         private final Page largePage;
         private final Page smallPage;
@@ -235,14 +254,14 @@ public class NestedLoopJoinOperator
         private int rowIndex; // Iterator on the rows in the page with less rows.
         private final int noColumnShortcutResult; // Only used if select count(*) from cross join.
 
-        NestedLoopPageBuilder(Page probePage, Page buildPage)
+        NestedLoopPageBuilder(Page probePage, Page buildPage, List<Integer> probeChannels, List<Integer> buildChannels)
         {
             requireNonNull(probePage, "probePage is null");
             checkArgument(probePage.getPositionCount() > 0, "probePage has no rows");
             requireNonNull(buildPage, "buildPage is null");
             checkArgument(buildPage.getPositionCount() > 0, "buildPage has no rows");
-            this.numberOfProbeColumns = probePage.getChannelCount();
-            this.numberOfBuildColumns = buildPage.getChannelCount();
+            this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
+            this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
 
             // We will loop through all rows in the page with less rows.
             this.rowIndex = -1;
@@ -251,7 +270,7 @@ public class NestedLoopJoinOperator
             this.largePage = buildPageLarger ? buildPage : probePage;
             this.smallPage = buildPageLarger ? probePage : buildPage;
 
-            this.noColumnShortcutResult = calculateUseNoColumnShortcut(numberOfProbeColumns, numberOfBuildColumns, probePage.getPositionCount(), buildPage.getPositionCount());
+            this.noColumnShortcutResult = calculateUseNoColumnShortcut(probeChannels.size(), buildChannels.size(), probePage.getPositionCount(), buildPage.getPositionCount());
         }
 
         private static int calculateUseNoColumnShortcut(
@@ -293,22 +312,26 @@ public class NestedLoopJoinOperator
             rowIndex++;
 
             // Create an array of blocks for all columns in both pages.
-            Block[] blocks = new Block[numberOfProbeColumns + numberOfBuildColumns];
+            Block[] blocks = new Block[probeChannels.size() + buildChannels.size()];
 
             // Make sure we always put the probe data on the left and build data on the right.
-            int indexForRleBlocks = buildPageLarger ? 0 : numberOfProbeColumns;
-            int indexForPageBlocks = buildPageLarger ? numberOfProbeColumns : 0;
+            int indexForRleBlocks = buildPageLarger ? 0 : probeChannels.size();
+            int indexForPageBlocks = buildPageLarger ? probeChannels.size() : 0;
+
+            List<Integer> smallPageChannels = buildPageLarger ? probeChannels : buildChannels;
+            List<Integer> largePageChannels = buildPageLarger ? buildChannels : probeChannels;
 
             // For the page with less rows, create RLE blocks and add them to the blocks array
-            for (int i = 0; i < smallPage.getChannelCount(); i++) {
-                Block block = smallPage.getBlock(i).getSingleValueBlock(rowIndex);
+            for (int channel : smallPageChannels) {
+                Block block = smallPage.getBlock(channel).getSingleValueBlock(rowIndex);
                 blocks[indexForRleBlocks] = new RunLengthEncodedBlock(block, largePage.getPositionCount());
                 indexForRleBlocks++;
             }
 
-            // Put the page with more rows in the blocks array
-            for (int i = 0; i < largePage.getChannelCount(); i++) {
-                blocks[indexForPageBlocks + i] = largePage.getBlock(i);
+            // Put the blocks from the page with more rows in the blocks array
+            for (int channel : largePageChannels) {
+                blocks[indexForPageBlocks] = largePage.getBlock(channel);
+                indexForPageBlocks++;
             }
 
             return new Page(largePage.getPositionCount(), blocks);

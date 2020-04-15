@@ -121,7 +121,7 @@ public final class SortingProperty<E>
         }
         SortingProperty<?> that = (SortingProperty<?>) o;
         return Objects.equals(column, that.column) &&
-                Objects.equals(order, that.order);
+                order == that.order;
     }
 
     @Override

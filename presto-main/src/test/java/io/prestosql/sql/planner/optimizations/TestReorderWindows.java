@@ -323,7 +323,7 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
-                new PredicatePushDown(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata()), false),
+                new PredicatePushDown(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata()), false, false),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
@@ -333,7 +333,7 @@ public class TestReorderWindows
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))),
-                new PruneUnreferencedOutputs());
+                new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata())));
         assertPlan(sql, pattern, optimizers);
     }
 }

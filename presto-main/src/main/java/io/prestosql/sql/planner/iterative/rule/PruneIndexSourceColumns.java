@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.Maps;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -39,7 +38,7 @@ public class PruneIndexSourceColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, IndexSourceNode indexSourceNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, IndexSourceNode indexSourceNode, Set<Symbol> referencedOutputs)
     {
         Set<Symbol> prunedLookupSymbols = indexSourceNode.getLookupSymbols().stream()
                 .filter(referencedOutputs::contains)

@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.eventlistener.EventListener;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -44,5 +45,6 @@ public class TestClassLoaderSafeWrappers
         assertAllMethodsOverridden(SystemTable.class, ClassLoaderSafeSystemTable.class);
         assertAllMethodsOverridden(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
         assertAllMethodsOverridden(RecordSet.class, ClassLoaderSafeRecordSet.class);
+        assertAllMethodsOverridden(EventListener.class, ClassLoaderSafeEventListener.class);
     }
 }

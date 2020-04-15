@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.testing.TestingNodeManager;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -34,12 +35,14 @@ import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
@@ -70,8 +73,8 @@ public class TestMemoryMetadata
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
-        assertTrue(tables.size() == 1, "Expected only one table");
-        assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
+        assertEquals(tables.size(), 1, "Expected only one table");
+        assertEquals(tables.get(0).getTableName(), "temp_table", "Expected table with name 'temp_table'");
     }
 
     @Test
@@ -116,7 +119,7 @@ public class TestMemoryMetadata
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
         long firstTableId = firstTableHandle.getId();
 
-        assertTrue(metadata.beginInsert(SESSION, firstTableHandle).getActiveTableIds().contains(firstTableId));
+        assertTrue(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of()).getActiveTableIds().contains(firstTableId));
 
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
@@ -125,8 +128,8 @@ public class TestMemoryMetadata
         long secondTableId = secondTableHandle.getId();
 
         assertNotEquals(firstTableId, secondTableId);
-        assertTrue(metadata.beginInsert(SESSION, secondTableHandle).getActiveTableIds().contains(firstTableId));
-        assertTrue(metadata.beginInsert(SESSION, secondTableHandle).getActiveTableIds().contains(secondTableId));
+        assertTrue(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of()).getActiveTableIds().contains(firstTableId));
+        assertTrue(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of()).getActiveTableIds().contains(secondTableId));
     }
 
     @Test
@@ -142,7 +145,7 @@ public class TestMemoryMetadata
                 Optional.empty());
 
         List<SchemaTableName> tableNames = metadata.listTables(SESSION, Optional.empty());
-        assertTrue(tableNames.size() == 1, "Expected exactly one table");
+        assertEquals(tableNames.size(), 1, "Expected exactly one table");
 
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
     }
@@ -151,7 +154,7 @@ public class TestMemoryMetadata
     public void testCreateSchema()
     {
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, "test", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
         assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of());
 
@@ -173,7 +176,7 @@ public class TestMemoryMetadata
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, "test", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
         try {
             metadata.createView(SESSION, test, testingViewDefinition("test"), false);
         }
@@ -188,13 +191,26 @@ public class TestMemoryMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, "test", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
         metadata.createView(SESSION, test, testingViewDefinition("aaa"), true);
         metadata.createView(SESSION, test, testingViewDefinition("bbb"), true);
 
         assertThat(metadata.getView(SESSION, test))
                 .map(ConnectorViewDefinition::getOriginalSql)
                 .hasValue("bbb");
+    }
+
+    @Test
+    public void testCreatedViewShouldBeListedAsTable()
+    {
+        String schemaName = "test";
+        SchemaTableName viewName = new SchemaTableName(schemaName, "test_view");
+
+        metadata.createSchema(SESSION, schemaName, ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
+        metadata.createView(SESSION, viewName, testingViewDefinition("aaa"), true);
+
+        assertThat(metadata.listTables(SESSION, Optional.of(schemaName)))
+                .contains(viewName);
     }
 
     @Test
@@ -205,7 +221,7 @@ public class TestMemoryMetadata
         SchemaTableName test3 = new SchemaTableName("test", "test_view3");
 
         // create schema
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, "test", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
 
         // create views
         metadata.createView(SESSION, test1, testingViewDefinition("test1"), false);
@@ -275,7 +291,7 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test1 not found");
         }
-        assertEquals(metadata.getTableHandle(SESSION, table1), null);
+        assertNull(metadata.getTableHandle(SESSION, table1));
 
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
         try {
@@ -286,7 +302,7 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test2 not found");
         }
-        assertEquals(metadata.getTableHandle(SESSION, view2), null);
+        assertNull(metadata.getTableHandle(SESSION, view2));
 
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
         try {
@@ -297,7 +313,7 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test3 not found");
         }
-        assertEquals(metadata.getTableHandle(SESSION, view3), null);
+        assertNull(metadata.getTableHandle(SESSION, view3));
 
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
     }
@@ -306,7 +322,7 @@ public class TestMemoryMetadata
     public void testRenameTable()
     {
         SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_to_be_renamed");
-        metadata.createSchema(SESSION, "test_schema", ImmutableMap.of());
+        metadata.createSchema(SESSION, "test_schema", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
@@ -317,7 +333,7 @@ public class TestMemoryMetadata
         SchemaTableName invalidSchemaTableName = new SchemaTableName("test_schema_not_exist", "test_table_renamed");
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName);
         Throwable throwable = expectThrows(SchemaNotFoundException.class, () -> metadata.renameTable(SESSION, tableHandle, invalidSchemaTableName));
-        assertTrue(throwable.getMessage().equals("Schema test_schema_not_exist not found"));
+        assertEquals(throwable.getMessage(), "Schema test_schema_not_exist not found");
 
         // rename table to same schema
         SchemaTableName sameSchemaTableName = new SchemaTableName("test_schema", "test_renamed");
@@ -325,7 +341,7 @@ public class TestMemoryMetadata
         assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of(sameSchemaTableName));
 
         // rename table to different schema
-        metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of());
+        metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
         SchemaTableName differentSchemaTableName = new SchemaTableName("test_different_schema", "test_renamed");
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
         assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of());

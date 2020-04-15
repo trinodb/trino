@@ -23,6 +23,7 @@ import io.prestosql.connector.system.MetadataBasedSystemTablesProvider;
 import io.prestosql.connector.system.StaticSystemTablesProvider;
 import io.prestosql.connector.system.SystemConnector;
 import io.prestosql.connector.system.SystemTablesProvider;
+import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.index.IndexManager;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
@@ -46,6 +47,7 @@ import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.split.PageSinkManager;
@@ -100,6 +102,7 @@ public class ConnectorManager
     private final NodeInfo nodeInfo;
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
+    private final EventListenerManager eventListenerManager;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -125,7 +128,8 @@ public class ConnectorManager
             EmbedVersion embedVersion,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            EventListenerManager eventListenerManager)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -142,6 +146,7 @@ public class ConnectorManager
         this.nodeInfo = nodeInfo;
         this.versionEmbedder = embedVersion;
         this.transactionManager = transactionManager;
+        this.eventListenerManager = eventListenerManager;
     }
 
     @PreDestroy
@@ -251,6 +256,9 @@ public class ConnectorManager
             removeConnectorInternal(connector.getCatalogName());
             throw e;
         }
+
+        connector.getEventListeners()
+                .forEach(eventListenerManager::addEventListener);
     }
 
     private synchronized void addConnectorInternal(MaterializedConnector connector)
@@ -382,6 +390,7 @@ public class ConnectorManager
         private final Optional<ConnectorIndexProvider> indexProvider;
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
         private final Optional<ConnectorAccessControl> accessControl;
+        private final List<EventListener> eventListeners;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
@@ -462,6 +471,10 @@ public class ConnectorManager
             }
             this.accessControl = Optional.ofNullable(accessControl);
 
+            Iterable<EventListener> eventListeners = connector.getEventListeners();
+            requireNonNull(eventListeners, format("Connector '%s' returned a null event listeners iterable", eventListeners));
+            this.eventListeners = ImmutableList.copyOf(eventListeners);
+
             List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
             requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogName));
             this.sessionProperties = ImmutableList.copyOf(sessionProperties);
@@ -531,6 +544,11 @@ public class ConnectorManager
         public Optional<ConnectorAccessControl> getAccessControl()
         {
             return accessControl;
+        }
+
+        public List<EventListener> getEventListeners()
+        {
+            return eventListeners;
         }
 
         public List<PropertyMetadata<?>> getSessionProperties()

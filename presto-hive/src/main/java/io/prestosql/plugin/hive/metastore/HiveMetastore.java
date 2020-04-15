@@ -44,7 +44,7 @@ public interface HiveMetastore
 
     void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
     List<String> getAllTables(String databaseName);
 
@@ -57,6 +57,8 @@ public interface HiveMetastore
     void dropDatabase(HiveIdentity identity, String databaseName);
 
     void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName);
+
+    void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal);
 
     void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges);
 
@@ -99,9 +101,9 @@ public interface HiveMetastore
 
     Set<String> listRoles();
 
-    void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor);
+    void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
-    void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor);
+    void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 

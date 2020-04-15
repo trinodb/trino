@@ -53,6 +53,7 @@ import org.apache.hadoop.hive.metastore.LockRequestBuilder;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import org.apache.hadoop.hive.metastore.api.ConfigValSecurityException;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -177,7 +178,7 @@ public class ThriftHiveMetastore
     @Inject
     public ThriftHiveMetastore(MetastoreLocator metastoreLocator, HiveConfig hiveConfig, ThriftMetastoreConfig thriftConfig, HiveAuthenticationConfig authenticationConfig, HdfsEnvironment hdfsEnvironment)
     {
-        this.hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
+        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
@@ -548,16 +549,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        List<Partition> partitions = getPartitionsByNames(identity, databaseName, tableName, ImmutableList.of(partitionName));
+        List<Partition> partitions = getPartitionsByNames(identity, table.getDbName(), table.getTableName(), ImmutableList.of(partitionName));
         if (partitions.size() != 1) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Metastore returned multiple partitions for name: " + partitionName);
         }
         Partition originalPartition = getOnlyElement(partitions);
 
-        Table table = getTable(identity, databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         PartitionStatistics currentStatistics = requireNonNull(
                 getPartitionStatistics(identity, table, partitions).get(partitionName), "getPartitionStatistics() did not return statistics for partition");
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
@@ -565,14 +564,14 @@ public class ThriftHiveMetastore
         Partition modifiedPartition = originalPartition.deepCopy();
         HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
         modifiedPartition.setParameters(updateStatisticsParameters(modifiedPartition.getParameters(), basicStatistics));
-        alterPartitionWithoutStatistics(identity, databaseName, tableName, modifiedPartition);
+        alterPartitionWithoutStatistics(identity, table.getDbName(), table.getTableName(), modifiedPartition);
 
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
                 .collect(toImmutableMap(FieldSchema::getName, schema -> HiveType.valueOf(schema.getType())));
-        setPartitionColumnStatistics(identity, databaseName, tableName, partitionName, columns, updatedStatistics.getColumnStatistics(), basicStatistics.getRowCount());
+        setPartitionColumnStatistics(identity, table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.getColumnStatistics(), basicStatistics.getRowCount());
 
         Set<String> removedStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
-        removedStatistics.forEach(column -> deletePartitionColumnStatistics(identity, databaseName, tableName, partitionName, column));
+        removedStatistics.forEach(column -> deletePartitionColumnStatistics(identity, table.getDbName(), table.getTableName(), partitionName, column));
     }
 
     private void setPartitionColumnStatistics(
@@ -759,7 +758,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
@@ -767,7 +766,7 @@ public class ThriftHiveMetastore
                         role,
                         grantee.getName(), fromPrestoPrincipalType(grantee.getType()),
                         grantor.getName(), fromPrestoPrincipalType(grantor.getType()),
-                        withAdminOption);
+                        adminOption);
             }
         }
     }
@@ -794,14 +793,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
                 revokeRole(
                         role,
                         grantee.getName(), fromPrestoPrincipalType(grantee.getType()),
-                        adminOptionFor);
+                        adminOption);
             }
         }
     }
@@ -1634,7 +1633,9 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            // When calling Hive metastore < 3, the call fails with
+            // Required field 'open_txns' is unset! Struct:GetOpenTxnsResponse(txn_high_water_mark:4, open_txns:null, min_open_txn:4, abortedBits:null)
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0", e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1652,6 +1653,10 @@ public class ThriftHiveMetastore
                             return Optional.ofNullable(metastoreClient.get_config_value(name, null));
                         }
                     });
+        }
+        catch (ConfigValSecurityException e) {
+            log.debug(e, "Could not fetch value for config '%s' from Hive", name);
+            return Optional.empty();
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

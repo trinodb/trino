@@ -17,7 +17,6 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -27,6 +26,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.security.pem.PemReader;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.elasticsearch.AwsSecurityConfig;
 import io.prestosql.elasticsearch.ElasticsearchConfig;
@@ -48,6 +48,8 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -78,7 +80,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -96,6 +97,7 @@ import static java.lang.String.format;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchClient
@@ -116,6 +118,9 @@ public class ElasticsearchClient
     private final Duration refreshInterval;
     private final boolean tlsEnabled;
     private final boolean ignorePublishAddress;
+
+    private final TimeStat searchStats = new TimeStat(MILLISECONDS);
+    private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
@@ -138,7 +143,7 @@ public class ElasticsearchClient
             // do the first refresh eagerly
             refreshNodes();
 
-            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
+            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
         }
     }
 
@@ -184,7 +189,7 @@ public class ElasticsearchClient
                         configBuilder -> configBuilder
                                 .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
                                 .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())))
-                .setMaxRetryTimeoutMillis((int) config.getMaxRetryTime().toMillis());
+                .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
 
         builder.setHttpClientConfigCallback(clientBuilder -> {
             if (config.isTlsEnabled()) {
@@ -212,9 +217,6 @@ public class ElasticsearchClient
             return new AWSStaticCredentialsProvider(new BasicAWSCredentials(
                     config.getAccessKey().get(),
                     config.getSecretKey().get()));
-        }
-        if (config.isUseInstanceCredentials()) {
-            return InstanceProfileCredentialsProvider.getInstance();
         }
         return DefaultAWSCredentialsProviderChain.getInstance();
     }
@@ -491,6 +493,7 @@ public class ElasticsearchClient
                     result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(formats)));
                     break;
 
+                case "nested":
                 case "object":
                     if (value.has("properties")) {
                         result.add(new IndexMetadata.Field(isArray, name, parseType(value.get("properties"), metaNode)));
@@ -523,7 +526,7 @@ public class ElasticsearchClient
 
         if (limit.isPresent() && limit.getAsLong() < scrollSize) {
             // Safe to cast it to int because scrollSize is int.
-            sourceBuilder.size((int) limit.getAsLong());
+            sourceBuilder.size(toIntExact(limit.getAsLong()));
         }
         else {
             sourceBuilder.size(scrollSize);
@@ -541,12 +544,15 @@ public class ElasticsearchClient
         });
         documentFields.forEach(sourceBuilder::docValueField);
 
+        LOG.debug("Begin search: %s:%s, query: %s", index, shard, sourceBuilder);
+
         SearchRequest request = new SearchRequest(index)
                 .searchType(QUERY_THEN_FETCH)
                 .preference("_shards:" + shard)
                 .scroll(new TimeValue(scrollTimeout.toMillis()))
                 .source(sourceBuilder);
 
+        long start = System.nanoTime();
         try {
             return client.search(request);
         }
@@ -577,18 +583,27 @@ public class ElasticsearchClient
 
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
+        finally {
+            searchStats.add(Duration.nanosSince(start));
+        }
     }
 
     public SearchResponse nextPage(String scrollId)
     {
+        LOG.debug("Next page: %s", scrollId);
+
         SearchScrollRequest request = new SearchScrollRequest(scrollId)
                 .scroll(new TimeValue(scrollTimeout.toMillis()));
 
+        long start = System.nanoTime();
         try {
             return client.searchScroll(request);
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+        finally {
+            nextPageStats.add(Duration.nanosSince(start));
         }
     }
 
@@ -602,6 +617,20 @@ public class ElasticsearchClient
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getSearchStats()
+    {
+        return searchStats;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getNextPageStats()
+    {
+        return nextPageStats;
     }
 
     private <T> T doRequest(String path, ResponseHandler<T> handler)

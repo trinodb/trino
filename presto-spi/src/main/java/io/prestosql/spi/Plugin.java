@@ -17,6 +17,7 @@ import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.prestosql.spi.security.GroupProviderFactory;
 import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -56,6 +57,11 @@ public interface Plugin
     }
 
     default Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<GroupProviderFactory> getGroupProviderFactories()
     {
         return emptyList();
     }

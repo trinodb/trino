@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 
 public class StaticCatalogStore
 {
@@ -80,7 +80,7 @@ public class StaticCatalogStore
         }
 
         log.info("-- Loading catalog %s --", file);
-        Map<String, String> properties = new HashMap<>(loadProperties(file));
+        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
 
         String connectorName = properties.remove("connector.name");
         checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());

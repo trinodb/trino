@@ -73,7 +73,7 @@ public class HandTpchQuery6
 
         Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(field(0, BIGINT), Optional.empty());
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory tpchQuery6Operator = FilterAndProjectOperator.createOperatorFactory(
                 1,
                 new PlanNodeId("test"),
                 () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),

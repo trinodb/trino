@@ -36,7 +36,10 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
@@ -45,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -66,15 +70,17 @@ public class ElasticsearchMetadata
     private static final String ORIGINAL_NAME = "original-name";
     public static final String SUPPORTS_PREDICATES = "supports-predicates";
 
+    private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
 
     @Inject
-    public ElasticsearchMetadata(ElasticsearchClient client, ElasticsearchConfig config)
+    public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
-        requireNonNull(config, "config is null");
-
+        requireNonNull(typeManager, "typeManager is null");
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
+        requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
     }
 
@@ -129,9 +135,13 @@ public class ElasticsearchMetadata
         result.add(BuiltinColumns.SOURCE.getMetadata());
         result.add(BuiltinColumns.SCORE.getMetadata());
 
+        Map<String, Long> counts = metadata.getSchema()
+                .getFields().stream()
+                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
+
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
             Type type = toPrestoType(field);
-            if (type == null) {
+            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
                 continue;
             }
 
@@ -176,7 +186,7 @@ public class ElasticsearchMetadata
             Type elementType = toPrestoType(metaDataField, false);
             return new ArrayType(elementType);
         }
-        else if (type instanceof PrimitiveType) {
+        if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
                     return REAL;
@@ -190,10 +200,11 @@ public class ElasticsearchMetadata
                     return INTEGER;
                 case "long":
                     return BIGINT;
-                case "string":
                 case "text":
                 case "keyword":
                     return VARCHAR;
+                case "ip":
+                    return ipAddressType;
                 case "boolean":
                     return BOOLEAN;
                 case "binary":

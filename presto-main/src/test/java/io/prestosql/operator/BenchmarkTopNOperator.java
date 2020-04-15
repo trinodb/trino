@@ -15,7 +15,6 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.operator.TopNOperator.TopNOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.Type;
@@ -93,7 +92,7 @@ public class BenchmarkTopNOperator
 
             List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
             pages = createInputPages(Integer.valueOf(positionsPerPage), types);
-            operatorFactory = new TopNOperatorFactory(
+            operatorFactory = TopNOperator.createOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     types,

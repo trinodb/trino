@@ -15,6 +15,7 @@ package io.prestosql.plugin.phoenix;
 
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
@@ -46,6 +47,12 @@ public class TestPhoenixDistributedQueries
     protected boolean supportsArrays()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Phoenix connector does not support column default values");
     }
 
     @Override
@@ -118,5 +125,18 @@ public class TestPhoenixDistributedQueries
     {
         // Phoenix connector currently does not support comment on table
         assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
+    }
+
+    @Override
+    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    {
+        // TODO enable the test
+        throw new SkipException("test fails on Phoenix");
     }
 }

@@ -22,9 +22,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -65,12 +63,6 @@ public class TestRaptorIntegrationSmokeTest
             throws Exception
     {
         return createRaptorQueryRunner(ImmutableMap.of(), true, false);
-    }
-
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        throw new SkipException("Raptor connector does not support column default values");
     }
 
     @Test
@@ -400,7 +392,7 @@ public class TestRaptorIntegrationSmokeTest
                 "SELECT min(orderkey), max(orderkey) FROM orders");
 
         // No such table test
-        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*raptor\\.tpch\\.no_table\\$column_ranges does not exist.*");
+        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*'raptor\\.tpch\\.no_table\\$column_ranges' does not exist.*");
 
         // No range column for DOUBLE, INTEGER or VARCHAR
         assertQueryFails("SELECT totalprice_min FROM \"orders$column_ranges\"", ".*Column 'totalprice_min' cannot be resolved.*");
@@ -425,7 +417,7 @@ public class TestRaptorIntegrationSmokeTest
         // Drop table
         assertUpdate("DROP TABLE column_ranges_test");
         assertQueryFails("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"",
-                ".*raptor\\.tpch\\.column_ranges_test\\$column_ranges does not exist.*");
+                ".*'raptor\\.tpch\\.column_ranges_test\\$column_ranges' does not exist.*");
     }
 
     @Test
@@ -500,8 +492,11 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testShowCreateTable()
     {
+        super.testShowCreateTable();
+
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   c1 bigint,\n" +
@@ -775,17 +770,5 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("DELETE FROM test_alter_table WHERE c1 = 22", 3);
 
         assertUpdate("DROP TABLE test_alter_table");
-    }
-
-    @Override
-    protected boolean canCreateSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
     }
 }

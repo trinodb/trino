@@ -16,17 +16,17 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
+import io.prestosql.tests.product.launcher.env.common.KerberosKms;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
-import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -36,30 +36,19 @@ public final class SinglenodeKerberosKmsHdfsImpersonation
 {
     private final DockerFiles dockerFiles;
 
-    private final String imagesVersion;
-
     @Inject
-    public SinglenodeKerberosKmsHdfsImpersonation(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, Kerberos kerberos, EnvironmentOptions environmentOptions)
+    public SinglenodeKerberosKmsHdfsImpersonation(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, Kerberos kerberos, KerberosKms kerberosKms)
     {
-        super(ImmutableList.of(standard, hadoop, kerberos));
+        super(ImmutableList.of(standard, hadoop, kerberos, kerberosKms));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
     }
 
     @Override
     @SuppressWarnings("resource")
     protected void extendEnvironment(Environment.Builder builder)
     {
-        // TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-        String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + imagesVersion;
-
         builder.configureContainer("hadoop-master", container -> {
-            container.setDockerImageName(dockerImageName);
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/kms-core-site.xml"),
-                            "/etc/hadoop-kms/conf/core-site.xml",
-                            READ_ONLY)
                     .withFileSystemBind(
                             dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/kms-acls.xml"),
                             "/etc/hadoop-kms/conf/kms-acls.xml",
@@ -71,17 +60,15 @@ public final class SinglenodeKerberosKmsHdfsImpersonation
         });
 
         builder.configureContainer("presto-master", container -> {
-            container.setDockerImageName(dockerImageName);
             container
                     .withFileSystemBind(
                             dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hive.properties"),
                             CONTAINER_PRESTO_HIVE_PROPERTIES,
+                            READ_ONLY)
+                    .withFileSystemBind(
+                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/iceberg.properties"),
+                            CONTAINER_PRESTO_ICEBERG_PROPERTIES,
                             READ_ONLY);
-        });
-
-        builder.configureContainer("tests", container -> {
-            container.setDockerImageName(dockerImageName);
-            container.withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml"), CONTAINER_TEMPTO_PROFILE_CONFIG, READ_ONLY);
         });
     }
 }

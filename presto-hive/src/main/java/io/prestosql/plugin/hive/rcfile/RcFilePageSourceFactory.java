@@ -18,10 +18,12 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.prestosql.plugin.hive.DeleteDeltaLocations;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.rcfile.AircompressorCodecFactory;
 import io.prestosql.rcfile.HadoopCodecFactory;
 import io.prestosql.rcfile.RcFileCorruptionException;
@@ -53,10 +55,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
@@ -91,7 +95,7 @@ public class RcFilePageSourceFactory
     }
 
     @Override
-    public Optional<? extends ConnectorPageSource> createPageSource(
+    public Optional<ReaderPageSourceWithProjections> createPageSource(
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -101,7 +105,8 @@ public class RcFilePageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);
@@ -115,9 +120,17 @@ public class RcFilePageSourceFactory
             return Optional.empty();
         }
 
+        checkArgument(!deleteDeltaLocations.isPresent(), "Delete delta is not supported");
+
         if (fileSize == 0) {
             throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
         }
+
+        Optional<ReaderProjections> readerProjections = projectBaseColumns(columns);
+
+        List<HiveColumnHandle> projectedReaderColumns = readerProjections
+                .map(ReaderProjections::getReaderColumns)
+                .orElse(columns);
 
         FSDataInputStream inputStream;
         try {
@@ -134,8 +147,8 @@ public class RcFilePageSourceFactory
 
         try {
             ImmutableMap.Builder<Integer, Type> readColumns = ImmutableMap.builder();
-            for (HiveColumnHandle column : columns) {
-                readColumns.put(column.getHiveColumnIndex(), column.getHiveType().getType(typeManager));
+            for (HiveColumnHandle column : projectedReaderColumns) {
+                readColumns.put(column.getBaseHiveColumnIndex(), column.getHiveType().getType(typeManager));
             }
 
             RcFileReader rcFileReader = new RcFileReader(
@@ -147,7 +160,8 @@ public class RcFilePageSourceFactory
                     length,
                     DataSize.of(8, Unit.MEGABYTE));
 
-            return Optional.of(new RcFilePageSource(rcFileReader, columns));
+            ConnectorPageSource pageSource = new RcFilePageSource(rcFileReader, projectedReaderColumns);
+            return Optional.of(new ReaderPageSourceWithProjections(pageSource, readerProjections));
         }
         catch (Throwable e) {
             try {

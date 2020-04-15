@@ -14,25 +14,34 @@
 package io.prestosql.plugin.hive.testing;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;
 
 public class TestingHivePlugin
         implements Plugin
 {
     private final HiveMetastore metastore;
+    private final Module module;
 
     public TestingHivePlugin(HiveMetastore metastore)
     {
+        this(metastore, EMPTY_MODULE);
+    }
+
+    public TestingHivePlugin(HiveMetastore metastore, Module module)
+    {
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingHiveConnectorFactory(metastore));
+        return ImmutableList.of(new TestingHiveConnectorFactory(metastore, module));
     }
 }

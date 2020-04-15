@@ -1321,6 +1321,18 @@ public class TestExpressionCompiler
         assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
         assertExecute("bound_timestamp_with_timezone in (TIMESTAMP '1970-01-01 01:01:00.0+02:00')", BOOLEAN, false);
 
+        String shortDecimalValues = range(2000, 7000)
+                .mapToObj(value -> format("decimal '%s'", value))
+                .collect(joining(", "));
+        assertExecute("bound_short_decimal in (1234, " + shortDecimalValues + ")", BOOLEAN, true);
+        assertExecute("bound_short_decimal in (" + shortDecimalValues + ")", BOOLEAN, false);
+
+        String longDecimalValues = range(2000, 7000)
+                .mapToObj(value -> format("decimal '123456789012345678901234567890%s'", value))
+                .collect(joining(", "));
+        assertExecute("bound_long_decimal in (1234, " + longDecimalValues + ")", BOOLEAN, true);
+        assertExecute("bound_long_decimal in (" + longDecimalValues + ")", BOOLEAN, false);
+
         Futures.allAsList(futures).get();
     }
 

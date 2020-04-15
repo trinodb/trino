@@ -39,6 +39,7 @@ public class BasicStageStats
 
             DataSize.ofBytes(0),
             0,
+            new Duration(0, MILLISECONDS),
 
             DataSize.ofBytes(0),
             0,
@@ -65,6 +66,7 @@ public class BasicStageStats
     private final int completedDrivers;
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
@@ -88,6 +90,7 @@ public class BasicStageStats
 
             DataSize physicalInputDataSize,
             long physicalInputPositions,
+            Duration physicalInputReadTime,
 
             DataSize internalNetworkInputDataSize,
             long internalNetworkInputPositions,
@@ -114,6 +117,7 @@ public class BasicStageStats
         this.completedDrivers = completedDrivers;
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
@@ -183,6 +187,11 @@ public class BasicStageStats
         return rawInputPositions;
     }
 
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
+    }
+
     public long getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
@@ -239,6 +248,7 @@ public class BasicStageStats
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
@@ -271,6 +281,7 @@ public class BasicStageStats
 
             physicalInputDataSize += stageStats.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += stageStats.getPhysicalInputPositions();
+            physicalInputReadTime += stageStats.getPhysicalInputReadTime().roundTo(MILLISECONDS);
 
             internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
@@ -294,6 +305,7 @@ public class BasicStageStats
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,

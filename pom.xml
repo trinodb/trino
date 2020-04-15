@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>97</version>
+        <version>99</version>
     </parent>
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>330-SNAPSHOT</version>
+    <version>333-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -44,15 +44,16 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.192</dep.airlift.version>
+        <dep.airlift.version>0.195</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.aws-sdk.version>1.11.602</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.11.749</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>173</dep.tempto.version>
+        <dep.tempto.version>174</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
+        <rubix.version>0.3.6</rubix.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -64,7 +65,8 @@
         <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
-        <air.test.jvmsize>2g</air.test.jvmsize>
+        <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
+        <air.test.jvmsize>3g</air.test.jvmsize>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
@@ -136,6 +138,7 @@
         <module>presto-elasticsearch</module>
         <module>presto-iceberg</module>
         <module>presto-google-sheets</module>
+        <module>presto-bigquery</module>
     </modules>
 
     <dependencyManagement>
@@ -482,7 +485,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.15</version>
+                <version>0.16</version>
             </dependency>
 
             <dependency>
@@ -621,6 +624,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>parameternames</artifactId>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
@@ -816,13 +825,19 @@
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
-                <version>1.9.1</version>
+                <version>1.9.2</version>
             </dependency>
 
             <dependency>
                 <groupId>net.sf.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
                 <version>2.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>1.20</version>
             </dependency>
 
             <dependency>
@@ -840,7 +855,7 @@
             <dependency>
                 <groupId>org.alluxio</groupId>
                 <artifactId>alluxio-shaded-client</artifactId>
-                <version>2.0.1</version>
+                <version>2.1.2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
@@ -980,9 +995,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>testing-mysql-server</artifactId>
-                <version>8.0.12-2</version>
+                <groupId>javax.xml.bind</groupId>
+                <artifactId>jaxb-api</artifactId>
+                <version>2.3.1</version>
             </dependency>
 
             <dependency>
@@ -1017,12 +1032,6 @@
                         <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
                 </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>testing-postgresql-server</artifactId>
-                <version>9.6.3-3</version>
             </dependency>
 
             <dependency>
@@ -1164,12 +1173,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.starburstdata</groupId>
-                <artifactId>starburst-spotify-docker-client</artifactId>
-                <version>8.11.7-0.6</version>
-            </dependency>
-
-            <dependency>
                 <groupId>net.jodah</groupId>
                 <artifactId>failsafe</artifactId>
                 <version>2.0.1</version>
@@ -1197,9 +1200,15 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.12.4</version>
+                <version>1.13.0</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.qubole.rubix</groupId>
+                <artifactId>rubix-presto-shaded</artifactId>
+                <version>${rubix.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1297,6 +1306,12 @@
                         <preparationGoals>clean verify -DskipTests</preparationGoals>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                    <artifactId>provisio-maven-plugin</artifactId>
+                    <version>1.0.9</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -1304,14 +1319,13 @@
             <plugin>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>8</version>
+                <version>9</version>
                 <extensions>true</extensions>
             </plugin>
 
             <plugin>
-                <groupId>ca.vanzyl.maven.plugins</groupId>
+                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
-                <version>1.0.4</version>
                 <extensions>true</extensions>
             </plugin>
 
@@ -1385,15 +1399,6 @@
         <profile>
             <id>errorprone-compiler-presto</id><!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
 
-            <!-- TODO simplify the following configuration when using JDK 9+ for compilation. See https://errorprone.info/docs/installation -->
-            <properties>
-                <javac.version>9+181-r4173-1</javac.version>
-
-                <!-- with errorprone compiler, checkstyle is run on generated sources too and they may not match our checkstyle rules -->
-                <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
-            </properties>
-
-            <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
             <build>
                 <plugins>
                     <plugin>
@@ -1404,7 +1409,6 @@
                         <configuration combine.children="merge">
                             <fork>true</fork>
                             <compilerArgs>
-                                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
                                 <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/target/generated-(|test-)sources/.* -XepDisableAllChecks -Xep:MissingOverride:ERROR -Xep:ClassCanBeStatic:ERROR -Xep:ArrayToString:ERROR -Xep:GetClassOnClass:ERROR</arg>

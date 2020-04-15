@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -40,12 +39,10 @@ public class TestHiveCreateExternalTable
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(ORDERS, CUSTOMER),
-                ImmutableMap.of(),
-                "sql-standard",
-                ImmutableMap.of("hive.non-managed-table-writes-enabled", "true"),
-                Optional.empty());
+        return HiveQueryRunner.builder()
+                .setHiveProperties(ImmutableMap.of("hive.non-managed-table-writes-enabled", "true"))
+                .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .build();
     }
 
     @Test

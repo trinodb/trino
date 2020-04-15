@@ -445,9 +445,9 @@ public final class OrcWriter
         stats.updateSizeInBytes(-previouslyRecordedSizeInBytes);
         previouslyRecordedSizeInBytes = 0;
 
-        flushStripe(CLOSED);
-
-        orcDataSink.close();
+        try (Closeable ignored = orcDataSink) {
+            flushStripe(CLOSED);
+        }
     }
 
     /**

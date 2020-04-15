@@ -56,7 +56,7 @@ public class PredicateFilterBenchmark
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata(), new PageFunctionCompiler(localQueryRunner.getMetadata(), 0));
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory filterAndProjectOperator = FilterAndProjectOperator.createOperatorFactory(
                 1,
                 new PlanNodeId("test"),
                 pageProcessor,

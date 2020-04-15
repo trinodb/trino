@@ -18,6 +18,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.raptor.legacy.backup.BackupModule;
 import io.prestosql.plugin.raptor.legacy.security.RaptorSecurityModule;
@@ -70,7 +71,7 @@ public class RaptorConnectorFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new MBeanModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.plugin.raptor.legacy", "presto.plugin.raptor.legacy"),
                 new MBeanServerModule(),
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
@@ -81,7 +82,7 @@ public class RaptorConnectorFactory
                 new BackupModule(backupProviders),
                 new StorageModule(),
                 new RaptorModule(catalogName),
-                new RaptorSecurityModule());
+                new RaptorSecurityModule(catalogName));
 
         Injector injector = app
                 .strictConfig()

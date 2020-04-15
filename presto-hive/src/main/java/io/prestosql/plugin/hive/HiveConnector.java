@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -35,7 +36,6 @@ import io.prestosql.spi.transaction.IsolationLevel;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
@@ -46,13 +46,14 @@ public class HiveConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final Supplier<TransactionalMetadata> metadataFactory;
+    private final TransactionalMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
+    private final Set<EventListener> eventListeners;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
@@ -65,7 +66,7 @@ public class HiveConnector
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
-            Supplier<TransactionalMetadata> metadataFactory,
+            TransactionalMetadataFactory metadataFactory,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
@@ -73,6 +74,7 @@ public class HiveConnector
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             Set<SystemTable> systemTables,
             Set<Procedure> procedures,
+            Set<EventListener> eventListeners,
             List<PropertyMetadata<?>> sessionProperties,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
@@ -89,6 +91,7 @@ public class HiveConnector
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.eventListeners = ImmutableSet.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
@@ -172,6 +175,12 @@ public class HiveConnector
     }
 
     @Override
+    public Iterable<EventListener> getEventListeners()
+    {
+        return eventListeners;
+    }
+
+    @Override
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl;
@@ -189,7 +198,7 @@ public class HiveConnector
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.get());
+            transactionManager.put(transaction, metadataFactory.create());
         }
         return transaction;
     }

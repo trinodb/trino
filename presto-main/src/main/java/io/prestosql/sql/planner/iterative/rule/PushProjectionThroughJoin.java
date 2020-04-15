@@ -96,7 +96,10 @@ public final class PushProjectionThroughJoin
 
         Assignments leftAssignments = leftAssignmentsBuilder.build();
         Assignments rightAssignments = rightAssignmentsBuilder.build();
-        List<Symbol> outputSymbols = Streams.concat(leftAssignments.getOutputs().stream(), rightAssignments.getOutputs().stream())
+        List<Symbol> leftOutputSymbols = leftAssignments.getOutputs().stream()
+                .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
+                .collect(toImmutableList());
+        List<Symbol> rightOutputSymbols = rightAssignments.getOutputs().stream()
                 .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
                 .collect(toImmutableList());
 
@@ -110,13 +113,15 @@ public final class PushProjectionThroughJoin
                         new ProjectNode(planNodeIdAllocator.getNextId(), rightChild, rightAssignments),
                         lookup),
                 joinNode.getCriteria(),
-                outputSymbols,
+                leftOutputSymbols,
+                rightOutputSymbols,
                 joinNode.getFilter(),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
-                joinNode.getDynamicFilters()));
+                joinNode.getDynamicFilters(),
+                joinNode.getReorderJoinStatsAndCost()));
     }
 
     private static PlanNode inlineProjections(ProjectNode parentProjection, Lookup lookup)

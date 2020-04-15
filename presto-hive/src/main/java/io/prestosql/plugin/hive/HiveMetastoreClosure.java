@@ -95,7 +95,8 @@ public class HiveMetastoreClosure
 
     public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updatePartitionStatistics(identity, databaseName, tableName, partitionName, update);
+        Table table = getExistingTable(identity, databaseName, tableName);
+        delegate.updatePartitionStatistics(identity, table, partitionName, update);
     }
 
     public List<String> getAllTables(String databaseName)
@@ -126,6 +127,11 @@ public class HiveMetastoreClosure
     public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
     {
         delegate.renameDatabase(identity, databaseName, newDatabaseName);
+    }
+
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        delegate.setDatabaseOwner(identity, databaseName, principal);
     }
 
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
@@ -234,14 +240,14 @@ public class HiveMetastoreClosure
         return delegate.listRoles();
     }
 
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+        delegate.grantRoles(roles, grantees, adminOption, grantor);
     }
 
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+        delegate.revokeRoles(roles, grantees, adminOption, grantor);
     }
 
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)

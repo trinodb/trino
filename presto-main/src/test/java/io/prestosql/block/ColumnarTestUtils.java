@@ -100,6 +100,7 @@ public final class ColumnarTestUtils
 
     public static <T> T[] alternatingNullValues(T[] objects)
     {
+        @SuppressWarnings("unchecked")
         T[] objectsWithNulls = (T[]) Array.newInstance(objects.getClass().getComponentType(), objects.length * 2 + 1);
         for (int i = 0; i < objects.length; i++) {
             objectsWithNulls[i * 2] = null;

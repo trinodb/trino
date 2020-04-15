@@ -17,6 +17,7 @@ import com.google.common.base.StandardSystemProperty;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
@@ -30,16 +31,18 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+@DefunctConfig("hive.s3.use-instance-credentials")
 public class HiveS3Config
 {
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
+    private PrestoS3StorageClass s3StorageClass = PrestoS3StorageClass.STANDARD;
     private PrestoS3SignerType s3SignerType;
     private String s3SignerClass;
     private boolean s3PathStyleAccess;
-    private boolean s3UseInstanceCredentials = true;
     private String s3IamRole;
+    private String s3ExternalId;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
     private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
@@ -99,6 +102,20 @@ public class HiveS3Config
         return this;
     }
 
+    @NotNull
+    public PrestoS3StorageClass getS3StorageClass()
+    {
+        return s3StorageClass;
+    }
+
+    @Config("hive.s3.storage-class")
+    @ConfigDescription("AWS S3 storage class to use when writing the data")
+    public HiveS3Config setS3StorageClass(PrestoS3StorageClass s3StorageClass)
+    {
+        this.s3StorageClass = s3StorageClass;
+        return this;
+    }
+
     public PrestoS3SignerType getS3SignerType()
     {
         return s3SignerType;
@@ -136,28 +153,29 @@ public class HiveS3Config
         return this;
     }
 
-    public boolean isS3UseInstanceCredentials()
-    {
-        return s3UseInstanceCredentials;
-    }
-
-    @Config("hive.s3.use-instance-credentials")
-    public HiveS3Config setS3UseInstanceCredentials(boolean s3UseInstanceCredentials)
-    {
-        this.s3UseInstanceCredentials = s3UseInstanceCredentials;
-        return this;
-    }
-
     public String getS3IamRole()
     {
         return s3IamRole;
     }
 
     @Config("hive.s3.iam-role")
-    @ConfigDescription("ARN of an IAM role to assume when connecting to the S3")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to S3")
     public HiveS3Config setS3IamRole(String s3IamRole)
     {
         this.s3IamRole = s3IamRole;
+        return this;
+    }
+
+    public String getS3ExternalId()
+    {
+        return s3ExternalId;
+    }
+
+    @Config("hive.s3.external-id")
+    @ConfigDescription("External ID for the IAM role trust policy when connecting to S3")
+    public HiveS3Config setS3ExternalId(String s3ExternalId)
+    {
+        this.s3ExternalId = s3ExternalId;
         return this;
     }
 

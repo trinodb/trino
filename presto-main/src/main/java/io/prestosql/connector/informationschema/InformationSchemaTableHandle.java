@@ -99,6 +99,6 @@ public class InformationSchemaTableHandle
         }
         InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
         return Objects.equals(this.catalogName, other.catalogName) &&
-                Objects.equals(this.table, other.table);
+                this.table == other.table;
     }
 }

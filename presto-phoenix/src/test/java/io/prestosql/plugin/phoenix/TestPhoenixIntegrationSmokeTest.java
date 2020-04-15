@@ -17,8 +17,6 @@ import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -30,6 +28,7 @@ import java.sql.Statement;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -53,9 +52,24 @@ public class TestPhoenixIntegrationSmokeTest
     }
 
     @Override
-    protected TestTable createTableWithDefaultColumns()
+    public void testShowCreateTable()
     {
-        throw new SkipException("Phoenix connector does not support column default values");
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE phoenix.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   rowkeys = 'ROWKEY',\n" +
+                        "   salt_buckets = 10\n" +
+                        ")");
     }
 
     @Test
@@ -149,18 +163,6 @@ public class TestPhoenixIntegrationSmokeTest
         executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
-    }
-
-    @Override
-    public void testCreateSchema()
-    {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
-    }
-
-    @Override
-    public void testDropSchema()
-    {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
     }
 
     private void executeInPhoenix(String sql)

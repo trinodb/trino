@@ -72,7 +72,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         throw new UnsupportedOperationException();
     }
@@ -109,6 +109,12 @@ class UnimplementedHiveMetastore
 
     @Override
     public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -240,13 +246,13 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new UnsupportedOperationException();
     }

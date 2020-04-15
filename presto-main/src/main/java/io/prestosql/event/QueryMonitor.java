@@ -123,8 +123,11 @@ public class QueryMonitor
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
                                 queryInfo.getQuery(),
+                                queryInfo.getUpdateType(),
                                 queryInfo.getPreparedQuery(),
                                 QUEUED.toString(),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty())));
@@ -137,8 +140,11 @@ public class QueryMonitor
                         queryInfo.getQueryId().toString(),
                         queryInfo.getSession().getTransactionId().map(TransactionId::toString),
                         queryInfo.getQuery(),
+                        queryInfo.getUpdateType(),
                         queryInfo.getPreparedQuery(),
                         queryInfo.getState().toString(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty()),
@@ -205,8 +211,11 @@ public class QueryMonitor
                 queryInfo.getQueryId().toString(),
                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
                 queryInfo.getQuery(),
+                Optional.ofNullable(queryInfo.getUpdateType()),
                 queryInfo.getPreparedQuery(),
                 queryInfo.getState().toString(),
+                queryInfo.getReferencedTables(),
+                queryInfo.getRoutines(),
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
                 queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
@@ -298,7 +307,7 @@ public class QueryMonitor
         ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
         for (Input input : queryInfo.getInputs()) {
             inputs.add(new QueryInputMetadata(
-                    input.getCatalogName().getCatalogName(),
+                    input.getCatalogName(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
@@ -316,7 +325,7 @@ public class QueryMonitor
 
             output = Optional.of(
                     new QueryOutputMetadata(
-                            queryInfo.getOutput().get().getCatalogName().getCatalogName(),
+                            queryInfo.getOutput().get().getCatalogName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),

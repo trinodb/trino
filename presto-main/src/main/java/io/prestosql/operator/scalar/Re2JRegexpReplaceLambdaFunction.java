@@ -33,7 +33,7 @@ import io.prestosql.type.Re2JRegexpType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
-@Description("replaces substrings matching a regular expression using a lambda function")
+@Description("Replaces substrings matching a regular expression using a lambda function")
 public final class Re2JRegexpReplaceLambdaFunction
 {
     private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));

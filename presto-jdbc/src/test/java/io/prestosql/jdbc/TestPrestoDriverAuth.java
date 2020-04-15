@@ -72,13 +72,15 @@ public class TestPrestoDriverAuth
         hmac222 = getMimeDecoder().decode(asCharSource(new File(keyDir, "222.key"), US_ASCII).read().getBytes(US_ASCII));
         privateKey33 = PemReader.loadPrivateKey(new File(keyDir, "33.privateKey"), Optional.empty());
 
-        server = new TestingPrestoServer(ImmutableMap.<String, String>builder()
-                .put("http-server.authentication.type", "JWT")
-                .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").toString())
-                .put("http-server.https.enabled", "true")
-                .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
-                .put("http-server.https.keystore.key", "changeit")
-                .build());
+        server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.authentication.type", "JWT")
+                        .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
+                        .put("http-server.https.enabled", "true")
+                        .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
+                        .put("http-server.https.keystore.key", "changeit")
+                        .build())
+                .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
         waitForNodeRefresh(server);

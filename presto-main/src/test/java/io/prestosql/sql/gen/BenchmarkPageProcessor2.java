@@ -60,9 +60,9 @@ import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.ExpressionTestUtils.createExpression;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 

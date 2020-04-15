@@ -112,16 +112,15 @@ public class ScalarAggregationToJoinRewriter
                 inputWithUniqueColumns,
                 scalarAggregationSource,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(inputWithUniqueColumns.getOutputSymbols())
-                        .addAll(scalarAggregationSource.getOutputSymbols())
-                        .build(),
+                inputWithUniqueColumns.getOutputSymbols(),
+                scalarAggregationSource.getOutputSymbols(),
                 joinExpression,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         Optional<AggregationNode> aggregationNode = createAggregationNode(
                 scalarAggregation,

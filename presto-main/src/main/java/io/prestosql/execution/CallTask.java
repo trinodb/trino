@@ -13,6 +13,7 @@
  */
 package io.prestosql.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
@@ -22,6 +23,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.Type;
@@ -78,7 +80,7 @@ public class CallTask
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
         CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
-                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog %s does not exist", procedureName.getCatalogName()));
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog '%s' does not exist", procedureName.getCatalogName()));
         Procedure procedure = metadata.getProcedureRegistry().resolve(catalogName, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
@@ -136,7 +138,7 @@ public class CallTask
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
             Type type = argument.getType();
-            Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup);
+            Object value = evaluateConstantExpression(expression, type, metadata, session, accessControl, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
         }
@@ -171,6 +173,9 @@ public class CallTask
                 arguments.add(valuesIterator.next());
             }
         }
+
+        accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
+        stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.getObjectName(), session.getUser())));
 
         try {
             procedure.getMethodHandle().invokeWithArguments(arguments);

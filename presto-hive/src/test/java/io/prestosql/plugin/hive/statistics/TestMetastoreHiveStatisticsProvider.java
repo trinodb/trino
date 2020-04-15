@@ -45,6 +45,7 @@ import java.util.OptionalLong;
 
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.prestosql.plugin.hive.HivePartitionManager.parsePartition;
@@ -93,8 +94,8 @@ public class TestMetastoreHiveStatisticsProvider
     private static final String COLUMN = "column";
     private static final DecimalType DECIMAL = createDecimalType(5, 3);
 
-    private static final HiveColumnHandle PARTITION_COLUMN_1 = new HiveColumnHandle("p1", HIVE_STRING, VARCHAR, 0, PARTITION_KEY, Optional.empty());
-    private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT, 1, PARTITION_KEY, Optional.empty());
+    private static final HiveColumnHandle PARTITION_COLUMN_1 = createBaseColumn("p1", 0, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
+    private static final HiveColumnHandle PARTITION_COLUMN_2 = createBaseColumn("p2", 1, HIVE_LONG, BIGINT, PARTITION_KEY, Optional.empty());
 
     @Test
     public void testGetPartitionsSample()
@@ -472,7 +473,7 @@ public class TestMetastoreHiveStatisticsProvider
     private static void assertConvertPartitionValueToDouble(Type type, String value, double expected)
     {
         Object prestoValue = parsePartitionValue(format("p=%s", value), value, type, DateTimeZone.getDefault()).getValue();
-        assertEquals(convertPartitionValueToDouble(type, prestoValue), expected);
+        assertEquals(convertPartitionValueToDouble(type, prestoValue), OptionalDouble.of(expected));
     }
 
     @Test
@@ -609,7 +610,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
         MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, statistics));
-        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT, 2, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
                 .setColumnStatistics(
@@ -658,7 +659,9 @@ public class TestMetastoreHiveStatisticsProvider
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
         MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
-        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT, 2, REGULAR, Optional.empty());
+
+        HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
+
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
                 .setColumnStatistics(

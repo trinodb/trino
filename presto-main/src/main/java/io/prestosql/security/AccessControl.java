@@ -13,6 +13,7 @@
  */
 package io.prestosql.security;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
@@ -22,6 +23,8 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
 import java.util.List;
@@ -45,6 +48,35 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanImpersonateUser(Identity identity, String userName);
+
+    /**
+     * Checks if identity can execute a query.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteQuery(Identity identity);
+
+    /**
+     * Checks if identity can view a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanViewQueryOwnedBy(Identity identity, String queryOwner);
+
+    /**
+     * Filter the list of users to those the identity view query owned by the user.  The method
+     * will not be called with the current user in the set.
+     */
+    Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners);
+
+    /**
+     * Checks if identity can kill a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanKillQueryOwnedBy(Identity identity, String queryOwner);
 
     /**
      * Filter the list of catalogs to those visible to the identity.
@@ -73,6 +105,13 @@ public interface AccessControl
     void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName);
 
     /**
+     * Check if identity is allowed to change the specified schema's user/role.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal);
+
+    /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
@@ -87,6 +126,13 @@ public interface AccessControl
      * Filter the list of schemas in a catalog to those visible to the identity.
      */
     Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames);
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to create the specified table.
@@ -116,7 +162,7 @@ public interface AccessControl
     void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName);
 
     /**
-     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
+     * Check if identity is allowed to show tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog schema.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
@@ -124,7 +170,7 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowTablesMetadata(SecurityContext context, CatalogSchemaName schema);
+    void checkCanShowTables(SecurityContext context, CatalogSchemaName schema);
 
     /**
      * Filter the list of tables and views to those visible to the identity.
@@ -140,7 +186,7 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowColumnsMetadata(SecurityContext context, CatalogSchemaTableName table);
+    void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table);
 
     /**
      * Filter the list of columns to those visible to the identity.
@@ -211,18 +257,25 @@ public interface AccessControl
     void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
 
     /**
+     * Check if identity is allowed to create a view that executes the function.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
+
+    /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption);
+    void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption);
 
     /**
      * Check if identity is allowed to revoke a privilege from the revokee on the specified table.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor);
+    void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOption);
 
     /**
      * Check if identity is allowed to set the specified system property.
@@ -264,14 +317,14 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName);
+    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName);
 
     /**
      * Check if identity is allowed to revoke the specified roles from the specified principals.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName);
+    void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName);
 
     /**
      * Check if identity is allowed to set role for specified catalog.
@@ -297,4 +350,28 @@ public interface AccessControl
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(SecurityContext context, String catalogName);
+
+    /**
+     * Check if identity is allowed to execute procedure
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName);
+
+    /**
+     * Check if identity is allowed to execute function
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanExecuteFunction(SecurityContext context, String functionName);
+
+    default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    {
+        return ImmutableList.of();
+    }
+
+    default List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    {
+        return ImmutableList.of();
+    }
 }

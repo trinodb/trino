@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.mongodb;
 
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
@@ -21,12 +23,15 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
+import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
@@ -47,10 +52,20 @@ import static io.prestosql.plugin.mongodb.TypeUtils.isMapType;
 import static io.prestosql.plugin.mongodb.TypeUtils.isRowType;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
+import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.toList;
 
@@ -150,6 +165,19 @@ public class MongoPageSource
                 else if (type.equals(INTEGER)) {
                     type.writeLong(output, ((Number) value).intValue());
                 }
+                else if (type.equals(SMALLINT)) {
+                    type.writeLong(output, Shorts.checkedCast(((Number) value).longValue()));
+                }
+                else if (type.equals(TINYINT)) {
+                    type.writeLong(output, SignedBytes.checkedCast(((Number) value).longValue()));
+                }
+                else if (type.equals(REAL)) {
+                    //noinspection NumericCastThatLosesPrecision
+                    type.writeLong(output, floatToIntBits(((float) ((Number) value).doubleValue())));
+                }
+                else if (type instanceof DecimalType) {
+                    type.writeLong(output, encodeShortScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
+                }
                 else if (type.equals(DATE)) {
                     long utcMillis = ((Date) value).getTime();
                     type.writeLong(output, TimeUnit.MILLISECONDS.toDays(utcMillis));
@@ -158,7 +186,11 @@ public class MongoPageSource
                     type.writeLong(output, UTC_CHRONOLOGY.millisOfDay().get(((Date) value).getTime()));
                 }
                 else if (type.equals(TIMESTAMP)) {
+                    // TODO provide correct TIMESTAMP mapping, and respecting session.isLegacyTimestamp()
                     type.writeLong(output, ((Date) value).getTime());
+                }
+                else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    type.writeLong(output, packDateTimeWithZone(((Date) value).getTime(), UTC_KEY));
                 }
                 else {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
@@ -178,6 +210,7 @@ public class MongoPageSource
             }
         }
         catch (ClassCastException ignore) {
+            // TODO remove (fail clearly), or hide behind a toggle
             // returns null instead of raising exception
             output.appendNull();
         }
@@ -199,6 +232,9 @@ public class MongoPageSource
         if (type instanceof VarcharType) {
             type.writeSlice(output, utf8Slice(toVarcharValue(value)));
         }
+        else if (type instanceof CharType) {
+            type.writeSlice(output, truncateToLengthAndTrimSpaces(utf8Slice((String) value), ((CharType) type)));
+        }
         else if (type.equals(OBJECT_ID)) {
             type.writeSlice(output, wrappedBuffer(((ObjectId) value).toByteArray()));
         }
@@ -209,6 +245,9 @@ public class MongoPageSource
             else {
                 output.appendNull();
             }
+        }
+        else if (type instanceof DecimalType) {
+            type.writeSlice(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
         }
         else {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -66,6 +67,7 @@ public final class HiveSessionProperties
     private static final String ORC_USE_COLUMN_NAME = "orc_use_column_names";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String COMPRESSION_CODEC = "compression_codec";
+    private static final String PARTITION_USE_COLUMN_NAMES = "partition_use_column_names";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
@@ -86,6 +88,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
+    private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -246,6 +249,11 @@ public final class HiveSessionProperties
                         hiveConfig.getHiveCompressionCodec(),
                         false),
                 booleanProperty(
+                        PARTITION_USE_COLUMN_NAMES,
+                        "Access partition columns by names",
+                        hiveConfig.getPartitionUseColumnNames(),
+                        false),
+                booleanProperty(
                         RESPECT_TABLE_FORMAT,
                         "Write new partitions using table format rather than default storage format",
                         hiveConfig.isRespectTableFormat(),
@@ -344,6 +352,11 @@ public final class HiveSessionProperties
                         IGNORE_ABSENT_PARTITIONS,
                         "Ignore partitions when the file system location does not exist rather than failing the query.",
                         hiveConfig.isIgnoreAbsentPartitions(),
+                        false),
+                booleanProperty(
+                        QUERY_PARTITION_FILTER_REQUIRED,
+                        "Require filter on partition column",
+                        hiveConfig.isQueryPartitionFilterRequired(),
                         false));
     }
 
@@ -456,7 +469,13 @@ public final class HiveSessionProperties
 
     public static boolean isUseOrcColumnNames(ConnectorSession session)
     {
-        return session.getProperty(ORC_USE_COLUMN_NAME, Boolean.class);
+        Boolean useOrcColumnNames = session.getProperty(ORC_USE_COLUMN_NAME, Boolean.class);
+        if (isPartitionUseColumnNames(session) && !useOrcColumnNames) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be set when %s is set", ORC_USE_COLUMN_NAME, PARTITION_USE_COLUMN_NAMES));
+        }
+        return useOrcColumnNames;
     }
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
@@ -467,6 +486,11 @@ public final class HiveSessionProperties
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
+    }
+
+    public static boolean isPartitionUseColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_USE_COLUMN_NAMES, Boolean.class);
     }
 
     public static boolean isRespectTableFormat(ConnectorSession session)
@@ -481,7 +505,14 @@ public final class HiveSessionProperties
 
     public static boolean isUseParquetColumnNames(ConnectorSession session)
     {
-        return session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
+        boolean useParquetColumnNames = session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
+        boolean partitionUseColumnNames = isPartitionUseColumnNames(session);
+        if (partitionUseColumnNames && !useParquetColumnNames) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be set when %s is set", PARQUET_USE_COLUMN_NAME, PARTITION_USE_COLUMN_NAMES));
+        }
+        return useParquetColumnNames;
     }
 
     /**
@@ -578,16 +609,8 @@ public final class HiveSessionProperties
         return session.getProperty(IGNORE_ABSENT_PARTITIONS, Boolean.class);
     }
 
-    private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
+    public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
-        return new PropertyMetadata<>(
-                name,
-                description,
-                VARCHAR,
-                DataSize.class,
-                defaultValue,
-                hidden,
-                value -> DataSize.valueOf((String) value),
-                DataSize::toString);
+        return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
     }
 }

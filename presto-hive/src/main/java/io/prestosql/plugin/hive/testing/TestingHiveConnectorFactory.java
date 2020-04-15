@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.testing;
 
+import com.google.inject.Module;
 import io.prestosql.plugin.hive.HiveHandleResolver;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.Connector;
@@ -31,10 +32,17 @@ public class TestingHiveConnectorFactory
         implements ConnectorFactory
 {
     private final HiveMetastore metastore;
+    private final Module module;
 
     public TestingHiveConnectorFactory(HiveMetastore metastore)
     {
+        this(metastore, EMPTY_MODULE);
+    }
+
+    public TestingHiveConnectorFactory(HiveMetastore metastore, Module module)
+    {
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
@@ -52,6 +60,6 @@ public class TestingHiveConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.of(metastore));
+        return createConnector(catalogName, config, context, module, Optional.of(metastore));
     }
 }

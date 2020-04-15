@@ -18,6 +18,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
 import io.prestosql.server.InternalAuthenticationManager;
+import io.prestosql.server.ui.WebUiAuthenticationManager;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
@@ -58,13 +59,18 @@ public class AuthenticationFilter
     private final List<Authenticator> authenticators;
     private final boolean httpsForwardingEnabled;
     private final InternalAuthenticationManager internalAuthenticationManager;
+    private final WebUiAuthenticationManager uiAuthenticationManager;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, InternalAuthenticationManager internalAuthenticationManager)
+    public AuthenticationFilter(List<Authenticator> authenticators,
+            SecurityConfig securityConfig,
+            InternalAuthenticationManager internalAuthenticationManager,
+            WebUiAuthenticationManager uiAuthenticationManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
+        this.uiAuthenticationManager = requireNonNull(uiAuthenticationManager, "uiAuthenticationManager is null");
     }
 
     @Override
@@ -91,6 +97,11 @@ public class AuthenticationFilter
                     .withPrincipal(principal)
                     .build();
             withAuthenticatedIdentity(nextFilter, request, response, identity);
+            return;
+        }
+
+        if (WebUiAuthenticationManager.isUiRequest(request)) {
+            uiAuthenticationManager.handleUiRequest(request, response, nextFilter);
             return;
         }
 
@@ -192,7 +203,15 @@ public class AuthenticationFilter
             throws IOException, ServletException
     {
         request.setAttribute(AUTHENTICATED_IDENTITY, authenticatedIdentity);
-        nextFilter.doFilter(withPrincipal(request, authenticatedIdentity.getPrincipal()), response);
+        try {
+            nextFilter.doFilter(withPrincipal(request, authenticatedIdentity.getPrincipal()), response);
+        }
+        finally {
+            // destroy identity if identity is still attached to the request
+            Optional.ofNullable(request.getAttribute(AUTHENTICATED_IDENTITY))
+                    .map(Identity.class::cast)
+                    .ifPresent(Identity::destroy);
+        }
     }
 
     private static ServletRequest withPrincipal(HttpServletRequest request, Optional<Principal> principal)

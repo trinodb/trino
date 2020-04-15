@@ -110,7 +110,7 @@ public final class HiveTestUtils
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats))
-                .add(new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats, new ParquetReaderConfig()))
+                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig()))
                 .build();
     }
 

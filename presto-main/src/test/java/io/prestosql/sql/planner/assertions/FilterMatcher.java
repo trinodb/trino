@@ -16,12 +16,15 @@ package io.prestosql.sql.planner.assertions;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.Expression;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
+import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static java.util.Objects.requireNonNull;
 
 final class FilterMatcher
@@ -47,7 +50,10 @@ final class FilterMatcher
 
         FilterNode filterNode = (FilterNode) node;
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-        return new MatchResult(verifier.process(filterNode.getPredicate(), predicate));
+        // match non-dynamic filters only
+        Expression filterPredicate = filterNode.getPredicate();
+        DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
+        return new MatchResult(verifier.process(combineConjuncts(metadata, extractResult.getStaticConjuncts()), predicate));
     }
 
     @Override

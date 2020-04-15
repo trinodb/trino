@@ -113,12 +113,14 @@ public class TransformUncorrelatedSubqueryToJoin
                 parent.getInput(),
                 parent.getSubquery(),
                 ImmutableList.of(),
-                parent.getOutputSymbols(),
+                parent.getInput().getOutputSymbols(),
+                parent.getSubquery().getOutputSymbols(),
                 filter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(filter),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
     }
 }

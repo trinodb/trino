@@ -118,25 +118,31 @@ public class RemoveUnsupportedDynamicFilters
             consumed.addAll(consumedProbeSide);
             consumed.removeAll(dynamicFilters.keySet());
 
+            Optional<Expression> filter = node
+                    .getFilter().map(this::removeAllDynamicFilters)  // no DF support at Join operators.
+                    .filter(expression -> !expression.equals(TRUE_LITERAL));
+
             PlanNode left = leftResult.getNode();
             PlanNode right = rightResult.getNode();
-            if (!left.equals(node.getLeft()) || !right.equals(node.getRight()) || !dynamicFilters.equals(node.getDynamicFilters())) {
-                Optional<Expression> filter = node
-                        .getFilter().map(this::removeAllDynamicFilters)  // no DF support at Join operators.
-                        .filter(expression -> !expression.equals(TRUE_LITERAL));
+            if (!left.equals(node.getLeft())
+                    || !right.equals(node.getRight())
+                    || !dynamicFilters.equals(node.getDynamicFilters())
+                    || !filter.equals(node.getFilter())) {
                 return new PlanWithConsumedDynamicFilters(new JoinNode(
                         node.getId(),
                         node.getType(),
                         left,
                         right,
                         node.getCriteria(),
-                        node.getOutputSymbols(),
+                        node.getLeftOutputSymbols(),
+                        node.getRightOutputSymbols(),
                         filter,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
-                        dynamicFilters),
+                        dynamicFilters,
+                        node.getReorderJoinStatsAndCost()),
                         ImmutableSet.copyOf(consumed));
             }
             return new PlanWithConsumedDynamicFilters(node, ImmutableSet.copyOf(consumed));

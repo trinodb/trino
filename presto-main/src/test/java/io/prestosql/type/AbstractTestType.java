@@ -269,6 +269,7 @@ public abstract class AbstractTestType
         }
         else if (type.getJavaType() == Slice.class) {
             assertEquals(type.getSlice(block, position), expectedStackValue);
+            assertEquals(type.getObject(block, position), expectedStackValue);
             try {
                 type.getBoolean(block, position);
                 fail("Expected IllegalStateException or UnsupportedOperationException");
@@ -287,14 +288,8 @@ public abstract class AbstractTestType
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
             }
-            try {
-                type.getObject(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
         }
-        else {
+        else if (type.getJavaType() == Block.class) {
             SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
             writeBlock(blockEncodingSerde, actualSliceOutput, (Block) type.getObject(block, position));
             SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
@@ -320,6 +315,27 @@ public abstract class AbstractTestType
             }
             try {
                 type.getSlice(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+        }
+        else {
+            assertEquals(type.getObject(block, position), expectedStackValue);
+            try {
+                type.getBoolean(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getLong(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getDouble(block, position);
                 fail("Expected IllegalStateException or UnsupportedOperationException");
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {

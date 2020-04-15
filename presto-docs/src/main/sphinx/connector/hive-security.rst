@@ -54,13 +54,14 @@ Hive does not exactly follow the SQL standard, there are the following
 limitations and differences:
 
 * ``CREATE ROLE role WITH ADMIN`` is not supported.
-* The ``admin`` role must be enabled to execute ``CREATE ROLE`` or ``DROP ROLE``.
+* The ``admin`` role must be enabled to execute ``CREATE ROLE``, ``DROP ROLE`` or ``CREATE SCHEMA``.
 * ``GRANT role TO user GRANTED BY someone`` is not supported.
 * ``REVOKE role FROM user GRANTED BY someone`` is not supported.
 * By default, all a user's roles, except ``admin``, are enabled in a new user session.
 * One particular role can be selected by executing ``SET ROLE role``.
 * ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
 * The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
+* ``GRANT privilege ON SCHEMA schema`` is not supported. Schema ownership can be changed with ``ALTER SCHEMA schema SET AUTHORIZATION user``
 
 Authentication
 ==============
@@ -490,6 +491,8 @@ These rules govern who is considered an owner of a schema.
 
 * ``user`` (optional): regex to match against user name.
 
+* ``group`` (optional): regex to match against every user group the user belongs to.
+
 * ``schema`` (optional): regex to match against schema name.
 
 * ``owner`` (required): boolean indicating ownership.
@@ -500,6 +503,8 @@ Table Rules
 These rules govern the privileges granted on specific tables.
 
 * ``user`` (optional): regex to match against user name.
+
+* ``group`` (optional): regex to match against every user group the user belongs to.
 
 * ``schema`` (optional): regex to match against schema name.
 
@@ -515,6 +520,8 @@ These rules govern who may set session properties.
 
 * ``user`` (optional): regex to match against user name.
 
+* ``group`` (optional): regex to match against every user group the user belongs to.
+
 * ``property`` (optional): regex to match against session property name.
 
 * ``allowed`` (required): boolean indicating whether this session property may be set.
@@ -528,6 +535,11 @@ See below for an example.
         {
           "user": "admin",
           "schema": ".*",
+          "owner": true
+        },
+        {
+          "group": "finance|human_resources",
+          "schema": "employees",
           "owner": true
         },
         {

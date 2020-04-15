@@ -51,6 +51,7 @@ public class WorkProcessorSourceOperatorAdapter
     private long previousInputBytes;
     private long previousInputPositions;
     private long previousReadTimeNanos;
+    private long previousDynamicFilterSplitsProcessed;
 
     public interface AdapterWorkProcessorSourceOperatorFactory
             extends WorkProcessorSourceOperatorFactory
@@ -188,6 +189,8 @@ public class WorkProcessorSourceOperatorAdapter
         long currentInputBytes = sourceOperator.getInputDataSize().toBytes();
         long currentInputPositions = sourceOperator.getInputPositions();
 
+        long currentDynamicFilterSplitsProcessed = sourceOperator.getDynamicFilterSplitsProcessed();
+
         if (currentPhysicalInputBytes != previousPhysicalInputBytes
                 || currentPhysicalInputPositions != previousPhysicalInputPositions
                 || currentReadTimeNanos != previousReadTimeNanos) {
@@ -219,6 +222,11 @@ public class WorkProcessorSourceOperatorAdapter
 
             previousInputBytes = currentInputBytes;
             previousInputPositions = currentInputPositions;
+        }
+
+        if (currentDynamicFilterSplitsProcessed != previousDynamicFilterSplitsProcessed) {
+            operatorContext.recordDynamicFilterSplitProcessed(currentDynamicFilterSplitsProcessed - previousDynamicFilterSplitsProcessed);
+            previousDynamicFilterSplitsProcessed = currentDynamicFilterSplitsProcessed;
         }
     }
 

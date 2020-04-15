@@ -397,6 +397,7 @@ public class TaskContext
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
@@ -432,6 +433,7 @@ public class TaskContext
             if (pipeline.isInputPipeline()) {
                 physicalInputDataSize += pipeline.getPhysicalInputDataSize().toBytes();
                 physicalInputPositions += pipeline.getPhysicalInputPositions();
+                physicalInputReadTime += pipeline.getPhysicalInputReadTime().roundTo(NANOSECONDS);
 
                 internalNetworkInputDataSize += pipeline.getInternalNetworkInputDataSize().toBytes();
                 internalNetworkInputPositions += pipeline.getInternalNetworkInputPositions();
@@ -515,6 +517,7 @@ public class TaskContext
                 blockedReasons,
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),

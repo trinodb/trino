@@ -134,6 +134,39 @@ public class TestIcebergSystemTables
         assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '0', '3', '6'");
     }
 
+    @Test
+    public void testManifestsTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$manifests\"",
+                "VALUES ('path', 'varchar', '', '')," +
+                        "('length', 'bigint', '', '')," +
+                        "('partition_spec_id', 'integer', '', '')," +
+                        "('added_snapshot_id', 'bigint', '', '')," +
+                        "('added_data_files_count', 'integer', '', '')," +
+                        "('existing_data_files_count', 'integer', '', '')," +
+                        "('deleted_data_files_count', 'integer', '', '')," +
+                        "('partitions', 'row(contains_null boolean, lower_bound varchar, upper_bound varchar)', '', '')");
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
+    }
+
+    @Test
+    public void testFilesTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
+                "VALUES ('file_path', 'varchar', '', '')," +
+                        "('file_format', 'varchar', '', '')," +
+                        "('record_count', 'bigint', '', '')," +
+                        "('file_size_in_bytes', 'bigint', '', '')," +
+                        "('column_sizes', 'map(integer, bigint)', '', '')," +
+                        "('value_counts', 'map(integer, bigint)', '', '')," +
+                        "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
+                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                        "('key_metadata', 'varbinary', '', '')," +
+                        "('split_offsets', 'array(bigint)', '', '')");
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+    }
+
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {

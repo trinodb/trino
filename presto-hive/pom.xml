@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>330-SNAPSHOT</version>
+        <version>333-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -129,6 +129,12 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
         </dependency>
@@ -151,6 +157,11 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.alluxio</groupId>
+            <artifactId>alluxio-shaded-client</artifactId>
         </dependency>
 
         <dependency>
@@ -237,6 +248,13 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -268,6 +286,11 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.qubole.rubix</groupId>
+            <artifactId>rubix-presto-shaded</artifactId>
         </dependency>
 
         <dependency>

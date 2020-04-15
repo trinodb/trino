@@ -20,7 +20,7 @@ import io.prestosql.orc.checkpoint.LongStreamV2Checkpoint;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static com.google.common.primitives.Ints.min;
+import static java.lang.Math.min;
 
 /**
  * @see {@link org.apache.orc.impl.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
@@ -437,7 +437,7 @@ public class LongInputStreamV2
                 used = 0;
                 readValues();
             }
-            long consume = Math.min(items, numLiterals - used);
+            long consume = min(items, numLiterals - used);
             used += consume;
             items -= consume;
         }

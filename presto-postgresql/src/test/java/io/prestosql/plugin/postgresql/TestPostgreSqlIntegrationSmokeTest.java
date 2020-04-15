@@ -15,8 +15,6 @@ package io.prestosql.plugin.postgresql;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
-import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -25,7 +23,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
 import java.util.UUID;
 
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -39,7 +36,7 @@ import static org.testng.Assert.assertTrue;
 public class TestPostgreSqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private TestingPostgreSqlServer postgreSqlServer;
+    protected TestingPostgreSqlServer postgreSqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -304,19 +301,6 @@ public class TestPostgreSqlIntegrationSmokeTest
         }
     }
 
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        return new TestTable(
-                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()),
-                "tpch.table",
-                "(col_required BIGINT NOT NULL," +
-                        "col_nullable BIGINT," +
-                        "col_default BIGINT DEFAULT 43," +
-                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
-                        "col_required2 BIGINT NOT NULL)");
-    }
-
     private AutoCloseable withSchema(String schema)
             throws Exception
     {
@@ -343,21 +327,6 @@ public class TestPostgreSqlIntegrationSmokeTest
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected void cleanUpSchemas(List<String> schemaNames)
-            throws SQLException
-    {
-        for (String schemaName : schemaNames) {
-            execute("DROP SCHEMA " + schemaName);
-        }
     }
 
     private void execute(String sql)

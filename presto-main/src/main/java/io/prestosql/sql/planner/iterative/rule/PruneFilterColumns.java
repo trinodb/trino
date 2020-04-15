@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.Streams;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -36,13 +35,13 @@ public class PruneFilterColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, FilterNode filterNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, FilterNode filterNode, Set<Symbol> referencedOutputs)
     {
         Set<Symbol> prunedFilterInputs = Streams.concat(
                 referencedOutputs.stream(),
                 SymbolsExtractor.extractUnique(filterNode.getPredicate()).stream())
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, filterNode, prunedFilterInputs);
+        return restrictChildOutputs(context.getIdAllocator(), filterNode, prunedFilterInputs);
     }
 }

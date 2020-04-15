@@ -20,9 +20,9 @@ public class ElasticsearchServer
 {
     private final ElasticsearchContainer container;
 
-    public ElasticsearchServer()
+    public ElasticsearchServer(String version)
     {
-        container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0");
+        container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:" + version);
         container.start();
     }
 

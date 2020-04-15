@@ -70,6 +70,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.prestosql.type.IpAddressType.IPADDRESS;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UuidType.UUID;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -195,6 +196,9 @@ public class TestingPrestoClient
         else if (UUID.equals(type)) {
             return java.util.UUID.fromString((String) value);
         }
+        else if (IPADDRESS.equals(type)) {
+            return value;
+        }
         else if (type instanceof VarcharType) {
             return value;
         }
@@ -232,13 +236,13 @@ public class TestingPrestoClient
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
         else if (type instanceof ArrayType) {
-            return ((List<Object>) value).stream()
+            return ((List<?>) value).stream()
                     .map(element -> convertToRowValue(((ArrayType) type).getElementType(), element))
                     .collect(toList());
         }
         else if (type instanceof MapType) {
             Map<Object, Object> result = new HashMap<>();
-            ((Map<Object, Object>) value)
+            ((Map<?, ?>) value)
                     .forEach((k, v) -> result.put(
                             convertToRowValue(((MapType) type).getKeyType(), k),
                             convertToRowValue(((MapType) type).getValueType(), v)));
@@ -246,7 +250,7 @@ public class TestingPrestoClient
         }
         else if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
-            List<Object> fieldValues = ImmutableList.copyOf(((Map<Object, Object>) value).values());
+            List<Object> fieldValues = ImmutableList.copyOf(((Map<?, ?>) value).values());
             return dataToRow(fieldTypes).apply(fieldValues);
         }
         else if (type instanceof DecimalType) {

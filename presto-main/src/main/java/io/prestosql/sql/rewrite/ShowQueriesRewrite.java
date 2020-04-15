@@ -32,7 +32,6 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -186,7 +185,7 @@ final class ShowQueriesRewrite
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
-            accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), schema);
+            accessControl.checkCanShowTables(session.toSecurityContext(), schema);
 
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
                 throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
@@ -231,7 +230,8 @@ final class ShowQueriesRewrite
 
                 catalogName = qualifiedTableName.getCatalogName();
 
-                accessControl.checkCanShowTablesMetadata(
+                // Check is wrong here, it should be accessControl#checkCanShowGrants() which is not yet implemented
+                accessControl.checkCanShowTables(
                         session.toSecurityContext(),
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
@@ -247,7 +247,7 @@ final class ShowQueriesRewrite
 
                 Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
                 for (String schema : allowedSchemas) {
-                    accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), new CatalogSchemaName(catalogName, schema));
+                    accessControl.checkCanShowTables(session.toSecurityContext(), new CatalogSchemaName(catalogName, schema));
                 }
             }
 
@@ -374,7 +374,7 @@ final class ShowQueriesRewrite
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
-            accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
+            accessControl.checkCanShowColumns(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
 
             return simpleQuery(
                     selectList(
@@ -444,7 +444,7 @@ final class ShowQueriesRewrite
                 Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
                 Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
 
-                accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(catalogName.getValue(), new SchemaTableName(schemaName.getValue(), tableName.getValue())));
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
                 String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, viewDefinition.get().getComment(), Optional.empty())).trim();
                 return singleValueQuery("Create View", sql);
@@ -460,7 +460,7 @@ final class ShowQueriesRewrite
                     throw semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName);
                 }
 
-                accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(tableHandle.get().getCatalogName().getCatalogName(), objectName.asSchemaTableName()));
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
@@ -510,6 +510,9 @@ final class ShowQueriesRewrite
                 }
 
                 PropertyMetadata<?> property = allProperties.get(propertyName);
+                if (property == null) {
+                    throw new PrestoException(errorCode, "No PropertyMetadata for property: " + propertyName);
+                }
                 if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
                     throw new PrestoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",

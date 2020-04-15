@@ -76,6 +76,7 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.NATION;
@@ -84,6 +85,7 @@ import static io.prestosql.tpch.TpchTable.PART;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
@@ -289,6 +291,15 @@ public class H2QueryRunner
                             row.add(padSpaces(stringValue, (CharType) type));
                         }
                     }
+                    else if (VARBINARY.equals(type)) {
+                        byte[] bytes = resultSet.getBytes(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(bytes);
+                        }
+                    }
                     else if (DATE.equals(type)) {
                         // resultSet.getDate(i) doesn't work if JVM's zone skipped day being retrieved (e.g. 2011-12-30 and Pacific/Apia zone)
                         LocalDate dateValue = resultSet.getObject(i, LocalDate.class);
@@ -404,7 +415,7 @@ public class H2QueryRunner
                         batch.bind(column, cursor.getLong(column));
                     }
                     else if (INTEGER.equals(type)) {
-                        batch.bind(column, (int) cursor.getLong(column));
+                        batch.bind(column, toIntExact(cursor.getLong(column)));
                     }
                     else if (DOUBLE.equals(type)) {
                         batch.bind(column, cursor.getDouble(column));

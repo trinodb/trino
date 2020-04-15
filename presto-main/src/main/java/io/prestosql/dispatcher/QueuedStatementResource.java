@@ -31,6 +31,7 @@ import io.prestosql.server.SessionContext;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.security.Identity;
 
 import javax.annotation.PreDestroy;
@@ -96,6 +97,7 @@ public class QueuedStatementResource
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private final HeaderSupport forwardedHeaderSupport;
+    private final GroupProvider groupProvider;
     private final DispatchManager dispatchManager;
 
     private final Executor responseExecutor;
@@ -107,11 +109,13 @@ public class QueuedStatementResource
     @Inject
     public QueuedStatementResource(
             DispatcherConfig dispatcherConfig,
+            GroupProvider groupProvider,
             DispatchManager dispatchManager,
             DispatchExecutor executor)
     {
         requireNonNull(dispatcherConfig, "dispatcherConfig is null");
         this.forwardedHeaderSupport = dispatcherConfig.getForwardedHeaderSupport();
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
 
         requireNonNull(dispatchManager, "dispatchManager is null");
@@ -129,7 +133,16 @@ public class QueuedStatementResource
 
                             // forget about this query if the query manager is no longer tracking it
                             if (!dispatchManager.isQueryRegistered(entry.getKey())) {
-                                queries.remove(entry.getKey());
+                                Query query = queries.remove(entry.getKey());
+                                if (query != null) {
+                                    try {
+                                        query.destroy();
+                                    }
+                                    catch (Throwable e) {
+                                        // this catch clause is broad so query purger does not get stuck
+                                        log.warn(e, "Error destroying identity");
+                                    }
+                                }
                             }
                         }
                     }
@@ -165,9 +178,12 @@ public class QueuedStatementResource
         Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
-        SessionContext sessionContext = new HttpRequestSessionContext(forwardedHeaderSupport, headers, remoteAddress, identity);
+        SessionContext sessionContext = new HttpRequestSessionContext(forwardedHeaderSupport, headers, remoteAddress, identity, groupProvider);
         Query query = new Query(statement, sessionContext, dispatchManager);
         queries.put(query.getQueryId(), query);
+
+        // let authentication filter know that identity lifecycle has been handed off
+        servletRequest.setAttribute(AUTHENTICATED_IDENTITY, null);
 
         return Response.ok(query.getQueryResults(query.getLastToken(), uriInfo, xForwardedProto)).build();
     }
@@ -384,6 +400,11 @@ public class QueuedStatementResource
         public synchronized void cancel()
         {
             querySubmissionFuture.addListener(() -> dispatchManager.cancelQuery(queryId), directExecutor());
+        }
+
+        public void destroy()
+        {
+            sessionContext.getIdentity().destroy();
         }
 
         private QueryResults createQueryResults(long token, UriInfo uriInfo, String xForwardedProto, DispatchInfo dispatchInfo)

@@ -34,7 +34,7 @@ public class TestExtraCredentialProvider
                 "user-credential-name", "user");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("user", "overwritten_user")));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("user", "overwritten_user")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "overwritten_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "default_password");
     }
@@ -48,7 +48,7 @@ public class TestExtraCredentialProvider
                 "password-credential-name", "password");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("password", "overwritten_password")));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("password", "overwritten_password")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "default_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "overwritten_password");
     }
@@ -63,7 +63,7 @@ public class TestExtraCredentialProvider
                 "password-credential-name", "password");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("user", "overwritten_user", "password", "overwritten_password")));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("user", "overwritten_user", "password", "overwritten_password")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "overwritten_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "overwritten_password");
     }
@@ -78,11 +78,11 @@ public class TestExtraCredentialProvider
                 "password-credential-name", "password");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of()));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of()));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "default_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "default_password");
 
-        jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("connection_user", "overwritten_user", "connection_password", "overwritten_password")));
+        jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("connection_user", "overwritten_user", "connection_password", "overwritten_password")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "default_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "default_password");
     }

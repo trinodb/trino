@@ -142,7 +142,8 @@ public class BlackHoleConnector
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((List<String>) value).stream()
+                        value -> ImmutableList.copyOf(((List<?>) value).stream()
+                                .map(String.class::cast)
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toList())),
                         List.class::cast),

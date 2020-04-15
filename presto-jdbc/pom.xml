@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>330-SNAPSHOT</version>
+        <version>333-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -176,10 +176,6 @@
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>io.prestosql.spi</pattern>
-                                    <shadedPattern>${shadeBase}.spi</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>
@@ -201,7 +197,7 @@
                                 </relocation>
                                 <relocation>
                                     <pattern>javax.inject</pattern>
-                                    <shadedPattern>${shadeBase}.inject</shadedPattern>
+                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.joda.time</pattern>
@@ -217,6 +213,12 @@
                                 </relocation>
                             </relocations>
                             <filters>
+                                <filter>
+                                    <artifact>io.airlift:units</artifact>
+                                    <excludes>
+                                        <exclude>ValidationMessages.properties</exclude>
+                                    </excludes>
+                                </filter>
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>

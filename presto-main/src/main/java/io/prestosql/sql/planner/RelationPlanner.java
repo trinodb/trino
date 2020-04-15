@@ -84,6 +84,7 @@ import io.prestosql.type.TypeCoercion;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -170,7 +171,61 @@ class RelationPlanner
 
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
         PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
-        return new RelationPlan(root, scope, outputSymbols);
+
+        RelationPlan tableScan = new RelationPlan(root, scope, outputSymbols);
+        tableScan = addRowFilters(node, tableScan);
+        tableScan = addColumnMasks(node, tableScan);
+        return tableScan;
+    }
+
+    private RelationPlan addRowFilters(Table node, RelationPlan plan)
+    {
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
+
+        for (Expression filter : analysis.getRowFilters(node)) {
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, filter);
+
+            planBuilder = planBuilder.withNewRoot(new FilterNode(
+                    idAllocator.getNextId(),
+                    planBuilder.getRoot(),
+                    planBuilder.rewrite(filter)));
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
+    }
+
+    private RelationPlan addColumnMasks(Table table, RelationPlan plan)
+    {
+        Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
+
+        PlanNode root = plan.getRoot();
+        List<Symbol> mappings = plan.getFieldMappings();
+
+        TranslationMap translations = new TranslationMap(plan, analysis, lambdaDeclarationToSymbolMap);
+        translations.setFieldMappings(mappings);
+
+        PlanBuilder planBuilder = new PlanBuilder(translations, root);
+
+        for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
+            Field field = plan.getDescriptor().getFieldByIndex(i);
+
+            for (Expression mask : columnMasks.getOrDefault(field.getName().get(), ImmutableList.of())) {
+                planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask);
+
+                Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+                for (Symbol symbol : root.getOutputSymbols()) {
+                    assignments.put(symbol, symbol.toSymbolReference());
+                }
+                assignments.put(mappings.get(i), translations.rewrite(mask));
+
+                planBuilder = planBuilder.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        planBuilder.getRoot(),
+                        Assignments.copyOf(assignments)));
+            }
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), mappings);
     }
 
     @Override
@@ -329,16 +384,15 @@ class RelationPlanner
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                        .build(),
+                leftPlanBuilder.getRoot().getOutputSymbols(),
+                rightPlanBuilder.getRoot().getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         if (node.getType() != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
@@ -371,16 +425,15 @@ class RelationPlanner
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                            .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                            .build(),
+                    leftPlanBuilder.getRoot().getOutputSymbols(),
+                    rightPlanBuilder.getRoot().getOutputSymbols(),
                     Optional.of(rewrittenFilterCondition),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    Optional.empty());
         }
 
         if (node.getType() == INNER) {
@@ -480,16 +533,15 @@ class RelationPlanner
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftCoercion.getOutputSymbols())
-                        .addAll(rightCoercion.getOutputSymbols())
-                        .build(),
+                leftCoercion.getOutputSymbols(),
+                rightCoercion.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         // Add a projection to produce the outputs of the columns in the USING clause,
         // which are defined as coalesce(l.k, r.k)

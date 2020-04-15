@@ -116,6 +116,52 @@ Memory Management Properties
     This is the amount of memory set aside as headroom/buffer in the JVM heap
     for allocations that are not tracked by Presto.
 
+
+Query Management Properties
+---------------------------
+
+``query.max-execution-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``100 days``
+    * **Session property:** ``query_max_execution_time``
+
+    The maxiumum allowed time for a query to be actively executing on the
+    cluster, before it is terminated. Compared to the run time below, execution
+    time does not include analysis, query planning or wait times in a queue.
+
+``query.max-run-time``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``100 days``
+    * **Session property:** ``query_max_run_time``
+
+    The maxiumum allowed time for a query to be processed on the cluster, before
+    it is terminated. The time includes time for analysis and planning, but also
+    time spend in a queue waiting, so essentially this is the time allowed for a
+    query to exist since creation.
+
+``query.max-history``
+^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``integer``
+    * **Default value:** ``100``
+
+    The maximum number of queries to keep in the query history to provide
+    statistics and other information. If this amount is reached, queries are
+    removed based on age.
+
+``query.min-expire-age``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``15 min``
+
+    The minimal age of a query in the history before it is expired. An expired
+    query is removed from the query history buffer and no longer available in
+    the :doc:`/admin/web-interface`.
+
 .. _tuning-spilling:
 
 Spilling Properties
@@ -388,7 +434,7 @@ Task Properties
     but it causes increased heap space usage. Setting the value too high may cause a drop
     in performance due to a context switching. The number of active threads is available
     via the ``RunningSplits`` property of the
-    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
+    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JMX object.
 
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^
@@ -415,6 +461,41 @@ Task Properties
     writing due to compression or other factors. Setting this too high may cause the cluster
     to become overloaded due to excessive resource utilization. This can also be specified on
     a per-query basis using the ``task_writer_count`` session property.
+
+Writer Scaling Properties
+-------------------------
+
+By default, the number of writer tasks is static. Enabling writer scaling allows
+Presto to dynamically scale out the number of writer tasks rather than
+allocating a fixed number of tasks. Additional tasks are added when the average
+amount of physical data per writer is above a minimum threshold, but only if the
+query is bottlenecked on writing.
+
+Writer scaling is useful with connectors like Hive that produce one or more
+files per writer -- reducing the number of writers results in a larger average
+file size. However, writer scaling can have a small impact on query wall time
+due to the decreased writer parallelism while the writer count ramps up to match
+the needs of the query.
+
+``scale-writers``
+^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enable writer scaling. This can be specified on a per-query basis
+    using the ``scale_writers`` session property.
+
+``writer-min-size``
+^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``data size``
+    * **Default value:** ``32MB``
+
+    The minimum amount of data that must be written by a writer task before
+    another writer is eligible to be added. Each writer task may have multiple
+    writers, controlled by ``task.writer-count``, thus this value is effectively
+    divided by the the number of writers per task. This can be specified on a
+    per-query basis using the ``writer_min_size`` session property.
 
 .. _node-scheduler-properties:
 
@@ -681,3 +762,111 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     to hit the limit on matches for subsequent rows as well, you want to use the
     correct algorithm from the beginning so as not to waste time and resources.
     The more rows you are processing, the larger this value should be.
+
+
+Logging Properties
+------------------
+
+``log.path``
+^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/server.log``
+
+    The path to the log file used by Presto. The path is relative to the data
+    directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``log.max-history``
+^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``30``
+
+    The maximum number of general application log files to use, before log
+    rotation replaces old content.
+
+``log.max-size``
+^^^^^^^^^^^^^^^^
+    * **Type:** ``data size``
+    * **Default value:** ``100MB``
+
+    The maximum file size for the general application log file.
+
+``http-server.log.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable logging for the HTTP server.
+
+``http-server.log.compression.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable compression of the log files of the HTTP server.
+
+``http-server.log.path``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/http-request.log``
+
+    The path to the log file used by the HTTP server. The path is relative to
+    the data directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``http-server.log.max-history``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``15``
+
+    The maxiumum number of log files for the HTTP server to use, before
+    log rotation replaces old content.
+
+``http-server.log.max-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``unlimited``
+
+    The maximum file size for the log file of the HTTP server.
+
+.. _web-ui-properties:
+
+Web UI Properties
+-----------------
+
+The following properties can be used to configure the :doc:`./web-interface`.
+
+``web-ui.enabled``
+^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    This property controls whether or not the Web UI is available.
+
+``web-ui.shared-secret``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** randomly generated unless set
+
+    The shared secret is used to generate authentication cookies for users of
+    the Web UI. If not set to a static value, any coordinator restart generates
+    a new random value, which in turn invalidates the session of any currently
+    logged in Web UI user.
+
+web-ui.session-timeout
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``1 day``
+
+    The duration how long a user can be logged into the Web UI, before the
+    session times out, which forces an automatic log-out.

@@ -125,6 +125,11 @@ public class EquatableValueSet
                 .collect(toList()));
     }
 
+    public int getValuesCount()
+    {
+        return entries.size();
+    }
+
     @Override
     public boolean isNone()
     {
@@ -190,6 +195,12 @@ public class EquatableValueSet
             public Collection<Object> getValues()
             {
                 return EquatableValueSet.this.getValues();
+            }
+
+            @Override
+            public int getValuesCount()
+            {
+                return EquatableValueSet.this.getValuesCount();
             }
         };
     }

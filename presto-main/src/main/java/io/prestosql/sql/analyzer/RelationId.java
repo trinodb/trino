@@ -14,13 +14,14 @@
 package io.prestosql.sql.analyzer;
 
 import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.NodeRef;
 
-import javax.annotation.Nullable;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
-import static java.util.Objects.requireNonNull;
 
 public class RelationId
 {
@@ -29,7 +30,7 @@ public class RelationId
      */
     public static RelationId of(Node sourceNode)
     {
-        return new RelationId(requireNonNull(sourceNode, "source cannot be null"));
+        return new RelationId(Optional.of(NodeRef.of(sourceNode)));
     }
 
     /**
@@ -37,20 +38,24 @@ public class RelationId
      */
     public static RelationId anonymous()
     {
-        return new RelationId(null);
+        return new RelationId(Optional.empty());
     }
 
-    @Nullable
-    private final Node sourceNode;
+    private final Optional<NodeRef<Node>> sourceNode;
 
-    private RelationId(Node sourceNode)
+    private RelationId(Optional<NodeRef<Node>> sourceNode)
     {
         this.sourceNode = sourceNode;
     }
 
     public boolean isAnonymous()
     {
-        return sourceNode == null;
+        return !sourceNode.isPresent();
+    }
+
+    public Optional<Node> getSourceNode()
+    {
+        return sourceNode.map(NodeRef::getNode);
     }
 
     @Override
@@ -63,13 +68,13 @@ public class RelationId
             return false;
         }
         RelationId that = (RelationId) o;
-        return sourceNode != null && sourceNode == that.sourceNode;
+        return sourceNode.isPresent() && that.sourceNode.isPresent() && sourceNode.equals(that.sourceNode);
     }
 
     @Override
     public int hashCode()
     {
-        return identityHashCode(sourceNode);
+        return Objects.hash(sourceNode);
     }
 
     @Override
@@ -83,8 +88,8 @@ public class RelationId
         }
         else {
             return toStringHelper(this)
-                    .addValue(sourceNode.getClass().getSimpleName())
-                    .addValue(format("x%08x", identityHashCode(sourceNode)))
+                    .addValue(sourceNode.get().getClass().getSimpleName())
+                    .addValue(format("x%08x", identityHashCode(sourceNode.get())))
                     .toString();
         }
     }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.FunctionCallBuilder;
@@ -33,6 +34,7 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -44,6 +46,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 
@@ -292,7 +295,11 @@ public class TestScalarStatsCalculator
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
     {
-        return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, session, types));
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, transactionSession -> {
+                    return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, transactionSession, types));
+                });
     }
 
     @Test

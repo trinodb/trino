@@ -47,6 +47,7 @@ public class HiveTableHandle
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
     private final Optional<Set<String>> analyzeColumnNames;
+    private final Optional<Set<ColumnHandle>> constraintColumns;
 
     @JsonCreator
     public HiveTableHandle(
@@ -71,7 +72,8 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames);
+                analyzeColumnNames,
+                Optional.empty());
     }
 
     public HiveTableHandle(
@@ -92,6 +94,7 @@ public class HiveTableHandle
                 bucketHandle,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -106,7 +109,8 @@ public class HiveTableHandle
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
-            Optional<Set<String>> analyzeColumnNames)
+            Optional<Set<String>> analyzeColumnNames,
+            Optional<Set<ColumnHandle>> constraintColumns)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -119,6 +123,7 @@ public class HiveTableHandle
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
         this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
+        this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null");
     }
 
     public HiveTableHandle withAnalyzePartitionValues(List<List<String>> analyzePartitionValues)
@@ -134,7 +139,8 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 Optional.of(analyzePartitionValues),
-                analyzeColumnNames);
+                analyzeColumnNames,
+                constraintColumns);
     }
 
     public HiveTableHandle withAnalyzeColumnNames(Set<String> analyzeColumnNames)
@@ -150,7 +156,8 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                Optional.of(analyzeColumnNames));
+                Optional.of(analyzeColumnNames),
+                constraintColumns);
     }
 
     @JsonProperty
@@ -219,6 +226,13 @@ public class HiveTableHandle
     public Optional<Set<String>> getAnalyzeColumnNames()
     {
         return analyzeColumnNames;
+    }
+
+    // do not serialize constraint columns as they are not needed on workers
+    @JsonIgnore
+    public Optional<Set<ColumnHandle>> getConstraintColumns()
+    {
+        return constraintColumns;
     }
 
     public SchemaTableName getSchemaTableName()

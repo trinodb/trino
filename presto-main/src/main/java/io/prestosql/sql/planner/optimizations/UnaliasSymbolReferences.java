@@ -519,12 +519,21 @@ public class UnaliasSymbolReferences
 
             Map<String, Symbol> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
 
-            if (node.getType().equals(INNER)) {
+            if (node.getType() == INNER) {
                 canonicalCriteria.stream()
-                        .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
-                        .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))
+                        // Map right equi-condition symbol to left symbol. This helps to
+                        // reuse join node partitioning better as partitioning properties are
+                        // only derived from probe side symbols
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
+
+            List<Symbol> canonicalOutputs = canonicalizeAndDistinct(node.getOutputSymbols());
+            List<Symbol> leftOutputSymbols = canonicalOutputs.stream()
+                    .filter(left.getOutputSymbols()::contains)
+                    .collect(toImmutableList());
+            List<Symbol> rightOutputSymbols = canonicalOutputs.stream()
+                    .filter(right.getOutputSymbols()::contains)
+                    .collect(toImmutableList());
 
             return new JoinNode(
                     node.getId(),
@@ -532,13 +541,15 @@ public class UnaliasSymbolReferences
                     left,
                     right,
                     canonicalCriteria,
-                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    leftOutputSymbols,
+                    rightOutputSymbols,
                     canonicalFilter,
                     canonicalLeftHashSymbol,
                     canonicalRightHashSymbol,
                     node.getDistributionType(),
                     node.isSpillable(),
-                    canonicalDynamicFilters);
+                    canonicalDynamicFilters,
+                    node.getReorderJoinStatsAndCost());
         }
 
         @Override

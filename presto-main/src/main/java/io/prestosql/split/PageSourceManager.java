@@ -13,7 +13,6 @@
  */
 package io.prestosql.split;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Split;
@@ -21,7 +20,7 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -59,16 +58,8 @@ public class PageSourceManager
 
         ConnectorPageSourceProvider provider = getPageSourceProvider(catalogName);
         TupleDomain<ColumnHandle> constraint = dynamicFilter.get();
-        if (constraint.isAll()) {
-            return provider.createPageSource(
-                    table.getTransaction(),
-                    session.toConnectorSession(catalogName),
-                    split.getConnectorSplit(),
-                    table.getConnectorHandle(),
-                    columns);
-        }
         if (constraint.isNone()) {
-            return new FixedPageSource(ImmutableList.of());
+            return new EmptyPageSource();
         }
         return provider.createPageSource(
                 table.getTransaction(),

@@ -184,7 +184,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties)
+    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -197,6 +197,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void renameSchema(Session session, CatalogSchemaName source, String target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -452,13 +458,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog)
+    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();
     }

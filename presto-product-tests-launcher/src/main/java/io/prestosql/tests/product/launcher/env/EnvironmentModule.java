@@ -17,8 +17,11 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
+import io.prestosql.tests.product.launcher.env.common.Kafka;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
+import io.prestosql.tests.product.launcher.env.common.KerberosKms;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static java.util.Objects.requireNonNull;
@@ -37,10 +40,13 @@ public final class EnvironmentModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(PortBinder.class);
         binder.bind(EnvironmentFactory.class);
         binder.bind(Standard.class);
         binder.bind(Hadoop.class);
         binder.bind(Kerberos.class);
+        binder.bind(KerberosKms.class);
+        binder.bind(Kafka.class);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
 

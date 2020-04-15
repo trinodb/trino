@@ -599,7 +599,7 @@ public class AddExchanges
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
             // if the child is already a gathering exchange, don't add another
-            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(GATHER)) {
+            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType() == GATHER) {
                 return rebaseAndDeriveProperties(node, child);
             }
 
@@ -618,7 +618,7 @@ public class AddExchanges
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
             // if the child is already a gathering exchange, don't add another
-            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(GATHER)) {
+            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType() == GATHER) {
                 return rebaseAndDeriveProperties(node, child);
             }
 
@@ -756,18 +756,21 @@ public class AddExchanges
 
         private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
         {
-            JoinNode result = new JoinNode(node.getId(),
+            JoinNode result = new JoinNode(
+                    node.getId(),
                     node.getType(),
                     newLeft.getNode(),
                     newRight.getNode(),
                     node.getCriteria(),
-                    node.getOutputSymbols(),
+                    node.getLeftOutputSymbols(),
+                    node.getRightOutputSymbols(),
                     node.getFilter(),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),
                     Optional.of(newDistributionType),
                     node.isSpillable(),
-                    node.getDynamicFilters());
+                    node.getDynamicFilters(),
+                    node.getReorderJoinStatsAndCost());
 
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(newLeft.getProperties(), newRight.getProperties())));
         }

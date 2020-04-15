@@ -248,10 +248,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         verifyRecordingMode();
-        delegate.updatePartitionStatistics(identity, databaseName, tableName, partitionName, update);
+        delegate.updatePartitionStatistics(identity, table, partitionName, update);
     }
 
     @Override
@@ -292,6 +292,13 @@ public class RecordingHiveMetastore
     {
         verifyRecordingMode();
         delegate.renameDatabase(identity, databaseName, newDatabaseName);
+    }
+
+    @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        verifyRecordingMode();
+        delegate.setDatabaseOwner(identity, databaseName, principal);
     }
 
     @Override
@@ -459,17 +466,17 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         verifyRecordingMode();
-        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+        delegate.grantRoles(roles, grantees, adminOption, grantor);
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         verifyRecordingMode();
-        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+        delegate.revokeRoles(roles, grantees, adminOption, grantor);
     }
 
     @Override

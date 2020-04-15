@@ -22,20 +22,21 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveMetadata.createPredicate;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestHiveMetadata
 {
-    private static final HiveColumnHandle TEST_COLUMN_HANDLE = new HiveColumnHandle(
+    private static final HiveColumnHandle TEST_COLUMN_HANDLE = createBaseColumn(
             "test",
+            0,
             HiveType.HIVE_STRING,
             VARCHAR,
-            0,
             HiveColumnHandle.ColumnType.PARTITION_KEY,
             Optional.empty());
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testCreatePredicate()
     {
         ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();

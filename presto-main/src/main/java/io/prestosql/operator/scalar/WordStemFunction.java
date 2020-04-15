@@ -75,7 +75,7 @@ public final class WordStemFunction
             .put(utf8Slice("tr"), TurkishStemmer::new)
             .build();
 
-    @Description("returns the stem of a word in the English language")
+    @Description("Returns the stem of a word in the English language")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -84,7 +84,7 @@ public final class WordStemFunction
         return wordStem(slice, new EnglishStemmer());
     }
 
-    @Description("returns the stem of a word in the given language")
+    @Description("Returns the stem of a word in the given language")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")

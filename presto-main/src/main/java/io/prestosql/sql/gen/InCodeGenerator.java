@@ -143,7 +143,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = toIntExact(Long.hashCode((Long) hashCodeFunction.invoke(object)));
+                            int hashCode = Long.hashCode((Long) hashCodeFunction.invoke(object));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {

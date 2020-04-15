@@ -2275,6 +2275,28 @@ public abstract class AbstractTestJoinQueries
                 "WHERE id3 = 10");
     }
 
+    @Test
+    public void testMultiJoinWithEligibleForDynamicFiltering()
+    {
+        assertQuery("" +
+                        "SELECT customer.name, lineitem.partkey " +
+                        "FROM lineitem " +
+                        "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " + // with dynamic filters enabled, gets converted to INNER CROSS JOIN
+                        "LEFT JOIN customer ON orders.custkey = customer.custkey " + // gets converted to INNER join
+                        "WHERE lineitem.orderkey = 31718 " +
+                        "AND customer.name >= 'Customer#000001463' ",
+                "VALUES ('Customer#000001471', 474), ('Customer#000001471', 1969), ('Customer#000001471', 32)");
+
+        assertQuery("" +
+                        "SELECT count(*) " +
+                        "FROM lineitem " +
+                        "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " + // with dynamic filters enabled, gets converted to INNER CROSS JOIN
+                        "LEFT JOIN customer ON orders.custkey = customer.custkey " + // gets converted to INNER join
+                        "WHERE lineitem.orderkey = 31718 " +
+                        "AND customer.name >= 'Customer#000001463' ",
+                "VALUES 3");
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getSession())

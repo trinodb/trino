@@ -174,7 +174,7 @@ public class RaptorMetadata
             return null;
         }
         List<TableColumn> tableColumns = dao.listTableColumns(table.getTableId());
-        checkArgument(!tableColumns.isEmpty(), "Table %s does not have any columns", tableName);
+        checkArgument(!tableColumns.isEmpty(), "Table '%s' does not have any columns", tableName);
 
         return new RaptorTableHandle(
                 tableName.getSchemaName(),
@@ -314,7 +314,7 @@ public class RaptorMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new ConstraintApplicationResult(
+        return Optional.of(new ConstraintApplicationResult<>(
                 new RaptorTableHandle(table.getSchemaName(),
                         table.getTableName(),
                         table.getTableId(),

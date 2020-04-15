@@ -44,7 +44,6 @@ public final class ElasticsearchQueryRunner
 
     private static final Logger LOG = Logger.get(ElasticsearchQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
-    private static final int NODE_COUNT = 2;
 
     public static DistributedQueryRunner createElasticsearchQueryRunner(
             HostAndPort address,
@@ -56,7 +55,6 @@ public final class ElasticsearchQueryRunner
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setNodeCount(NODE_COUNT)
                     .setExtraProperties(extraProperties)
                     .build();
 
@@ -121,6 +119,9 @@ public final class ElasticsearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        // To start Elasticsearch:
+        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+
         Logging.initialize();
 
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(

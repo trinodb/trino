@@ -35,11 +35,10 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -82,7 +81,7 @@ public final class QueryAssertions
 
         if (results.getUpdateCount().isPresent()) {
             if (!count.isPresent()) {
-                fail("update count should not be present");
+                fail("update count should be present");
             }
             assertEquals(results.getUpdateCount().getAsLong(), count.getAsLong(), "update count");
         }
@@ -339,22 +338,5 @@ public final class QueryAssertions
         @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
-    }
-
-    private static void assertEventually(Duration timeout, Runnable assertion)
-    {
-        long start = System.nanoTime();
-        while (!Thread.currentThread().isInterrupted()) {
-            try {
-                assertion.run();
-                return;
-            }
-            catch (AssertionError e) {
-                if (nanosSince(start).compareTo(timeout) > 0) {
-                    throw e;
-                }
-            }
-            sleepUninterruptibly(50, MILLISECONDS);
-        }
     }
 }

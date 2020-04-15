@@ -58,13 +58,15 @@ public class TableScanWorkProcessorOperator
             WorkProcessor<Split> splits,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Iterable<ColumnHandle> columns)
+            Iterable<ColumnHandle> columns,
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
     {
         this.splitToPages = new SplitToPages(
                 session,
                 pageSourceProvider,
                 table,
                 columns,
+                dynamicFilter,
                 memoryTrackingContext.aggregateSystemMemoryContext());
         this.pages = splits.flatTransform(splitToPages);
     }
@@ -106,6 +108,12 @@ public class TableScanWorkProcessorOperator
     }
 
     @Override
+    public long getDynamicFilterSplitsProcessed()
+    {
+        return splitToPages.getDynamicFilterSplitsProcessed();
+    }
+
+    @Override
     public Duration getReadTime()
     {
         return splitToPages.getReadTime();
@@ -125,10 +133,12 @@ public class TableScanWorkProcessorOperator
         final PageSourceProvider pageSourceProvider;
         final TableHandle table;
         final List<ColumnHandle> columns;
+        final Supplier<TupleDomain<ColumnHandle>> dynamicFilter;
         final AggregatedMemoryContext aggregatedMemoryContext;
 
         long processedBytes;
         long processedPositions;
+        long dynamicFilterSplitsProcessed;
 
         @Nullable
         ConnectorPageSource source;
@@ -138,12 +148,14 @@ public class TableScanWorkProcessorOperator
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
+                Supplier<TupleDomain<ColumnHandle>> dynamicFilter,
                 AggregatedMemoryContext aggregatedMemoryContext)
         {
             this.session = requireNonNull(session, "session is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.aggregatedMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
         }
 
@@ -155,7 +167,10 @@ public class TableScanWorkProcessorOperator
             }
 
             checkState(source == null, "Table scan split already set");
-            source = pageSourceProvider.createPageSource(session, split, table, columns, TupleDomain::all);
+            if (!dynamicFilter.get().isAll()) {
+                dynamicFilterSplitsProcessed++;
+            }
+            source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
             return TransformationState.ofResult(
                     WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
                             .map(page -> {
@@ -197,6 +212,11 @@ public class TableScanWorkProcessorOperator
         long getInputPositions()
         {
             return processedPositions;
+        }
+
+        long getDynamicFilterSplitsProcessed()
+        {
+            return dynamicFilterSplitsProcessed;
         }
 
         Duration getReadTime()

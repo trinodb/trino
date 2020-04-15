@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.procedure;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
-import io.prestosql.plugin.hive.TransactionalMetadata;
+import io.prestosql.plugin.hive.TransactionalMetadataFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -36,7 +36,6 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static io.prestosql.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.prestosql.plugin.hive.procedure.Procedures.checkPartitionColumns;
@@ -58,11 +57,11 @@ public class UnregisterPartitionProcedure
             List.class,
             List.class);
 
-    private final Supplier<TransactionalMetadata> hiveMetadataFactory;
+    private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HiveMetastoreClosure metastore;
 
     @Inject
-    public UnregisterPartitionProcedure(Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore)
+    public UnregisterPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
@@ -103,9 +102,9 @@ public class UnregisterPartitionProcedure
         String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
 
         Partition partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Partition %s does not exist", partitionName)));
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
 
-        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.get()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();
 
         metastore.dropPartition(
                 session,

@@ -155,7 +155,7 @@ public class FileHiveMetastore
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(catalogDirectory, "baseDirectory is null"));
-        this.hdfsContext = new HdfsContext(new ConnectorIdentity(metastoreUser, Optional.empty(), Optional.empty()));
+        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(metastoreUser));
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }
@@ -212,6 +212,19 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        Database database = getRequiredDatabase(databaseName);
+        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
+        Database newDatabase = Database.builder(database)
+                .setOwnerName(principal.getName())
+                .setOwnerType(principal.getType())
+                .build();
+
+        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(newDatabase), true);
+    }
+
+    @Override
     public synchronized Optional<Database> getDatabase(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
@@ -265,9 +278,6 @@ public class FileHiveMetastore
                 FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
                 if (!externalFileSystem.isDirectory(externalLocation)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
-                }
-                if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table.getParameters())) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "External table location cannot be inside the system metadata directory");
                 }
             }
             catch (IOException e) {
@@ -373,16 +383,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        Table table = getRequiredTable(databaseName, tableName);
         PartitionStatistics originalStatistics = getPartitionStatistics(table, extractPartitionValues(partitionName));
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
         List<String> partitionValues = extractPartitionValues(partitionName);
         Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
         PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
 
         PartitionMetadata updatedMetadata = partitionMetadata
                 .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
@@ -746,7 +755,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
+    public synchronized void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         Set<String> existingRoles = listRoles();
         Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
@@ -761,7 +770,7 @@ public class FileHiveMetastore
                 RoleGrant grantWithAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, true);
                 RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
 
-                if (withAdminOption) {
+                if (adminOption) {
                     modifiedGrants.remove(grantWithoutAdminOption);
                     modifiedGrants.add(grantWithAdminOption);
                 }
@@ -778,7 +787,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
+    public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
         Set<RoleGrant> modifiedGrants = new HashSet<>(existingGrants);
@@ -788,7 +797,7 @@ public class FileHiveMetastore
                 RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
 
                 if (modifiedGrants.contains(grantWithAdminOption) || modifiedGrants.contains(grantWithoutAdminOption)) {
-                    if (adminOptionFor) {
+                    if (adminOption) {
                         modifiedGrants.remove(grantWithAdminOption);
                         modifiedGrants.add(grantWithoutAdminOption);
                     }

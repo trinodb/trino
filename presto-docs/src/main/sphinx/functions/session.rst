@@ -4,7 +4,7 @@ Session Information
 
 Functions providing information about the query execution environment.
 
-.. function:: current_user
+.. data:: current_user
 
     Returns the current user running the query.
 

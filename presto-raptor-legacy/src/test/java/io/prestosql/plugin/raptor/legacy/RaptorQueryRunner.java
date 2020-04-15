@@ -57,7 +57,6 @@ public final class RaptorQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
-                .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();
 

@@ -33,6 +33,11 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * ColumnHandle for Hive Connector representing a full top level column or a projected column. Currently projected columns
+ * that represent a simple chain of dereferences are supported. e.g. for a column "A" with type struct(B struct(C bigint, ...), ....)
+ * there can be a projected column representing expression "A.B.C".
+ */
 public class HiveColumnHandle
         implements ColumnHandle
 {
@@ -65,47 +70,102 @@ public class HiveColumnHandle
         SYNTHESIZED,
     }
 
-    private final String name;
-    private final HiveType hiveType;
-    private final Type type;
-    private final int hiveColumnIndex;
-    private final ColumnType columnType;
+    // Information about top level hive column
+    private final String baseColumnName;
+    private final int baseHiveColumnIndex;
+    private final HiveType baseHiveType;
+    private final Type baseType;
     private final Optional<String> comment;
+
+    // Information about parts of the base column to be referenced by this column handle.
+    private final Optional<HiveColumnProjectionInfo> hiveColumnProjectionInfo;
+
+    private final String name;
+    private final ColumnType columnType;
 
     @JsonCreator
     public HiveColumnHandle(
-            @JsonProperty("name") String name,
-            @JsonProperty("hiveType") HiveType hiveType,
-            @JsonProperty("type") Type type,
-            @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
+            @JsonProperty("baseColumnName") String baseColumnName,
+            @JsonProperty("baseHiveColumnIndex") int baseHiveColumnIndex,
+            @JsonProperty("baseHiveType") HiveType baseHiveType,
+            @JsonProperty("baseType") Type baseType,
+            @JsonProperty("hiveColumnProjectionInfo") Optional<HiveColumnProjectionInfo> hiveColumnProjectionInfo,
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("comment") Optional<String> comment)
     {
-        this.name = requireNonNull(name, "name is null");
-        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
-        this.hiveColumnIndex = hiveColumnIndex;
-        this.hiveType = requireNonNull(hiveType, "hiveType is null");
-        this.type = requireNonNull(type, "type is null");
+        this.baseColumnName = requireNonNull(baseColumnName, "baseColumnName is null");
+        checkArgument(baseHiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "baseHiveColumnIndex is negative");
+        this.baseHiveColumnIndex = baseHiveColumnIndex;
+        this.baseHiveType = requireNonNull(baseHiveType, "baseHiveType is null");
+        this.baseType = requireNonNull(baseType, "baseType is null");
+
+        this.hiveColumnProjectionInfo = requireNonNull(hiveColumnProjectionInfo, "hiveColumnProjectionInfo is null");
+
+        this.name = this.baseColumnName + hiveColumnProjectionInfo.map(HiveColumnProjectionInfo::getPartialName).orElse("");
+
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 
-    @JsonProperty
+    public static HiveColumnHandle createBaseColumn(
+            String topLevelColumnName,
+            int topLevelColumnIndex,
+            HiveType hiveType,
+            Type type,
+            ColumnType columnType,
+            Optional<String> comment)
+    {
+        return new HiveColumnHandle(topLevelColumnName, topLevelColumnIndex, hiveType, type, Optional.empty(), columnType, comment);
+    }
+
+    public HiveColumnHandle getBaseColumn()
+    {
+        return isBaseColumn() ? this : createBaseColumn(baseColumnName, baseHiveColumnIndex, baseHiveType, baseType, columnType, comment);
+    }
+
     public String getName()
     {
         return name;
     }
 
     @JsonProperty
-    public HiveType getHiveType()
+    public String getBaseColumnName()
     {
-        return hiveType;
+        return baseColumnName;
     }
 
     @JsonProperty
-    public int getHiveColumnIndex()
+    public HiveType getBaseHiveType()
     {
-        return hiveColumnIndex;
+        return baseHiveType;
+    }
+
+    @JsonProperty
+    public Type getBaseType()
+    {
+        return baseType;
+    }
+
+    @JsonProperty
+    public int getBaseHiveColumnIndex()
+    {
+        return baseHiveColumnIndex;
+    }
+
+    @JsonProperty
+    public Optional<HiveColumnProjectionInfo> getHiveColumnProjectionInfo()
+    {
+        return hiveColumnProjectionInfo;
+    }
+
+    public HiveType getHiveType()
+    {
+        return hiveColumnProjectionInfo.map(HiveColumnProjectionInfo::getHiveType).orElse(baseHiveType);
+    }
+
+    public Type getType()
+    {
+        return hiveColumnProjectionInfo.map(HiveColumnProjectionInfo::getType).orElse(baseType);
     }
 
     public boolean isPartitionKey()
@@ -122,7 +182,7 @@ public class HiveColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(name)
-                .setType(type)
+                .setType(getType())
                 .setHidden(isHidden())
                 .build();
     }
@@ -134,21 +194,20 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
     public ColumnType getColumnType()
     {
         return columnType;
     }
 
+    public boolean isBaseColumn()
+    {
+        return !hiveColumnProjectionInfo.isPresent();
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment);
+        return Objects.hash(baseColumnName, baseHiveColumnIndex, baseHiveType, baseType, hiveColumnProjectionInfo, columnType, comment);
     }
 
     @Override
@@ -161,9 +220,12 @@ public class HiveColumnHandle
             return false;
         }
         HiveColumnHandle other = (HiveColumnHandle) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
-                Objects.equals(this.hiveType, other.hiveType) &&
+        return Objects.equals(this.baseColumnName, other.baseColumnName) &&
+                Objects.equals(this.baseHiveColumnIndex, other.baseHiveColumnIndex) &&
+                Objects.equals(this.baseHiveType, other.baseHiveType) &&
+                Objects.equals(this.baseType, other.baseType) &&
+                Objects.equals(this.hiveColumnProjectionInfo, other.hiveColumnProjectionInfo) &&
+                Objects.equals(this.name, other.name) &&
                 this.columnType == other.columnType &&
                 Objects.equals(this.comment, other.comment);
     }
@@ -171,7 +233,7 @@ public class HiveColumnHandle
     @Override
     public String toString()
     {
-        return name + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType;
+        return name + ":" + getHiveType() + ":" + columnType;
     }
 
     public static HiveColumnHandle updateRowIdHandle()
@@ -182,12 +244,12 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT, -1, SYNTHESIZED, Optional.empty());
+        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, -1, HIVE_LONG, BIGINT, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
     {
-        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
+        return createBaseColumn(PATH_COLUMN_NAME, PATH_COLUMN_INDEX, PATH_HIVE_TYPE, PATH_TYPE, SYNTHESIZED, Optional.empty());
     }
 
     /**
@@ -197,36 +259,36 @@ public class HiveColumnHandle
      */
     public static HiveColumnHandle bucketColumnHandle()
     {
-        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
+        return createBaseColumn(BUCKET_COLUMN_NAME, BUCKET_COLUMN_INDEX, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle fileSizeColumnHandle()
     {
-        return new HiveColumnHandle(FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, FILE_SIZE_TYPE_SIGNATURE, FILE_SIZE_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
+        return createBaseColumn(FILE_SIZE_COLUMN_NAME, FILE_SIZE_COLUMN_INDEX, FILE_SIZE_TYPE, FILE_SIZE_TYPE_SIGNATURE, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle fileModifiedTimeColumnHandle()
     {
-        return new HiveColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_TYPE_SIGNATURE, FILE_MODIFIED_TIME_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
+        return createBaseColumn(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_INDEX, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_TYPE_SIGNATURE, SYNTHESIZED, Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)
     {
-        return column.getHiveColumnIndex() == PATH_COLUMN_INDEX;
+        return column.getBaseHiveColumnIndex() == PATH_COLUMN_INDEX;
     }
 
     public static boolean isBucketColumnHandle(HiveColumnHandle column)
     {
-        return column.getHiveColumnIndex() == BUCKET_COLUMN_INDEX;
+        return column.getBaseHiveColumnIndex() == BUCKET_COLUMN_INDEX;
     }
 
     public static boolean isFileSizeColumnHandle(HiveColumnHandle column)
     {
-        return column.getHiveColumnIndex() == FILE_SIZE_COLUMN_INDEX;
+        return column.getBaseHiveColumnIndex() == FILE_SIZE_COLUMN_INDEX;
     }
 
     public static boolean isFileModifiedTimeColumnHandle(HiveColumnHandle column)
     {
-        return column.getHiveColumnIndex() == FILE_MODIFIED_TIME_COLUMN_INDEX;
+        return column.getBaseHiveColumnIndex() == FILE_MODIFIED_TIME_COLUMN_INDEX;
     }
 }

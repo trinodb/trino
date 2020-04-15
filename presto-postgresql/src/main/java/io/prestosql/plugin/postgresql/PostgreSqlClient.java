@@ -203,13 +203,7 @@ public class PostgreSqlClient
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, schemaName, tableName),
                 quoted(newTable.getTableName()));
-
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        execute(identity, sql);
     }
 
     @Override
@@ -612,7 +606,7 @@ public class PostgreSqlClient
                 return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
             }
             catch (JsonProcessingException e) {
-                throw new PrestoException(JDBC_ERROR, "Cast to JSON failed for  " + type.getDisplayName(), e);
+                throw new PrestoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
             }
         };
     }

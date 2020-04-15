@@ -59,6 +59,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPTY;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.prestosql.plugin.hive.HiveType.HIVE_BYTE;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
@@ -120,12 +121,14 @@ public class HivePageSource
     private final Object[] prefilledValues;
     private final Type[] types;
     private final List<Optional<Function<Block, Block>>> coercers;
+    private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
 
     private final ConnectorPageSource delegate;
 
     public HivePageSource(
             List<ColumnMapping> columnMappings,
             Optional<BucketAdaptation> bucketAdaptation,
+            Optional<ReaderProjectionsAdapter> projectionsAdapter,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             ConnectorPageSource delegate)
@@ -137,6 +140,8 @@ public class HivePageSource
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;
         this.bucketAdapter = bucketAdaptation.map(BucketAdapter::new);
+
+        this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
 
         int size = columnMappings.size();
 
@@ -152,14 +157,22 @@ public class HivePageSource
             Type type = column.getType();
             types[columnIndex] = type;
 
-            if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers.add(Optional.of(createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType())));
+            if (columnMapping.getKind() != EMPTY && columnMapping.getBaseTypeCoercionFrom().isPresent()) {
+                List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
+                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                        .orElse(ImmutableList.of());
+                HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
+                coercers.add(Optional.of(createCoercer(typeManager, fromType, toType)));
             }
             else {
                 coercers.add(Optional.empty());
             }
 
-            if (columnMapping.getKind() == PREFILLED) {
+            if (columnMapping.getKind() == EMPTY) {
+                prefilledValues[columnIndex] = null;
+            }
+            else if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);
 
@@ -246,6 +259,10 @@ public class HivePageSource
                 return null;
             }
 
+            if (projectionsAdapter.isPresent()) {
+                dataPage = projectionsAdapter.get().adaptPage(dataPage);
+            }
+
             if (bucketAdapter.isPresent()) {
                 IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
                 dataPage = dataPage.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
@@ -257,6 +274,7 @@ public class HivePageSource
                 ColumnMapping columnMapping = columnMappings.get(fieldId);
                 switch (columnMapping.getKind()) {
                     case PREFILLED:
+                    case EMPTY:
                         blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
                         break;
                     case REGULAR:

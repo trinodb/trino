@@ -57,6 +57,7 @@ public class TestOperatorStats
             new Duration(11, NANOSECONDS),
             DataSize.ofBytes(12),
             13,
+            533,
 
             DataSize.ofBytes(14),
 
@@ -103,6 +104,7 @@ public class TestOperatorStats
             new Duration(11, NANOSECONDS),
             DataSize.ofBytes(12),
             13,
+            533,
 
             DataSize.ofBytes(14),
 
@@ -159,6 +161,8 @@ public class TestOperatorStats
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(12));
         assertEquals(actual.getOutputPositions(), 13);
 
+        assertEquals(actual.getDynamicFilterSplitsProcessed(), 533);
+
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(14));
 
         assertEquals(actual.getBlockedWall(), new Duration(15, NANOSECONDS));
@@ -207,6 +211,8 @@ public class TestOperatorStats
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(3 * 12));
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
+        assertEquals(actual.getDynamicFilterSplitsProcessed(), 3 * 533);
+
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(3 * 14));
 
         assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
@@ -252,6 +258,8 @@ public class TestOperatorStats
         assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(3 * 12));
         assertEquals(actual.getOutputPositions(), 3 * 13);
+
+        assertEquals(actual.getDynamicFilterSplitsProcessed(), 3 * 533);
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(3 * 14));
 

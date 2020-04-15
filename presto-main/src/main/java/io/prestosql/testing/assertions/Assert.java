@@ -13,6 +13,8 @@
  */
 package io.prestosql.testing.assertions;
 
+import io.airlift.units.Duration;
+
 /**
  * This class provides replacements for TestNG's faulty assertion methods.
  * <p>
@@ -45,6 +47,29 @@ public class Assert
             org.testng.Assert.assertEquals(actual, expected, message);
             //if we're here, the Iterables differ on their fields. Use the original error message.
             throw error;
+        }
+    }
+
+    public static void assertEventually(Duration timeout, Runnable assertion)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertion.run();
+                return;
+            }
+            catch (Exception | AssertionError e) {
+                if (Duration.nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
         }
     }
 }

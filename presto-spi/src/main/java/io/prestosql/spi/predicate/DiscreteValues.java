@@ -23,4 +23,6 @@ public interface DiscreteValues
     boolean isWhiteList();
 
     Collection<Object> getValues();
+
+    int getValuesCount();
 }

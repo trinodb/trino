@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
@@ -124,6 +125,9 @@ public class KuduClientSession
         final String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaName);
 
         List<String> tables = internalListTables(prefix);
+        if (schemaName.equals(DEFAULT_SCHEMA)) {
+            tables = schemaEmulation.filterTablesForDefaultSchema(tables);
+        }
         return tables.stream()
                 .map(schemaEmulation::fromRawName)
                 .filter(Objects::nonNull)
@@ -149,10 +153,10 @@ public class KuduClientSession
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
 
         TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
-        if (!addConstraintPredicates(table, builder, constraint)) {
+        if (constraint.isNone()) {
             return ImmutableList.of();
         }
-
+        addConstraintPredicates(table, builder, constraint);
         Optional<List<ColumnHandle>> desiredColumns = tableHandle.getDesiredColumns();
 
         List<Integer> columnIndexes;
@@ -466,78 +470,76 @@ public class KuduClientSession
 
     /**
      * translates TupleDomain to KuduPredicates.
-     *
-     * @return false if TupleDomain or one of its domains is none
      */
-    private boolean addConstraintPredicates(KuduTable table, KuduScanToken.KuduScanTokenBuilder builder,
-            TupleDomain<ColumnHandle> constraintSummary)
+    private void addConstraintPredicates(KuduTable table, KuduScanToken.KuduScanTokenBuilder builder, TupleDomain<ColumnHandle> constraintSummary)
     {
-        if (constraintSummary.isNone()) {
-            return false;
+        verify(!constraintSummary.isNone(), "constraintSummary is none");
+
+        if (constraintSummary.isAll()) {
+            return;
         }
-        if (!constraintSummary.isAll()) {
-            Schema schema = table.getSchema();
-            for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().get()) {
-                int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
-                ColumnSchema columnSchema = schema.getColumnByIndex(position);
-                Domain domain = columnDomain.getDomain();
-                if (domain.isNone()) {
-                    return false;
-                }
-                else if (domain.isAll()) {
-                    // no restriction
-                }
-                else if (domain.isOnlyNull()) {
-                    builder.addPredicate(KuduPredicate.newIsNullPredicate(columnSchema));
-                }
-                else if (domain.getValues().isAll() && domain.isNullAllowed()) {
-                    builder.addPredicate(KuduPredicate.newIsNotNullPredicate(columnSchema));
-                }
-                else if (domain.isSingleValue()) {
-                    KuduPredicate predicate = createEqualsPredicate(columnSchema, domain.getSingleValue());
+
+        Schema schema = table.getSchema();
+        for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().get()) {
+            int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
+            ColumnSchema columnSchema = schema.getColumnByIndex(position);
+            Domain domain = columnDomain.getDomain();
+            verify(!domain.isNone(), "Domain is none");
+            if (domain.isAll()) {
+                // no restriction
+            }
+            else if (domain.isOnlyNull()) {
+                builder.addPredicate(KuduPredicate.newIsNullPredicate(columnSchema));
+            }
+            else if (!domain.getValues().isNone() && domain.isNullAllowed()) {
+                // no restriction
+            }
+            else if (domain.getValues().isAll() && !domain.isNullAllowed()) {
+                builder.addPredicate(KuduPredicate.newIsNotNullPredicate(columnSchema));
+            }
+            else if (domain.isSingleValue()) {
+                KuduPredicate predicate = createEqualsPredicate(columnSchema, domain.getSingleValue());
+                builder.addPredicate(predicate);
+            }
+            else {
+                ValueSet valueSet = domain.getValues();
+                if (valueSet instanceof EquatableValueSet) {
+                    DiscreteValues discreteValues = valueSet.getDiscreteValues();
+                    KuduPredicate predicate = createInListPredicate(columnSchema, discreteValues);
                     builder.addPredicate(predicate);
                 }
-                else {
-                    ValueSet valueSet = domain.getValues();
-                    if (valueSet instanceof EquatableValueSet) {
-                        DiscreteValues discreteValues = valueSet.getDiscreteValues();
-                        KuduPredicate predicate = createInListPredicate(columnSchema, discreteValues);
+                else if (valueSet instanceof SortedRangeSet) {
+                    Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                    List<Range> rangeList = ranges.getOrderedRanges();
+                    if (rangeList.stream().allMatch(Range::isSingleValue)) {
+                        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+                        List<Object> javaValues = rangeList.stream()
+                                .map(range -> TypeHelper.getJavaValue(type, range.getSingleValue()))
+                                .collect(toImmutableList());
+                        KuduPredicate predicate = KuduPredicate.newInListPredicate(columnSchema, javaValues);
                         builder.addPredicate(predicate);
                     }
-                    else if (valueSet instanceof SortedRangeSet) {
-                        Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                        List<Range> rangeList = ranges.getOrderedRanges();
-                        if (rangeList.stream().allMatch(Range::isSingleValue)) {
-                            io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
-                            List<Object> javaValues = rangeList.stream()
-                                    .map(range -> TypeHelper.getJavaValue(type, range.getSingleValue()))
-                                    .collect(toImmutableList());
-                            KuduPredicate predicate = KuduPredicate.newInListPredicate(columnSchema, javaValues);
+                    else {
+                        Range span = ranges.getSpan();
+                        Marker low = span.getLow();
+                        if (!low.isLowerUnbounded()) {
+                            KuduPredicate.ComparisonOp op = (low.getBound() == ABOVE) ? GREATER : GREATER_EQUAL;
+                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, low.getValue());
                             builder.addPredicate(predicate);
                         }
-                        else {
-                            Range span = ranges.getSpan();
-                            Marker low = span.getLow();
-                            if (!low.isLowerUnbounded()) {
-                                KuduPredicate.ComparisonOp op = (low.getBound() == ABOVE) ? GREATER : GREATER_EQUAL;
-                                KuduPredicate predicate = createComparisonPredicate(columnSchema, op, low.getValue());
-                                builder.addPredicate(predicate);
-                            }
-                            Marker high = span.getHigh();
-                            if (!high.isUpperUnbounded()) {
-                                KuduPredicate.ComparisonOp op = (low.getBound() == BELOW) ? LESS : LESS_EQUAL;
-                                KuduPredicate predicate = createComparisonPredicate(columnSchema, op, high.getValue());
-                                builder.addPredicate(predicate);
-                            }
+                        Marker high = span.getHigh();
+                        if (!high.isUpperUnbounded()) {
+                            KuduPredicate.ComparisonOp op = (high.getBound() == BELOW) ? LESS : LESS_EQUAL;
+                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, high.getValue());
+                            builder.addPredicate(predicate);
                         }
                     }
-                    else {
-                        throw new IllegalStateException("Unexpected domain: " + domain);
-                    }
+                }
+                else {
+                    throw new IllegalStateException("Unexpected domain: " + domain);
                 }
             }
         }
-        return true;
     }
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)

@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -45,7 +46,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
-public class CachingJdbcClient
+public final class CachingJdbcClient
         implements JdbcClient
 {
     private final JdbcClient delegate;
@@ -78,6 +79,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public boolean schemaExists(JdbcIdentity identity, String schema)
+    {
+        // this method cannot be delegated as that would bypass the cache
+        return getSchemaNames(identity).contains(schema);
+    }
+
+    @Override
     public Set<String> getSchemaNames(JdbcIdentity identity)
     {
         return get(schemaNamesCache, identity);
@@ -92,7 +100,11 @@ public class CachingJdbcClient
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), tableHandle);
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
+
+        ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), tableHandle.getSchemaTableName());
         List<JdbcColumnHandle> columns = columnsCache.getIfPresent(key);
         if (columns != null) {
             return columns;
@@ -115,9 +127,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return delegate.getSplits(identity, tableHandle);
+        return delegate.getSplits(session, tableHandle);
     }
 
     @Override
@@ -236,24 +248,31 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate.dropSchema(identity, schemaName);
+        invalidateSchemasCache();
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
-        invalidateColumnsCache(JdbcIdentity.from(session), handle);
+        invalidateColumnsCache(JdbcIdentity.from(session), handle.getSchemaTableName());
     }
 
     @Override
     public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate.dropColumn(identity, handle, column);
-        invalidateColumnsCache(identity, handle);
+        invalidateColumnsCache(identity, handle.getSchemaTableName());
     }
 
     @Override
     public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate.renameColumn(identity, handle, jdbcColumn, newColumnName);
-        invalidateColumnsCache(identity, handle);
+        invalidateColumnsCache(identity, handle.getSchemaTableName());
     }
 
     @Override
@@ -276,6 +295,12 @@ public class CachingJdbcClient
         return delegate.beginCreateTable(session, tableMetadata);
     }
 
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return delegate.getSystemTable(session, tableName);
+    }
+
     private void invalidateSchemasCache()
     {
         schemaNamesCache.invalidateAll();
@@ -288,30 +313,25 @@ public class CachingJdbcClient
         tableNamesCache.invalidateAll();
     }
 
-    private void invalidateColumnsCache(JdbcIdentity identity, JdbcTableHandle handle)
+    private void invalidateColumnsCache(JdbcIdentity identity, SchemaTableName table)
     {
-        columnsCache.invalidate(new ColumnsCacheKey(identity, handle));
+        columnsCache.invalidate(new ColumnsCacheKey(identity, table));
     }
 
     private static final class ColumnsCacheKey
     {
         private final JdbcIdentity identity;
-        private final JdbcTableHandle tableHandle;
+        private final SchemaTableName table;
 
-        private ColumnsCacheKey(JdbcIdentity identity, JdbcTableHandle tableHandle)
+        private ColumnsCacheKey(JdbcIdentity identity, SchemaTableName table)
         {
             this.identity = requireNonNull(identity, "identity is null");
-            this.tableHandle = requireNonNull(tableHandle, "schema is null");
+            this.table = requireNonNull(table, "table is null");
         }
 
         public JdbcIdentity getIdentity()
         {
             return identity;
-        }
-
-        public JdbcTableHandle getTableHandle()
-        {
-            return tableHandle;
         }
 
         @Override
@@ -325,13 +345,13 @@ public class CachingJdbcClient
             }
             ColumnsCacheKey that = (ColumnsCacheKey) o;
             return Objects.equals(identity, that.identity) &&
-                    Objects.equals(tableHandle, that.tableHandle);
+                    Objects.equals(table, that.table);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(identity, tableHandle);
+            return Objects.hash(identity, table);
         }
 
         @Override
@@ -339,7 +359,7 @@ public class CachingJdbcClient
         {
             return toStringHelper(this)
                     .add("identity", identity)
-                    .add("tableHandle", tableHandle)
+                    .add("table", table)
                     .toString();
         }
     }

@@ -27,7 +27,6 @@ import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 
-import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
@@ -114,7 +113,8 @@ public class FeaturesConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
     private boolean enableForcedExchangeBelowGroupId = true;
-    private boolean pushAggregationThroughJoin = true;
+    private boolean pushAggregationThroughOuterJoin = true;
+    private boolean pushPartialAggregationThoughJoin;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
@@ -127,7 +127,7 @@ public class FeaturesConfig
     private boolean ignoreDownstreamPreferences;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
-    private boolean enableDynamicFiltering;
+    private boolean enableDynamicFiltering = true;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = DataSize.of(10, KILOBYTE);
 
@@ -679,12 +679,6 @@ public class FeaturesConfig
         return this;
     }
 
-    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true")
-    public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
-    {
-        return !isSpillEnabled() || !spillerSpillPaths.isEmpty();
-    }
-
     @Min(1)
     public int getSpillerThreads()
     {
@@ -749,7 +743,8 @@ public class FeaturesConfig
         return enableDynamicFiltering;
     }
 
-    @Config("experimental.enable-dynamic-filtering")
+    @Config("enable-dynamic-filtering")
+    @LegacyConfig("experimental.enable-dynamic-filtering")
     public FeaturesConfig setEnableDynamicFiltering(boolean value)
     {
         this.enableDynamicFiltering = value;
@@ -761,7 +756,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverRowCount;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-row-count")
+    @Config("dynamic-filtering-max-per-driver-row-count")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-row-count")
     public FeaturesConfig setDynamicFilteringMaxPerDriverRowCount(int dynamicFilteringMaxPerDriverRowCount)
     {
         this.dynamicFilteringMaxPerDriverRowCount = dynamicFilteringMaxPerDriverRowCount;
@@ -774,7 +770,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverSize;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-size")
+    @Config("dynamic-filtering-max-per-driver-size")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-size")
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
@@ -829,15 +826,28 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isPushAggregationThroughJoin()
+    public boolean isPushAggregationThroughOuterJoin()
     {
-        return pushAggregationThroughJoin;
+        return pushAggregationThroughOuterJoin;
     }
 
-    @Config("optimizer.push-aggregation-through-join")
-    public FeaturesConfig setPushAggregationThroughJoin(boolean value)
+    @Config("optimizer.push-aggregation-through-outer-join")
+    @LegacyConfig("optimizer.push-aggregation-through-join")
+    public FeaturesConfig setPushAggregationThroughOuterJoin(boolean pushAggregationThroughOuterJoin)
     {
-        this.pushAggregationThroughJoin = value;
+        this.pushAggregationThroughOuterJoin = pushAggregationThroughOuterJoin;
+        return this;
+    }
+
+    public boolean isPushPartialAggregationThoughJoin()
+    {
+        return pushPartialAggregationThoughJoin;
+    }
+
+    @Config("optimizer.push-partial-aggregation-through-join")
+    public FeaturesConfig setPushPartialAggregationThoughJoin(boolean pushPartialAggregationThoughJoin)
+    {
+        this.pushPartialAggregationThoughJoin = pushPartialAggregationThoughJoin;
         return this;
     }
 

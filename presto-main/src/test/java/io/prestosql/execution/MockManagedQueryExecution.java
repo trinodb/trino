@@ -117,6 +117,7 @@ public class MockManagedQueryExecution
                 URI.create("http://test"),
                 "SELECT 1",
                 Optional.empty(),
+                Optional.empty(),
                 new BasicQueryStats(
                         new DateTime(1),
                         new DateTime(2),
@@ -201,20 +202,21 @@ public class MockManagedQueryExecution
 
                         DataSize.ofBytes(241),
                         251,
+                        new Duration(24, NANOSECONDS),
 
                         DataSize.ofBytes(242),
                         252,
 
-                        DataSize.ofBytes(24),
-                        25,
+                        DataSize.ofBytes(25),
+                        26,
 
-                        DataSize.ofBytes(26),
-                        27,
+                        DataSize.ofBytes(27),
+                        28,
 
-                        DataSize.ofBytes(28),
-                        29,
+                        DataSize.ofBytes(29),
+                        30,
 
-                        DataSize.ofBytes(30),
+                        DataSize.ofBytes(31),
 
                         ImmutableList.of(),
                         ImmutableList.of()),
@@ -235,6 +237,8 @@ public class MockManagedQueryExecution
                 ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 state.isDone(),
                 Optional.empty());
     }

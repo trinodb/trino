@@ -249,16 +249,15 @@ public class TransformCorrelatedInPredicateToJoin
                 probeSide,
                 buildSide,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(probeSide.getOutputSymbols())
-                        .addAll(buildSide.getOutputSymbols())
-                        .build(),
+                probeSide.getOutputSymbols(),
+                buildSide.getOutputSymbols(),
                 Optional.of(joinExpression),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
     }
 
     private AggregationNode.Aggregation countWithFilter(Symbol filter)

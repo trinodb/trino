@@ -41,6 +41,27 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    {
+        return queryOwners;
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    {
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         return catalogs;
@@ -62,6 +83,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanShowSchemas(SecurityContext context, String catalogName)
     {
     }
@@ -70,6 +96,11 @@ public class AllowAllAccessControl
     public Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames)
     {
         return schemaNames;
+    }
+
+    @Override
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
     }
 
     @Override
@@ -93,7 +124,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(SecurityContext context, CatalogSchemaName schema)
+    public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
     {
     }
 
@@ -104,7 +135,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(SecurityContext context, CatalogSchemaTableName tableName)
+    public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName tableName)
     {
     }
 
@@ -160,12 +191,17 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
     }
 
@@ -195,12 +231,12 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
@@ -221,6 +257,16 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
     {
     }
 }

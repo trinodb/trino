@@ -71,10 +71,11 @@ contents:
 The config file is specified in JSON format.
 
 * It contains the rules defining which catalog can be accessed by which user (see Catalog Rules below).
+* The query rules specifying which queries can be managed by which user (see Query Rules below).
 * The impersonation rules specify which user impersonations are allowed (see Impersonation Rules below).
 * The principal rules specifying what principals can identify as what users (see Principal Rules below).
 
-This plugin currently only supports catalog access control rules, impersonation and principal
+This plugin currently supports catalog access, query, impersonation. and principal
 rules. If you want to limit access on a system level in any other way, you
 must implement a custom SystemAccessControl plugin
 (see :doc:`/develop/system-access-control`).
@@ -100,11 +101,18 @@ bottom. If no rule matches, access is denied. Each rule is composed of the
 following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``allow`` (required): string indicating whether a user has access to the catalog.
   This value can be ``all``, ``read-only`` or ``none``, and defaults to ``none``.
   Setting this value to ``read-only`` has the same behavior as the ``read-only``
   system access control plugin.
+
+In order for a rule to apply the user name must match the regular expression
+specified in ``user`` attribute.
+
+For group names, a rule can be applied if at least one group name of this user
+matches the ``group`` regular expression.
 
 .. note::
 
@@ -115,9 +123,10 @@ following fields:
     to support backwards compatibility.  ``true`` maps to ``all``, and ``false`` maps to ``none``.
 
 For example, if you want to allow only the user ``admin`` to access the
-``mysql`` and the ``system`` catalog, allow all users to access the ``hive``
-catalog, allow the user ``alice`` read-only access to the ``postgresql`` catalog,
-and deny all other access, you can use the following rules:
+``mysql`` and the ``system`` catalog, allow users from the ``finance``
+and ``admin`` groups access to ``postgres`` catalog, allow all users to
+access the ``hive`` catalog, and deny all other access, you can use the
+following rules:
 
 .. code-block:: json
 
@@ -127,6 +136,11 @@ and deny all other access, you can use the following rules:
           "user": "admin",
           "catalog": "(mysql|system)",
           "allow": "all"
+        },
+        {
+          "group": "finance|human_resources",
+          "catalog": "postgres",
+          "allow": true
         },
         {
           "catalog": "hive",
@@ -143,6 +157,35 @@ and deny all other access, you can use the following rules:
         }
       ]
     }
+
+For group-based rules to match, users need to be assigned to groups by a
+:doc:`/develop/group-provider`.
+
+.. _query_rules:
+
+Query Rules
+-----------
+
+These rules control the ability of a user to execute, view, or kill a query. The user is
+granted or denied access, based on the first matching rule read from top to bottom. If no
+rules are specified, all users are allowed to execute queries, and to view or kill queries
+owned by any user. If no rule matches, query management is denied. Each rule is composed
+of the following fields:
+
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``owner`` (optional): regex to match against the query owner name. Defaults to ``.*``.
+* ``allow`` (required): set of query permissions granted to user. Values: ``execute``, ``view``, ``kill``
+
+.. note::
+
+    Users always have permission to view or kill their own queries.
+
+For example, if you want to allow the user ``admin`` full query access, allow the user ``alice``
+to execute and kill queries, any user to execute queries, and deny all other access, you can use
+the following rules:
+
+.. literalinclude:: query-access.json
+    :language: json
 
 .. _impersonation_rules:
 

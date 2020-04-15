@@ -36,7 +36,7 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePointFromStartByte;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
-@Description("replaces substrings matching a regular expression using a lambda function")
+@Description("Replaces substrings matching a regular expression using a lambda function")
 public final class JoniRegexpReplaceLambdaFunction
 {
     private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));

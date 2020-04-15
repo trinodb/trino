@@ -18,27 +18,26 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private TestingMySqlServer mysqlServer;
+    protected TestingMySqlServer mysqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -54,13 +53,11 @@ public class TestMySqlIntegrationSmokeTest
         mysqlServer.close();
     }
 
+    @Test
     @Override
     public void testDescribeTable()
     {
-        // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
-
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(255)", "", "")
@@ -71,7 +68,25 @@ public class TestMySqlIntegrationSmokeTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar(255)", "", "")
                 .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE mysql.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(255),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(255),\n" +
+                        "   clerk varchar(255),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(255)\n" +
+                        ")");
     }
 
     @Test
@@ -207,20 +222,6 @@ public class TestMySqlIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert_not_null");
     }
 
-    @Override
-    protected boolean canDropSchema()
-    {
-        return false;
-    }
-
-    @Override
-    protected void cleanUpSchemas(List<String> schemaNames)
-    {
-        for (String schemaName : schemaNames) {
-            execute("DROP SCHEMA " + schemaName);
-        }
-    }
-
     @Test
     public void testColumnComment()
     {
@@ -231,19 +232,6 @@ public class TestMySqlIntegrationSmokeTest
                 "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
 
         assertUpdate("DROP TABLE test_column_comment");
-    }
-
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        return new TestTable(
-                mysqlServer::execute,
-                "tpch.table",
-                "(col_required BIGINT NOT NULL," +
-                        "col_nullable BIGINT," +
-                        "col_default BIGINT DEFAULT 43," +
-                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
-                        "col_required2 BIGINT NOT NULL)");
     }
 
     private void execute(String sql)

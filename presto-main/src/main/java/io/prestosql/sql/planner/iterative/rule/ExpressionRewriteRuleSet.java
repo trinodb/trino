@@ -258,13 +258,15 @@ public class ExpressionRewriteRuleSet
                         joinNode.getLeft(),
                         joinNode.getRight(),
                         joinNode.getCriteria(),
-                        joinNode.getOutputSymbols(),
+                        joinNode.getLeftOutputSymbols(),
+                        joinNode.getRightOutputSymbols(),
                         filter,
                         joinNode.getLeftHashSymbol(),
                         joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
                         joinNode.isSpillable(),
-                        joinNode.getDynamicFilters()));
+                        joinNode.getDynamicFilters(),
+                        joinNode.getReorderJoinStatsAndCost()));
             }
             return Result.empty();
         }

@@ -18,6 +18,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.querybuilder.Insert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
@@ -40,7 +41,6 @@ import java.util.function.Function;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.primitives.Shorts.checkedCast;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
@@ -142,7 +142,7 @@ public class CassandraPageSink
             values.add(toIntExact(type.getLong(block, position)));
         }
         else if (SMALLINT.equals(type)) {
-            values.add(checkedCast(type.getLong(block, position)));
+            values.add(Shorts.checkedCast(type.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
             values.add(SignedBytes.checkedCast(type.getLong(block, position)));

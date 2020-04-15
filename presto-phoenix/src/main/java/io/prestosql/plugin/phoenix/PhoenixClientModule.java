@@ -26,12 +26,9 @@ import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
-import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider;
-import io.prestosql.plugin.jdbc.credential.ConfigFileBasedCredentialProvider;
-import io.prestosql.plugin.jdbc.credential.CredentialConfig;
-import io.prestosql.plugin.jdbc.credential.ExtraCredentialProvider;
+import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.PrestoException;
@@ -47,13 +44,12 @@ import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -78,8 +74,10 @@ public class PhoenixClientModule
         binder.bind(ConnectorRecordSetProvider.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
-        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(TypeHandlingJdbcPropertiesProvider.class);
+        bindSessionPropertiesProvider(binder, TypeHandlingJdbcPropertiesProvider.class);
+
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
@@ -136,10 +134,7 @@ public class PhoenixClientModule
                         DriverManager.getDriver(config.getConnectionUrl()),
                         config.getConnectionUrl(),
                         getConnectionProperties(config),
-                        new ExtraCredentialProvider(
-                                Optional.empty(),
-                                Optional.empty(),
-                                new ConfigFileBasedCredentialProvider(new CredentialConfig()))));
+                        new EmptyCredentialProvider()));
     }
 
     public static Properties getConnectionProperties(PhoenixConfig config)

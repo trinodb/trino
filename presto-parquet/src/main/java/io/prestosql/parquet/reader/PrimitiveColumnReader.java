@@ -25,7 +25,6 @@ import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.dictionary.Dictionary;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -36,10 +35,8 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.OriginalType;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -110,12 +107,8 @@ public abstract class PrimitiveColumnReader
 
     private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
     {
-        Optional<Type> type = createDecimalType(descriptor);
-        if (type.isPresent()) {
-            DecimalType parquetDecimalType = (DecimalType) type.get();
-            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, parquetDecimalType));
-        }
-        return Optional.empty();
+        return createDecimalType(descriptor)
+                .map(decimalType -> DecimalColumnReaderFactory.createReader(descriptor, decimalType));
     }
 
     public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
@@ -179,7 +172,7 @@ public abstract class PrimitiveColumnReader
 
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
-        processValues(valuesToRead, ignored -> {
+        processValues(valuesToRead, () -> {
             readValue(blockBuilder, type);
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
@@ -188,10 +181,10 @@ public abstract class PrimitiveColumnReader
 
     private void skipValues(int valuesToRead)
     {
-        processValues(valuesToRead, ignored -> skipValue());
+        processValues(valuesToRead, this::skipValue);
     }
 
-    private void processValues(int valuesToRead, Consumer<Void> valueConsumer)
+    private void processValues(int valuesToRead, Runnable valueReader)
     {
         if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
             definitionLevel = definitionReader.readLevel();
@@ -200,7 +193,7 @@ public abstract class PrimitiveColumnReader
         int valueCount = 0;
         for (int i = 0; i < valuesToRead; i++) {
             do {
-                valueConsumer.accept(null);
+                valueReader.run();
                 valueCount++;
                 if (valueCount == remainingValueCountInPage) {
                     updateValueCounts(valueCount);
@@ -292,7 +285,7 @@ public abstract class PrimitiveColumnReader
         if (maxLevel == 0) {
             return new LevelNullReader();
         }
-        return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), new ByteArrayInputStream(slice.getBytes())));
+        return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), slice.getInput()));
     }
 
     private ValuesReader initDataReader(ParquetEncoding dataEncoding, int valueCount, ByteBufferInputStream in)
