@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.resourcegroups.db;
+package io.prestosql.plugin.base.jmx;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -21,13 +21,21 @@ import org.weakref.jmx.ObjectNameGenerator;
 
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class PrefixObjectNameGeneratorModule
         implements Module
 {
-    private static final String CONNECTOR_PACKAGE_NAME = "io.prestosql.plugin.resourcegroups.db";
-    private static final String DEFAULT_DOMAIN_BASE = "presto.plugin.resourcegroups.db";
+    private final String packageName;
+    private final String defaultDomainBase;
+
+    public PrefixObjectNameGeneratorModule(String packageName, String defaultDomainBase)
+    {
+        this.packageName = requireNonNull(packageName, "packageName is null");
+        this.defaultDomainBase = requireNonNull(defaultDomainBase, "defaultDomainBase is null");
+    }
 
     @Override
     public void configure(Binder binder)
@@ -38,21 +46,20 @@ public class PrefixObjectNameGeneratorModule
     @Provides
     ObjectNameGenerator createPrefixObjectNameGenerator(ObjectNameGeneratorConfig config)
     {
-        String domainBase = DEFAULT_DOMAIN_BASE;
-        if (config.getDomainBase() != null) {
-            domainBase = config.getDomainBase();
-        }
-        return new PrefixObjectNameGenerator(domainBase);
+        String domainBase = firstNonNull(config.getDomainBase(), defaultDomainBase);
+        return new PrefixObjectNameGenerator(packageName, domainBase);
     }
 
     public static final class PrefixObjectNameGenerator
             implements ObjectNameGenerator
     {
+        private final String packageName;
         private final String domainBase;
 
-        public PrefixObjectNameGenerator(String domainBase)
+        public PrefixObjectNameGenerator(String packageName, String domainBase)
         {
-            this.domainBase = domainBase;
+            this.packageName = requireNonNull(packageName, "packageName is null");
+            this.domainBase = requireNonNull(domainBase, "domainBase is null");
         }
 
         @Override
@@ -66,8 +73,8 @@ public class PrefixObjectNameGeneratorModule
         private String toDomain(Class<?> type)
         {
             String domain = type.getPackage().getName();
-            if (domain.startsWith(CONNECTOR_PACKAGE_NAME)) {
-                domain = domainBase + domain.substring(CONNECTOR_PACKAGE_NAME.length());
+            if (domain.startsWith(packageName)) {
+                domain = domainBase + domain.substring(packageName.length());
             }
             return domain;
         }
