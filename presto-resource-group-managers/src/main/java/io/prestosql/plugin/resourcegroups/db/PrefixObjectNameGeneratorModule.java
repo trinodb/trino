@@ -16,7 +16,6 @@ package io.prestosql.plugin.resourcegroups.db;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import io.airlift.configuration.Config;
 import org.weakref.jmx.ObjectNameBuilder;
 import org.weakref.jmx.ObjectNameGenerator;
 
@@ -33,34 +32,17 @@ public class PrefixObjectNameGeneratorModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(PrefixObjectNameGeneratorConfig.class);
+        configBinder(binder).bindConfig(ObjectNameGeneratorConfig.class);
     }
 
     @Provides
-    ObjectNameGenerator createPrefixObjectNameGenerator(PrefixObjectNameGeneratorConfig config)
+    ObjectNameGenerator createPrefixObjectNameGenerator(ObjectNameGeneratorConfig config)
     {
         String domainBase = DEFAULT_DOMAIN_BASE;
         if (config.getDomainBase() != null) {
             domainBase = config.getDomainBase();
         }
         return new PrefixObjectNameGenerator(domainBase);
-    }
-
-    public static class PrefixObjectNameGeneratorConfig
-    {
-        private String domainBase;
-
-        public String getDomainBase()
-        {
-            return domainBase;
-        }
-
-        @Config("jmx.base-name")
-        public PrefixObjectNameGeneratorConfig setDomainBase(String domainBase)
-        {
-            this.domainBase = domainBase;
-            return this;
-        }
     }
 
     public static final class PrefixObjectNameGenerator
