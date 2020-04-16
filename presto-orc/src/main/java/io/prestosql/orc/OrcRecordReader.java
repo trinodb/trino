@@ -119,6 +119,7 @@ public class OrcRecordReader
     public OrcRecordReader(
             List<OrcColumn> readColumns,
             List<Type> readTypes,
+            List<OrcReader.ProjectedLayout> readLayouts,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -145,6 +146,8 @@ public class OrcRecordReader
         checkArgument(readColumns.stream().distinct().count() == readColumns.size(), "readColumns contains duplicate entries");
         requireNonNull(readTypes, "readTypes is null");
         checkArgument(readColumns.size() == readTypes.size(), "readColumns and readTypes must have the same size");
+        requireNonNull(readLayouts, "readLayouts is null");
+        checkArgument(readColumns.size() == readLayouts.size(), "readColumns and readLayouts must have the same size");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
@@ -233,7 +236,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        columnReaders = createColumnReaders(readColumns, readTypes, streamReadersSystemMemoryContext, blockFactory);
+        columnReaders = createColumnReaders(readColumns, readTypes, readLayouts, streamReadersSystemMemoryContext, blockFactory);
         currentBytesPerCell = new long[columnReaders.length];
         maxBytesPerCell = new long[columnReaders.length];
         nextBatchSize = initialBatchSize;
@@ -545,6 +548,7 @@ public class OrcRecordReader
     private ColumnReader[] createColumnReaders(
             List<OrcColumn> columns,
             List<Type> readTypes,
+            List<OrcReader.ProjectedLayout> readLayouts,
             AggregatedMemoryContext systemMemoryContext,
             OrcBlockFactory blockFactory)
             throws OrcCorruptionException
@@ -554,7 +558,8 @@ public class OrcRecordReader
             int columnIndex = i;
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
-            columnReaders[columnIndex] = createColumnReader(readType, column, systemMemoryContext, blockFactory);
+            OrcReader.ProjectedLayout projectedLayout = readLayouts.get(columnIndex);
+            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, systemMemoryContext, blockFactory);
         }
         return columnReaders;
     }
