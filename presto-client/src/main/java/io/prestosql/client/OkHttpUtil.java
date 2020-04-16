@@ -16,12 +16,14 @@ package io.prestosql.client;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 
 import javax.net.ssl.KeyManager;
@@ -245,6 +247,7 @@ public final class OkHttpUtil
         // Enable socket factory only for pre JDK 11
         if (!isAtLeastJava11()) {
             clientBuilder.socketFactory(new SocketChannelSocketFactory());
+            clientBuilder.protocols(ImmutableList.of(Protocol.HTTP_1_1));
         }
     }
 
