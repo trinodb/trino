@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -38,10 +39,13 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -53,7 +57,10 @@ import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 
 public class OrcReader
 {
@@ -254,9 +261,36 @@ public class OrcReader
             Function<Exception, RuntimeException> exceptionTransform)
             throws OrcCorruptionException
     {
+        return createRecordReader(
+                readColumns,
+                readTypes,
+                Collections.nCopies(readColumns.size(), ProjectedLayout.fullyProjectedLayout()),
+                predicate,
+                offset,
+                length,
+                hiveStorageTimeZone,
+                systemMemoryUsage,
+                initialBatchSize,
+                exceptionTransform);
+    }
+
+    public OrcRecordReader createRecordReader(
+            List<OrcColumn> readColumns,
+            List<Type> readTypes,
+            List<ProjectedLayout> readLayouts,
+            OrcPredicate predicate,
+            long offset,
+            long length,
+            DateTimeZone hiveStorageTimeZone,
+            AggregatedMemoryContext systemMemoryUsage,
+            int initialBatchSize,
+            Function<Exception, RuntimeException> exceptionTransform)
+            throws OrcCorruptionException
+    {
         return new OrcRecordReader(
                 requireNonNull(readColumns, "readColumns is null"),
                 requireNonNull(readTypes, "readTypes is null"),
+                requireNonNull(readLayouts, "readLayouts is null"),
                 requireNonNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
@@ -393,6 +427,52 @@ public class OrcReader
         }
         catch (IOException e) {
             throw new OrcCorruptionException(e, input.getId(), "Validation failed");
+        }
+    }
+
+    public static class ProjectedLayout
+    {
+        private final Optional<Map<String, ProjectedLayout>> fieldLayouts;
+
+        private ProjectedLayout(Optional<Map<String, ProjectedLayout>> fieldLayouts)
+        {
+            this.fieldLayouts = requireNonNull(fieldLayouts, "fieldLayouts is null");
+        }
+
+        public ProjectedLayout getFieldLayout(String name)
+        {
+            if (fieldLayouts.isPresent()) {
+                return fieldLayouts.get().get(name);
+            }
+
+            return fullyProjectedLayout();
+        }
+
+        public static ProjectedLayout fullyProjectedLayout()
+        {
+            return new ProjectedLayout(Optional.empty());
+        }
+
+        public static ProjectedLayout createProjectedLayout(OrcColumn root, List<List<String>> dereferences)
+        {
+            if (dereferences.stream().map(List::size).anyMatch(Predicate.isEqual(0))) {
+                return fullyProjectedLayout();
+            }
+
+            Map<String, List<List<String>>> dereferencesByField = dereferences.stream().collect(
+                    Collectors.groupingBy(
+                            sequence -> sequence.get(0),
+                            mapping(sequence -> sequence.subList(1, sequence.size()), toList())));
+
+            ImmutableMap.Builder<String, ProjectedLayout> fieldLayouts = ImmutableMap.builder();
+            for (OrcColumn nestedColumn : root.getNestedColumns()) {
+                String fieldName = nestedColumn.getColumnName().toLowerCase(ENGLISH);
+                if (dereferencesByField.containsKey(fieldName)) {
+                    fieldLayouts.put(fieldName, createProjectedLayout(nestedColumn, dereferencesByField.get(fieldName)));
+                }
+            }
+
+            return new ProjectedLayout(Optional.of(fieldLayouts.build()));
         }
     }
 }
