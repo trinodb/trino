@@ -126,7 +126,7 @@ public class IndexJoinOptimizer
                 if (leftIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<Symbol, Symbol> trace = IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinSymbols));
-                    checkState(!trace.isEmpty() && leftJoinSymbols.containsAll(trace.keySet()));
+                    checkState(!trace.isEmpty());
                 }
 
                 Optional<PlanNode> rightIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
@@ -139,7 +139,7 @@ public class IndexJoinOptimizer
                 if (rightIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<Symbol, Symbol> trace = IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinSymbols));
-                    checkState(!trace.isEmpty() && rightJoinSymbols.containsAll(trace.keySet()));
+                    checkState(!trace.isEmpty());
                 }
 
                 switch (node.getType()) {
