@@ -292,7 +292,7 @@ public class MySqlClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
     }

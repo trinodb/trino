@@ -885,7 +885,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
         throw new PrestoException(JDBC_ERROR, "limitFunction() is implemented without isLimitGuaranteed()");
     }

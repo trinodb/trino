@@ -160,9 +160,9 @@ public final class CachingJdbcClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        return delegate.isLimitGuaranteed();
+        return delegate.isLimitGuaranteed(session);
     }
 
     @Override
