@@ -121,7 +121,7 @@ public class SqlParser
         try {
             SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
-            SqlBaseParser parser = new SqlBaseParser(tokenStream);
+            SqlBaseParser parser = new ConcurrentSqlParser(tokenStream);
 
             // Override the default error strategy to not attempt inserting or deleting a token.
             // Otherwise, it messes up error reporting
