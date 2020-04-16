@@ -448,9 +448,7 @@ public final class ValidateDependenciesChecker
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .collect(toImmutableSet());
             Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
-            checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
-                    "Index lookup symbols are not traceable to index source: %s",
-                    lookupSymbols);
+            checkArgument(!trace.isEmpty(), "Index lookup symbols are not traceable to index source: %s", lookupSymbols);
 
             return null;
         }
