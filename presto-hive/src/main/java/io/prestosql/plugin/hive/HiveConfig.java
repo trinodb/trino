@@ -115,7 +115,7 @@ public class HiveConfig
     private int s3SelectPushdownMaxConnections = 500;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
-    private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
+    private String temporaryStagingDirectoryPath = "../.tmp/presto-${USER}";
 
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
