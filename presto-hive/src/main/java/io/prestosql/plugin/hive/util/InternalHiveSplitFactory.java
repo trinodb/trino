@@ -92,17 +92,7 @@ public class InternalHiveSplitFactory
         return partitionName;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)
-    {
-        return createInternalHiveSplit(status, OptionalInt.empty(), splittable, deleteDeltaLocations);
-    }
-
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int bucketNumber, Optional<DeleteDeltaLocations> deleteDeltaLocations)
-    {
-        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber), false, deleteDeltaLocations);
-    }
-
-    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
         return createInternalHiveSplit(

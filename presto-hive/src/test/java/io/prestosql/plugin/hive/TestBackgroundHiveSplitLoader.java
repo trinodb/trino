@@ -390,6 +390,23 @@ public class TestBackgroundHiveSplitLoader
     }
 
     @Test
+    public void testMultipleSplitsPerBucket()
+            throws Exception
+    {
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), DataSize.of(1, GIGABYTE).toBytes())),
+                TupleDomain.all(),
+                Optional.empty(),
+                SIMPLE_TABLE,
+                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT)));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertEquals(drainSplits(hiveSplitSource).size(), 17);
+    }
+
+    @Test
     public void testSplitsGenerationWithAbortedTransactions()
             throws Exception
     {
