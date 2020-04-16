@@ -9,7 +9,7 @@ See the [User Manual](https://prestosql.io/docs/current/) for deployment instruc
 ## Requirements
 
 * Mac OS X or Linux
-* Java 8 Update 161 or higher (8u161+), 64-bit. Both Oracle JDK and OpenJDK are supported.
+* Java 8 Update 161 or higher (8u161+), 64-bit is the minimum supported version. Java 11 is recommended and will soon become required. Both Oracle JDK and OpenJDK are supported.
 * Python 2.6+ (for running with the launcher script)
 
 ## Building Presto
@@ -48,6 +48,8 @@ The working directory should be the `presto-main` subdirectory. In IntelliJ, usi
 Additionally, the Hive plugin must be configured with the location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
+
+When running on Java 8, the VM Options must be supplemented with `-Dpresto-temporarily-allow-java8=true` in order for Presto to start.    
 
 ### Using SOCKS for Hive or HDFS
 
