@@ -175,7 +175,7 @@ public class JdbcMetadata
                 handle.getConstraint(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed()));
+        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
     }
 
     @Override

@@ -170,7 +170,7 @@ public class SqlServerClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
     }
