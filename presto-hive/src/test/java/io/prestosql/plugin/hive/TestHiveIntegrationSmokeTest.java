@@ -3018,6 +3018,50 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testRowsWithNulls()
+    {
+        testRowsWithNulls(getSession(), HiveStorageFormat.ORC);
+        testRowsWithNulls(getSession(), HiveStorageFormat.PARQUET);
+    }
+
+    private void testRowsWithNulls(Session session, HiveStorageFormat format)
+    {
+        String tableName = "test_dereferences_with_nulls";
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + "\n" +
+                "(col0 BIGINT, col1 row(f0 BIGINT, f1 BIGINT), col2 row(f0 BIGINT, f1 ROW(f0 BIGINT, f1 BIGINT)))\n" +
+                "WITH (format = '" + format + "')";
+
+        assertUpdate(session, createTable);
+
+        @Language("SQL") String insertTable = "" +
+                "INSERT INTO " + tableName + " VALUES \n" +
+                "row(1,     row(2, 3),      row(4, row(5, 6))),\n" +
+                "row(7,     row(8, 9),      row(10, row(11, NULL))),\n" +
+                "row(NULL,  NULL,           row(12, NULL)),\n" +
+                "row(13,    row(NULL, 14),  NULL),\n" +
+                "row(15,    row(16, NULL),  row(NULL, row(17, 18)))";
+
+        assertUpdate(session, insertTable, 5);
+
+        assertQuery(
+                session,
+                format("SELECT col0, col1.f0, col2.f1.f1 FROM %s", tableName),
+                "SELECT * FROM \n" +
+                "    (SELECT 1, 2, 6) UNION\n" +
+                "    (SELECT 7, 8, NULL) UNION\n" +
+                "    (SELECT NULL, NULL, NULL) UNION\n" +
+                "    (SELECT 13, NULL, NULL) UNION\n" +
+                "    (SELECT 15, 16, 18)");
+
+        assertQuery(session, format("SELECT col0 FROM %s WHERE col2.f1.f1 IS NOT NULL", tableName), "SELECT * FROM UNNEST(array[1, 15])");
+
+        assertQuery(session, format("SELECT col0, col1.f0, col1.f1 FROM %s WHERE col2.f1.f1 = 18", tableName), "SELECT 15, 16, NULL");
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testComplex()
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
