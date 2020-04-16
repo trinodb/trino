@@ -37,11 +37,13 @@
             <artifactId>guice</artifactId>
         </dependency>
 
-        <dependency>
+       <dependency>
             <groupId>jconn4</groupId>
             <artifactId>jconn4</artifactId>
-            <scope>provided</scope>
-        </dependency>
+            <version>16.0</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/jconn4.jar</systemPath>        
+       </dependency>
 
         <dependency>
             <groupId>javax.inject</groupId>
