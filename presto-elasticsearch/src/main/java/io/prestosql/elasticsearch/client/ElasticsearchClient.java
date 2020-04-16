@@ -20,6 +20,7 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -83,6 +84,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -107,6 +110,8 @@ public class ElasticsearchClient
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
     private final RestHighLevelClient client;
     private final int scrollSize;
@@ -343,7 +348,10 @@ public class ElasticsearchClient
             NodesResponse.Node node = entry.getValue();
 
             if (node.getRoles().contains("data")) {
-                result.add(new ElasticsearchNode(nodeId, node.getAddress()));
+                Optional<String> address = node.getAddress()
+                        .flatMap(ElasticsearchClient::extractAddress);
+
+                result.add(new ElasticsearchNode(nodeId, address));
             }
         }
 
@@ -655,6 +663,26 @@ public class ElasticsearchClient
         }
 
         return handler.process(body);
+    }
+
+    @VisibleForTesting
+    static Optional<String> extractAddress(String address)
+    {
+        Matcher matcher = ADDRESS_PATTERN.matcher(address);
+
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        String cname = matcher.group("cname");
+        String ip = matcher.group("ip");
+        String port = matcher.group("port");
+
+        if (cname != null) {
+            return Optional.of(cname + ":" + port);
+        }
+
+        return Optional.of(ip + ":" + port);
     }
 
     private interface ResponseHandler<T>
