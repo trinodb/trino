@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -249,6 +250,12 @@ public class BaseJdbcClient
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
+                // skip if table doesn't match expected
+                if (!(Objects.equals(tableHandle.getCatalogName(), resultSet.getString("TABLE_CAT"))
+                        && Objects.equals(tableHandle.getSchemaName(), resultSet.getString("TABLE_SCHEM"))
+                        && Objects.equals(tableHandle.getTableName(), resultSet.getString("TABLE_NAME")))) {
+                    continue;
+                }
                 allColumns++;
                 String columnName = resultSet.getString("COLUMN_NAME");
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
@@ -290,7 +297,7 @@ public class BaseJdbcClient
         }
     }
 
-    protected static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+    protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
         return metadata.getColumns(

@@ -1,0 +1,100 @@
+{
+    "type": "index",
+    "spec": {
+        "dataSchema": {
+            "dataSource": "lineitem",
+            "parser": {
+                "type": "string",
+                "parseSpec": {
+                    "format": "tsv",
+                    "timestampSpec": {
+                        "column": "l_shipdate",
+                        "format": "auto"
+                    },
+                    "columns": [
+                        "l_orderkey",
+                        "l_partkey",
+                        "l_suppkey",
+                        "l_linenumber",
+                        "l_quantity",
+                        "l_extendedprice",
+                        "l_discount",
+                        "l_tax",
+                        "l_returnflag",
+                        "l_linestatus",
+                        "l_shipdate",
+                        "l_commitdate",
+                        "l_receiptdate",
+                        "l_shipinstruct",
+                        "l_shipmode",
+                        "l_comment"
+                    ],
+                    "dimensionsSpec": {
+                        "dimensions": [
+                            "l_orderkey",
+                            "l_partkey",
+                            "l_suppkey",
+                            "l_linenumber",
+                            "l_returnflag",
+                            "l_linestatus",
+                            "l_shipdate",
+                            "l_commitdate",
+                            "l_receiptdate",
+                            "l_shipinstruct",
+                            "l_shipmode",
+                            "l_comment"
+                        ]
+                    }
+                }
+            },
+            "metricsSpec": [
+                {
+                    "type": "count",
+                    "name": "count"
+                },
+                {
+                    "type": "longSum",
+                    "fieldName": "l_quantity",
+                    "name": "l_quantity"
+                },
+                {
+                    "type": "doubleSum",
+                    "fieldName": "l_extendedprice",
+                    "name": "l_extendedprice"
+                },
+                {
+                    "type": "doubleSum",
+                    "fieldName": "l_discount",
+                    "name": "l_discount"
+                },
+                {
+                    "type": "doubleSum",
+                    "fieldName": "l_tax",
+                    "name": "l_tax"
+                }
+            ],
+            "granularitySpec": {
+                "type": "uniform",
+                "intervals": [
+                    "1992-01-02/1998-12-01"
+                ],
+                "segmentGranularity": "month",
+                "queryGranularity": "day"
+            }
+        },
+        "ioConfig" : {
+            "type" : "index",
+            "firehose" : {
+                "type" : "local",
+                "baseDir" : "/opt/druid/var/",
+                "filter" : "lineitem.tsv"
+            },
+            "appendToExisting" : false
+        },
+        "tuningConfig" : {
+            "type" : "index",
+            "maxRowsPerSegment" : 5000000,
+            "maxRowsInMemory" : 25000
+        }
+    }
+}

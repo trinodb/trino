@@ -156,7 +156,7 @@ public class QueryBuilder
     protected String getProjection(List<JdbcColumnHandle> columns)
     {
         if (columns.isEmpty()) {
-            return "null";
+            return "1";
         }
         return columns.stream()
                 .map(JdbcColumnHandle::getColumnName)
