@@ -13,6 +13,7 @@
  */
 package io.prestosql.connector.system;
 
+import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
@@ -31,7 +32,6 @@ import javax.inject.Inject;
 
 import java.util.Map;
 
-import static io.prestosql.connector.system.SystemConnectorSessionUtil.toSession;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -72,7 +72,7 @@ public class CatalogSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = toSession(transactionHandle, connectorSession);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
         for (Map.Entry<String, CatalogName> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
             table.addRow(entry.getKey(), entry.getValue().toString());

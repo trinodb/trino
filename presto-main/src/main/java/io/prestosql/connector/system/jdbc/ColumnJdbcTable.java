@@ -13,6 +13,7 @@
  */
 package io.prestosql.connector.system.jdbc;
 
+import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedTablePrefix;
@@ -40,7 +41,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static io.prestosql.connector.system.SystemConnectorSessionUtil.toSession;
 import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.stringFilter;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
@@ -115,7 +115,7 @@ public class ColumnJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = toSession(transactionHandle, connectorSession);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
         Optional<String> catalogFilter = stringFilter(constraint, 0);
         Optional<String> schemaFilter = stringFilter(constraint, 1);
         Optional<String> tableFilter = stringFilter(constraint, 2);

@@ -15,6 +15,7 @@ package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -36,7 +37,6 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.connector.system.SystemConnectorSessionUtil.toSession;
 import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.stringFilter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
@@ -90,7 +90,7 @@ public class TableCommentSystemTable
         Optional<String> schemaFilter = stringFilter(constraint, 1);
         Optional<String> tableFilter = stringFilter(constraint, 2);
 
-        Session session = toSession(transactionHandle, connectorSession);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
 
         for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {

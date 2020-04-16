@@ -13,6 +13,7 @@
  */
 package io.prestosql.connector.system.jdbc;
 
+import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
@@ -27,7 +28,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
-import static io.prestosql.connector.system.SystemConnectorSessionUtil.toSession;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -61,7 +61,7 @@ public class CatalogJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = toSession(transactionHandle, connectorSession);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String name : listCatalogs(session, metadata, accessControl).keySet()) {
             table.addRow(name);
