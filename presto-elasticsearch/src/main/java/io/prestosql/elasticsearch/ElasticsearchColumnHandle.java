@@ -14,8 +14,10 @@
 package io.prestosql.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
@@ -28,16 +30,19 @@ public final class ElasticsearchColumnHandle
 {
     private final String name;
     private final Type type;
+    private final boolean hidden;
     private final boolean supportsPredicates;
 
     @JsonCreator
     public ElasticsearchColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
+            boolean hidden,
             @JsonProperty("supportsPredicates") boolean supportsPredicates)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.hidden = hidden;
         this.supportsPredicates = supportsPredicates;
     }
 
@@ -53,16 +58,32 @@ public final class ElasticsearchColumnHandle
         return type;
     }
 
+    // do not serialize hidden as this is not needed on workers
+    @JsonIgnore
+    public boolean isHidden()
+    {
+        return hidden;
+    }
+
     @JsonProperty
     public boolean isSupportsPredicates()
     {
         return supportsPredicates;
     }
 
+    public ColumnMetadata getColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(hidden)
+                .build();
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, supportsPredicates);
+        return Objects.hash(name, type, hidden, supportsPredicates);
     }
 
     @Override
@@ -76,7 +97,8 @@ public final class ElasticsearchColumnHandle
         }
 
         ElasticsearchColumnHandle other = (ElasticsearchColumnHandle) obj;
-        return this.supportsPredicates == other.supportsPredicates &&
+        return this.hidden == other.hidden &&
+                this.supportsPredicates == other.supportsPredicates &&
                 Objects.equals(this.getName(), other.getName()) &&
                 Objects.equals(this.getType(), other.getType());
     }
@@ -85,8 +107,9 @@ public final class ElasticsearchColumnHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("columnName", getName())
-                .add("columnType", getType())
+                .add("name", name)
+                .add("type", type)
+                .add("hidden", hidden)
                 .toString();
     }
 }

@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -63,13 +64,11 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
-    private static final String ORIGINAL_NAME = "original-name";
-    public static final String SUPPORTS_PREDICATES = "supports-predicates";
-
     private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
@@ -124,16 +123,18 @@ public class ElasticsearchMetadata
 
         return new ConnectorTableMetadata(
                 new SchemaTableName(schemaName, tableName),
-                toColumnMetadata(metadata));
+                toColumnHandles(metadata).stream()
+                        .map(ElasticsearchColumnHandle::getColumnMetadata)
+                        .collect(toImmutableList()));
     }
 
-    private List<ColumnMetadata> toColumnMetadata(IndexMetadata metadata)
+    private List<ElasticsearchColumnHandle> toColumnHandles(IndexMetadata metadata)
     {
-        ImmutableList.Builder<ColumnMetadata> result = ImmutableList.builder();
+        ImmutableList.Builder<ElasticsearchColumnHandle> result = ImmutableList.builder();
 
-        result.add(BuiltinColumns.ID.getMetadata());
-        result.add(BuiltinColumns.SOURCE.getMetadata());
-        result.add(BuiltinColumns.SCORE.getMetadata());
+        result.add(BuiltinColumns.ID.getColumnHandle());
+        result.add(BuiltinColumns.SOURCE.getColumnHandle());
+        result.add(BuiltinColumns.SCORE.getColumnHandle());
 
         Map<String, Long> counts = metadata.getSchema()
                 .getFields().stream()
@@ -145,7 +146,7 @@ public class ElasticsearchMetadata
                 continue;
             }
 
-            result.add(makeColumnMetadata(field.getName(), type, supportsPredicates(field.getType())));
+            result.add(new ElasticsearchColumnHandle(field.getName(), type, false, supportsPredicates(field.getType())));
         }
 
         return result.build();
@@ -263,24 +264,18 @@ public class ElasticsearchMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> results = ImmutableMap.builder();
-
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
-            results.put(column.getName(), new ElasticsearchColumnHandle(
-                    (String) column.getProperties().getOrDefault(ORIGINAL_NAME, column.getName()),
-                    column.getType(),
-                    (Boolean) column.getProperties().get(SUPPORTS_PREDICATES)));
-        }
-
-        return results.build();
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) tableHandle;
+        IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
+        List<ElasticsearchColumnHandle> columnHandles = toColumnHandles(metadata);
+        return columnHandles.stream()
+                .collect(toImmutableMap(ElasticsearchColumnHandle::getName, identity()));
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ElasticsearchColumnHandle handle = (ElasticsearchColumnHandle) columnHandle;
-        return makeColumnMetadata(handle.getName(), handle.getType(), handle.isSupportsPredicates());
+        return handle.getColumnMetadata();
     }
 
     @Override
@@ -372,16 +367,5 @@ public class ElasticsearchMetadata
                 handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported)));
-    }
-
-    private static ColumnMetadata makeColumnMetadata(String name, Type type, boolean supportsPredicates)
-    {
-        return ColumnMetadata.builder()
-                .setName(name)
-                .setType(type)
-                .setProperties(ImmutableMap.of(
-                        ORIGINAL_NAME, name,
-                        SUPPORTS_PREDICATES, supportsPredicates))
-                .build();
     }
 }
