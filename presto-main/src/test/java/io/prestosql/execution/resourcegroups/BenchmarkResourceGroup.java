@@ -38,7 +38,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -74,19 +73,19 @@ public class BenchmarkResourceGroup
         public void setup()
         {
             root = new RootInternalResourceGroup("root", (group, export) -> {}, executor);
-            root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+            root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
             root.setMaxQueuedQueries(queries);
             root.setHardConcurrencyLimit(queries);
             InternalResourceGroup group = root;
             for (int i = 0; i < children; i++) {
                 group = root.getOrCreateSubGroup(String.valueOf(i));
-                group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+                group.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
                 group.setMaxQueuedQueries(queries);
                 group.setHardConcurrencyLimit(queries);
             }
             for (int i = 0; i < queries; i++) {
                 MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder()
-                        .withInitialMemoryUsage(new DataSize(10, BYTE))
+                        .withInitialMemoryUsage(DataSize.ofBytes(10))
                         .build();
                 group.run(query);
             }

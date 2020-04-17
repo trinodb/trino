@@ -9,6 +9,7 @@ from different data sources.
     :maxdepth: 1
 
     connector/accumulo
+    connector/bigquery
     connector/blackhole
     connector/cassandra
     connector/elasticsearch
@@ -23,6 +24,7 @@ from different data sources.
     connector/kudu
     connector/localfile
     connector/memory
+    connector/memsql
     connector/mongodb
     connector/mysql
     connector/phoenix

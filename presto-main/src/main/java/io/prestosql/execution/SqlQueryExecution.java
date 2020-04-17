@@ -13,8 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -44,7 +42,6 @@ import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.analyzer.Analysis;
@@ -55,7 +52,6 @@ import io.prestosql.sql.planner.DistributedExecutionPlanner;
 import io.prestosql.sql.planner.InputExtractor;
 import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.NodePartitioningManager;
-import io.prestosql.sql.planner.OutputExtractor;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanFragmenter;
@@ -66,11 +62,14 @@ import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.Explain;
+import io.prestosql.sql.tree.Query;
+import io.prestosql.sql.tree.Statement;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,7 +80,6 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -219,6 +217,8 @@ public class SqlQueryExecution
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 
         stateMachine.setUpdateType(analysis.getUpdateType());
+        stateMachine.setReferencedTables(analysis.getReferencedTables());
+        stateMachine.setRoutines(analysis.getRoutines());
 
         stateMachine.endAnalysis();
 
@@ -255,7 +255,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return DataSize.ofBytes(0);
         }
         return succinctBytes(scheduler.getUserMemoryReservation());
     }
@@ -272,7 +272,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return DataSize.ofBytes(0);
         }
         return succinctBytes(scheduler.getTotalMemoryReservation());
     }
@@ -334,9 +334,6 @@ public class SqlQueryExecution
                 }
 
                 PlanRoot plan = planQuery();
-
-                metadata.beginQuery(getSession(), plan.getTableHandles());
-
                 planDistribution(plan);
 
                 if (!stateMachine.transitionToStarting()) {
@@ -400,31 +397,13 @@ public class SqlQueryExecution
         List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
         stateMachine.setInputs(inputs);
 
-        // extract output
-        Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
-        stateMachine.setOutput(output);
+        stateMachine.setOutput(analysis.getTarget());
 
         // fragment the plan
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractTableHandles(analysis));
-    }
-
-    private static Multimap<CatalogName, ConnectorTableHandle> extractTableHandles(Analysis analysis)
-    {
-        ImmutableMultimap.Builder<CatalogName, ConnectorTableHandle> tableHandles = ImmutableMultimap.builder();
-
-        for (TableHandle tableHandle : analysis.getTables()) {
-            tableHandles.put(tableHandle.getCatalogName(), tableHandle.getConnectorHandle());
-        }
-
-        if (analysis.getInsert().isPresent()) {
-            TableHandle target = analysis.getInsert().get().getTarget();
-            tableHandles.put(target.getCatalogName(), target.getConnectorHandle());
-        }
-
-        return tableHandles.build();
+        return new PlanRoot(fragmentedPlan, !explainAnalyze);
     }
 
     private void planDistribution(PlanRoot plan)
@@ -602,17 +581,33 @@ public class SqlQueryExecution
         return queryInfo;
     }
 
+    @Override
+    public boolean shouldWaitForMinWorkers()
+    {
+        return shouldWaitForMinWorkers(analysis.getStatement());
+    }
+
+    private boolean shouldWaitForMinWorkers(Statement statement)
+    {
+        if (statement instanceof Query) {
+            // Allow set session statements and queries on internal system connectors to run without waiting
+            Collection<TableHandle> tables = analysis.getTables();
+            return !tables.stream()
+                    .map(TableHandle::getCatalogName)
+                    .allMatch(CatalogName::isInternalSystemConnector);
+        }
+        return true;
+    }
+
     private static class PlanRoot
     {
         private final SubPlan root;
         private final boolean summarizeTaskInfos;
-        private final Multimap<CatalogName, ConnectorTableHandle> tableHandles;
 
-        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Multimap<CatalogName, ConnectorTableHandle> tableHandles)
+        public PlanRoot(SubPlan root, boolean summarizeTaskInfos)
         {
             this.root = requireNonNull(root, "root is null");
             this.summarizeTaskInfos = summarizeTaskInfos;
-            this.tableHandles = ImmutableMultimap.copyOf(requireNonNull(tableHandles, "tableHandles is null"));
         }
 
         public SubPlan getRoot()
@@ -623,11 +618,6 @@ public class SqlQueryExecution
         public boolean isSummarizeTaskInfos()
         {
             return summarizeTaskInfos;
-        }
-
-        public Multimap<CatalogName, ConnectorTableHandle> getTableHandles()
-        {
-            return tableHandles;
         }
     }
 
@@ -656,7 +646,8 @@ public class SqlQueryExecution
         private final CostCalculator costCalculator;
 
         @Inject
-        SqlQueryExecutionFactory(QueryManagerConfig config,
+        SqlQueryExecutionFactory(
+                QueryManagerConfig config,
                 Metadata metadata,
                 AccessControl accessControl,
                 SqlParser sqlParser,

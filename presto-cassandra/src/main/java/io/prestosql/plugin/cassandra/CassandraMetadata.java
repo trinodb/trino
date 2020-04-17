@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -52,8 +51,8 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
-import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
-import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -64,6 +63,8 @@ import static java.util.stream.Collectors.toList;
 public class CassandraMetadata
         implements ConnectorMetadata
 {
+    public static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
+
     private final CassandraSession cassandraSession;
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
@@ -157,7 +158,7 @@ public class CassandraMetadata
         CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
+            columnHandles.put(cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
         }
         return columnHandles.build();
     }
@@ -295,7 +296,7 @@ public class CassandraMetadata
             String name = columns.get(i);
             Type type = types.get(i);
             queryBuilder.append(", ")
-                    .append(name)
+                    .append(validColumnName(name))
                     .append(" ")
                     .append(toCassandraType(type, cassandraSession.getProtocolVersion()).name().toLowerCase(ENGLISH));
         }
@@ -303,7 +304,7 @@ public class CassandraMetadata
 
         // encode column ordering in the cassandra table comment field since there is no better place to store this
         String columnMetadata = extraColumnMetadataCodec.toJson(columnExtra.build());
-        queryBuilder.append("WITH comment='").append(CassandraSession.PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
+        queryBuilder.append("WITH comment='").append(PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
 
         // We need to create the Cassandra table before commit because the record needs to be written to the table.
         cassandraSession.execute(queryBuilder.toString());
@@ -330,12 +331,12 @@ public class CassandraMetadata
 
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
         List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
-        List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).map(CassandraCqlUtils::validColumnName).collect(Collectors.toList());
+        List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).collect(Collectors.toList());
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
 
         return new CassandraInsertTableHandle(
-                validSchemaName(table.getSchemaName()),
-                validTableName(table.getTableName()),
+                table.getSchemaName(),
+                table.getTableName(),
                 columnNames,
                 columnTypes);
     }

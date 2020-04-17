@@ -13,9 +13,7 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import io.prestosql.plugin.jdbc.credential.ConfigFileBasedCredentialProvider;
-import io.prestosql.plugin.jdbc.credential.CredentialConfig;
-import io.prestosql.plugin.jdbc.credential.ExtraCredentialProvider;
+import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -47,7 +45,7 @@ final class TestingDatabase
         jdbcClient = new BaseJdbcClient(
                 new BaseJdbcConfig(),
                 "\"",
-                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new ExtraCredentialProvider(new BaseJdbcConfig(), new ConfigFileBasedCredentialProvider(new CredentialConfig()))));
+                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider()));
 
         connection = DriverManager.getConnection(connectionUrl);
         connection.createStatement().execute("CREATE SCHEMA example");
@@ -99,7 +97,7 @@ final class TestingDatabase
 
     public JdbcSplit getSplit(ConnectorSession session, JdbcTableHandle table)
     {
-        ConnectorSplitSource splits = jdbcClient.getSplits(JdbcIdentity.from(session), table);
+        ConnectorSplitSource splits = jdbcClient.getSplits(session, table);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
 

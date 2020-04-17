@@ -25,6 +25,7 @@ import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.bytecode.Access.FINAL;
@@ -43,22 +44,39 @@ public class EmbedVersion
         implements VersionEmbedder
 {
     private final MethodHandle runnableConstructor;
+    private final MethodHandle callableConstructor;
 
     @Inject
     public EmbedVersion(ServerConfig serverConfig)
+    {
+        Class<?> generatedClass = createClass(serverConfig);
+        this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
+        this.callableConstructor = constructorMethodHandle(generatedClass, Callable.class);
+    }
+
+    private static Class<?> createClass(ServerConfig serverConfig)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(baseClassName(serverConfig)),
                 type(Object.class),
-                type(Runnable.class));
+                type(Runnable.class),
+                type(Callable.class));
 
+        implementRunnable(classDefinition);
+        implementCallable(classDefinition);
+
+        return defineClass(classDefinition, Runnable.class, ImmutableMap.of(), EmbedVersion.class.getClassLoader());
+    }
+
+    private static void implementRunnable(ClassDefinition classDefinition)
+    {
         FieldDefinition field = classDefinition.declareField(a(PRIVATE), "runnable", Runnable.class);
 
         Parameter parameter = arg("runnable", type(Runnable.class));
         MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
         constructor.getBody()
-                .comment("super(runnable);")
+                .comment("super();")
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class)
                 .append(constructor.getThis())
@@ -73,9 +91,30 @@ public class EmbedVersion
                 .getField(field)
                 .invokeInterface(Runnable.class, "run", void.class)
                 .ret();
+    }
 
-        Class<? extends Runnable> generatedClass = defineClass(classDefinition, Runnable.class, ImmutableMap.of(), getClass().getClassLoader());
-        this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
+    private static void implementCallable(ClassDefinition classDefinition)
+    {
+        FieldDefinition field = classDefinition.declareField(a(PRIVATE), "callable", Callable.class);
+
+        Parameter parameter = arg("callable", type(Callable.class));
+        MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
+        constructor.getBody()
+                .comment("super();")
+                .append(constructor.getThis())
+                .invokeConstructor(Object.class)
+                .append(constructor.getThis())
+                .append(parameter)
+                .putField(field)
+                .ret();
+
+        MethodDefinition run = classDefinition.declareMethod(a(PUBLIC), "call", type(Object.class));
+        run.getBody()
+                .comment("callable.call();")
+                .append(run.getThis())
+                .getField(field)
+                .invokeInterface(Callable.class, "call", Object.class)
+                .ret(Object.class);
     }
 
     private static String baseClassName(ServerConfig serverConfig)
@@ -96,6 +135,21 @@ public class EmbedVersion
         requireNonNull(runnable, "runnable is null");
         try {
             return (Runnable) runnableConstructor.invoke(runnable);
+        }
+        catch (Throwable throwable) {
+            throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
+    }
+
+    @Override
+    public <T> Callable<T> embedVersion(Callable<T> callable)
+    {
+        requireNonNull(callable, "callable is null");
+        try {
+            @SuppressWarnings("unchecked")
+            Callable<T> wrapped = (Callable<T>) callableConstructor.invoke(callable);
+            return wrapped;
         }
         catch (Throwable throwable) {
             throwIfUnchecked(throwable);

@@ -13,16 +13,20 @@
  */
 package io.prestosql.operator.annotations;
 
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.function.CastDependency;
 import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.FunctionDependency;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.OperatorDependency;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -36,8 +40,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public interface ImplementationDependency
 {
@@ -48,7 +52,8 @@ public interface ImplementationDependency
         return annotation instanceof TypeParameter ||
                 annotation instanceof LiteralParameter ||
                 annotation instanceof FunctionDependency ||
-                annotation instanceof OperatorDependency;
+                annotation instanceof OperatorDependency ||
+                annotation instanceof CastDependency;
     }
 
     static Optional<Annotation> getImplementationDependencyAnnotation(AnnotatedElement element)
@@ -64,7 +69,7 @@ public interface ImplementationDependency
     static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
         if (annotation instanceof TypeParameter) {
-            checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), typeParametersNames, element);
+            checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value(), ImmutableSet.of()), typeParametersNames, element);
         }
         if (annotation instanceof LiteralParameter) {
             checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);
@@ -103,8 +108,7 @@ public interface ImplementationDependency
             if (annotation instanceof FunctionDependency) {
                 FunctionDependency functionDependency = (FunctionDependency) annotation;
                 return new FunctionImplementationDependency(
-                        functionDependency.name(),
-                        parseTypeSignature(functionDependency.returnType(), literalParameters),
+                        QualifiedName.of(functionDependency.name()),
                         Arrays.stream(functionDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
@@ -112,13 +116,21 @@ public interface ImplementationDependency
             }
             if (annotation instanceof OperatorDependency) {
                 OperatorDependency operatorDependency = (OperatorDependency) annotation;
+                OperatorType operator = operatorDependency.operator();
+                checkArgument(operator != OperatorType.CAST && operator != OperatorType.SATURATED_FLOOR_CAST, "%s not supported for OperatorDependency", operator);
                 return new OperatorImplementationDependency(
-                        operatorDependency.operator(),
-                        parseTypeSignature(operatorDependency.returnType(), literalParameters),
+                        operator,
                         Arrays.stream(operatorDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
                         toInvocationConvention(operatorDependency.convention()));
+            }
+            if (annotation instanceof CastDependency) {
+                CastDependency castDependency = (CastDependency) annotation;
+                return new CastImplementationDependency(
+                        parseTypeSignature(castDependency.fromType(), literalParameters),
+                        parseTypeSignature(castDependency.toType(), literalParameters),
+                        toInvocationConvention(castDependency.convention()));
             }
 
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());

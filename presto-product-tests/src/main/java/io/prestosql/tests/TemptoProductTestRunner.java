@@ -25,6 +25,10 @@ public final class TemptoProductTestRunner
                 .setExcludedGroups("quarantine", true)
                 .build();
         TemptoRunner.runTempto(parser, args);
+
+        // Some libraries (e.g. apparently Datastax's Cassandra driver) can start non-daemon threads.
+        // Explicit exit() is required to terminate test process.
+        System.exit(0);
     }
 
     private TemptoProductTestRunner() {}

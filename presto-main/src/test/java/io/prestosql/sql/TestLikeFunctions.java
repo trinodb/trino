@@ -13,16 +13,16 @@
  */
 package io.prestosql.sql;
 
-import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.type.JoniRegexp;
+import io.prestosql.type.LikeFunctions;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.type.LikeFunctions.castCharToLikePattern;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.likeChar;
 import static io.prestosql.type.LikeFunctions.likePattern;
@@ -36,11 +36,20 @@ import static org.testng.Assert.assertTrue;
 public class TestLikeFunctions
         extends AbstractTestFunctions
 {
+    private static Slice offsetHeapSlice(String value)
+    {
+        Slice source = Slices.utf8Slice(value);
+        Slice result = Slices.allocate(source.length() + 5);
+        result.setBytes(2, source);
+        return result.slice(2, source.length());
+    }
+
     @Test
     public void testLikeBasic()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
+        JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("f%b__"));
         assertTrue(likeVarchar(utf8Slice("foobar"), regex));
+        assertTrue(likeVarchar(offsetHeapSlice("foobar"), regex));
 
         assertFunction("'foob' LIKE 'f%b__'", BOOLEAN, false);
         assertFunction("'foob' LIKE 'f%b'", BOOLEAN, true);
@@ -49,10 +58,13 @@ public class TestLikeFunctions
     @Test
     public void testLikeChar()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
+        JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("f%b__"));
         assertTrue(likeChar(6L, utf8Slice("foobar"), regex));
+        assertTrue(likeChar(6L, offsetHeapSlice("foobar"), regex));
         assertTrue(likeChar(6L, utf8Slice("foob"), regex));
+        assertTrue(likeChar(6L, offsetHeapSlice("foob"), regex));
         assertFalse(likeChar(7L, utf8Slice("foob"), regex));
+        assertFalse(likeChar(7L, offsetHeapSlice("foob"), regex));
 
         assertFunction("cast('foob' as char(6)) LIKE 'f%b__'", BOOLEAN, true);
         assertFunction("cast('foob' as char(7)) LIKE 'f%b__'", BOOLEAN, false);
@@ -61,11 +73,11 @@ public class TestLikeFunctions
     @Test
     public void testLikeSpacesInPattern()
     {
-        Regex regex = likePattern(utf8Slice("ala  "));
+        JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("ala  "));
         assertTrue(likeVarchar(utf8Slice("ala  "), regex));
         assertFalse(likeVarchar(utf8Slice("ala"), regex));
 
-        regex = castCharToLikePattern(5L, utf8Slice("ala"));
+        regex = LikeFunctions.likePattern(5L, utf8Slice("ala"));
         assertTrue(likeVarchar(utf8Slice("ala  "), regex));
         assertFalse(likeVarchar(utf8Slice("ala"), regex));
     }
@@ -73,28 +85,28 @@ public class TestLikeFunctions
     @Test
     public void testLikeNewlineInPattern()
     {
-        Regex regex = likePattern(utf8Slice("%o\nbar"));
+        JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("%o\nbar"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test
     public void testLikeNewlineBeforeMatch()
     {
-        Regex regex = likePattern(utf8Slice("%b%"));
+        JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test
     public void testLikeNewlineInMatch()
     {
-        Regex regex = likePattern(utf8Slice("f%b%"));
+        JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("f%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test(timeOut = 1000)
     public void testLikeUtf8Pattern()
     {
-        Regex regex = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
+        JoniRegexp regex = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
         assertFalse(likeVarchar(utf8Slice("foo"), regex));
     }
 
@@ -103,28 +115,28 @@ public class TestLikeFunctions
     public void testLikeInvalidUtf8Value()
     {
         Slice value = Slices.wrappedBuffer(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'});
-        Regex regex = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
+        JoniRegexp regex = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
         assertTrue(likeVarchar(value, regex));
     }
 
     @Test
     public void testBackslashesNoSpecialTreatment()
     {
-        Regex regex = likePattern(utf8Slice("\\abc\\/\\\\"));
+        JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("\\abc\\/\\\\"));
         assertTrue(likeVarchar(utf8Slice("\\abc\\/\\\\"), regex));
     }
 
     @Test
     public void testSelfEscaping()
     {
-        Regex regex = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
+        JoniRegexp regex = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
         assertTrue(likeVarchar(utf8Slice("\\abc%"), regex));
     }
 
     @Test
     public void testAlternateEscapedCharacters()
     {
-        Regex regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
+        JoniRegexp regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
         assertTrue(likeVarchar(utf8Slice("x%_abcx"), regex));
     }
 

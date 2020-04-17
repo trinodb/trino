@@ -13,35 +13,117 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
 @Test
 public class TestMongoDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
-    private MongoQueryRunner mongoQueryRunner;
+    private MongoServer server;
 
-    public TestMongoDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMongoQueryRunner(TpchTable.getTables()));
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
+        this.server = new MongoServer();
+        return createMongoQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        mongoQueryRunner.shutdown();
-        mongoQueryRunner = null;
+        server.close();
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    public void testCreateTable()
+    {
+        // TODO https://github.com/prestosql/presto/issues/3082
+        throw new SkipException("Fix DROP TABLE");
+    }
+
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        // TODO https://github.com/prestosql/presto/issues/3082
+        throw new SkipException("Fix DROP TABLE");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // the connector does not support creating schemas
+    }
+
+    @Override
+    public void testRenameTable()
+    {
+        // the connector does not support renaming tables
+    }
+
+    @Override
+    public void testAddColumn()
+    {
+        // the connector does not support adding columns
+    }
+
+    @Override
+    public void testRenameColumn()
+    {
+        // the connector does not support renaming columns
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // the connector does not support dropping columns
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // the connector does not support delete
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        // the connector does not support comment on table
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("test disabled for Mongo");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 }

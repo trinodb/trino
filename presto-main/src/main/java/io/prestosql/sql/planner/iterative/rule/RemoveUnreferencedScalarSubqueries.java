@@ -20,7 +20,10 @@ import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -43,8 +46,12 @@ public class RemoveUnreferencedScalarSubqueries
         PlanNode input = correlatedJoinNode.getInput();
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
-        if (isUnreferencedScalar(input, context.getLookup())) {
-            return Result.ofPlanNode(subquery);
+        if (isUnreferencedScalar(input, context.getLookup()) && correlatedJoinNode.getCorrelation().isEmpty()) {
+            if (correlatedJoinNode.getType() == INNER
+                    || correlatedJoinNode.getType() == RIGHT
+                    || isAtLeastScalar(subquery, context.getLookup())) {
+                return Result.ofPlanNode(subquery);
+            }
         }
 
         if (isUnreferencedScalar(subquery, context.getLookup())) {

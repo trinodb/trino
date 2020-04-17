@@ -30,6 +30,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -128,7 +129,7 @@ public class ResultSetValues
 
     public Slice getSlice(int field)
     {
-        return wrappedBuffer(strings[field].getBytes());
+        return wrappedBuffer(strings[field].getBytes(UTF_8));
     }
 
     public boolean isNull(int field)

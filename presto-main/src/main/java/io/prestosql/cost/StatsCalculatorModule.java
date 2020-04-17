@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.TypeAnalyzer;
 
 import javax.inject.Singleton;
 
@@ -31,16 +32,16 @@ public class StatsCalculatorModule
 
     @Provides
     @Singleton
-    public static StatsCalculator createNewStatsCalculator(Metadata metadata)
+    public static StatsCalculator createNewStatsCalculator(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         StatsNormalizer normalizer = new StatsNormalizer();
-        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
+        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata, typeAnalyzer);
         FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, normalizer);
 
         ImmutableList.Builder<ComposableStatsCalculator.Rule<?>> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata, normalizer));
-        rules.add(new SimpleFilterProjectSemiJoinStatsRule(normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
+        rules.add(new SimpleFilterProjectSemiJoinStatsRule(metadata, normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
         rules.add(new FilterStatsRule(normalizer, filterStatsCalculator));
         rules.add(new ValuesStatsRule(metadata));
         rules.add(new LimitStatsRule(normalizer));

@@ -29,17 +29,20 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.SymbolReference;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.sql.DynamicFilters.Descriptor;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
+import static java.util.function.Function.identity;
 
 public class LocalDynamicFilter
 {
@@ -51,44 +54,50 @@ public class LocalDynamicFilter
     // Mapping from dynamic filter ID to its build channel indices.
     private final Map<String, Integer> buildChannels;
 
-    private final SettableFuture<TupleDomain<Symbol>> resultFuture;
+    private final TypeProvider types;
 
-    // The resulting predicate for local dynamic filtering.
-    private TupleDomain<String> result;
+    private final SettableFuture<Map<Symbol, Domain>> resultFuture;
 
-    // Number of partitions left to be processed.
-    private int partitionsLeft;
+    // Number of build-side partitions to be collected.
+    private final int partitionCount;
 
-    public LocalDynamicFilter(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, int partitionCount)
+    // The resulting predicates from each build-side partition.
+    private final List<TupleDomain<String>> partitions;
+
+    public LocalDynamicFilter(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, TypeProvider types, int partitionCount)
     {
         this.probeSymbols = requireNonNull(probeSymbols, "probeSymbols is null");
         this.buildChannels = requireNonNull(buildChannels, "buildChannels is null");
         verify(probeSymbols.keySet().equals(buildChannels.keySet()), "probeSymbols and buildChannels must have same keys");
+        this.types = requireNonNull(types, "types is null");
 
         this.resultFuture = SettableFuture.create();
 
-        this.result = TupleDomain.none();
-        this.partitionsLeft = partitionCount;
+        this.partitionCount = partitionCount;
+        this.partitions = new ArrayList<>(partitionCount);
     }
 
     private synchronized void addPartition(TupleDomain<String> tupleDomain)
     {
         // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
-        partitionsLeft -= 1;
-        verify(partitionsLeft >= 0);
+        verify(partitions.size() < partitionCount);
         // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
         // See the comment at TupleDomain::columnWiseUnion() for more details.
-        result = TupleDomain.columnWiseUnion(result, tupleDomain);
-        if (partitionsLeft == 0) {
+        partitions.add(tupleDomain);
+        if (partitions.size() == partitionCount) {
+            Map<Symbol, Domain> result = convertTupleDomain(TupleDomain.columnWiseUnion(partitions));
             // No more partitions are left to be processed.
-            verify(resultFuture.set(convertTupleDomain(result)), "dynamic filter result is provided more than once");
+            resultFuture.set(result);
         }
     }
 
-    private TupleDomain<Symbol> convertTupleDomain(TupleDomain<String> result)
+    private Map<Symbol, Domain> convertTupleDomain(TupleDomain<String> result)
     {
         if (result.isNone()) {
-            return TupleDomain.none();
+            // One of the join build symbols has no non-null values, therefore no symbols can match predicate
+            return buildChannels.keySet().stream()
+                    .flatMap(filterId -> probeSymbols.get(filterId).stream())
+                    .collect(toImmutableMap(identity(), probeSymbol -> Domain.none(types.get(probeSymbol))));
         }
         // Convert the predicate to use probe symbols (instead dynamic filter IDs).
         // Note that in case of a probe-side union, a single dynamic filter may match multiple probe symbols.
@@ -100,10 +109,10 @@ public class LocalDynamicFilter
                 builder.put(probeSymbol, domain);
             }
         }
-        return TupleDomain.withColumnDomains(builder.build());
+        return builder.build();
     }
 
-    public static Optional<LocalDynamicFilter> create(JoinNode planNode, int partitionCount)
+    public static Optional<LocalDynamicFilter> create(JoinNode planNode, TypeProvider types, int partitionCount)
     {
         Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
         List<FilterNode> filterNodes = PlanNodeSearcher
@@ -132,9 +141,9 @@ public class LocalDynamicFilter
         Map<String, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
                 // Skip build channels that don't match local probe dynamic filters.
                 .filter(entry -> probeSymbols.containsKey(entry.getKey()))
-                .collect(toMap(
+                .collect(toImmutableMap(
                         // Dynamic filter ID
-                        entry -> entry.getKey(),
+                        Map.Entry::getKey,
                         // Build-side channel index
                         entry -> {
                             Symbol buildSymbol = entry.getValue();
@@ -146,7 +155,7 @@ public class LocalDynamicFilter
         if (buildChannels.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new LocalDynamicFilter(probeSymbols, buildChannels, partitionCount));
+        return Optional.of(new LocalDynamicFilter(probeSymbols, buildChannels, types, partitionCount));
     }
 
     private static boolean isFilterAboveTableScan(PlanNode node)
@@ -164,7 +173,7 @@ public class LocalDynamicFilter
         return buildChannels;
     }
 
-    public ListenableFuture<TupleDomain<Symbol>> getResultFuture()
+    public ListenableFuture<Map<Symbol, Domain>> getResultFuture()
     {
         return resultFuture;
     }
@@ -172,5 +181,16 @@ public class LocalDynamicFilter
     public Consumer<TupleDomain<String>> getTupleDomainConsumer()
     {
         return this::addPartition;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("probeSymbols", probeSymbols)
+                .add("buildChannels", buildChannels)
+                .add("partitionCount", partitionCount)
+                .add("partitions", partitions)
+                .toString();
     }
 }

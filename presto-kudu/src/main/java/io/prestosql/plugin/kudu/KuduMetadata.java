@@ -27,14 +27,18 @@ import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.NotFoundException;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
+import io.prestosql.spi.connector.ProjectionApplicationResult.Assignment;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -52,7 +56,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -119,19 +122,24 @@ public class KuduMetadata
         }
 
         String encoding = KuduTableProperties.lookupEncodingString(column.getEncoding());
-        if (!column.getEncoding().equals(ColumnSchema.Encoding.AUTO_ENCODING)) {
+        if (column.getEncoding() != ColumnSchema.Encoding.AUTO_ENCODING) {
             properties.put(KuduTableProperties.ENCODING, encoding);
         }
         extra.append("encoding=").append(encoding).append(", ");
 
         String compression = KuduTableProperties.lookupCompressionString(column.getCompressionAlgorithm());
-        if (!column.getCompressionAlgorithm().equals(ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION)) {
+        if (column.getCompressionAlgorithm() != ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION) {
             properties.put(KuduTableProperties.COMPRESSION, compression);
         }
         extra.append("compression=").append(compression);
 
         Type prestoType = TypeHelper.fromKuduColumn(column);
-        return new ColumnMetadata(column.getName(), prestoType, null, extra.toString(), false, properties);
+        return ColumnMetadata.builder()
+                .setName(column.getName())
+                .setType(prestoType)
+                .setExtraInfo(Optional.of(extra.toString()))
+                .setProperties(properties)
+                .build();
     }
 
     private ConnectorTableMetadata getTableMetadata(KuduTableHandle tableHandle)
@@ -171,11 +179,13 @@ public class KuduMetadata
     {
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) columnHandle;
         if (kuduColumnHandle.isVirtualRowId()) {
-            return new ColumnMetadata(KuduColumnHandle.ROW_ID, VarbinaryType.VARBINARY, null, true);
+            return ColumnMetadata.builder()
+                    .setName(KuduColumnHandle.ROW_ID)
+                    .setType(VarbinaryType.VARBINARY)
+                    .setHidden(true)
+                    .build();
         }
-        else {
-            return kuduColumnHandle.getColumnMetadata();
-        }
+        return kuduColumnHandle.getColumnMetadata();
     }
 
     @Override
@@ -183,29 +193,11 @@ public class KuduMetadata
     {
         try {
             KuduTable table = clientSession.openTable(schemaTableName);
-            return new KuduTableHandle(schemaTableName, table);
+            return new KuduTableHandle(schemaTableName, table, TupleDomain.all(), Optional.empty(), false);
         }
         catch (NotFoundException e) {
             return null;
         }
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            Constraint constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        KuduTableHandle handle = (KuduTableHandle) tableHandle;
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new KuduTableLayoutHandle(handle, constraint.getSummary(), desiredColumns));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
     }
 
     @Override
@@ -216,7 +208,7 @@ public class KuduMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         clientSession.createSchema(schemaName);
     }
@@ -289,7 +281,8 @@ public class KuduMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session,
+    public Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
@@ -298,7 +291,8 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session,
+    public ConnectorOutputTableHandle beginCreateTable(
+            ConnectorSession session,
             ConnectorTableMetadata tableMetadata,
             Optional<ConnectorNewTableLayout> layout)
     {
@@ -310,7 +304,13 @@ public class KuduMetadata
             List<ColumnMetadata> copy = new ArrayList<>(tableMetadata.getColumns());
             Map<String, Object> columnProperties = new HashMap<>();
             columnProperties.put(KuduTableProperties.PRIMARY_KEY, true);
-            copy.add(0, new ColumnMetadata(rowId, VarcharType.VARCHAR, "key=true", null, true, columnProperties));
+            copy.add(0, ColumnMetadata.builder()
+                    .setName(rowId)
+                    .setType(VarcharType.VARCHAR)
+                    .setComment(Optional.of("key=true"))
+                    .setHidden(true)
+                    .setProperties(columnProperties)
+                    .build());
             List<ColumnMetadata> finalColumns = ImmutableList.copyOf(copy);
             Map<String, Object> propsCopy = new HashMap<>(tableMetadata.getProperties());
             propsCopy.put(KuduTableProperties.PARTITION_BY_HASH_COLUMNS, ImmutableList.of(rowId));
@@ -338,7 +338,8 @@ public class KuduMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session,
+    public Optional<ConnectorOutputMetadata> finishCreateTable(
+            ConnectorSession session,
             ConnectorOutputTableHandle tableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
@@ -353,9 +354,10 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle table)
     {
-        return tableHandle;
+        KuduTableHandle handle = (KuduTableHandle) table;
+        return new KuduTableHandle(handle.getSchemaTableName(), handle.getConstraint(), handle.getDesiredColumns(), true);
     }
 
     @Override
@@ -364,8 +366,92 @@ public class KuduMetadata
     }
 
     @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    public boolean usesLegacyTableLayouts()
     {
         return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        KuduTableHandle handle = (KuduTableHandle) table;
+        return new ConnectorTableProperties(handle.getConstraint(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        KuduTableHandle handle = (KuduTableHandle) table;
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new KuduTableHandle(
+                handle.getSchemaTableName(),
+                handle.getTable(clientSession),
+                newDomain,
+                handle.getDesiredColumns(),
+                handle.isDeleteHandle());
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+    }
+
+    /**
+     * Only applies to the projection which selects a list of top-level columns.
+     *
+     * Take this query "select col1, col2.field1 from test_table" as an example:
+     *
+     * The optimizer calls with the following arguments:
+     *
+     * handle = TH0 (col0, col1, col2, col3)
+     * projections = [
+     *     col1,
+     *     f(col2)
+     * ]
+     * assignments = [
+     *     col1 = CH1
+     *     col2 = CH2
+     * ]
+     *
+     *
+     * This method returns:
+     *
+     * handle = TH1 (col1, col2)
+     * projections = [
+     *     col1,
+     *     f(col2)
+     * ]
+     * assignments = [
+     *     col1 = CH1
+     *     col2 = CH2
+     * ]
+     */
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+    {
+        KuduTableHandle handle = (KuduTableHandle) table;
+
+        if (handle.getDesiredColumns().isPresent()) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<ColumnHandle> desiredColumns = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
+        assignments.forEach((name, column) -> {
+            desiredColumns.add(column);
+            assignmentList.add(new Assignment(name, column, ((KuduColumnHandle) column).getType()));
+        });
+
+        handle = new KuduTableHandle(
+                handle.getSchemaTableName(),
+                handle.getTable(clientSession),
+                handle.getConstraint(),
+                Optional.of(desiredColumns.build()),
+                handle.isDeleteHandle());
+
+        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build()));
     }
 }

@@ -128,7 +128,7 @@ public class TestSubqueries
                 "SELECT (SELECT sum(t.a) FROM (VALUES 1, 2) t(a) WHERE t.a=t2.b group by t.a LIMIT 2) FROM (VALUES 1) t2(b)",
                 "VALUES BIGINT '1'");
         assertions.assertQuery(
-                "SELECT (SELECT count(*) FROM (SELECT t.a FROM (VALUES 1, 1, null, 3) t(a) LIMIT 1) t WHERE t.a=t2.b) FROM (VALUES 1, 2) t2(b)",
+                "SELECT (SELECT count(*) FROM (SELECT t.a FROM (VALUES 1, 1, null, 3) t(a) WHERE t.a=t2.b LIMIT 1)) FROM (VALUES 1, 2) t2(b)",
                 "VALUES BIGINT '1', BIGINT '0'");
         assertExistsRewrittenToAggregationBelowJoin(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1, 2) t2(b)",
@@ -253,6 +253,23 @@ public class TestSubqueries
     }
 
     @Test
+    public void testNestedUncorrelatedSubqueryInCorrelatedSubquery()
+    {
+        // aggregation with empty grouping set
+        assertions.assertQuery(
+                "SELECT((SELECT b FROM (SELECT array_agg(a) FROM (VALUES 1) A(a)) B(b) WHERE b = c)) FROM (VALUES ARRAY[1], ARRAY[2]) C(c)",
+                "VALUES ARRAY[1], null");
+        // aggregation with multiple grouping sets
+        assertions.assertQuery(
+                "SELECT((SELECT b FROM (SELECT count(a) FROM (VALUES (1, 2, 3)) A(a, key_1, key_2) GROUP BY GROUPING SETS ((key_1), (key_2)) LIMIT 1) B(b) WHERE b = c)) FROM (VALUES 1, 2) C(c)",
+                "VALUES BIGINT '1', null");
+        // limit 1
+        assertions.assertQuery(
+                "SELECT((SELECT c FROM (SELECT b FROM (VALUES (1, 2), (1, 2)) inner_relation(a, b) WHERE a = 1 LIMIT 1) C(c) WHERE c = d)) FROM (VALUES 2) D(d)",
+                "VALUES 2");
+    }
+
+    @Test
     public void testCorrelatedSubqueriesWithGroupBy()
     {
         // t.a is not a "constant" column, group by does not guarantee single row per correlated subquery
@@ -316,6 +333,33 @@ public class TestSubqueries
     }
 
     @Test
+    public void testUncorrelatedSubquery()
+    {
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) INNER JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b", "SELECT 1, 2");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (VALUES 1, 3, null) t(a) INNER JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a * 8 < b");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) INNER JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (VALUES 1, 3, null) t(a) INNER JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON a < b");
+
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) LEFT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b", "VALUES (1, 2), (3, null), (null, null)");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) LEFT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a * 8 < b", "VALUES (1, CAST(null AS INTEGER)), (3, null), (null, null)");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) LEFT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, 3, null) t(a) LEFT JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON a < b", "VALUES (1, CAST(null AS INTEGER)), (3, null), (null, null)");
+
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b", "VALUES (1, 2), (null, null), (null, 2), (null, null)");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a * 8 < b", "VALUES (CAST(null AS INTEGER), 2), (null, null), (null, 2), (null, null)");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (VALUES 1, 3, null) t(a) RIGHT JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON a < b");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) RIGHT JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE", "VALUES (1, 2), (1, null), (null, 2), (null, null)");
+
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE", "VALUES (1, 2), (1, null), (null, 2), (null, null)");
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE");
+        assertions.assertQuery("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON TRUE", "VALUES (1, CAST(null AS INTEGER)), (null, null)");
+        assertions.assertFails(
+                "SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b",
+                ".* FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
+    }
+
+    @Test
     public void testLateralWithUnnest()
     {
         assertions.assertFails(
@@ -329,6 +373,32 @@ public class TestSubqueries
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 1, 2) t2(b) WHERE (SELECT b) = 2",
                 "VALUES 2");
+    }
+
+    @Test
+    public void testRemoveUnreferencedScalarSubqueryOrInput()
+    {
+        // scalar unreferenced input, empty subquery, nonempty correlation
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE a = 2) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE a = 2) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+
+        // scalar unreferenced input, empty subquery, empty correlation
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) RIGHT JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) FULL JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+
+        // scalar unreferenced subquery, at least scalar input
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) INNER JOIN LATERAL (VALUES a) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) LEFT JOIN LATERAL (VALUES a) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) RIGHT JOIN LATERAL (VALUES 3) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) FULL JOIN LATERAL (VALUES 3) t2(b) ON true", "VALUES 1, 2");
+
+        // scalar unreferenced subquery, empty input
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) INNER JOIN LATERAL (VALUES a) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) LEFT JOIN LATERAL (VALUES a) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) RIGHT JOIN LATERAL (VALUES 2) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) FULL JOIN LATERAL (VALUES 2) t2(b) ON true");
     }
 
     @Test
@@ -363,6 +433,47 @@ public class TestSubqueries
                         "    GROUP BY y" +
                         "    HAVING y = t.x)",
                 "VALUES 1");
+    }
+
+    @Test
+    public void testCorrelatedSubqueryWithoutFilter()
+    {
+        assertions.assertQuery(
+                "SELECT (SELECT outer_relation.b FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation(b)",
+                "VALUES 2");
+        assertions.assertFails(
+                "SELECT (VALUES b) FROM (VALUES 2) outer_relation(b)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertions.assertFails(
+                "SELECT (SELECT a + b FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertions.assertFails(
+                "SELECT (SELECT rank() OVER(partition by b) FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    @Test
+    public void testCorrelatedJoin()
+    {
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) INNER JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON TRUE",
+                "VALUES (1, 2), (1, 3), (2, 3)");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) INNER JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON b < 3",
+                "VALUES (1, 2)");
+
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 where 0 = 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE a = 1 ) t2(b) ON TRUE");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) LEFT JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON TRUE",
+                "VALUES (1, 2), (1, 3), (2, 3), (3, null), (null, null)");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) LEFT JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON b < 3",
+                "VALUES (1, 2), (2, null), (3, null), (null, null)");
+
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 where 0 = 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE a = 1 ) t2(b) ON TRUE");
     }
 
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)

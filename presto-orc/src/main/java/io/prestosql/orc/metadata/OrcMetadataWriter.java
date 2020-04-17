@@ -34,9 +34,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.TimeZone;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
 
@@ -75,6 +79,7 @@ public class OrcMetadataWriter
                 .setCompression(toCompression(compression))
                 .setCompressionBlockSize(compressionBlockSize)
                 .setWriterVersion(useLegacyVersion ? HIVE_LEGACY_WRITER_VERSION : PRESTO_WRITER_VERSION)
+                .setMagic(MAGIC.toStringUtf8())
                 .build();
 
         return writeProtobufObject(output, postScriptProtobuf);
@@ -86,6 +91,7 @@ public class OrcMetadataWriter
     {
         OrcProto.Metadata metadataProtobuf = OrcProto.Metadata.newBuilder()
                 .addAllStripeStats(metadata.getStripeStatsList().stream()
+                        .map(Optional::get)
                         .map(OrcMetadataWriter::toStripeStatistics)
                         .collect(toList()))
                 .build();
@@ -115,7 +121,7 @@ public class OrcMetadataWriter
                 .addAllTypes(footer.getTypes().stream()
                         .map(OrcMetadataWriter::toType)
                         .collect(toList()))
-                .addAllStatistics(footer.getFileStats().stream()
+                .addAllStatistics(footer.getFileStats().map(ColumnMetadata::stream).orElseGet(java.util.stream.Stream::empty)
                         .map(OrcMetadataWriter::toColumnStatistics)
                         .collect(toList()))
                 .addAllMetadata(footer.getUserMetadata().entrySet().stream()
@@ -144,8 +150,11 @@ public class OrcMetadataWriter
     {
         Builder builder = Type.newBuilder()
                 .setKind(toTypeKind(type.getOrcTypeKind()))
-                .addAllSubtypes(type.getFieldTypeIndexes())
-                .addAllFieldNames(type.getFieldNames());
+                .addAllSubtypes(type.getFieldTypeIndexes().stream()
+                        .map(OrcColumnId::getId)
+                        .collect(toList()))
+                .addAllFieldNames(type.getFieldNames())
+                .addAllAttributes(toStringPairList(type.getAttributes()));
 
         if (type.getLength().isPresent()) {
             builder.setMaximumLength(type.getLength().get());
@@ -200,6 +209,16 @@ public class OrcMetadataWriter
                 return OrcProto.Type.Kind.UNION;
         }
         throw new IllegalArgumentException("Unsupported type: " + orcTypeKind);
+    }
+
+    private static List<OrcProto.StringPair> toStringPairList(Map<String, String> attributes)
+    {
+        return attributes.entrySet().stream()
+            .map(entry -> OrcProto.StringPair.newBuilder()
+                .setKey(entry.getKey())
+                .setValue(entry.getValue())
+                .build())
+            .collect(toImmutableList());
     }
 
     private static OrcProto.ColumnStatistics toColumnStatistics(ColumnStatistics columnStatistics)
@@ -298,7 +317,7 @@ public class OrcMetadataWriter
     private static OrcProto.Stream toStream(Stream stream)
     {
         return OrcProto.Stream.newBuilder()
-                .setColumn(stream.getColumn())
+                .setColumn(stream.getColumnId().getId())
                 .setKind(toStreamKind(stream.getStreamKind()))
                 .setLength(stream.getLength())
                 .build();

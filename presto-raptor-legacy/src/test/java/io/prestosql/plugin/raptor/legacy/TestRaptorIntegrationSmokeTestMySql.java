@@ -14,9 +14,10 @@
 package io.prestosql.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.QueryRunner;
+import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -25,35 +26,41 @@ import java.util.Map;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.copyTables;
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createSession;
+import static java.lang.String.format;
 
 @Test
 public class TestRaptorIntegrationSmokeTestMySql
         extends TestRaptorIntegrationSmokeTest
 {
-    private final TestingMySqlServer mysqlServer;
+    private MySQLContainer<?> mysqlContainer;
 
-    public TestRaptorIntegrationSmokeTestMySql()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "testdb"));
-    }
-
-    private TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)
-    {
-        super(() -> createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb")));
-        this.mysqlServer = mysqlServer;
+        mysqlContainer = new MySQLContainer<>("mysql:8.0.12");
+        mysqlContainer.start();
+        return createRaptorMySqlQueryRunner(getJdbcUrl(mysqlContainer));
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        mysqlServer.close();
+        mysqlContainer.close();
     }
 
-    private static DistributedQueryRunner createRaptorMySqlQueryRunner(String mysqlUrl)
+    private static String getJdbcUrl(MySQLContainer<?> container)
+    {
+        return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
+                container.getJdbcUrl(),
+                container.getUsername(),
+                container.getPassword());
+    }
+
+    private static QueryRunner createRaptorMySqlQueryRunner(String mysqlUrl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch")).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

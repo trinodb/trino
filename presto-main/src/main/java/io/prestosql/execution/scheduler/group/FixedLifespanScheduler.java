@@ -81,6 +81,7 @@ public class FixedLifespanScheduler
         this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
     }
 
+    @Override
     public void scheduleInitial(SourceScheduler scheduler)
     {
         checkState(!initialScheduled);
@@ -107,6 +108,7 @@ public class FixedLifespanScheduler
         }
     }
 
+    @Override
     public void onLifespanFinished(Iterable<Lifespan> newlyCompletedDriverGroups)
     {
         checkState(initialScheduled);
@@ -122,6 +124,7 @@ public class FixedLifespanScheduler
         newDriverGroupReady.set(null);
     }
 
+    @Override
     public SettableFuture<?> schedule(SourceScheduler scheduler)
     {
         // Return a new future even if newDriverGroupReady has not finished.

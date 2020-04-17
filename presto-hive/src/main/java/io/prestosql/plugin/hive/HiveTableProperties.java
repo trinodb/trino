@@ -16,9 +16,10 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
@@ -26,17 +27,20 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -46,8 +50,14 @@ public class HiveTableProperties
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
+    public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
+    // TODO: This property represents the subset of columns to be analyzed. This exists mainly because there is no way
+    //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
+    //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
+    //       available (including the names of the columns to be analyzed)
+    public static final String ANALYZE_COLUMNS_PROPERTY = "presto.analyze_columns";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
@@ -63,7 +73,6 @@ public class HiveTableProperties
 
     @Inject
     public HiveTableProperties(
-            TypeManager typeManager,
             HiveConfig config,
             OrcWriterConfig orcWriterConfig)
     {
@@ -82,7 +91,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         PARTITIONED_BY_PROPERTY,
                         "Partition columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -93,7 +102,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         BUCKETED_BY_PROPERTY,
                         "Bucketing columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -104,7 +113,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         SORTED_BY_PROPERTY,
                         "Bucket sorting columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -119,7 +128,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS,
                         "ORC Bloom filter index columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -133,6 +142,7 @@ public class HiveTableProperties
                         "ORC Bloom filter false positive probability",
                         orcWriterConfig.getDefaultBloomFilterFpp(),
                         false),
+                integerProperty(BUCKETING_VERSION, "Bucketing version", null, false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
                 integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
@@ -181,6 +191,12 @@ public class HiveTableProperties
         return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
     }
 
+    @SuppressWarnings("unchecked")
+    public static Optional<Set<String>> getAnalyzeColumns(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Set<String>) tableProperties.get(ANALYZE_COLUMNS_PROPERTY));
+    }
+
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
     {
         List<String> bucketedBy = getBucketedBy(tableProperties);
@@ -198,7 +214,20 @@ public class HiveTableProperties
         if (bucketedBy.isEmpty() || bucketCount == 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy));
+        BucketingVersion bucketingVersion = getBucketingVersion(tableProperties);
+        return Optional.of(new HiveBucketProperty(bucketedBy, bucketingVersion, bucketCount, sortedBy));
+    }
+
+    public static BucketingVersion getBucketingVersion(Map<String, Object> tableProperties)
+    {
+        Integer property = (Integer) tableProperties.get(BUCKETING_VERSION);
+        if (property == null || property == 1) {
+            return BUCKETING_V1;
+        }
+        if (property == 2) {
+            return BUCKETING_V2;
+        }
+        throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be between 1 and 2 (inclusive): %s", BUCKETING_VERSION, property));
     }
 
     @SuppressWarnings("unchecked")

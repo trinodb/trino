@@ -16,8 +16,6 @@ package io.prestosql.execution.resourcegroups;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.prestosql.execution.ManagedQueryExecution;
 import io.prestosql.execution.resourcegroups.WeightedFairQueue.Usage;
 import io.prestosql.server.QueryStateInfo;
@@ -33,6 +31,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,7 +50,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.math.LongMath.saturatedMultiply;
 import static com.google.common.math.LongMath.saturatedSubtract;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.prestosql.SystemSessionProperties.getQueryPriority;
 import static io.prestosql.server.QueryStateInfo.createQueryStateInfo;
 import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
@@ -159,12 +159,12 @@ public class InternalResourceGroup
                     getState(),
                     schedulingPolicy,
                     schedulingWeight,
-                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
-                    DataSize.succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    Duration.succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -184,12 +184,12 @@ public class InternalResourceGroup
                     getState(),
                     schedulingPolicy,
                     schedulingWeight,
-                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
-                    DataSize.succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    Duration.succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -209,12 +209,12 @@ public class InternalResourceGroup
                     getState(),
                     schedulingPolicy,
                     schedulingWeight,
-                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
-                    DataSize.succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    Duration.succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -313,19 +313,19 @@ public class InternalResourceGroup
     }
 
     @Override
-    public DataSize getSoftMemoryLimit()
+    public long getSoftMemoryLimitBytes()
     {
         synchronized (root) {
-            return new DataSize(softMemoryLimitBytes, BYTE);
+            return softMemoryLimitBytes;
         }
     }
 
     @Override
-    public void setSoftMemoryLimit(DataSize limit)
+    public void setSoftMemoryLimitBytes(long limit)
     {
         synchronized (root) {
             boolean oldCanRun = canRunMore();
-            this.softMemoryLimitBytes = limit.toBytes();
+            this.softMemoryLimitBytes = limit;
             if (canRunMore() != oldCanRun) {
                 updateEligibility();
             }
@@ -336,7 +336,7 @@ public class InternalResourceGroup
     public Duration getSoftCpuLimit()
     {
         synchronized (root) {
-            return new Duration(softCpuLimitMillis, MILLISECONDS);
+            return Duration.ofMillis(softCpuLimitMillis);
         }
     }
 
@@ -359,7 +359,7 @@ public class InternalResourceGroup
     public Duration getHardCpuLimit()
     {
         synchronized (root) {
-            return new Duration(hardCpuLimitMillis, MILLISECONDS);
+            return Duration.ofMillis(hardCpuLimitMillis);
         }
     }
 

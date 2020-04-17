@@ -21,12 +21,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -62,22 +64,24 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
 {
+    private final Metadata metadata;
     private final SymbolAllocator symbolAllocator;
     private final Lookup lookup;
 
-    public PlanNodeDecorrelator(SymbolAllocator symbolAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(Metadata metadata, SymbolAllocator symbolAllocator, Lookup lookup)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)
     {
-        // TODO: when correlations list empty this should return immediately. However this isn't correct
-        // right now, because for nested subqueries correlation list is empty while there might exists usages
-        // of the outer most correlated symbols
+        if (correlation.isEmpty()) {
+            return Optional.of(new DecorrelatedNode(ImmutableList.of(), node));
+        }
 
-        Optional<DecorrelationResult> decorrelationResultOptional = lookup.resolve(node).accept(new DecorrelatingVisitor(correlation), null);
+        Optional<DecorrelationResult> decorrelationResultOptional = node.accept(new DecorrelatingVisitor(metadata, correlation), null);
         return decorrelationResultOptional.flatMap(decorrelationResult -> decorrelatedNode(
                 decorrelationResult.correlatedPredicates,
                 decorrelationResult.node,
@@ -87,22 +91,33 @@ public class PlanNodeDecorrelator
     private class DecorrelatingVisitor
             extends PlanVisitor<Optional<DecorrelationResult>, Void>
     {
+        private final Metadata metadata;
         private final List<Symbol> correlation;
 
-        DecorrelatingVisitor(List<Symbol> correlation)
+        DecorrelatingVisitor(Metadata metadata, List<Symbol> correlation)
         {
+            this.metadata = metadata;
             this.correlation = requireNonNull(correlation, "correlation is null");
         }
 
         @Override
         protected Optional<DecorrelationResult> visitPlan(PlanNode node, Void context)
         {
+            if (containsCorrelation(node, correlation)) {
+                return Optional.empty();
+            }
             return Optional.of(new DecorrelationResult(
                     node,
                     ImmutableSet.of(),
                     ImmutableList.of(),
                     ImmutableMultimap.of(),
                     false));
+        }
+
+        @Override
+        public Optional<DecorrelationResult> visitGroupReference(GroupReference node, Void context)
+        {
+            return lookup.resolve(node).accept(this, null);
         }
 
         @Override
@@ -117,7 +132,7 @@ public class PlanNodeDecorrelator
 
             // try to decorrelate filters down the tree
             if (containsCorrelation(node.getSource(), correlation)) {
-                childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+                childDecorrelationResultOptional = node.getSource().accept(this, null);
             }
 
             if (!childDecorrelationResultOptional.isPresent()) {
@@ -134,7 +149,7 @@ public class PlanNodeDecorrelator
             FilterNode newFilterNode = new FilterNode(
                     node.getId(),
                     childDecorrelationResult.node,
-                    ExpressionUtils.combineConjuncts(uncorrelatedPredicates));
+                    ExpressionUtils.combineConjuncts(metadata, uncorrelatedPredicates));
 
             Set<Symbol> symbolsToPropagate = Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
@@ -158,7 +173,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -259,7 +274,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -356,7 +371,7 @@ public class PlanNodeDecorrelator
         @Override
         public Optional<DecorrelationResult> visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             return childDecorrelationResultOptional.filter(result -> result.atMostSingleRow);
         }
 
@@ -371,7 +386,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -404,21 +419,18 @@ public class PlanNodeDecorrelator
                     decorrelatedAggregation.getHashSymbol(),
                     decorrelatedAggregation.getGroupIdSymbol());
 
-            boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1
-                    && constantSymbols.containsAll(newAggregation.getGroupingKeys());
-
             return Optional.of(new DecorrelationResult(
                     newAggregation,
                     childDecorrelationResult.symbolsToPropagate,
                     childDecorrelationResult.correlatedPredicates,
                     childDecorrelationResult.correlatedSymbolsMapping,
-                    atMostSingleRow));
+                    constantSymbols.containsAll(newAggregation.getGroupingKeys())));
         }
 
         @Override
         public Optional<DecorrelationResult> visitProject(ProjectNode node, Void context)
         {
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -454,7 +466,7 @@ public class PlanNodeDecorrelator
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
                 if (!(comparison.getLeft() instanceof SymbolReference
                         && comparison.getRight() instanceof SymbolReference
-                        && comparison.getOperator().equals(EQUAL))) {
+                        && comparison.getOperator() == EQUAL)) {
                     continue;
                 }
 

@@ -24,6 +24,7 @@ import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import io.prestosql.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;
@@ -89,7 +90,7 @@ public class TestMetadataManager
         @Language("SQL") String sql = "SELECT * FROM nation";
         queryRunner.execute(sql);
 
-        assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+        assertEquals(metadataManager.getActiveQueryIds().size(), 0);
     }
 
     @Test
@@ -104,7 +105,7 @@ public class TestMetadataManager
             // query should fail
         }
 
-        assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+        assertEquals(metadataManager.getActiveQueryIds().size(), 0);
     }
 
     @Test
@@ -135,7 +136,7 @@ public class TestMetadataManager
 
         // cancel query
         dispatchManager.cancelQuery(queryId);
-        assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+        assertEquals(metadataManager.getActiveQueryIds().size(), 0);
     }
 
     @Test

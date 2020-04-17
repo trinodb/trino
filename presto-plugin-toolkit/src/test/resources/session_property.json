@@ -18,6 +18,11 @@
       "user": "bob",
       "property": "safe",
       "allow": true
+    },
+    {
+      "group": "staff",
+      "property": "staff",
+      "allow": true
     }
   ]
 }

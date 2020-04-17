@@ -22,7 +22,8 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 public interface PlanOptimizer
 {
-    PlanNode optimize(PlanNode plan,
+    PlanNode optimize(
+            PlanNode plan,
             Session session,
             TypeProvider types,
             SymbolAllocator symbolAllocator,

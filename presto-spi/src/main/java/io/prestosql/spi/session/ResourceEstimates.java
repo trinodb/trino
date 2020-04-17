@@ -15,9 +15,8 @@ package io.prestosql.spi.session;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -35,17 +34,17 @@ public final class ResourceEstimates
 
     private final Optional<Duration> executionTime;
     private final Optional<Duration> cpuTime;
-    private final Optional<DataSize> peakMemory;
+    private final Optional<Long> peakMemoryBytes;
 
     @JsonCreator
     public ResourceEstimates(
             @JsonProperty("executionTime") Optional<Duration> executionTime,
             @JsonProperty("cpuTime") Optional<Duration> cpuTime,
-            @JsonProperty("peakMemory") Optional<DataSize> peakMemory)
+            @JsonProperty("peakMemoryBytes") Optional<Long> peakMemoryBytes)
     {
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
-        this.peakMemory = requireNonNull(peakMemory, "peakMemory is null");
+        this.peakMemoryBytes = requireNonNull(peakMemoryBytes, "peakMemoryBytes is null");
     }
 
     @JsonProperty
@@ -61,9 +60,9 @@ public final class ResourceEstimates
     }
 
     @JsonProperty
-    public Optional<DataSize> getPeakMemory()
+    public Optional<Long> getPeakMemoryBytes()
     {
-        return peakMemory;
+        return peakMemoryBytes;
     }
 
     @Override
@@ -72,7 +71,7 @@ public final class ResourceEstimates
         final StringBuilder sb = new StringBuilder("ResourceEstimates{");
         sb.append("executionTime=").append(executionTime);
         sb.append(", cpuTime=").append(cpuTime);
-        sb.append(", peakMemory=").append(peakMemory);
+        sb.append(", peakMemoryBytes=").append(peakMemoryBytes);
         sb.append('}');
         return sb.toString();
     }

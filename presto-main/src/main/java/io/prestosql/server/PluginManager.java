@@ -24,6 +24,7 @@ import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControlManager;
+import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.block.BlockEncoding;
@@ -31,6 +32,7 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.prestosql.spi.security.GroupProviderFactory;
 import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -44,7 +46,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +53,7 @@ import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
@@ -66,7 +68,6 @@ public class PluginManager
             .add("io.prestosql.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
-            .add("io.airlift.units.")
             .add("org.openjdk.jol.")
             .build();
 
@@ -78,6 +79,7 @@ public class PluginManager
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
+    private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
@@ -95,6 +97,7 @@ public class PluginManager
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
+            GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
@@ -115,6 +118,7 @@ public class PluginManager
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
+        this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
     }
 
@@ -144,25 +148,31 @@ public class PluginManager
             throws Exception
     {
         log.info("-- Loading plugin %s --", plugin);
-        URLClassLoader pluginClassLoader = buildClassLoader(plugin);
+        PluginClassLoader pluginClassLoader = buildClassLoader(plugin);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
         log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    private void loadPlugin(URLClassLoader pluginClassLoader)
+    private void loadPlugin(PluginClassLoader pluginClassLoader)
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
         checkState(!plugins.isEmpty(), "No service providers of type %s", Plugin.class.getName());
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            installPlugin(plugin);
+            installPlugin(plugin, pluginClassLoader::duplicate);
         }
     }
 
-    public void installPlugin(Plugin plugin)
+    public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    {
+        installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
+        metadataManager.verifyComparableOrderableContract();
+    }
+
+    private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
@@ -181,7 +191,7 @@ public class PluginManager
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
-            connectorManager.addConnectorFactory(connectorFactory);
+            connectorManager.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
         }
 
         for (Class<?> functionClass : plugin.getFunctions()) {
@@ -213,9 +223,14 @@ public class PluginManager
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
         }
+
+        for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
+            log.info("Registering group provider %s", groupProviderFactory.getName());
+            groupProviderManager.addGroupProviderFactory(groupProviderFactory);
+        }
     }
 
-    private URLClassLoader buildClassLoader(String plugin)
+    private PluginClassLoader buildClassLoader(String plugin)
             throws Exception
     {
         File file = new File(plugin);
@@ -228,34 +243,37 @@ public class PluginManager
         return buildClassLoaderFromCoordinates(plugin);
     }
 
-    private URLClassLoader buildClassLoaderFromPom(File pomFile)
+    private PluginClassLoader buildClassLoaderFromPom(File pomFile)
             throws Exception
     {
         List<Artifact> artifacts = resolver.resolvePom(pomFile);
-        URLClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
+        PluginClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
 
         Artifact artifact = artifacts.get(0);
         Set<String> plugins = discoverPlugins(artifact, classLoader);
         if (!plugins.isEmpty()) {
-            writePluginServices(plugins, artifact.getFile());
+            File root = new File(artifact.getFile().getParentFile().getCanonicalFile(), "plugin-discovery");
+            writePluginServices(plugins, root);
+            log.debug("    %s", root);
+            classLoader = classLoader.withUrl(root.toURI().toURL());
         }
 
         return classLoader;
     }
 
-    private URLClassLoader buildClassLoaderFromDirectory(File dir)
+    private PluginClassLoader buildClassLoaderFromDirectory(File dir)
             throws Exception
     {
-        log.info("Classpath for %s:", dir.getName());
+        log.debug("Classpath for %s:", dir.getName());
         List<URL> urls = new ArrayList<>();
         for (File file : listFiles(dir)) {
-            log.info("    %s", file);
+            log.debug("    %s", file);
             urls.add(file.toURI().toURL());
         }
         return createClassLoader(urls);
     }
 
-    private URLClassLoader buildClassLoaderFromCoordinates(String coordinates)
+    private PluginClassLoader buildClassLoaderFromCoordinates(String coordinates)
             throws Exception
     {
         Artifact rootArtifact = new DefaultArtifact(coordinates);
@@ -263,23 +281,23 @@ public class PluginManager
         return createClassLoader(artifacts, rootArtifact.toString());
     }
 
-    private URLClassLoader createClassLoader(List<Artifact> artifacts, String name)
+    private PluginClassLoader createClassLoader(List<Artifact> artifacts, String name)
             throws IOException
     {
-        log.info("Classpath for %s:", name);
+        log.debug("Classpath for %s:", name);
         List<URL> urls = new ArrayList<>();
         for (Artifact artifact : sortedArtifacts(artifacts)) {
             if (artifact.getFile() == null) {
                 throw new RuntimeException("Could not resolve artifact: " + artifact);
             }
             File file = artifact.getFile().getCanonicalFile();
-            log.info("    %s", file);
+            log.debug("    %s", file);
             urls.add(file.toURI().toURL());
         }
         return createClassLoader(urls);
     }
 
-    private URLClassLoader createClassLoader(List<URL> urls)
+    private PluginClassLoader createClassLoader(List<URL> urls)
     {
         ClassLoader parent = getClass().getClassLoader();
         return new PluginClassLoader(urls, parent, SPI_PACKAGES);

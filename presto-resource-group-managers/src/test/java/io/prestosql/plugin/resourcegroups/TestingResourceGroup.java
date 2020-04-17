@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.resourcegroups;
 
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SchedulingPolicy;
+
+import java.time.Duration;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,7 +25,7 @@ public class TestingResourceGroup
         implements ResourceGroup
 {
     private final ResourceGroupId id;
-    private DataSize memoryLimit;
+    private long softMemoryLimitBytes;
     private Duration softCpuLimit;
     private Duration hardCpuLimit;
     private long quotaGenerationRate;
@@ -48,15 +48,15 @@ public class TestingResourceGroup
     }
 
     @Override
-    public DataSize getSoftMemoryLimit()
+    public long getSoftMemoryLimitBytes()
     {
-        return memoryLimit;
+        return softMemoryLimitBytes;
     }
 
     @Override
-    public void setSoftMemoryLimit(DataSize limit)
+    public void setSoftMemoryLimitBytes(long limit)
     {
-        memoryLimit = limit;
+        softMemoryLimitBytes = limit;
     }
 
     @Override

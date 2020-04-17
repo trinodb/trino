@@ -21,42 +21,21 @@ import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.StreamDescription;
 
 import java.io.Closeable;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class EmbeddedKinesisStream
         implements Closeable
 {
-    private BasicAWSCredentials awsCredentials;
     private AmazonKinesisClient amazonKinesisClient;
-    private List<String> streamsCreated = new ArrayList();
 
     public EmbeddedKinesisStream(String accessKey, String secretKey)
     {
-        this.awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
-        this.amazonKinesisClient = new AmazonKinesisClient(awsCredentials);
+        this.amazonKinesisClient = new AmazonKinesisClient(new BasicAWSCredentials(accessKey, secretKey));
     }
 
     @Override
-    public void close()
-            throws IOException
-    {
-    }
-
-    public void createStreams(String... streamNames)
-    {
-        createStreams(2, streamNames);
-    }
-
-    public void createStreams(int shardCount, String... streamNames)
-    {
-        for (String streamName : streamNames) {
-            createStream(shardCount, streamName);
-        }
-    }
+    public void close() {}
 
     private String checkStreamStatus(String streamName)
     {
@@ -75,14 +54,12 @@ public class EmbeddedKinesisStream
 
         amazonKinesisClient.createStream(createStreamRequest);
         try {
-            while (checkStreamStatus(streamName).equals("ACTIVE") == false) {
+            while (!checkStreamStatus(streamName).equals("ACTIVE")) {
                 MILLISECONDS.sleep(1000);
             }
         }
         catch (Exception e) {
         }
-
-        streamsCreated.add(streamName);
     }
 
     public AmazonKinesisClient getKinesisClient()
@@ -90,13 +67,10 @@ public class EmbeddedKinesisStream
         return amazonKinesisClient;
     }
 
-    public void delteStream(String streamName)
+    public void deleteStream(String streamName)
     {
         DeleteStreamRequest deleteStreamRequest = new DeleteStreamRequest();
         deleteStreamRequest.setStreamName(streamName);
         amazonKinesisClient.deleteStream(deleteStreamRequest);
-        if (streamsCreated.contains(streamName)) {
-            streamsCreated.remove(streamName);
-        }
     }
 }

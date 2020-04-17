@@ -28,9 +28,9 @@ import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.MappedRecordSet;
-import io.prestosql.tests.tpch.TpchIndexedData;
-import io.prestosql.tests.tpch.TpchIndexedData.IndexedTable;
-import io.prestosql.tests.tpch.TpchScaledTable;
+import io.prestosql.testing.tpch.TpchIndexedData;
+import io.prestosql.testing.tpch.TpchIndexedData.IndexedTable;
+import io.prestosql.testing.tpch.TpchScaledTable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +38,9 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.thrift.server.SplitInfo.indexSplit;
-import static io.prestosql.tests.AbstractTestIndexedQueries.INDEX_SPEC;
+import static io.prestosql.testing.AbstractTestIndexedQueries.INDEX_SPEC;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class ThriftIndexedTpchService
         extends ThriftTpchService
@@ -99,16 +100,19 @@ public class ThriftIndexedTpchService
                 .orElseThrow(() -> new IllegalArgumentException(format("No such index: %s%s", splitInfo.getTableName(), splitInfo.getLookupColumnNames())));
         List<Type> lookupColumnTypes = types(splitInfo.getTableName(), splitInfo.getLookupColumnNames());
         RecordSet keyRecordSet = new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes);
-        RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames);
+        RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames, splitInfo.getLookupColumnNames());
         return new RecordPageSource(outputRecordSet);
     }
 
     /**
      * Get lookup result and re-map output columns based on requested order.
      */
-    private static RecordSet lookupIndexKeys(RecordSet keys, IndexedTable table, List<String> outputColumnNames)
+    private static RecordSet lookupIndexKeys(RecordSet keys, IndexedTable table, List<String> outputColumnNames, List<String> lookupColumnNames)
     {
-        RecordSet allColumnsOutputRecordSet = table.lookupKeys(keys);
+        RecordSet allColumnsOutputRecordSet = table.lookupKeys(
+                new MappedRecordSet(
+                        keys,
+                        computeRemap(lookupColumnNames, table.getKeyColumns())));
         List<Integer> outputRemap = computeRemap(table.getOutputColumns(), outputColumnNames);
         return new MappedRecordSet(allColumnsOutputRecordSet, outputRemap);
     }
@@ -181,7 +185,7 @@ public class ThriftIndexedTpchService
                     }
                     else {
                         checkArgument(bytes != null);
-                        result.add(new String(bytes, startOffset, sizes[index]));
+                        result.add(new String(bytes, startOffset, sizes[index], UTF_8));
                         startOffset += sizes[index];
                     }
                 }

@@ -77,7 +77,6 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -104,6 +103,7 @@ import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertDirectory;
@@ -120,13 +120,13 @@ public class TestOrcStorageManager
     private static final int DELETION_THREADS = 2;
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final int MAX_SHARD_ROWS = 100;
-    private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize MAX_FILE_SIZE = DataSize.of(1, MEGABYTE);
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
     private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
-            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
-            .withMaxBufferSize(new DataSize(1, MEGABYTE))
-            .withStreamBufferSize(new DataSize(1, MEGABYTE))
-            .withTinyStripeThreshold(new DataSize(1, MEGABYTE));
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
 
     private final NodeManager nodeManager = new TestingNodeManager();
     private Handle dummyHandle;
@@ -228,19 +228,20 @@ public class TestOrcStorageManager
         try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_OPTIONS)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
-            assertEquals(reader.nextBatch(), 2);
+            Page page = reader.nextPage();
+            assertEquals(page.getPositionCount(), 2);
 
-            Block column0 = reader.readBlock(0);
+            Block column0 = page.getBlock(0);
             assertEquals(column0.isNull(0), false);
             assertEquals(column0.isNull(1), false);
             assertEquals(BIGINT.getLong(column0, 0), 123L);
             assertEquals(BIGINT.getLong(column0, 1), 456L);
 
-            Block column1 = reader.readBlock(1);
+            Block column1 = page.getBlock(1);
             assertEquals(createVarcharType(10).getSlice(column1, 0), utf8Slice("hello"));
             assertEquals(createVarcharType(10).getSlice(column1, 1), utf8Slice("bye"));
 
-            assertEquals(reader.nextBatch(), -1);
+            assertNull(reader.nextPage());
         }
     }
 
@@ -509,7 +510,7 @@ public class TestOrcStorageManager
     @Test
     public void testMaxShardRows()
     {
-        OrcStorageManager manager = createOrcStorageManager(2, new DataSize(2, MEGABYTE));
+        OrcStorageManager manager = createOrcStorageManager(2, DataSize.of(2, MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
@@ -535,7 +536,7 @@ public class TestOrcStorageManager
                 .build();
 
         // Set maxFileSize to 1 byte, so adding any page makes the StoragePageSink full
-        OrcStorageManager manager = createOrcStorageManager(20, new DataSize(1, BYTE));
+        OrcStorageManager manager = createOrcStorageManager(20, DataSize.ofBytes(1));
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(pages);
         assertTrue(sink.isFull());
@@ -622,7 +623,7 @@ public class TestOrcStorageManager
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
                 maxFileSize,
-                new DataSize(0, BYTE));
+                DataSize.ofBytes(0));
     }
 
     private static void assertFileEquals(File actual, File expected)

@@ -22,7 +22,7 @@ import java.util.List;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestTinyintArrayType
@@ -35,7 +35,7 @@ public class TestTinyintArrayType
 
     private TestTinyintArrayType(Metadata metadata)
     {
-        super(metadata.getType(parseTypeSignature("array(tinyint)")), List.class, createTestBlock(metadata.getType(parseTypeSignature("array(tinyint)"))));
+        super(metadata.getType(arrayType(TINYINT.getTypeSignature())), List.class, createTestBlock(metadata.getType(arrayType(TINYINT.getTypeSignature()))));
     }
 
     public static Block createTestBlock(Type arrayType)

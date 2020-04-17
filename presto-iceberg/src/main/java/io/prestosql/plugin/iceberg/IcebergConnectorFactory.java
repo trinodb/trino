@@ -13,53 +13,19 @@
  */
 package io.prestosql.plugin.iceberg;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.inject.Injector;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.event.client.EventModule;
-import io.airlift.json.JsonModule;
-import io.prestosql.plugin.base.jmx.MBeanServerModule;
-import io.prestosql.plugin.base.security.AllowAllAccessControl;
-import io.prestosql.plugin.hive.HiveCatalogName;
-import io.prestosql.plugin.hive.NodeVersion;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
-import io.prestosql.plugin.hive.s3.HiveS3Module;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.PageIndexerFactory;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
-import io.prestosql.spi.type.TypeManager;
-import org.weakref.jmx.guice.MBeanModule;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 public class IcebergConnectorFactory
         implements ConnectorFactory
 {
-    private final Optional<HiveMetastore> metastore;
-
-    public IcebergConnectorFactory(Optional<HiveMetastore> metastore)
-    {
-        this.metastore = requireNonNull(metastore, "metastore is null");
-    }
-
     @Override
     public String getName()
     {
@@ -67,62 +33,21 @@ public class IcebergConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new IcebergHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        ClassLoader classLoader = getClass().getClassLoader();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(
-                    new EventModule(),
-                    new MBeanModule(),
-                    new JsonModule(),
-                    new IcebergModule(),
-                    new HiveS3Module(),
-                    new HiveAuthenticationModule(),
-                    new HiveMetastoreModule(metastore),
-                    new MBeanServerModule(),
-                    binder -> {
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(HiveCatalogName.class).toInstance(new HiveCatalogName(catalogName));
-                    });
-
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
-
-            LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-            IcebergTransactionManager transactionManager = injector.getInstance(IcebergTransactionManager.class);
-            IcebergMetadataFactory metadataFactory = injector.getInstance(IcebergMetadataFactory.class);
-            ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
-            ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
-            ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
-            ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
-            IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
-            IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
-
-            return new IcebergConnector(
-                    lifeCycleManager,
-                    transactionManager,
-                    metadataFactory,
-                    new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
-                    new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
-                    new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
-                    new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
-                    ImmutableSet.of(),
-                    icebergSessionProperties.getSessionProperties(),
-                    IcebergSchemaProperties.SCHEMA_PROPERTIES,
-                    icebergTableProperties.getTableProperties(),
-                    new AllowAllAccessControl());
+        ClassLoader classLoader = context.duplicatePluginClassLoader();
+        try {
+            return (Connector) classLoader.loadClass(InternalIcebergConnectorFactory.class.getName())
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class)
+                    .invoke(null, catalogName, config, context, Optional.empty());
+        }
+        catch (InvocationTargetException e) {
+            Throwable targetException = e.getTargetException();
+            throwIfUnchecked(targetException);
+            throw new RuntimeException(targetException);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 }

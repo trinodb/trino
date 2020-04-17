@@ -71,7 +71,7 @@ public class RelationType
     {
         requireNonNull(field, "field cannot be null");
         Integer index = fieldIndexes.get(field);
-        checkArgument(index != null, "Field %s not found", field);
+        checkArgument(index != null, "Field '%s' not found", field);
         return index;
     }
 
@@ -118,9 +118,9 @@ public class RelationType
     }
 
     /**
-     * This method is used for SELECT * or x.* queries
+     * Gets all visible fields whose relation alias matches given prefix.
      */
-    public List<Field> resolveFieldsWithPrefix(Optional<QualifiedName> prefix)
+    public List<Field> resolveVisibleFieldsWithRelationPrefix(Optional<QualifiedName> prefix)
     {
         return visibleFields.stream()
                 .filter(input -> input.matchesPrefix(prefix))
@@ -169,9 +169,9 @@ public class RelationType
                     visibleFields.size());
         }
 
+        int aliasIndex = 0;
         ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
-        for (int i = 0; i < allFields.size(); i++) {
-            Field field = allFields.get(i);
+        for (Field field : allFields) {
             Optional<String> columnAlias = field.getName();
             if (columnAliases == null) {
                 fieldsBuilder.add(Field.newQualified(
@@ -185,7 +185,8 @@ public class RelationType
             }
             else if (!field.isHidden()) {
                 // hidden fields are not exposed when there are column aliases
-                columnAlias = Optional.of(columnAliases.get(i));
+                columnAlias = Optional.of(columnAliases.get(aliasIndex));
+                aliasIndex++;
                 fieldsBuilder.add(Field.newQualified(
                         QualifiedName.of(relationAlias),
                         columnAlias,

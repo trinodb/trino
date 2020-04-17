@@ -18,23 +18,22 @@ import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.transport.TTransportException;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 public class MockThriftMetastoreClientFactory
         extends ThriftMetastoreClientFactory
 {
-    private final List<ThriftMetastoreClient> clients;
+    private Map<HostAndPort, Optional<ThriftMetastoreClient>> clients;
 
-    public MockThriftMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<ThriftMetastoreClient> clients)
+    public MockThriftMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, Map<String, Optional<ThriftMetastoreClient>> clients)
     {
-        super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication());
-        this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
+        super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication(), "localhost");
+        this.clients = clients.entrySet().stream().collect(Collectors.toMap(entry -> createHostAndPort(entry.getKey()), Map.Entry::getValue));
     }
 
     @Override
@@ -42,11 +41,16 @@ public class MockThriftMetastoreClientFactory
             throws TTransportException
     {
         checkArgument(!delegationToken.isPresent(), "delegation token is not supported");
-        checkState(!clients.isEmpty(), "mock not given enough clients");
-        ThriftMetastoreClient client = clients.remove(0);
-        if (client == null) {
+        Optional<ThriftMetastoreClient> client = clients.getOrDefault(address, Optional.empty());
+        if (!client.isPresent()) {
             throw new TTransportException(TTransportException.TIMED_OUT);
         }
-        return client;
+        return client.get();
+    }
+
+    private static HostAndPort createHostAndPort(String str)
+    {
+        URI uri = URI.create(str);
+        return HostAndPort.fromParts(uri.getHost(), uri.getPort());
     }
 }

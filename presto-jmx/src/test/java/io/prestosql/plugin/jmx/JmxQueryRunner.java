@@ -14,7 +14,7 @@
 package io.prestosql.plugin.jmx;
 
 import io.prestosql.Session;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
@@ -30,7 +30,7 @@ public final class JmxQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession()).build();
 
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");

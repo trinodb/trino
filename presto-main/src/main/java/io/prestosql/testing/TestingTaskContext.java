@@ -86,11 +86,11 @@ public final class TestingTaskContext
         private final Session session;
         private QueryId queryId = new QueryId("test_query");
         private TaskStateMachine taskStateMachine;
-        private DataSize queryMaxMemory = new DataSize(256, MEGABYTE);
-        private final DataSize queryMaxTotalMemory = new DataSize(512, MEGABYTE);
-        private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
-        private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
-        private DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
+        private DataSize queryMaxMemory = DataSize.of(256, MEGABYTE);
+        private final DataSize queryMaxTotalMemory = DataSize.of(512, MEGABYTE);
+        private DataSize memoryPoolSize = DataSize.of(1, GIGABYTE);
+        private DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
+        private DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
 
         private Builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
         {

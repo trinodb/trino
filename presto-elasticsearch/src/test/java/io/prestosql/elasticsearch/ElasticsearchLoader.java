@@ -19,11 +19,12 @@ import io.prestosql.client.QueryData;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.type.Type;
-import io.prestosql.tests.AbstractTestingPrestoClient;
-import io.prestosql.tests.ResultsSession;
+import io.prestosql.testing.AbstractTestingPrestoClient;
+import io.prestosql.testing.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
@@ -41,17 +42,16 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.util.Objects.requireNonNull;
-import static org.elasticsearch.client.Requests.flushRequest;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
         extends AbstractTestingPrestoClient<Void>
 {
     private final String tableName;
-    private final Client client;
+    private final RestHighLevelClient client;
 
     public ElasticsearchLoader(
-            Client client,
+            RestHighLevelClient client,
             String tableName,
             TestingPrestoServer prestoServer,
             Session defaultSession)
@@ -107,8 +107,13 @@ public class ElasticsearchLoader
                 }
             }
 
-            client.bulk(request).actionGet();
-            client.admin().indices().flush(flushRequest(tableName)).actionGet();
+            request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+            try {
+                client.bulk(request);
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override

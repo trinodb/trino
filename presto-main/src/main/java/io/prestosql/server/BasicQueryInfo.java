@@ -15,7 +15,6 @@ package io.prestosql.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.Session;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
@@ -32,9 +31,6 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.execution.QueryState.FAILED;
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.prestosql.server.BasicQueryStats.immediateFailureQueryStats;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -52,6 +48,7 @@ public class BasicQueryInfo
     private final boolean scheduled;
     private final URI self;
     private final String query;
+    private final Optional<String> updateType;
     private final Optional<String> preparedQuery;
     private final BasicQueryStats queryStats;
     private final ErrorType errorType;
@@ -67,6 +64,7 @@ public class BasicQueryInfo
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("query") String query,
+            @JsonProperty("updateType") Optional<String> updateType,
             @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") BasicQueryStats queryStats,
             @JsonProperty("errorType") ErrorType errorType,
@@ -82,6 +80,7 @@ public class BasicQueryInfo
         this.scheduled = scheduled;
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
+        this.updateType = requireNonNull(updateType, "updateType is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
     }
@@ -96,27 +95,11 @@ public class BasicQueryInfo
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getQuery(),
+                Optional.ofNullable(queryInfo.getUpdateType()),
                 queryInfo.getPreparedQuery(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode());
-    }
-
-    public static BasicQueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ErrorCode errorCode)
-    {
-        return new BasicQueryInfo(
-                session.getQueryId(),
-                session.toSessionRepresentation(),
-                resourceGroupId,
-                FAILED,
-                GENERAL_POOL,
-                false,
-                self,
-                query,
-                Optional.empty(),
-                immediateFailureQueryStats(),
-                errorCode == null ? null : errorCode.getType(),
-                errorCode);
     }
 
     @JsonProperty
@@ -165,6 +148,12 @@ public class BasicQueryInfo
     public String getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public Optional<String> getUpdateType()
+    {
+        return updateType;
     }
 
     @JsonProperty

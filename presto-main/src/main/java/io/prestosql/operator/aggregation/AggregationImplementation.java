@@ -15,7 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.LongVariableConstraint;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -49,7 +49,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsAnnotation;
@@ -59,7 +61,6 @@ import static io.prestosql.operator.annotations.ImplementationDependency.Factory
 import static io.prestosql.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.prestosql.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.prestosql.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -104,6 +105,7 @@ public class AggregationImplementation
     private final List<ImplementationDependency> outputDependencies;
     private final List<ImplementationDependency> stateSerializerFactoryDependencies;
     private final List<ParameterType> inputParameterMetadataTypes;
+    private final ImmutableList<FunctionArgumentDefinition> argumentDefinitions;
 
     public AggregationImplementation(
             Signature signature,
@@ -137,6 +139,11 @@ public class AggregationImplementation
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
         this.stateSerializerFactoryDependencies = requireNonNull(stateSerializerFactoryDependencies, "stateSerializerFactoryDependencies cannot be null");
         this.inputParameterMetadataTypes = requireNonNull(inputParameterMetadataTypes, "inputParameterMetadataTypes cannot be null");
+        this.argumentDefinitions = inputParameterMetadataTypes.stream()
+                .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
+                .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
+                .map(FunctionArgumentDefinition::new)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -149,6 +156,19 @@ public class AggregationImplementation
     public boolean hasSpecializedTypeParameters()
     {
         return false;
+    }
+
+    @Override
+    public final boolean isNullable()
+    {
+        // for now all aggregation functions are considered nullable
+        return true;
+    }
+
+    @Override
+    public List<FunctionArgumentDefinition> getArgumentDefinitions()
+    {
+        return argumentDefinitions;
     }
 
     public Class<?> getDefinitionClass()
@@ -226,10 +246,10 @@ public class AggregationImplementation
             Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
             boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
 
-            if (isCurrentBlockPosition && Block.class.isAssignableFrom(methodDeclaredType)) {
+            if (isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(Block.class)) {
                 continue;
             }
-            if (!isCurrentBlockPosition && argumentType.isAssignableFrom(methodDeclaredType)) {
+            if (!isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(argumentType)) {
                 continue;
             }
             return false;
@@ -332,7 +352,6 @@ public class AggregationImplementation
         {
             Signature signature = new Signature(
                     header.getName(),
-                    FunctionKind.AGGREGATE,
                     typeVariableConstraints,
                     longVariableConstraints,
                     returnType,

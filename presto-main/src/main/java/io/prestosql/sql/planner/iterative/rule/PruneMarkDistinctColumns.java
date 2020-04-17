@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.Streams;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -36,7 +35,7 @@ public class PruneMarkDistinctColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, MarkDistinctNode markDistinctNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, MarkDistinctNode markDistinctNode, Set<Symbol> referencedOutputs)
     {
         if (!referencedOutputs.contains(markDistinctNode.getMarkerSymbol())) {
             return Optional.of(markDistinctNode.getSource());
@@ -49,6 +48,6 @@ public class PruneMarkDistinctColumns
                 markDistinctNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, markDistinctNode, requiredInputs);
+        return restrictChildOutputs(context.getIdAllocator(), markDistinctNode, requiredInputs);
     }
 }

@@ -16,6 +16,8 @@ package io.prestosql.plugin.jdbc;
 import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.jdbc.MetadataUtil.COLUMN_CODEC;
 import static io.prestosql.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
@@ -28,7 +30,7 @@ public class TestJdbcColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true));
+        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true, Optional.of("some comment")));
     }
 
     @Test
@@ -36,15 +38,15 @@ public class TestJdbcColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true),
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true),
-                        new JdbcColumnHandle("columnName", JDBC_BIGINT, BIGINT, true),
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true))
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnName", JDBC_BIGINT, BIGINT),
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR, true),
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR, true),
-                        new JdbcColumnHandle("columnNameX", JDBC_BIGINT, BIGINT, true),
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR, true))
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnNameX", JDBC_BIGINT, BIGINT),
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR))
                 .check();
     }
 }

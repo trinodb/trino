@@ -30,7 +30,6 @@ public final class TestGroups
     public static final String JDBC = "jdbc";
     public static final String MYSQL = "mysql";
     public static final String PRESTO_JDBC = "presto_jdbc";
-    public static final String SIMBA_JDBC = "simba_jdbc";
     public static final String QUERY_ENGINE = "qe";
     public static final String COMPARISON = "comparison";
     public static final String LOGICAL = "logical";
@@ -50,6 +49,9 @@ public final class TestGroups
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
     public static final String HIVE_PARTITIONING = "hive_partitioning";
+    public static final String HIVE_COMPRESSION = "hive_compression";
+    public static final String HIVE_TRANSACTIONAL = "hive_transactional";
+    public static final String HIVE_VIEWS = "hive_views";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";
@@ -57,12 +59,14 @@ public final class TestGroups
     public static final String LDAP = "ldap";
     public static final String LDAP_CLI = "ldap_cli";
     public static final String SKIP_ON_CDH = "skip_on_cdh";
+    public static final String HDP3_ONLY = "hdp3_only";
     public static final String TLS = "tls";
     public static final String ROLES = "roles";
     public static final String CANCEL_QUERY = "cancel_query";
     public static final String BIG_QUERY = "big_query";
-    public static final String HIVE_TABLE_STATISTICS = "hive_table_statistics";
     public static final String KAFKA = "kafka";
+    public static final String TWO_HIVES = "two_hives";
+    public static final String ICEBERG = "iceberg";
 
     private TestGroups() {}
 }

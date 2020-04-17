@@ -32,12 +32,13 @@ public class TestOrcReaderConfig
         assertRecordedDefaults(recordDefaults(OrcReaderConfig.class)
                 .setUseColumnNames(false)
                 .setBloomFiltersEnabled(false)
-                .setMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
-                .setMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setTinyStripeThreshold(new DataSize(8, Unit.MEGABYTE))
-                .setMaxBlockSize(new DataSize(16, Unit.MEGABYTE))
-                .setLazyReadSmallRanges(true));
+                .setMaxMergeDistance(DataSize.of(1, Unit.MEGABYTE))
+                .setMaxBufferSize(DataSize.of(8, Unit.MEGABYTE))
+                .setStreamBufferSize(DataSize.of(8, Unit.MEGABYTE))
+                .setTinyStripeThreshold(DataSize.of(8, Unit.MEGABYTE))
+                .setMaxBlockSize(DataSize.of(16, Unit.MEGABYTE))
+                .setLazyReadSmallRanges(true)
+                .setNestedLazy(true));
     }
 
     @Test
@@ -52,17 +53,19 @@ public class TestOrcReaderConfig
                 .put("hive.orc.tiny-stripe-threshold", "61kB")
                 .put("hive.orc.max-read-block-size", "66kB")
                 .put("hive.orc.lazy-read-small-ranges", "false")
+                .put("hive.orc.nested-lazy", "false")
                 .build();
 
         OrcReaderConfig expected = new OrcReaderConfig()
                 .setUseColumnNames(true)
                 .setBloomFiltersEnabled(true)
-                .setMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
-                .setMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
-                .setStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
-                .setTinyStripeThreshold(new DataSize(61, Unit.KILOBYTE))
-                .setMaxBlockSize(new DataSize(66, Unit.KILOBYTE))
-                .setLazyReadSmallRanges(false);
+                .setMaxMergeDistance(DataSize.of(22, Unit.KILOBYTE))
+                .setMaxBufferSize(DataSize.of(44, Unit.KILOBYTE))
+                .setStreamBufferSize(DataSize.of(55, Unit.KILOBYTE))
+                .setTinyStripeThreshold(DataSize.of(61, Unit.KILOBYTE))
+                .setMaxBlockSize(DataSize.of(66, Unit.KILOBYTE))
+                .setLazyReadSmallRanges(false)
+                .setNestedLazy(false);
 
         assertFullMapping(properties, expected);
     }

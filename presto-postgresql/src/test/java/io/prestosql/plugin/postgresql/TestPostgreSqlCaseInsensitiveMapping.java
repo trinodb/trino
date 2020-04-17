@@ -15,7 +15,8 @@ package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -34,20 +35,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPostgreSqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private TestingPostgreSqlServer postgreSqlServer;
 
-    public TestPostgreSqlCaseInsensitiveMapping()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new TestingPostgreSqlServer());
-    }
-
-    public TestPostgreSqlCaseInsensitiveMapping(TestingPostgreSqlServer postgreSqlServer)
-    {
-        super(() -> PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
+        this.postgreSqlServer = new TestingPostgreSqlServer();
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
                 postgreSqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.of("case-insensitive-name-matching", "true"),
-                ImmutableSet.of()));
-        this.postgreSqlServer = postgreSqlServer;
+                ImmutableSet.of());
     }
 
     @AfterClass(alwaysRun = true)

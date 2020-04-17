@@ -15,20 +15,22 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoClient;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.bson.Document;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -39,24 +41,23 @@ import static org.testng.Assert.assertNotNull;
 public class TestMongoIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private MongoQueryRunner mongoQueryRunner;
+    private MongoServer server;
+    private MongoClient client;
 
-    public TestMongoIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMongoQueryRunner(ORDERS));
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
+        this.server = new MongoServer();
+        this.client = createMongoClient(server);
+        return createMongoQueryRunner(server, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        mongoQueryRunner.shutdown();
-        mongoQueryRunner = null;
+        server.close();
+        client.close();
     }
 
     @Test
@@ -172,6 +173,19 @@ public class TestMongoIntegrationSmokeTest
     }
 
     @Test
+    public void testSkipUnknownTypes()
+    {
+        Document document1 = new Document("col", Document.parse("{\"key1\": \"value1\", \"key2\": null}"));
+        client.getDatabase("test").getCollection("tmp_guess_schema1").insertOne(document1);
+        assertQuery("SHOW COLUMNS FROM test.tmp_guess_schema1", "SELECT 'col', 'row(key1 varchar)', '', ''");
+        assertQuery("SELECT col.key1 FROM test.tmp_guess_schema1", "SELECT 'value1'");
+
+        Document document2 = new Document("col", new Document("key1", null));
+        client.getDatabase("test").getCollection("tmp_guess_schema2").insertOne(document2);
+        assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
+    }
+
+    @Test
     public void testMaps()
     {
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
@@ -196,28 +210,28 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
 
         assertUpdate("CREATE TABLE test.tmp_map8 (col MAP<VARCHAR, VARCHAR>)");
-        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map8").insertOne(new Document(
+        client.getDatabase("test").getCollection("tmp_map8").insertOne(new Document(
                 ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
         assertQuery("SELECT col['key1'] FROM test.tmp_map8", "SELECT 'value1'");
 
         assertUpdate("CREATE TABLE test.tmp_map9 (col VARCHAR)");
-        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map9").insertOne(new Document(
+        client.getDatabase("test").getCollection("tmp_map9").insertOne(new Document(
                 ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
         assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{ \"key1\" : \"value1\", \"key2\" : \"value2\" }'");
 
         assertUpdate("CREATE TABLE test.tmp_map10 (col VARCHAR)");
-        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map10").insertOne(new Document(
+        client.getDatabase("test").getCollection("tmp_map10").insertOne(new Document(
                 ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
                         new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
         assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{ \"key1\" : \"value1\", \"key2\" : \"value2\" }, { \"key3\" : \"value3\", \"key4\" : \"value4\" }]'");
 
         assertUpdate("CREATE TABLE test.tmp_map11 (col VARCHAR)");
-        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map11").insertOne(new Document(
+        client.getDatabase("test").getCollection("tmp_map11").insertOne(new Document(
                 ImmutableMap.of("col", 10)));
         assertQuery("SELECT col FROM test.tmp_map11", "SELECT '10'");
 
         assertUpdate("CREATE TABLE test.tmp_map12 (col VARCHAR)");
-        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map12").insertOne(new Document(
+        client.getDatabase("test").getCollection("tmp_map12").insertOne(new Document(
                 ImmutableMap.of("col", Arrays.asList(10, null, 11))));
         assertQuery("SELECT col FROM test.tmp_map12", "SELECT '[10, null, 11]'");
     }
@@ -283,6 +297,24 @@ public class TestMongoIntegrationSmokeTest
                 "VALUES (9, NULL, 1), (9, 'ffffffffffffffffffffffff', 1), (12, 'ffffffffffffffffffffffff', 2), (12, '000000000000000000000000', 1), (15, NULL, 1)");
 
         assertUpdate("DROP TABLE tmp_objectid");
+    }
+
+    @Test
+    public void testSelectView()
+    {
+        assertUpdate("CREATE TABLE test.view_base AS SELECT 'foo' _varchar", 1);
+        client.getDatabase("test").createView("test_view", "view_base", ImmutableList.of());
+        assertQuery("SELECT * FROM test.view_base", "SELECT 'foo'");
+        assertUpdate("DROP TABLE test.test_view");
+        assertUpdate("DROP TABLE test.view_base");
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        assertUpdate("CREATE TABLE test.drop_table(col bigint)");
+        assertUpdate("DROP TABLE test.drop_table");
+        assertQueryFails("SELECT * FROM test.drop_table", ".*Table 'mongodb.test.drop_table' does not exist");
     }
 
     private void assertOneNotNullResult(String query)

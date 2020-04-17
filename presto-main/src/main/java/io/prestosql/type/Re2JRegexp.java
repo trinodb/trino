@@ -36,11 +36,11 @@ public final class Re2JRegexp
     private static final java.util.regex.Pattern DOT_STAR_PREFIX_PATTERN = java.util.regex.Pattern.compile("(?s)^(\\.\\*\\??)?(.*)");
     private static final int CORE_PATTERN_INDEX = 2;
 
-    public final int dfaStatesLimit;
-    public final int dfaRetries;
+    private final int dfaStatesLimit;
+    private final int dfaRetries;
 
-    public final Pattern re2jPattern;
-    public final Pattern re2jPatternWithoutDotStartPrefix;
+    private final Pattern re2jPattern;
+    private final Pattern re2jPatternWithoutDotStartPrefix;
 
     public Re2JRegexp(int dfaStatesLimit, int dfaRetries, Slice pattern)
     {
@@ -71,9 +71,25 @@ public final class Re2JRegexp
         }
     }
 
+    public String pattern()
+    {
+        return re2jPattern.pattern();
+    }
+
+    @Override
+    public String toString()
+    {
+        return pattern();
+    }
+
     public boolean matches(Slice source)
     {
         return re2jPatternWithoutDotStartPrefix.find(source);
+    }
+
+    public Matcher matcher(Slice source)
+    {
+        return re2jPattern.matcher(source);
     }
 
     public Slice replace(Slice source, Slice replacement)

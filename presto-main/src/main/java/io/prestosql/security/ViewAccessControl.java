@@ -14,6 +14,7 @@
 package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.security.Identity;
 
 import java.util.Set;
 
@@ -23,15 +24,21 @@ public class ViewAccessControl
         extends DenyAllAccessControl
 {
     private final AccessControl delegate;
+    private final Identity invoker;
 
-    public ViewAccessControl(AccessControl delegate)
+    public ViewAccessControl(AccessControl delegate, Identity invoker)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.invoker = requireNonNull(invoker, "invoker is null");
     }
 
     @Override
     public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
+        // This is intentional and matches the SQL standard for view security.
+        // In SQL, views are special in that they execute with permissions of the owner.
+        // This means that the owner of the view is effectively granting permissions to the user running the query,
+        // and thus must have the equivalent of the SQL standard "GRANT ... WITH GRANT OPTION".
         delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
     }
 
@@ -39,5 +46,17 @@ public class ViewAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    {
+        delegate.checkCanGrantExecuteFunctionPrivilege(context, functionName, invoker, false);
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+        delegate.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
     }
 }

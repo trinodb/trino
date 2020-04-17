@@ -50,7 +50,8 @@ public class Analyzer
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
 
-    public Analyzer(Session session,
+    public Analyzer(
+            Session session,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
@@ -85,7 +86,7 @@ public class Analyzer
         analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                accessControlInfo.getSecurityContext(session.getRequiredTransactionId()),
+                                accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId()),
                                 tableName,
                                 columns)));
         return analysis;

@@ -26,9 +26,8 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.StandaloneQueryRunner;
+import io.prestosql.testing.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -40,6 +39,7 @@ import java.util.UUID;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -67,7 +67,6 @@ public class TestRecordAccess
 
     @BeforeClass
     public void start()
-            throws Exception
     {
         dummyStreamName = "test123";
         jsonStreamName = "sampleTable";
@@ -77,20 +76,18 @@ public class TestRecordAccess
 
     @AfterClass
     public void stop()
-            throws Exception
     {
         queryRunner.close();
     }
 
     private void createDummyMessages(String streamName, int count)
-            throws Exception
     {
         PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
         putRecordsRequest.setStreamName(streamName);
         List<PutRecordsRequestEntry> putRecordsRequestEntryList = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             PutRecordsRequestEntry putRecordsRequestEntry = new PutRecordsRequestEntry();
-            putRecordsRequestEntry.setData(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()));
+            putRecordsRequestEntry.setData(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes(UTF_8)));
             putRecordsRequestEntry.setPartitionKey(Long.toString(i));
             putRecordsRequestEntryList.add(putRecordsRequestEntry);
         }
@@ -100,7 +97,6 @@ public class TestRecordAccess
     }
 
     private void createJsonMessages(String streamName, int count, int idStart)
-            throws Exception
     {
         String jsonFormat = "{\"id\" : %d, \"name\" : \"%s\"}";
         PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
@@ -113,7 +109,7 @@ public class TestRecordAccess
             String jsonVal = String.format(jsonFormat, id, name);
 
             // ? with StandardCharsets.UTF_8
-            putRecordsRequestEntry.setData(ByteBuffer.wrap(jsonVal.getBytes()));
+            putRecordsRequestEntry.setData(ByteBuffer.wrap(jsonVal.getBytes(UTF_8)));
             putRecordsRequestEntry.setPartitionKey(Long.toString(id));
             putRecordsRequestEntryList.add(putRecordsRequestEntry);
         }
@@ -124,7 +120,6 @@ public class TestRecordAccess
 
     @Test
     public void testStreamExists()
-            throws Exception
     {
         QualifiedObjectName name = new QualifiedObjectName("kinesis", "default", dummyStreamName);
 
@@ -139,7 +134,6 @@ public class TestRecordAccess
 
     @Test
     public void testStreamHasData()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("Select count(1) from " + dummyStreamName);
         MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
@@ -163,7 +157,6 @@ public class TestRecordAccess
 
     @Test
     public void testJsonStream()
-            throws Exception
     {
         // Simple case: add a few specific items, query object and internal fields:
         createJsonMessages(jsonStreamName, 4, 100);
@@ -183,12 +176,5 @@ public class TestRecordAccess
             assertEquals(row.getFieldCount(), 5);
             log.info("ROW: " + row.toString());
         }
-    }
-
-    @AfterMethod
-    public void tearDown()
-            throws Exception
-    {
-        // If desired clear messages or streams depending on the test being conducted!
     }
 }

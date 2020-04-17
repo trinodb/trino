@@ -26,13 +26,13 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractType;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class IpAddressType
         extends AbstractType
@@ -42,7 +42,7 @@ public class IpAddressType
 
     private IpAddressType()
     {
-        super(parseTypeSignature(StandardTypes.IPADDRESS), Slice.class);
+        super(new TypeSignature(StandardTypes.IPADDRESS), Slice.class);
     }
 
     @Override

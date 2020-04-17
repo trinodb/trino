@@ -14,16 +14,43 @@
 package io.prestosql.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRaptorIntegrationSmokeTestBucketed
         extends TestRaptorIntegrationSmokeTest
 {
-    public TestRaptorIntegrationSmokeTestBucketed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
+        return createRaptorQueryRunner(ImmutableMap.of(), true, true);
+    }
+
+    @Test
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE raptor.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   bucket_count = 25,\n" +
+                        "   bucketed_on = ARRAY['orderkey'],\n" +
+                        "   distribution_name = 'order'\n" +
+                        ")");
     }
 
     @Test

@@ -13,11 +13,16 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestJoinQueries;
+import io.prestosql.testing.QueryRunner;
+
 public class TestSpilledJoinQueries
         extends AbstractTestJoinQueries
 {
-    public TestSpilledJoinQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        return TestDistributedSpilledQueries.createSpillingQueryRunner();
     }
 }

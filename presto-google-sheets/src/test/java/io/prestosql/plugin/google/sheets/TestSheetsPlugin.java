@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.google.sheets;
 
+import com.google.common.io.Resources;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -20,16 +21,14 @@ import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.FileWriter;
-import java.io.InputStream;
-import java.util.Scanner;
+import java.nio.file.Files;
+import java.util.Base64;
 
 import static com.google.common.collect.ImmutableMap.Builder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
 import static java.io.File.createTempFile;
-import static java.lang.ClassLoader.getSystemResourceAsStream;
-import static java.util.Base64.getDecoder;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertNotNull;
 
 public class TestSheetsPlugin
@@ -39,22 +38,12 @@ public class TestSheetsPlugin
     static String getTestCredentialsPath()
             throws Exception
     {
-        try (InputStream in = getSystemResourceAsStream("gsheets-creds-base64-encoded.props")) {
-            assertNotNull(in);
-            Scanner scn = new Scanner(in);
-            StringBuilder credsBase64Encoded = new StringBuilder();
-            while (scn.hasNextLine()) {
-                credsBase64Encoded.append(scn.nextLine());
-            }
-            String credentials = new String(getDecoder().decode(credsBase64Encoded.toString()));
-            File tempFile = createTempFile(System.getProperty("java.io.tmpdir"), "credentials-" + System.currentTimeMillis() + ".json");
-            try (FileWriter fw = new FileWriter(tempFile)) {
-                fw.append(credentials);
-                fw.flush();
-            }
-            tempFile.deleteOnExit();
-            return tempFile.getAbsolutePath();
-        }
+        String encodedCredentials = Resources.toString(Resources.getResource("gsheets-creds-base64-encoded.props"), UTF_8);
+        byte[] credentials = Base64.getDecoder().decode(encodedCredentials.trim());
+        File tempFile = createTempFile(System.getProperty("java.io.tmpdir"), "credentials-" + System.currentTimeMillis() + ".json");
+        tempFile.deleteOnExit();
+        Files.write(tempFile.toPath(), credentials);
+        return tempFile.getAbsolutePath();
     }
 
     @Test

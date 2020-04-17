@@ -46,7 +46,6 @@ public class KinesisSplitManager
 {
     public static final long MAX_CACHE_AGE_MILLIS = new Duration(1, DAYS).toMillis();
 
-    private final KinesisHandleResolver handleResolver;
     private final KinesisClientProvider clientManager;
 
     private Map<String, InternalStreamDescription> streamMap = Collections.synchronizedMap(new HashMap<String, InternalStreamDescription>());
@@ -82,11 +81,6 @@ public class KinesisSplitManager
             return shards;
         }
 
-        public void addShard(Shard shard)
-        {
-            this.shards.add(shard);
-        }
-
         public void addAllShards(List<Shard> shards)
         {
             this.shards.addAll(shards);
@@ -94,11 +88,8 @@ public class KinesisSplitManager
     }
 
     @Inject
-    public KinesisSplitManager(
-            KinesisHandleResolver handleResolver,
-            KinesisClientProvider clientManager)
+    public KinesisSplitManager(KinesisClientProvider clientManager)
     {
-        this.handleResolver = handleResolver;
         this.clientManager = clientManager;
     }
 

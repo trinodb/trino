@@ -45,7 +45,7 @@ public final class CharType
         super(
                 new TypeSignature(
                         StandardTypes.CHAR,
-                        singletonList(TypeSignatureParameter.of(length))),
+                        singletonList(TypeSignatureParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {

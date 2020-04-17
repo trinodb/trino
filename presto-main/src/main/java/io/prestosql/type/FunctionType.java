@@ -52,9 +52,9 @@ public class FunctionType
         ImmutableList.Builder<TypeSignatureParameter> builder = ImmutableList.builder();
         argumentTypes.stream()
                 .map(Type::getTypeSignature)
-                .map(TypeSignatureParameter::of)
+                .map(TypeSignatureParameter::typeParameter)
                 .forEach(builder::add);
-        builder.add(TypeSignatureParameter.of(returnType.getTypeSignature()));
+        builder.add(TypeSignatureParameter.typeParameter(returnType.getTypeSignature()));
         return builder.build();
     }
 

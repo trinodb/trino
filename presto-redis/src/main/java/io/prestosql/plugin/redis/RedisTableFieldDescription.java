@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -116,7 +117,12 @@ public final class RedisTableFieldDescription
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getName(), getType(), getComment(), isHidden());
+        return ColumnMetadata.builder()
+                .setName(getName())
+                .setType(getType())
+                .setComment(Optional.ofNullable(getComment()))
+                .setHidden(isHidden())
+                .build();
     }
 
     @Override

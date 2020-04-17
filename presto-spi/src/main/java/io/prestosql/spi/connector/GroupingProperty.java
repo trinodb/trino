@@ -48,6 +48,7 @@ public final class GroupingProperty<E>
         return true;
     }
 
+    @Override
     @JsonProperty
     public Set<E> getColumns()
     {

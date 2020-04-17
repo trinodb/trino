@@ -16,11 +16,13 @@ package io.prestosql.sql.relational.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.InputReferenceExpression;
@@ -29,6 +31,7 @@ import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
 import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -38,21 +41,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.Signature.internalScalarFunction;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.prestosql.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.prestosql.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.constantNull;
-import static io.prestosql.sql.relational.Signatures.CAST;
 import static io.prestosql.sql.relational.SpecialForm.Form.BIND;
 import static io.prestosql.type.JsonType.JSON;
 
@@ -90,19 +88,18 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            if (call.getSignature().getName().equals(CAST)) {
+            if (call.getResolvedFunction().getSignature().getName().equals(mangleOperatorName(CAST))) {
                 call = rewriteCast(call);
             }
-            Signature signature = call.getSignature();
 
-            ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && function.isDeterministic()) {
-                MethodHandle method = function.getMethodHandle();
+            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(call.getResolvedFunction());
+            if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && functionMetadata.isDeterministic()) {
+                MethodHandle method = metadata.getScalarFunctionImplementation(call.getResolvedFunction()).getMethodHandle();
 
                 if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
                     method = method.bindTo(session);
@@ -113,7 +110,7 @@ public class ExpressionOptimizer
                 for (RowExpression argument : arguments) {
                     Object value = ((ConstantExpression) argument).getValue();
                     // if any argument is null, return null
-                    if (value == null && function.getArgumentProperty(index).getNullConvention() == RETURN_NULL_ON_NULL) {
+                    if (value == null && !functionMetadata.getArgumentDefinitions().get(index).isNullable()) {
                         return constantNull(call.getType());
                     }
                     constantArguments.add(value);
@@ -131,7 +128,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(signature, metadata.getType(signature.getReturnType()), arguments);
+            return call(call.getResolvedFunction(), metadata.getType(call.getResolvedFunction().getSignature().getReturnType()), arguments);
         }
 
         @Override
@@ -215,34 +212,25 @@ public class ExpressionOptimizer
             if (call.getArguments().get(0) instanceof CallExpression) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
                 CallExpression innerCall = (CallExpression) call.getArguments().get(0);
-                if (innerCall.getSignature().getName().equals("json_parse")) {
+                if (innerCall.getResolvedFunction().getSignature().getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
-                    TypeSignature returnType = call.getSignature().getReturnType();
-                    if (returnType.getBase().equals(ARRAY)) {
+                    Type returnType = call.getType();
+                    if (returnType instanceof ArrayType) {
                         return call(
-                                internalScalarFunction(
-                                        JSON_STRING_TO_ARRAY_NAME,
-                                        returnType,
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
-                    if (returnType.getBase().equals(MAP)) {
+                    if (returnType instanceof MapType) {
                         return call(
-                                internalScalarFunction(
-                                        JSON_STRING_TO_MAP_NAME,
-                                        returnType,
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
-                    if (returnType.getBase().equals(ROW)) {
+                    if (returnType instanceof RowType) {
                         return call(
-                                internalScalarFunction(
-                                        JSON_STRING_TO_ROW_NAME,
-                                        returnType,
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
                                 call.getType(),
                                 innerCall.getArguments());
                     }

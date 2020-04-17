@@ -19,6 +19,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TestingTypeDeserializer;
 import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spi.type.Type;
@@ -28,7 +29,8 @@ import java.util.Comparator;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.util.Comparator.comparing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -69,6 +71,14 @@ public class TestConnectorViewDefinition
     }
 
     @Test
+    public void testViewComment()
+    {
+        ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"comment\": \"hello\"}");
+        assertBaseView(view);
+        assertEquals(view.getComment(), Optional.of("hello"));
+    }
+
+    @Test
     public void testViewSecurityDefiner()
     {
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"owner\": \"abc\", \"runAsInvoker\": false}");
@@ -94,8 +104,9 @@ public class TestConnectorViewDefinition
                 Optional.of("test_catalog"),
                 Optional.of("test_schema"),
                 ImmutableList.of(
-                        new ViewColumn("abc", parseTypeSignature("bigint")),
-                        new ViewColumn("xyz", parseTypeSignature("array(varchar(32))"))),
+                        new ViewColumn("abc", BIGINT.getTypeId()),
+                        new ViewColumn("xyz", new ArrayType(createVarcharType(32)).getTypeId())),
+                Optional.of("comment"),
                 Optional.of("test_owner"),
                 false));
     }
@@ -106,7 +117,7 @@ public class TestConnectorViewDefinition
         assertEquals(view.getColumns().size(), 1);
         ViewColumn column = getOnlyElement(view.getColumns());
         assertEquals(column.getName(), "x");
-        assertEquals(column.getType(), parseTypeSignature("bigint"));
+        assertEquals(column.getType(), BIGINT.getTypeId());
         assertRoundTrip(view);
     }
 

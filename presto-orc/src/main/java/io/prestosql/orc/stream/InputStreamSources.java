@@ -14,7 +14,7 @@
 package io.prestosql.orc.stream;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.orc.StreamDescriptor;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.StreamId;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 
@@ -33,19 +33,19 @@ public class InputStreamSources
         this.streamSources = ImmutableMap.copyOf(requireNonNull(streamSources, "streamSources is null"));
     }
 
-    public <S extends ValueInputStream<?>> InputStreamSource<S> getInputStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<S> streamType)
+    public <S extends ValueInputStream<?>> InputStreamSource<S> getInputStreamSource(OrcColumn column, StreamKind streamKind, Class<S> streamType)
     {
-        requireNonNull(streamDescriptor, "streamDescriptor is null");
+        requireNonNull(column, "column is null");
         requireNonNull(streamType, "streamType is null");
 
-        InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
+        InputStreamSource<?> streamSource = streamSources.get(new StreamId(column.getColumnId(), streamKind));
         if (streamSource == null) {
             streamSource = missingStreamSource(streamType);
         }
 
         checkArgument(streamType.isAssignableFrom(streamSource.getStreamType()),
                 "%s must be of type %s, not %s",
-                streamDescriptor,
+                column,
                 streamType.getName(),
                 streamSource.getStreamType().getName());
 

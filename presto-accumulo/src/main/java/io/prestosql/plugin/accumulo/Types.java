@@ -13,7 +13,8 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 
 /**
@@ -25,12 +26,12 @@ public final class Types
 
     public static boolean isArrayType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+        return type instanceof ArrayType;
     }
 
     public static boolean isMapType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
+        return type instanceof MapType;
     }
 
     /**

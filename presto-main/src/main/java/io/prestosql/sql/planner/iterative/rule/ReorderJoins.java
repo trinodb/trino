@@ -26,8 +26,12 @@ import io.prestosql.Session;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.CostProvider;
 import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsAndCostSummary;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsProvider;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.EqualityInference;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -53,8 +57,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -95,22 +99,25 @@ public class ReorderJoins
 
     // We check that join distribution type is absent because we only want
     // to do this transformation once (reordered joins will have distribution type already set).
-    private static final Pattern<JoinNode> PATTERN = join().matching(
-            joinNode -> !joinNode.getDistributionType().isPresent()
-                    && joinNode.getType() == INNER
-                    && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL)));
+    private final Pattern<JoinNode> pattern;
 
+    private final Metadata metadata;
     private final CostComparator costComparator;
 
-    public ReorderJoins(CostComparator costComparator)
+    public ReorderJoins(Metadata metadata, CostComparator costComparator)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
+        this.pattern = join().matching(
+                joinNode -> !joinNode.getDistributionType().isPresent()
+                        && joinNode.getType() == INNER
+                        && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), metadata));
     }
 
     @Override
     public Pattern<JoinNode> getPattern()
     {
-        return PATTERN;
+        return pattern;
     }
 
     @Override
@@ -123,7 +130,7 @@ public class ReorderJoins
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         // try reorder joins with projection pushdown first
-        MultiJoinNode multiJoinNode = MultiJoinNode.toMultiJoinNode(joinNode, context, true);
+        MultiJoinNode multiJoinNode = toMultiJoinNode(metadata, joinNode, context, true);
         JoinEnumerationResult resultWithProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
         if (!resultWithProjectionPushdown.getPlanNode().isPresent()) {
             return Result.empty();
@@ -134,7 +141,7 @@ public class ReorderJoins
         }
 
         // try reorder joins without projection pushdown
-        multiJoinNode = toMultiJoinNode(joinNode, context, false);
+        multiJoinNode = toMultiJoinNode(metadata, joinNode, context, false);
         JoinEnumerationResult resultWithoutProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
         if (!resultWithoutProjectionPushdown.getPlanNode().isPresent()
                 || costComparator.compare(context.getSession(), resultWithProjectionPushdown.cost, resultWithoutProjectionPushdown.cost) < 0) {
@@ -147,6 +154,7 @@ public class ReorderJoins
     private JoinEnumerationResult chooseJoinOrder(MultiJoinNode multiJoinNode, Context context)
     {
         JoinEnumerator joinEnumerator = new JoinEnumerator(
+                metadata,
                 costComparator,
                 multiJoinNode.getFilter(),
                 context);
@@ -156,7 +164,9 @@ public class ReorderJoins
     @VisibleForTesting
     static class JoinEnumerator
     {
+        private final Metadata metadata;
         private final Session session;
+        private final StatsProvider statsProvider;
         private final CostProvider costProvider;
         // Using Ordering to facilitate rule determinism
         private final Ordering<JoinEnumerationResult> resultComparator;
@@ -169,15 +179,17 @@ public class ReorderJoins
         private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
 
         @VisibleForTesting
-        JoinEnumerator(CostComparator costComparator, Expression filter, Context context)
+        JoinEnumerator(Metadata metadata, CostComparator costComparator, Expression filter, Context context)
         {
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.context = requireNonNull(context);
             this.session = requireNonNull(context.getSession(), "session is null");
+            this.statsProvider = requireNonNull(context.getStatsProvider(), "statsProvider is null");
             this.costProvider = requireNonNull(context.getCostProvider(), "costProvider is null");
             this.resultComparator = costComparator.forSession(session).onResultOf(result -> result.cost);
             this.idAllocator = requireNonNull(context.getIdAllocator(), "idAllocator is null");
             this.allFilter = requireNonNull(filter, "filter is null");
-            this.allFilterInference = EqualityInference.newInstance(filter);
+            this.allFilterInference = EqualityInference.newInstance(metadata, filter);
             this.lookup = requireNonNull(context.getLookup(), "lookup is null");
         }
 
@@ -305,8 +317,10 @@ public class ReorderJoins
 
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            // sort output symbols so that the left input symbols are first
-            List<Symbol> sortedOutputSymbols = Stream.concat(left.getOutputSymbols().stream(), right.getOutputSymbols().stream())
+            List<Symbol> leftOutputSymbols = left.getOutputSymbols().stream()
+                    .filter(outputSymbols::contains)
+                    .collect(toImmutableList());
+            List<Symbol> rightOutputSymbols = right.getOutputSymbols().stream()
                     .filter(outputSymbols::contains)
                     .collect(toImmutableList());
 
@@ -316,13 +330,15 @@ public class ReorderJoins
                     left,
                     right,
                     joinConditions,
-                    sortedOutputSymbols,
+                    leftOutputSymbols,
+                    rightOutputSymbols,
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(and(joinFilters)),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of()));
+                    ImmutableMap.of(),
+                    Optional.empty()));
         }
 
         private List<Expression> getJoinPredicates(Set<Symbol> leftSymbols, Set<Symbol> rightSymbols)
@@ -332,7 +348,7 @@ public class ReorderJoins
             // This takes all conjuncts that were part of allFilters that
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
-            stream(nonInferrableConjuncts(allFilter))
+            stream(nonInferrableConjuncts(metadata, allFilter))
                     .map(conjunct -> allFilterInference.rewrite(conjunct, Sets.union(leftSymbols, rightSymbols)))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
@@ -343,7 +359,7 @@ public class ReorderJoins
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).getScopeEqualities();
-            EqualityInference joinInference = EqualityInference.newInstance(joinEqualities.toArray(new Expression[0]));
+            EqualityInference joinInference = EqualityInference.newInstance(metadata, joinEqualities.toArray(new Expression[0]));
             joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
@@ -356,11 +372,11 @@ public class ReorderJoins
                 Set<Symbol> scope = ImmutableSet.copyOf(outputSymbols);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
-                stream(nonInferrableConjuncts(allFilter))
+                stream(nonInferrableConjuncts(metadata, allFilter))
                         .map(conjunct -> allFilterInference.rewrite(conjunct, scope))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
-                Expression filter = combineConjuncts(predicates.build());
+                Expression filter = combineConjuncts(metadata, predicates.build());
                 if (!TRUE_LITERAL.equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
                 }
@@ -417,9 +433,7 @@ public class ReorderJoins
                 case AUTOMATIC:
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    if (canReplicate(joinNode, context)) {
-                        result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
-                    }
+                    result.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> canReplicate(node, context)));
                     return result.build();
                 default:
                     throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
@@ -428,9 +442,29 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return ImmutableList.of(
-                    createJoinEnumerationResult(joinNode.withDistributionType(distributionType)),
-                    createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(distributionType)));
+            return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
+        }
+
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        {
+            List<JoinNode> nodes = ImmutableList.of(
+                    joinNode.withDistributionType(distributionType),
+                    joinNode.flipChildren().withDistributionType(distributionType));
+            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
+        }
+
+        private JoinEnumerationResult createJoinEnumerationResult(JoinNode joinNode)
+        {
+            PlanCostEstimate costEstimate = costProvider.getCost(joinNode);
+            PlanNodeStatsEstimate statsEstimate = statsProvider.getStats(joinNode);
+            return JoinEnumerationResult.createJoinEnumerationResult(
+                    Optional.of(joinNode.withReorderJoinStatsAndCost(new PlanNodeStatsAndCostSummary(
+                            statsEstimate.getOutputRowCount(),
+                            statsEstimate.getOutputSizeInBytes(joinNode.getOutputSymbols(), context.getSymbolAllocator().getTypes()),
+                            costEstimate.getCpuCost(),
+                            costEstimate.getMaxMemory(),
+                            costEstimate.getNetworkCost()))),
+                    costEstimate);
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
@@ -512,19 +546,20 @@ public class ReorderJoins
                     && this.pushedProjectionThroughJoin == other.pushedProjectionThroughJoin;
         }
 
-        static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Context context, boolean pushProjectionsThroughJoin)
+        static MultiJoinNode toMultiJoinNode(Metadata metadata, JoinNode joinNode, Context context, boolean pushProjectionsThroughJoin)
         {
-            return toMultiJoinNode(joinNode, context.getLookup(), context.getIdAllocator(), getMaxReorderedJoins(context.getSession()), pushProjectionsThroughJoin);
+            return toMultiJoinNode(metadata, joinNode, context.getLookup(), context.getIdAllocator(), getMaxReorderedJoins(context.getSession()), pushProjectionsThroughJoin);
         }
 
-        static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, int joinLimit, boolean pushProjectionsThroughJoin)
+        static MultiJoinNode toMultiJoinNode(Metadata metadata, JoinNode joinNode, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, int joinLimit, boolean pushProjectionsThroughJoin)
         {
             // the number of sources is the number of joins + 1
-            return new JoinNodeFlattener(joinNode, lookup, planNodeIdAllocator, joinLimit + 1, pushProjectionsThroughJoin).toMultiJoinNode();
+            return new JoinNodeFlattener(metadata, joinNode, lookup, planNodeIdAllocator, joinLimit + 1, pushProjectionsThroughJoin).toMultiJoinNode();
         }
 
         private static class JoinNodeFlattener
         {
+            private final Metadata metadata;
             private final Lookup lookup;
             private final PlanNodeIdAllocator planNodeIdAllocator;
 
@@ -536,8 +571,9 @@ public class ReorderJoins
             // if projection was pushed through join during join graph flattening?
             private boolean pushedProjectionThroughJoin;
 
-            JoinNodeFlattener(JoinNode node, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, int sourceLimit, boolean pushProjectionsThroughJoin)
+            JoinNodeFlattener(Metadata metadata, JoinNode node, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, int sourceLimit, boolean pushProjectionsThroughJoin)
             {
+                this.metadata = requireNonNull(metadata, "metadata is null");
                 requireNonNull(node, "node is null");
                 checkState(node.getType() == INNER, "join type must be INNER");
                 this.outputSymbols = node.getOutputSymbols();
@@ -557,7 +593,7 @@ public class ReorderJoins
                         return;
                     }
 
-                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin((ProjectNode) resolved, lookup, planNodeIdAllocator);
+                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(metadata, (ProjectNode) resolved, lookup, planNodeIdAllocator);
                     if (!rewrittenNode.isPresent()) {
                         sources.add(node);
                         return;
@@ -575,7 +611,7 @@ public class ReorderJoins
                 }
 
                 JoinNode joinNode = (JoinNode) resolved;
-                if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL)) || joinNode.getDistributionType().isPresent()) {
+                if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), metadata) || joinNode.getDistributionType().isPresent()) {
                     sources.add(node);
                     return;
                 }
@@ -600,7 +636,6 @@ public class ReorderJoins
             private List<PlanNode> sources;
             private Expression filter;
             private List<Symbol> outputSymbols;
-            private boolean pushProjectionsThroughJoin;
 
             public Builder setSources(PlanNode... sources)
             {
@@ -620,15 +655,9 @@ public class ReorderJoins
                 return this;
             }
 
-            public Builder setPushProjectionsThroughJoin(boolean pushProjectionsThroughJoin)
-            {
-                this.pushProjectionsThroughJoin = pushProjectionsThroughJoin;
-                return this;
-            }
-
             public MultiJoinNode build()
             {
-                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputSymbols, pushProjectionsThroughJoin);
+                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputSymbols, false);
             }
         }
     }

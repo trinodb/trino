@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import io.prestosql.sql.planner.DeterminismEvaluator;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
@@ -34,6 +34,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
@@ -43,9 +44,9 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
  */
 public final class PushProjectionThroughJoin
 {
-    public static Optional<PlanNode> pushProjectionThroughJoin(ProjectNode projectNode, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
+    public static Optional<PlanNode> pushProjectionThroughJoin(Metadata metadata, ProjectNode projectNode, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
     {
-        if (!projectNode.getAssignments().getExpressions().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
+        if (!projectNode.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression, metadata))) {
             return Optional.empty();
         }
 
@@ -95,7 +96,10 @@ public final class PushProjectionThroughJoin
 
         Assignments leftAssignments = leftAssignmentsBuilder.build();
         Assignments rightAssignments = rightAssignmentsBuilder.build();
-        List<Symbol> outputSymbols = Streams.concat(leftAssignments.getOutputs().stream(), rightAssignments.getOutputs().stream())
+        List<Symbol> leftOutputSymbols = leftAssignments.getOutputs().stream()
+                .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
+                .collect(toImmutableList());
+        List<Symbol> rightOutputSymbols = rightAssignments.getOutputs().stream()
                 .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
                 .collect(toImmutableList());
 
@@ -109,13 +113,15 @@ public final class PushProjectionThroughJoin
                         new ProjectNode(planNodeIdAllocator.getNextId(), rightChild, rightAssignments),
                         lookup),
                 joinNode.getCriteria(),
-                outputSymbols,
+                leftOutputSymbols,
+                rightOutputSymbols,
                 joinNode.getFilter(),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
-                joinNode.getDynamicFilters()));
+                joinNode.getDynamicFilters(),
+                joinNode.getReorderJoinStatsAndCost()));
     }
 
     private static PlanNode inlineProjections(ProjectNode parentProjection, Lookup lookup)

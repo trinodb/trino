@@ -14,8 +14,9 @@
 package io.prestosql.plugin.tpcds;
 
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -29,10 +30,11 @@ import static java.util.stream.IntStream.range;
 public class TestTpcds
         extends AbstractTestQueryFramework
 {
-    @SuppressWarnings("unused")
-    public TestTpcds()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TpcdsQueryRunner::createQueryRunner);
+        return TpcdsQueryRunner.createQueryRunner();
     }
 
     @Test

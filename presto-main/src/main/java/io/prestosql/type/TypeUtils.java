@@ -65,21 +65,19 @@ public final class TypeUtils
             if (type.getJavaType() == boolean.class) {
                 return (long) methodHandle.invoke(type.getBoolean(block, position));
             }
-            else if (type.getJavaType() == long.class) {
+            if (type.getJavaType() == long.class) {
                 return (long) methodHandle.invoke(type.getLong(block, position));
             }
-            else if (type.getJavaType() == double.class) {
+            if (type.getJavaType() == double.class) {
                 return (long) methodHandle.invoke(type.getDouble(block, position));
             }
-            else if (type.getJavaType() == Slice.class) {
+            if (type.getJavaType() == Slice.class) {
                 return (long) methodHandle.invoke(type.getSlice(block, position));
             }
-            else if (!type.getJavaType().isPrimitive()) {
+            if (!type.getJavaType().isPrimitive()) {
                 return (long) methodHandle.invoke(type.getObject(block, position));
             }
-            else {
-                throw new UnsupportedOperationException("Unsupported native container type: " + type.getJavaType() + " with type " + type.getTypeSignature());
-            }
+            throw new UnsupportedOperationException("Unsupported native container type: " + type.getJavaType() + " with type " + type.getTypeSignature());
         }
         catch (Throwable throwable) {
             throwIfUnchecked(throwable);

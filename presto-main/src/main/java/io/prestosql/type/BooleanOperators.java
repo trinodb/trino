@@ -15,6 +15,7 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
@@ -37,6 +38,7 @@ import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -45,6 +47,9 @@ public final class BooleanOperators
 {
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
+
+    private static final long TRUE_XX_HASH = XxHash64.hash(1);
+    private static final long FALSE_XX_HASH = XxHash64.hash(0);
 
     private BooleanOperators()
     {
@@ -156,6 +161,13 @@ public final class BooleanOperators
     public static long hashCode(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1231 : 1237;
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? TRUE_XX_HASH : FALSE_XX_HASH;
     }
 
     @ScalarOperator(INDETERMINATE)

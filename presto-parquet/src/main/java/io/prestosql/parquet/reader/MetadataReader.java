@@ -16,6 +16,8 @@ package io.prestosql.parquet.reader;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.CorruptStatistics;
+import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.ConvertedType;
@@ -52,6 +54,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
@@ -135,7 +138,7 @@ public final class MetadataReader
                             CompressionCodecName.fromParquet(metaData.codec),
                             PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
-                            readStats(metaData.statistics, primitiveType.getPrimitiveTypeName()),
+                            readStats(Optional.ofNullable(fileMetaData.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
                             metaData.data_page_offset,
                             metaData.dictionary_page_offset,
                             metaData.num_values,
@@ -200,16 +203,61 @@ public final class MetadataReader
         }
     }
 
-    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
+    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Optional<String> fileCreatedBy, Optional<Statistics> statisticsFromFile, PrimitiveType type)
     {
-        org.apache.parquet.column.statistics.Statistics<?> stats = org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType(type);
-        if (statistics != null) {
-            if (statistics.isSetMax() && statistics.isSetMin()) {
-                stats.setMinMaxFromBytes(statistics.min.array(), statistics.max.array());
-            }
-            stats.setNumNulls(statistics.null_count);
+        Statistics statistics = statisticsFromFile.orElse(null);
+        org.apache.parquet.column.statistics.Statistics<?> columnStatistics = new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
+
+        if (type.getOriginalType() == OriginalType.UTF8
+                && statistics != null
+                && !statistics.isSetMin_value() && !statistics.isSetMax_value() // the min,max fields used for UTF8 since Parquet PARQUET-1025
+                && statistics.isSetMin() && statistics.isSetMax()  // the min,max fields used for UTF8 before Parquet PARQUET-1025
+                && columnStatistics.genericGetMin() == null && columnStatistics.genericGetMax() == null
+                && !CorruptStatistics.shouldIgnoreStatistics(fileCreatedBy.orElse(null), type.getPrimitiveTypeName())) {
+            tryReadOldUtf8Stats(statistics, (BinaryStatistics) columnStatistics);
         }
-        return stats;
+
+        return columnStatistics;
+    }
+
+    private static void tryReadOldUtf8Stats(Statistics statistics, BinaryStatistics columnStatistics)
+    {
+        byte[] min = statistics.getMin();
+        byte[] max = statistics.getMax();
+
+        if (Arrays.equals(min, max)) {
+            // If min=max, then there is single value only
+            min = min.clone();
+            max = min;
+        }
+        else {
+            // For min it's enough to retain leading all-ASCII, because this produces a strictly lower value.
+            int minFirstNonAsciiOffset = firstOutsideRange(min, 0, 128);
+            min = Arrays.copyOf(min, minFirstNonAsciiOffset);
+
+            // For max we chop away everything at the first non-ASCII, then increment last character.
+            int maxFirstBadCharacter = firstOutsideRange(max, 0, 127); // last ASCII is also bad because we can't increment it
+            if (maxFirstBadCharacter == 0) {
+                // We can't help.
+                return;
+            }
+            max[maxFirstBadCharacter - 1]++;
+            max = Arrays.copyOf(max, maxFirstBadCharacter);
+        }
+
+        columnStatistics.setMinMaxFromBytes(min, max);
+        if (!columnStatistics.isNumNullsSet() && statistics.isSetNull_count()) {
+            columnStatistics.setNumNulls(statistics.getNull_count());
+        }
+    }
+
+    private static int firstOutsideRange(byte[] bytes, int rangeStartInclusive, int rangeEndExclusive)
+    {
+        int offset = 0;
+        while (offset < bytes.length && rangeStartInclusive <= bytes[offset] && bytes[offset] < rangeEndExclusive) {
+            offset++;
+        }
+        return offset;
     }
 
     private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)

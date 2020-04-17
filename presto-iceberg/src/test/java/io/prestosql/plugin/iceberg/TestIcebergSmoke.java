@@ -15,38 +15,72 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.assertions.Assert;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.time.LocalDate;
-import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
-import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public class TestIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestIcebergSmoke()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createIcebergQueryRunner(ImmutableMap.of()));
+        return createIcebergQueryRunner(ImmutableMap.of());
+    }
+
+    @Test
+    @Override
+    public void testDescribeTable()
+    {
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
-    protected boolean isParameterizedVarcharSupported()
+    public void testShowCreateTable()
     {
-        return false;
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   clerk varchar,\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
     }
 
     @Test
@@ -101,6 +135,8 @@ public class TestIcebergSmoke
                 "  '_integer'," +
                 "  '_bigint'," +
                 "  '_boolean'," +
+                "  '_real'," +
+                "  '_double'," +
 //                "  '_decimal_short', " +
 //                "  '_decimal_long'," +
 //                "  '_timestamp'," +
@@ -187,7 +223,7 @@ public class TestIcebergSmoke
                         "   order_status varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'PARQUET',\n" +
+                        "   format = '" + fileFormat + "',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -205,47 +241,51 @@ public class TestIcebergSmoke
     }
 
     @Test
-    public void testPartitionTableBasic()
+    public void testColumnComments()
     {
-        testWithAllFileFormats(this::testPartitionTableBasic);
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_column_comments (_bigint BIGINT COMMENT 'test column comment')");
+
+        assertQuery(session, "SHOW COLUMNS FROM test_column_comments",
+                "VALUES ('_bigint', 'bigint', '', 'test column comment')");
+
+        dropTable(session, "test_column_comments");
     }
 
-    private void testPartitionTableBasic(Session session, FileFormat fileFormat)
+    @Test
+    public void testSchemaEvolution()
     {
-        assertUpdate(session, "CREATE TABLE test_partition_table_basic (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'], format = '" + fileFormat + "')");
+        // Schema evolution should be id based
+        testWithAllFileFormats(this::testSchemaEvolution);
+    }
 
-        assertUpdate(session, "INSERT INTO test_partition_table_basic VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
-        assertUpdate(session, "INSERT INTO test_partition_table_basic VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+    private void testSchemaEvolution(Session session, FileFormat fileFormat)
+    {
+        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_end VALUES (0, 1, 2)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, 2)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_end DROP COLUMN col2");
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_end ADD COLUMN col2 INTEGER");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_end VALUES (3, 4, 5)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, NULL), (3, 4, 5)");
+        dropTable(session, "test_schema_evolution_drop_end");
 
-        assertQuery(session, "SHOW COLUMNS FROM \"test_partition_table_basic$partitions\"",
-                "VALUES ('_date', 'date', '', '')," +
-                        "('row_count', 'bigint', '', '')," +
-                        "('file_count', 'bigint', '', '')," +
-                        "('total_size', 'bigint', '', '')," +
-                        "('_bigint', 'row(min bigint, max bigint, null_count bigint)', '', '')");
-
-        MaterializedResult result = computeActual("SELECT * from \"test_partition_table_basic$partitions\"");
-        assertEquals(result.getRowCount(), 3);
-
-        Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
-                .collect(toImmutableMap(row -> (LocalDate) row.getField(0), Function.identity()));
-
-        // Test if row counts are computed correctly
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), 1L);
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(1), 3L);
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), 2L);
-
-        // Test if min/max values and null value count are computed correctly.
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L));
-
-        dropTable(session, "test_partition_table_basic");
+        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_middle (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (0, 1, 2)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 1, 2)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_middle DROP COLUMN col1");
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_middle ADD COLUMN col1 INTEGER");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
+        dropTable(session, "test_schema_evolution_drop_middle");
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);
+        test.accept(getSession(), FileFormat.ORC);
     }
 
     private void dropTable(Session session, String table)

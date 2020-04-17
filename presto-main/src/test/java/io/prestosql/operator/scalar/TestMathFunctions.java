@@ -795,6 +795,60 @@ public class TestMathFunctions
         assertFunction("round(REAL '-3.5001', 1)", REAL, -3.5f);
         assertFunction("round(REAL '-3.99', 1)", REAL, -4.0f);
 
+        // ROUND negative DECIMAL
+        assertFunction("round(TINYINT '9', -1)", TINYINT, (byte) 10);
+        assertFunction("round(TINYINT '-9', -1)", TINYINT, (byte) -10);
+        assertFunction("round(TINYINT '5', -1)", TINYINT, (byte) 10);
+        assertFunction("round(TINYINT '-5', -1)", TINYINT, (byte) -10);
+        assertFunction("round(TINYINT '-14', -1)", TINYINT, (byte) -10);
+        assertFunction("round(TINYINT '12', -1)", TINYINT, (byte) 10);
+        assertFunction("round(TINYINT '18', -1)", TINYINT, (byte) 20);
+        assertFunction("round(TINYINT '18', -2)", TINYINT, (byte) 0);
+        assertFunction("round(TINYINT '18', -3)", TINYINT, (byte) 0);
+        assertFunction("round(TINYINT '127', -2)", TINYINT, (byte) 100);
+        assertFunction("round(TINYINT '127', -3)", TINYINT, (byte) 0);
+        assertFunction("round(TINYINT '-128', -2)", TINYINT, (byte) -100);
+        assertFunction("round(TINYINT '-128', -3)", TINYINT, (byte) 0);
+        assertFunction("round(SMALLINT '99', -1)", SMALLINT, (short) 100);
+        assertFunction("round(SMALLINT '99', -2)", SMALLINT, (short) 100);
+        assertFunction("round(SMALLINT '99', -3)", SMALLINT, (short) 0);
+        assertFunction("round(SMALLINT '-99', -1)", SMALLINT, (short) -100);
+        assertFunction("round(SMALLINT '-99', -2)", SMALLINT, (short) -100);
+        assertFunction("round(SMALLINT '-99', -3)", SMALLINT, (short) 0);
+        assertFunction("round(SMALLINT '32767', -4)", SMALLINT, (short) 30000);
+        assertFunction("round(SMALLINT '32767', -5)", SMALLINT, (short) 0);
+        assertFunction("round(SMALLINT '-32768', -4)", SMALLINT, (short) -30000);
+        assertFunction("round(SMALLINT '-32768', -5)", SMALLINT, (short) 0);
+        assertFunction("round(99, -1)", INTEGER, 100);
+        assertFunction("round(-99, -1)", INTEGER, -100);
+        assertFunction("round(99, INTEGER '-1')", INTEGER, 100);
+        assertFunction("round(-99, INTEGER '-1')", INTEGER, -100);
+        assertFunction("round(12355, -2)", INTEGER, 12400);
+        assertFunction("round(12345, -2)", INTEGER, 12300);
+        assertFunction("round(2147483647, -9)", INTEGER, 2000000000);
+        assertFunction("round(2147483647, -10)", INTEGER, 0);
+        assertFunction("round( 3999999999, -1)", BIGINT, 4000000000L);
+        assertFunction("round(-3999999999, -1)", BIGINT, -4000000000L);
+        assertFunction("round(9223372036854775807, -2)", BIGINT, 9223372036854775800L);
+        assertFunction("round(9223372036854775807, -17)", BIGINT, 9200000000000000000L);
+        assertFunction("round(9223372036854775807, -18)", BIGINT, 9000000000000000000L);
+        assertFunction("round(-9223372036854775807, -17)", BIGINT, -9200000000000000000L);
+        assertFunction("round(-9223372036854775807, -18)", BIGINT, -9000000000000000000L);
+
+        assertInvalidFunction("round(TINYINT '127', -1)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(TINYINT '-128', -1)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(SMALLINT '32767', -1)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(SMALLINT '32767', -3)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(SMALLINT '-32768', -1)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(SMALLINT '-32768', -3)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(2147483647, -100)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(2147483647, -2147483648)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(9223372036854775807, -1)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(9223372036854775807, -3)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(9223372036854775807, -19)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(-9223372036854775807, -20)", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("round(-9223372036854775807, -2147483648)", NUMERIC_VALUE_OUT_OF_RANGE);
+
         // ROUND short DECIMAL -> short DECIMAL
         assertFunction("round(DECIMAL '0')", createDecimalType(1, 0), SqlDecimal.of("0"));
         assertFunction("round(DECIMAL '0.1')", createDecimalType(1, 0), SqlDecimal.of("0"));

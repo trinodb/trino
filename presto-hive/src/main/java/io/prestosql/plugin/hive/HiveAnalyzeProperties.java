@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
@@ -24,32 +24,44 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public class HiveAnalyzeProperties
 {
     public static final String PARTITIONS_PROPERTY = "partitions";
+    public static final String COLUMNS_PROPERTY = "columns";
 
     private final List<PropertyMetadata<?>> analyzeProperties;
 
     @Inject
-    public HiveAnalyzeProperties(TypeManager typeManager)
+    public HiveAnalyzeProperties()
     {
         analyzeProperties = ImmutableList.of(
                 new PropertyMetadata<>(
                         PARTITIONS_PROPERTY,
                         "Partitions to be analyzed",
-                        typeManager.getType(parseTypeSignature("array(array(varchar))")),
+                        new ArrayType(new ArrayType(VARCHAR)),
                         List.class,
                         null,
                         false,
                         HiveAnalyzeProperties::decodePartitionLists,
+                        value -> value),
+                new PropertyMetadata<>(
+                        COLUMNS_PROPERTY,
+                        "Columns to be analyzed",
+                        new ArrayType(VARCHAR),
+                        Set.class,
+                        null,
+                        false,
+                        HiveAnalyzeProperties::decodeColumnNames,
                         value -> value));
     }
 
@@ -62,7 +74,7 @@ public class HiveAnalyzeProperties
     public static Optional<List<List<String>>> getPartitionList(Map<String, Object> properties)
     {
         List<List<String>> partitions = (List<List<String>>) properties.get(PARTITIONS_PROPERTY);
-        return partitions == null ? Optional.empty() : Optional.of(partitions);
+        return Optional.ofNullable(partitions);
     }
 
     private static List<List<String>> decodePartitionLists(Object object)
@@ -72,18 +84,39 @@ public class HiveAnalyzeProperties
         }
 
         // replace null partition value with hive default partition
-        return ImmutableList.copyOf(((Collection<?>) object).stream()
-                .peek(HiveAnalyzeProperties::throwIfNull)
+        return ((Collection<?>) object).stream()
+                .peek(partition -> throwIfNull(partition, "partitions"))
                 .map(partition -> ((Collection<?>) partition).stream()
                         .map(name -> firstNonNull((String) name, HIVE_DEFAULT_DYNAMIC_PARTITION))
                         .collect(toImmutableList()))
-                .collect(toImmutableSet()));
+                .distinct()
+                .collect(toImmutableList());
     }
 
-    private static void throwIfNull(Object object)
+    public static Optional<Set<String>> getColumnNames(Map<String, Object> properties)
+    {
+        @SuppressWarnings("unchecked")
+        Set<String> columns = (Set<String>) properties.get(COLUMNS_PROPERTY);
+        return Optional.ofNullable(columns);
+    }
+
+    private static Set<String> decodeColumnNames(Object object)
     {
         if (object == null) {
-            throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Invalid null value in analyze partitions property");
+            return null;
+        }
+
+        Collection<?> columns = ((Collection<?>) object);
+        return columns.stream()
+                .peek(property -> throwIfNull(property, "columns"))
+                .map(String.class::cast)
+                .collect(toImmutableSet());
+    }
+
+    private static void throwIfNull(Object object, String propertyName)
+    {
+        if (object == null) {
+            throw new PrestoException(INVALID_ANALYZE_PROPERTY, format("Invalid null value in analyze %s property", propertyName));
         }
     }
 }

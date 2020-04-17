@@ -35,6 +35,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -97,15 +98,16 @@ public final class MetadataUtil
         return null;
     }
 
-    public static String createCatalogName(Session session, Node node)
+    public static String getSessionCatalog(Metadata metadata, Session session, Node node)
     {
-        Optional<String> sessionCatalog = session.getCatalog();
+        String catalog = session.getCatalog().orElseThrow(() ->
+                semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
-        if (!sessionCatalog.isPresent()) {
-            throw semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set");
+        if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
+            throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
-        return sessionCatalog.get();
+        return catalog;
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
@@ -191,34 +193,8 @@ public final class MetadataUtil
         return metadata.getTableHandle(session, name).isPresent();
     }
 
-    public static class SchemaMetadataBuilder
-    {
-        public static SchemaMetadataBuilder schemaMetadataBuilder()
-        {
-            return new SchemaMetadataBuilder();
-        }
-
-        private final ImmutableMap.Builder<SchemaTableName, ConnectorTableMetadata> tables = ImmutableMap.builder();
-
-        public SchemaMetadataBuilder table(ConnectorTableMetadata tableMetadata)
-        {
-            tables.put(tableMetadata.getTable(), tableMetadata);
-            return this;
-        }
-
-        public ImmutableMap<SchemaTableName, ConnectorTableMetadata> build()
-        {
-            return tables.build();
-        }
-    }
-
     public static class TableMetadataBuilder
     {
-        public static TableMetadataBuilder tableMetadataBuilder(String schemaName, String tableName)
-        {
-            return new TableMetadataBuilder(new SchemaTableName(schemaName, tableName));
-        }
-
         public static TableMetadataBuilder tableMetadataBuilder(SchemaTableName tableName)
         {
             return new TableMetadataBuilder(tableName);
@@ -248,7 +224,11 @@ public final class MetadataUtil
 
         public TableMetadataBuilder hiddenColumn(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, null, true));
+            columns.add(ColumnMetadata.builder()
+                    .setName(columnName)
+                    .setType(type)
+                    .setHidden(true)
+                    .build());
             return this;
         }
 

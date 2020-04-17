@@ -76,7 +76,7 @@ public class OrcMetadataReader
         implements MetadataReader
 {
     private static final int REPLACEMENT_CHARACTER_CODE_POINT = 0xFFFD;
-    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
+    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
 
     @Override
     public PostScript readPostScript(InputStream inputStream)
@@ -112,16 +112,17 @@ public class OrcMetadataReader
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
 
-    private static List<StripeStatistics> toStripeStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.StripeStatistics> types)
+    private static List<Optional<StripeStatistics>> toStripeStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.StripeStatistics> types)
     {
         return types.stream()
                 .map(stripeStatistics -> toStripeStatistics(hiveWriterVersion, stripeStatistics))
                 .collect(toImmutableList());
     }
 
-    private static StripeStatistics toStripeStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StripeStatistics stripeStatistics)
+    private static Optional<StripeStatistics> toStripeStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StripeStatistics stripeStatistics)
     {
-        return new StripeStatistics(toColumnStatistics(hiveWriterVersion, stripeStatistics.getColStatsList(), false));
+        return toColumnStatistics(hiveWriterVersion, stripeStatistics.getColStatsList(), false)
+                .map(StripeStatistics::new);
     }
 
     @Override
@@ -158,7 +159,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -172,7 +173,7 @@ public class OrcMetadataReader
 
     private static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
+        return new Stream(new OrcColumnId(stream.getColumn()), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
     }
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)
@@ -187,11 +188,11 @@ public class OrcMetadataReader
         return new ColumnEncoding(toColumnEncodingKind(columnEncoding.getKind()), columnEncoding.getDictionarySize());
     }
 
-    private static List<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
+    private static ColumnMetadata<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
     {
-        return columnEncodings.stream()
+        return new ColumnMetadata<>(columnEncodings.stream()
                 .map(OrcMetadataReader::toColumnEncoding)
-                .collect(toImmutableList());
+                .collect(toImmutableList()));
     }
 
     @Override
@@ -293,14 +294,14 @@ public class OrcMetadataReader
                 null);
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
+    private static Optional<ColumnMetadata<ColumnStatistics>> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
-        if (columnStatistics == null) {
-            return ImmutableList.of();
+        if (columnStatistics == null || columnStatistics.isEmpty()) {
+            return Optional.empty();
         }
-        return columnStatistics.stream()
+        return Optional.of(new ColumnMetadata<>(columnStatistics.stream()
                 .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup))
-                .collect(toImmutableList());
+                .collect(toImmutableList())));
     }
 
     private static Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)
@@ -491,14 +492,21 @@ public class OrcMetadataReader
             precision = Optional.of(type.getPrecision());
             scale = Optional.of(type.getScale());
         }
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), length, precision, scale);
+        return new OrcType(toTypeKind(type.getKind()), toOrcColumnId(type.getSubtypesList()), type.getFieldNamesList(), length, precision, scale, toMap(type.getAttributesList()));
     }
 
-    private static List<OrcType> toType(List<OrcProto.Type> types)
+    private static List<OrcColumnId> toOrcColumnId(List<Integer> columnIds)
     {
-        return types.stream()
-                .map(OrcMetadataReader::toType)
+        return columnIds.stream()
+                .map(OrcColumnId::new)
                 .collect(toImmutableList());
+    }
+
+    private static ColumnMetadata<OrcType> toType(List<OrcProto.Type> types)
+    {
+        return new ColumnMetadata<>(types.stream()
+                .map(OrcMetadataReader::toType)
+                .collect(toImmutableList()));
     }
 
     private static OrcTypeKind toTypeKind(OrcProto.Type.Kind typeKind)
@@ -543,6 +551,20 @@ public class OrcMetadataReader
             default:
                 throw new IllegalStateException(typeKind + " stream type not implemented yet");
         }
+    }
+
+    // This method assumes type attributes have no duplicate key
+    private static Map<String, String> toMap(List<OrcProto.StringPair> attributes)
+    {
+        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        if (attributes != null) {
+            for (OrcProto.StringPair attribute : attributes) {
+                if (attribute.hasKey() && attribute.hasValue()) {
+                    results.put(attribute.getKey(), attribute.getValue());
+                }
+            }
+        }
+        return results.build();
     }
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)

@@ -15,45 +15,57 @@ package io.prestosql.operator;
 
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
 
+import java.util.function.Consumer;
 import java.util.function.LongConsumer;
+
+import static io.prestosql.spi.block.LazyBlock.listenForLoads;
+import static java.util.Objects.requireNonNull;
 
 public final class PageUtils
 {
     private PageUtils() {}
 
-    public static Page recordMaterializedBytes(Page page, LongConsumer sizeInBytesConsumer)
+    public static void recordMaterializedBytes(Page page, LongConsumer sizeInBytesConsumer)
     {
         // account processed bytes from lazy blocks only when they are loaded
-        Block[] blocks = new Block[page.getChannelCount()];
         long loadedBlocksSizeInBytes = 0;
-        boolean allBlocksLoaded = true;
 
         for (int i = 0; i < page.getChannelCount(); ++i) {
             Block block = page.getBlock(i);
-            if (block.isLoaded()) {
-                loadedBlocksSizeInBytes += block.getSizeInBytes();
-                blocks[i] = block;
-            }
-            else {
-                blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
-                    Block loadedBlock = block.getLoadedBlock();
-                    sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
-                    lazyBlock.setBlock(loadedBlock);
-                });
-                allBlocksLoaded = false;
-            }
+            long initialSize = block.getSizeInBytes();
+            loadedBlocksSizeInBytes += initialSize;
+            listenForLoads(block, new BlockSizeListener(block, sizeInBytesConsumer, initialSize));
         }
 
         if (loadedBlocksSizeInBytes > 0) {
             sizeInBytesConsumer.accept(loadedBlocksSizeInBytes);
         }
+    }
 
-        if (allBlocksLoaded) {
-            return page;
+    private static class BlockSizeListener
+            implements Consumer<Block>
+    {
+        private final Block topLevelBlock;
+        private final LongConsumer sizeInBytesConsumer;
+        private long lastSize;
+
+        public BlockSizeListener(Block topLevelBlock, LongConsumer sizeInBytesConsumer, long initialSize)
+        {
+            this.topLevelBlock = requireNonNull(topLevelBlock, "topLevelBlock is null");
+            this.sizeInBytesConsumer = requireNonNull(sizeInBytesConsumer, "sizeInBytesConsumer is null");
+            this.lastSize = initialSize;
         }
 
-        return new Page(page.getPositionCount(), blocks);
+        @Override
+        public void accept(Block childBlock)
+        {
+            long newSize = topLevelBlock.getSizeInBytes();
+            if (newSize == lastSize) {
+                return;
+            }
+            sizeInBytesConsumer.accept(newSize - lastSize);
+            lastSize = newSize;
+        }
     }
 }

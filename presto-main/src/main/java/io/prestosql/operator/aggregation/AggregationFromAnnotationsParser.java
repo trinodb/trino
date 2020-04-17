@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
+import io.prestosql.metadata.Signature;
 import io.prestosql.operator.ParametricImplementationsGroup;
 import io.prestosql.operator.annotations.FunctionsParserHelper;
 import io.prestosql.spi.function.AccumulatorState;
@@ -57,8 +58,9 @@ public final class AggregationFromAnnotationsParser
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         for (ParametricAggregation aggregation : parseFunctionDefinitions(clazz)) {
-            if (aggregation.getSignature().getReturnType().equals(returnType) &&
-                    aggregation.getSignature().getArgumentTypes().equals(argumentTypes)) {
+            Signature signature = aggregation.getFunctionMetadata().getSignature();
+            if (signature.getReturnType().equals(returnType) &&
+                    signature.getArgumentTypes().equals(argumentTypes)) {
                 return aggregation;
             }
         }
@@ -69,6 +71,7 @@ public final class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
+        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
 
         ImmutableList.Builder<ParametricAggregation> builder = ImmutableList.builder();
 
@@ -81,7 +84,7 @@ public final class AggregationFromAnnotationsParser
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
                         AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
-                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
+                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated));
                     }
                 }
             }
@@ -94,6 +97,7 @@ public final class AggregationFromAnnotationsParser
     {
         ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         AggregationHeader header = parseHeader(aggregationDefinition);
+        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
@@ -107,7 +111,7 @@ public final class AggregationFromAnnotationsParser
         }
 
         ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
-        return new ParametricAggregation(implementations.getSignature(), header, implementations);
+        return new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated);
     }
 
     private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)

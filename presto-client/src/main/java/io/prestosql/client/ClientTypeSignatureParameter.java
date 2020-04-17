@@ -34,6 +34,26 @@ import static java.lang.String.format;
 @JsonDeserialize(using = ClientTypeSignatureParameter.ClientTypeSignatureParameterDeserializer.class)
 public class ClientTypeSignatureParameter
 {
+    public enum ParameterKind
+    {
+        TYPE, NAMED_TYPE, LONG, VARIABLE;
+
+        @JsonCreator
+        public static ParameterKind fromJsonValue(String value)
+        {
+            // deserialize old names for compatibility for pre 321 servers
+            switch (value) {
+                case "TYPE_SIGNATURE":
+                    return TYPE;
+                case "NAMED_TYPE_SIGNATURE":
+                    return NAMED_TYPE;
+                case "LONG_LITERAL":
+                    return LONG;
+            }
+            return valueOf(value);
+        }
+    }
+
     private final ParameterKind kind;
     private final Object value;
 
@@ -114,7 +134,7 @@ public class ClientTypeSignatureParameter
 
         ClientTypeSignatureParameter other = (ClientTypeSignatureParameter) o;
 
-        return Objects.equals(this.kind, other.kind) &&
+        return this.kind == other.kind &&
                 Objects.equals(this.value, other.value);
     }
 

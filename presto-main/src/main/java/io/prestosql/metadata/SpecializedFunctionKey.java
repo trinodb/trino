@@ -58,13 +58,13 @@ public class SpecializedFunctionKey
         SpecializedFunctionKey that = (SpecializedFunctionKey) o;
 
         return Objects.equals(boundVariables, that.boundVariables) &&
-                Objects.equals(function.getSignature(), that.function.getSignature()) &&
+                Objects.equals(function.getFunctionMetadata().getFunctionId(), that.function.getFunctionMetadata().getFunctionId()) &&
                 arity == that.arity;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(function.getSignature(), boundVariables, arity);
+        return Objects.hash(function.getFunctionMetadata().getFunctionId(), boundVariables, arity);
     }
 }

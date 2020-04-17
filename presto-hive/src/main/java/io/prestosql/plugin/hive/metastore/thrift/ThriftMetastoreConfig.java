@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.util.RetryDriver;
 
@@ -34,6 +35,8 @@ public class ThriftMetastoreConfig
     private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
     private boolean impersonationEnabled;
+    private boolean deleteFilesOnDrop;
+    private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -133,10 +136,37 @@ public class ThriftMetastoreConfig
     }
 
     @Config("hive.metastore.thrift.impersonation.enabled")
+    @LegacyConfig("hive.metastore.impersonation-enabled")
     @ConfigDescription("Should end user be impersonated when communicating with metastore")
     public ThriftMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
+        return this;
+    }
+
+    public boolean isDeleteFilesOnDrop()
+    {
+        return deleteFilesOnDrop;
+    }
+
+    @Config("hive.metastore.thrift.delete-files-on-drop")
+    @ConfigDescription("Delete files on drop in case the metastore doesn't do it")
+    public ThriftMetastoreConfig setDeleteFilesOnDrop(boolean deleteFilesOnDrop)
+    {
+        this.deleteFilesOnDrop = deleteFilesOnDrop;
+        return this;
+    }
+
+    public Duration getMaxWaitForTransactionLock()
+    {
+        return maxWaitForTransactionLock;
+    }
+
+    @Config("hive.metastore.thrift.txn-lock-max-wait")
+    @ConfigDescription("Maximum time to wait to acquire hive transaction lock")
+    public ThriftMetastoreConfig setMaxWaitForTransactionLock(Duration maxWaitForTransactionLock)
+    {
+        this.maxWaitForTransactionLock = maxWaitForTransactionLock;
         return this;
     }
 }

@@ -14,10 +14,10 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -27,8 +27,8 @@ import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
 public final class H2QueryRunner
 {
@@ -44,15 +44,21 @@ public final class H2QueryRunner
 
     public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
+
+    {
+        return createH2QueryRunner(tables, TestingH2JdbcModule.createProperties());
+    }
+
+    public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> properties)
+            throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession()).build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = TestingH2JdbcModule.createProperties();
             createSchema(properties, "tpch");
 
             queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));

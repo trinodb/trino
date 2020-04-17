@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveType;
@@ -35,14 +36,19 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
+import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
@@ -52,11 +58,13 @@ import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -103,6 +111,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveColumnHandle.fileModifiedTimeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.fileSizeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isBucketColumnHandle;
@@ -119,11 +128,13 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.prestosql.plugin.hive.HiveQlTranslation.translateHiveQlToPrestoSql;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.prestosql.plugin.hive.util.HiveBucketing.isHiveBucketingV1;
+import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -153,6 +164,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -211,8 +223,12 @@ public final class HiveUtil
         List<HiveColumnHandle> readColumns = columns.stream()
                 .filter(column -> column.getColumnType() == REGULAR)
                 .collect(toImmutableList());
+
+        // Projected columns are not supported here
+        readColumns.forEach(readColumn -> checkArgument(readColumn.isBaseColumn(), "column %s is not a base column", readColumn.getName()));
+
         List<Integer> readHiveColumnIndexes = readColumns.stream()
-                .map(HiveColumnHandle::getHiveColumnIndex)
+                .map(HiveColumnHandle::getBaseHiveColumnIndex)
                 .collect(toImmutableList());
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
@@ -228,15 +244,7 @@ public final class HiveUtil
                 .filter(name -> name.startsWith("serialization."))
                 .forEach(name -> jobConf.set(name, schema.getProperty(name)));
 
-        // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
-        List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
-        if (!codecs.contains(LzoCodec.class.getName())) {
-            codecs.add(0, LzoCodec.class.getName());
-        }
-        if (!codecs.contains(LzopCodec.class.getName())) {
-            codecs.add(0, LzopCodec.class.getName());
-        }
-        jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
+        configureCompressionCodecs(jobConf);
 
         try {
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
@@ -274,6 +282,19 @@ public final class HiveUtil
         configuration.setBoolean(READ_ALL_COLUMNS, false);
     }
 
+    private static void configureCompressionCodecs(JobConf jobConf)
+    {
+        // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
+        List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
+        if (!codecs.contains(LzoCodec.class.getName())) {
+            codecs.add(0, LzoCodec.class.getName());
+        }
+        if (!codecs.contains(LzopCodec.class.getName())) {
+            codecs.add(0, LzopCodec.class.getName());
+        }
+        jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
+    }
+
     public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, Path file)
     {
         CompressionCodecFactory compressionCodecFactory;
@@ -297,11 +318,15 @@ public final class HiveUtil
         String inputFormatName = getInputFormatName(schema);
         try {
             JobConf jobConf = toJobConf(configuration);
+            configureCompressionCodecs(jobConf);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
-                // symlink targets are always TextInputFormat
+                // Symlink targets are assumed to be TEXTFILE unless serde indicates otherwise.
                 inputFormatClass = TextInputFormat.class;
+                if (isDeserializerClass(schema, AvroSerDe.class)) {
+                    inputFormatClass = AvroContainerInputFormat.class;
+                }
             }
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
@@ -400,6 +425,14 @@ public final class HiveUtil
     public static Deserializer getDeserializer(Configuration configuration, Properties schema)
     {
         String name = getDeserializerClassName(schema);
+
+        // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
+        // see also https://issues.apache.org/jira/browse/HIVE-16922
+        if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+            if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
+                schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
+            }
+        }
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
         initializeDeserializer(configuration, deserializer, schema);
@@ -647,6 +680,22 @@ public final class HiveUtil
         return VIEW_CODEC.fromJson(bytes);
     }
 
+    public static ConnectorViewDefinition buildHiveViewConnectorDefinition(CatalogName catalogName, Table view)
+    {
+        String viewText = view.getViewExpandedText()
+                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view expanded text: " + view.getSchemaTableName()));
+        return new ConnectorViewDefinition(
+                translateHiveQlToPrestoSql(viewText),
+                Optional.of(catalogName.toString()),
+                Optional.ofNullable(view.getDatabaseName()),
+                view.getDataColumns().stream()
+                        .map(column -> new ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
+                        .collect(toImmutableList()),
+                Optional.ofNullable(view.getParameters().get(TABLE_COMMENT)),
+                Optional.of(view.getOwner()),
+                false); // don't run as invoker
+    }
+
     public static Optional<DecimalType> getDecimalType(HiveType hiveType)
     {
         return getDecimalType(hiveType.getHiveTypeName().toString());
@@ -667,23 +716,22 @@ public final class HiveUtil
 
     public static boolean isArrayType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+        return type instanceof ArrayType;
     }
 
     public static boolean isMapType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
+        return type instanceof MapType;
     }
 
     public static boolean isRowType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
+        return type instanceof RowType;
     }
 
     public static boolean isStructuralType(Type type)
     {
-        String baseName = type.getTypeSignature().getBase();
-        return baseName.equals(StandardTypes.MAP) || baseName.equals(StandardTypes.ARRAY) || baseName.equals(StandardTypes.ROW);
+        return isArrayType(type) || isMapType(type) || isRowType(type);
     }
 
     public static boolean isStructuralType(HiveType hiveType)
@@ -832,20 +880,23 @@ public final class HiveUtil
         return partitionKey;
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(Table table)
+    public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
-        columns.addAll(getRegularColumnHandles(table));
+        columns.addAll(getRegularColumnHandles(table, typeManager));
 
         // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(table));
+        columns.addAll(getPartitionKeyColumnHandles(table, typeManager));
 
         // add hidden columns
         columns.add(pathColumnHandle());
-        if (table.getStorage().getBucketProperty().isPresent() && isHiveBucketingV1(table)) {
-            columns.add(bucketColumnHandle());
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
+            if (!containsTimestampBucketedV2(table.getStorage().getBucketProperty().get(), table)) {
+                columns.add(bucketColumnHandle());
+            }
         }
         columns.add(fileSizeColumnHandle());
         columns.add(fileModifiedTimeColumnHandle());
@@ -853,7 +904,7 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getRegularColumnHandles(Table table)
+    public static List<HiveColumnHandle> getRegularColumnHandles(Table table, TypeManager typeManager)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -862,7 +913,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
+                columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, hiveType.getType(typeManager), REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
@@ -870,7 +921,7 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(Table table)
+    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(Table table, TypeManager typeManager)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -880,7 +931,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY, field.getComment()));
+            columns.add(createBaseColumn(field.getName(), -1, hiveType, hiveType.getType(typeManager), PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();

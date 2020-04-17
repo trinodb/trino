@@ -15,18 +15,40 @@ package io.prestosql.server;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
 
+import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
+
+@DefunctConfig({
+        "internal-communication.kerberos.enabled",
+        "internal-communication.kerberos.use-canonical-hostname",
+        "internal-communication.jwt.enabled",
+})
 public class InternalCommunicationConfig
 {
-    public static final String INTERNAL_COMMUNICATION_KERBEROS_ENABLED = "internal-communication.kerberos.enabled";
-
+    private String sharedSecret;
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
     private String trustStorePath;
     private String trustStorePassword;
-    private boolean kerberosEnabled;
-    private boolean kerberosUseCanonicalHostname = true;
+
+    @NotNull
+    public Optional<String> getSharedSecret()
+    {
+        return Optional.ofNullable(sharedSecret);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("internal-communication.shared-secret")
+    public InternalCommunicationConfig setSharedSecret(String sharedSecret)
+    {
+        this.sharedSecret = sharedSecret;
+        return this;
+    }
 
     public boolean isHttpsRequired()
     {
@@ -90,27 +112,9 @@ public class InternalCommunicationConfig
         return this;
     }
 
-    public boolean isKerberosEnabled()
+    @AssertTrue(message = "Internal shared secret is required when HTTPS is enabled for internal communications")
+    public boolean isRequiredSharedSecretSet()
     {
-        return kerberosEnabled;
-    }
-
-    @Config(INTERNAL_COMMUNICATION_KERBEROS_ENABLED)
-    public InternalCommunicationConfig setKerberosEnabled(boolean kerberosEnabled)
-    {
-        this.kerberosEnabled = kerberosEnabled;
-        return this;
-    }
-
-    public boolean isKerberosUseCanonicalHostname()
-    {
-        return kerberosUseCanonicalHostname;
-    }
-
-    @Config("internal-communication.kerberos.use-canonical-hostname")
-    public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
-    {
-        this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
-        return this;
+        return !isHttpsRequired() || getSharedSecret().isPresent();
     }
 }

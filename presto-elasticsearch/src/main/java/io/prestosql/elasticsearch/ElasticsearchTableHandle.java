@@ -21,6 +21,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +32,7 @@ public final class ElasticsearchTableHandle
     private final String index;
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<String> query;
+    private final OptionalLong limit;
 
     public ElasticsearchTableHandle(String schema, String index, Optional<String> query)
     {
@@ -39,6 +41,7 @@ public final class ElasticsearchTableHandle
         this.query = requireNonNull(query, "query is null");
 
         constraint = TupleDomain.all();
+        limit = OptionalLong.empty();
     }
 
     @JsonCreator
@@ -46,12 +49,14 @@ public final class ElasticsearchTableHandle
             @JsonProperty("schema") String schema,
             @JsonProperty("index") String index,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("query") Optional<String> query)
+            @JsonProperty("query") Optional<String> query,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.query = requireNonNull(query, "query is null");
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     @JsonProperty
@@ -76,6 +81,12 @@ public final class ElasticsearchTableHandle
     public Optional<String> getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
     }
 
     @Override

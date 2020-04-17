@@ -52,7 +52,8 @@ public class KinesisTableDescriptionSupplier
     private final S3TableConfigClient s3TableConfigClient;
 
     @Inject
-    public KinesisTableDescriptionSupplier(KinesisConfig kinesisConfig,
+    public KinesisTableDescriptionSupplier(
+            KinesisConfig kinesisConfig,
             JsonCodec<KinesisStreamDescription> streamDescriptionCodec,
             S3TableConfigClient s3TableConfigClient)
     {

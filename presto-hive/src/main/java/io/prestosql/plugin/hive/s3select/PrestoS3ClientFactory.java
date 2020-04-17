@@ -20,18 +20,14 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.metrics.RequestMetricCollector;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
+import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystemMetricCollector;
-import io.prestosql.plugin.hive.s3.PrestoS3FileSystemStats;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -44,6 +40,7 @@ import static com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguratio
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
@@ -54,7 +51,6 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SOCKET_TIMEOUT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSL_ENABLED;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -109,13 +105,11 @@ public class PrestoS3ClientFactory
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(enabled ? "presto-select" : "presto");
 
-        PrestoS3FileSystemStats stats = new PrestoS3FileSystemStats();
-        RequestMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(stats);
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
-                .withMetricsCollector(metricCollector)
+                .withMetricsCollector(new PrestoS3FileSystemMetricCollector(PrestoS3FileSystem.getFileSystemStats()))
                 .enablePathStyleAccess();
 
         boolean regionOrEndpointSet = false;
@@ -127,11 +121,8 @@ public class PrestoS3ClientFactory
 
         // use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
-            Region region = Regions.getCurrentRegion();
-            if (region != null) {
-                clientBuilder.withRegion(region.getName());
-                regionOrEndpointSet = true;
-            }
+            clientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            regionOrEndpointSet = true;
         }
 
         if (!isNullOrEmpty(endpoint)) {
@@ -152,11 +143,6 @@ public class PrestoS3ClientFactory
         Optional<AWSCredentials> credentials = getAwsCredentials(conf);
         if (credentials.isPresent()) {
             return new AWSStaticCredentialsProvider(credentials.get());
-        }
-
-        boolean useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
-        if (useInstanceCredentials) {
-            return InstanceProfileCredentialsProvider.getInstance();
         }
 
         String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);

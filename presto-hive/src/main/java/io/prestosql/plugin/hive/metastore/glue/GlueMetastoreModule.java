@@ -13,10 +13,16 @@
  */
 package io.prestosql.plugin.hive.metastore.glue;
 
+import com.amazonaws.handlers.RequestHandler2;
 import com.google.inject.Binder;
+import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -26,8 +32,14 @@ import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
 import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 import io.prestosql.spi.procedure.Procedure;
 
+import java.util.concurrent.Executor;
+
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class GlueMetastoreModule
@@ -37,6 +49,11 @@ public class GlueMetastoreModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
+
+        newOptionalBinder(binder, GlueColumnStatisticsProvider.class)
+                .setDefault().to(DisabledGlueColumnStatisticsProvider.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
 
         if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
             binder.bind(HiveMetastore.class)
@@ -65,5 +82,18 @@ public class GlueMetastoreModule
                     .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
         }
         binder.install(new CachingHiveMetastoreModule());
+    }
+
+    @Provides
+    @Singleton
+    @ForGlueHiveMetastore
+    public Executor createExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    {
+        if (hiveConfig.getGetPartitionThreads() == 1) {
+            return directExecutor();
+        }
+        return new BoundedExecutor(
+                newCachedThreadPool(daemonThreadsNamed("hive-glue-%s")),
+                hiveConfig.getGetPartitionThreads());
     }
 }

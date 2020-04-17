@@ -22,6 +22,7 @@ import io.prestosql.spi.block.RowBlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +64,16 @@ public class RowType
         return new RowType(makeSignature(fields), fields);
     }
 
+    public static RowType rowType(Field... field)
+    {
+        return from(Arrays.asList(field));
+    }
+
+    public static RowType anonymousRow(Type... types)
+    {
+        return anonymous(Arrays.asList(types));
+    }
+
     // Only RowParametricType.createType should call this method
     public static RowType createWithTypeSignature(TypeSignature typeSignature, List<Field> fields)
     {
@@ -87,7 +98,7 @@ public class RowType
         }
 
         List<TypeSignatureParameter> parameters = fields.stream()
-                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name, false)), field.getType().getTypeSignature())))
+                .map(field -> TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name)), field.getType().getTypeSignature())))
                 .collect(Collectors.toList());
 
         return new TypeSignature(ROW, parameters);
@@ -114,6 +125,7 @@ public class RowType
         for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
+                // TODO: names are already canonicalized, so they should be printed as delimited identifiers
                 result.append(field.getName().get()).append(' ').append(typeDisplayName);
             }
             else {

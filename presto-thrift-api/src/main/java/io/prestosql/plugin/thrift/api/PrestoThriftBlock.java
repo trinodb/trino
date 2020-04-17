@@ -32,8 +32,15 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import javax.annotation.Nullable;
 
@@ -44,16 +51,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.DATE;
-import static io.prestosql.spi.type.StandardTypes.DOUBLE;
 import static io.prestosql.spi.type.StandardTypes.HYPER_LOG_LOG;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
 import static io.prestosql.spi.type.StandardTypes.JSON;
-import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 
 @ThriftStruct
 public final class PrestoThriftBlock
@@ -269,55 +268,64 @@ public final class PrestoThriftBlock
 
     public static PrestoThriftBlock fromBlock(Block block, Type type)
     {
-        switch (type.getTypeSignature().getBase()) {
-            case INTEGER:
-                return PrestoThriftInteger.fromBlock(block);
-            case BIGINT:
-                return PrestoThriftBigint.fromBlock(block);
-            case DOUBLE:
-                return PrestoThriftDouble.fromBlock(block);
-            case VARCHAR:
-                return PrestoThriftVarchar.fromBlock(block, type);
-            case BOOLEAN:
-                return PrestoThriftBoolean.fromBlock(block);
-            case DATE:
-                return PrestoThriftDate.fromBlock(block);
-            case TIMESTAMP:
-                return PrestoThriftTimestamp.fromBlock(block);
-            case JSON:
-                return PrestoThriftJson.fromBlock(block, type);
-            case HYPER_LOG_LOG:
-                return PrestoThriftHyperLogLog.fromBlock(block);
-            case ARRAY:
-                Type elementType = getOnlyElement(type.getTypeParameters());
-                if (BigintType.BIGINT.equals(elementType)) {
-                    return PrestoThriftBigintArray.fromBlock(block);
-                }
-                else {
-                    throw new IllegalArgumentException("Unsupported array block type: " + type);
-                }
-            default:
-                throw new IllegalArgumentException("Unsupported block type: " + type);
+        if (type instanceof IntegerType) {
+            return PrestoThriftInteger.fromBlock(block);
         }
+        if (type instanceof BigintType) {
+            return PrestoThriftBigint.fromBlock(block);
+        }
+        if (type instanceof DoubleType) {
+            return PrestoThriftDouble.fromBlock(block);
+        }
+        if (type instanceof VarcharType) {
+            return PrestoThriftVarchar.fromBlock(block, type);
+        }
+        if (type instanceof BooleanType) {
+            return PrestoThriftBoolean.fromBlock(block);
+        }
+        if (type instanceof DateType) {
+            return PrestoThriftDate.fromBlock(block);
+        }
+        if (type instanceof TimestampType) {
+            return PrestoThriftTimestamp.fromBlock(block);
+        }
+        if (type instanceof ArrayType) {
+            Type elementType = getOnlyElement(type.getTypeParameters());
+            if (BigintType.BIGINT.equals(elementType)) {
+                return PrestoThriftBigintArray.fromBlock(block);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported array block type: " + type);
+            }
+        }
+        if (type.getBaseName().equals(JSON)) {
+            return PrestoThriftJson.fromBlock(block, type);
+        }
+        if (type.getBaseName().equals(HYPER_LOG_LOG)) {
+            return PrestoThriftHyperLogLog.fromBlock(block);
+        }
+
+        throw new IllegalArgumentException("Unsupported block type: " + type);
     }
 
     public static PrestoThriftBlock fromRecordSetColumn(RecordSet recordSet, int columnIndex, int totalRecords)
     {
         Type type = recordSet.getColumnTypes().get(columnIndex);
-        switch (type.getTypeSignature().getBase()) {
-            // use more efficient implementations for numeric types which are likely to be used in index join
-            case INTEGER:
-                return PrestoThriftInteger.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
-            case BIGINT:
-                return PrestoThriftBigint.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
-            case DATE:
-                return PrestoThriftDate.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
-            case TIMESTAMP:
-                return PrestoThriftTimestamp.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
-            default:
-                // less efficient implementation which converts to a block first
-                return fromBlock(convertColumnToBlock(recordSet, columnIndex, totalRecords), type);
+        // use more efficient implementations for numeric types which are likely to be used in index join
+        if (type instanceof IntegerType) {
+            return PrestoThriftInteger.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
         }
+        if (type instanceof BigintType) {
+            return PrestoThriftBigint.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
+        }
+        if (type instanceof DateType) {
+            return PrestoThriftDate.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
+        }
+        if (type instanceof TimestampType) {
+            return PrestoThriftTimestamp.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
+        }
+        // less efficient implementation which converts to a block first
+        return fromBlock(convertColumnToBlock(recordSet, columnIndex, totalRecords), type);
     }
 
     private static Block convertColumnToBlock(RecordSet recordSet, int columnIndex, int positions)

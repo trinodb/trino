@@ -22,10 +22,19 @@ import java.util.function.Supplier;
 
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class VarcharDecoder
         implements Decoder
 {
+    private final String path;
+
+    public VarcharDecoder(String path)
+    {
+        this.path = requireNonNull(path, "path is null");
+    }
+
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -33,11 +42,11 @@ public class VarcharDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
+        else if (value instanceof String || value instanceof Number) {
             VARCHAR.writeSlice(output, Slices.utf8Slice(value.toString()));
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a string value for VARCHAR field");
+            throw new PrestoException(TYPE_MISMATCH, format("Expected a string or numeric value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }

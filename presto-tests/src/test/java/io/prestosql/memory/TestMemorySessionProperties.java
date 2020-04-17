@@ -14,7 +14,8 @@
 package io.prestosql.memory;
 
 import io.prestosql.Session;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
@@ -27,9 +28,11 @@ public class TestMemorySessionProperties
 {
     public static final String sql = "SELECT COUNT(*), clerk FROM orders GROUP BY clerk";
 
-    TestMemorySessionProperties()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().setNodeCount(2).build());
+        return TpchQueryRunnerBuilder.builder().setNodeCount(2).build();
     }
 
     @Test(timeOut = 240_000)

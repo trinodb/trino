@@ -24,9 +24,9 @@ import java.util.List;
 
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
-import static io.prestosql.spi.session.PropertyMetadata.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -157,5 +157,18 @@ public final class AccumuloSessionProperties
     public static boolean isIndexShortCircuitEnabled(ConnectorSession session)
     {
         return session.getProperty(INDEX_SHORT_CIRCUIT_CARDINALITY_FETCH, Boolean.class);
+    }
+
+    private static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                Duration.class,
+                defaultValue,
+                hidden,
+                value -> Duration.valueOf((String) value),
+                Duration::toString);
     }
 }

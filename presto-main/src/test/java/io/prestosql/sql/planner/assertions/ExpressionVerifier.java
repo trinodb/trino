@@ -27,10 +27,12 @@ import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
@@ -38,6 +40,7 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
@@ -48,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -75,12 +79,12 @@ import static java.util.Objects.requireNonNull;
  * NOT (X = 3 AND X = 3 AND X < 10)
  * </pre>
  */
-final class ExpressionVerifier
+public final class ExpressionVerifier
         extends AstVisitor<Boolean, Node>
 {
     private final SymbolAliases symbolAliases;
 
-    ExpressionVerifier(SymbolAliases symbolAliases)
+    public ExpressionVerifier(SymbolAliases symbolAliases)
     {
         this.symbolAliases = requireNonNull(symbolAliases, "symbolAliases is null");
     }
@@ -88,7 +92,7 @@ final class ExpressionVerifier
     @Override
     protected Boolean visitNode(Node node, Node expectedExpression)
     {
-        throw new IllegalStateException(format("Node %s is not supported", node));
+        throw new IllegalStateException(format("Node %s is not supported", node.getClass().getSimpleName()));
     }
 
     @Override
@@ -210,6 +214,20 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitIfExpression(IfExpression actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof IfExpression)) {
+            return false;
+        }
+
+        IfExpression expected = (IfExpression) expectedExpression;
+
+        return process(actual.getCondition(), expected.getCondition())
+                && process(actual.getTrueValue(), expected.getTrueValue())
+                && process(actual.getFalseValue(), expected.getFalseValue());
+    }
+
+    @Override
     protected Boolean visitCast(Cast actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof Cast)) {
@@ -218,7 +236,11 @@ final class ExpressionVerifier
 
         Cast expected = (Cast) expectedExpression;
 
-        if (!actual.getType().equals(expected.getType())) {
+        // TODO: hack!! The type in Cast is an AST structure, subject to case-sensitivity and quoting rules
+        // Here we're trying to verify its IR counterpart, but the plan testing framework goes directly
+        // from SQL text -> IR-like expressions without doing all the proper canonicalizations. So we cheat
+        // here and normalize everything to the same case before comparing
+        if (!actual.getType().toString().equalsIgnoreCase(expected.getType().toString())) {
             return false;
         }
 
@@ -258,24 +280,26 @@ final class ExpressionVerifier
 
         InPredicate expected = (InPredicate) expectedExpression;
 
-        if (actual.getValueList() instanceof InListExpression) {
+        if (actual.getValueList() instanceof InListExpression || !(expected.getValueList() instanceof InListExpression)) {
             return process(actual.getValue(), expected.getValue()) &&
                     process(actual.getValueList(), expected.getValueList());
         }
 
-        checkState(expected.getValueList() instanceof InListExpression, "ExpressionVerifier doesn't support unpacked expected values. Feel free to add support if needed");
-
         /*
-         * If the expected value is a value list, but the actual is e.g. a SymbolReference,
-         * we need to unpack the value from the list so that when we hit visitSymbolReference, the
-         * expected.toString() call returns something that the symbolAliases actually contains.
-         * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
+         * In some cases, actual.getValueList() and expected.getValueList() might be of different types,
+         * although they originated from identical single-element InListExpression.
          *
-         * This is required because actual passes through the analyzer, planner, and possibly optimizers,
+         * This happens because actual passes through the analyzer, planner, and possibly optimizers,
          * one of which sometimes takes the liberty of unpacking the InListExpression.
          *
          * Since the expected value doesn't go through all of that, we have to deal with the case
          * of the actual value being unpacked, but the expected value being an InListExpression.
+         *
+         * If the expected value is a value list, but the actual is e.g. a SymbolReference,
+         * we need to unpack the value from the list to enable comparison: so that when we hit
+         * visitSymbolReference, the expected.toString() call returns something that the symbolAliases
+         * actually contains.
+         * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
          */
         List<Expression> values = ((InListExpression) expected.getValueList()).getValues();
         checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list", values, actual.getValue());
@@ -419,6 +443,25 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitSearchedCaseExpression(SearchedCaseExpression actual, Node expected)
+    {
+        if (!(expected instanceof SearchedCaseExpression)) {
+            return false;
+        }
+
+        SearchedCaseExpression expectedCase = (SearchedCaseExpression) expected;
+        if (!process(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
+            return false;
+        }
+
+        if (actual.getDefaultValue().isPresent() != expectedCase.getDefaultValue().isPresent()) {
+            return false;
+        }
+
+        return process(actual.getDefaultValue(), expectedCase.getDefaultValue());
+    }
+
+    @Override
     protected Boolean visitWhenClause(WhenClause actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof WhenClause)) {
@@ -441,10 +484,27 @@ final class ExpressionVerifier
         FunctionCall expected = (FunctionCall) expectedExpression;
 
         return actual.isDistinct() == expected.isDistinct() &&
-                actual.getName().equals(expected.getName()) &&
+                getFunctionName(actual).equals(getFunctionName(expected)) &&
                 process(actual.getArguments(), expected.getArguments()) &&
                 process(actual.getFilter(), expected.getFilter()) &&
                 process(actual.getWindow(), expected.getWindow());
+    }
+
+    @Override
+    protected Boolean visitLambdaExpression(LambdaExpression actual, Node expected)
+    {
+        if (!(expected instanceof LambdaExpression)) {
+            return false;
+        }
+
+        LambdaExpression lambdaExpression = (LambdaExpression) expected;
+
+        // todo this should allow the arguments to have different names
+        if (!actual.getArguments().equals(lambdaExpression.getArguments())) {
+            return false;
+        }
+
+        return process(actual.getBody(), lambdaExpression.getBody());
     }
 
     @Override
@@ -471,6 +531,7 @@ final class ExpressionVerifier
         return process(actual.getInnerExpression(), expected.getInnerExpression());
     }
 
+    @Override
     protected Boolean visitLikePredicate(LikePredicate actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof LikePredicate)) {

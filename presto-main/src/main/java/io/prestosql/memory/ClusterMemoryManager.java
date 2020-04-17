@@ -164,7 +164,7 @@ public class ClusterMemoryManager
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
 
-        this.pools = createClusterMemoryPools(nodeMemoryConfig.isReservedPoolEnabled());
+        this.pools = createClusterMemoryPools(!nodeMemoryConfig.isReservedPoolDisabled());
     }
 
     private Map<MemoryPoolId, ClusterMemoryPool> createClusterMemoryPools(boolean reservedPoolEnabled)

@@ -17,15 +17,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
 import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -67,8 +67,10 @@ public final class AccumuloQueryRunner
     public static synchronized DistributedQueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner =
-                new DistributedQueryRunner(createSession(), 4, extraProperties);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+                        .setNodeCount(4)
+                        .setExtraProperties(extraProperties)
+                        .build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

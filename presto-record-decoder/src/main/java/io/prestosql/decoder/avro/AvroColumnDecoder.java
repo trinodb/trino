@@ -22,9 +22,11 @@ import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -39,13 +41,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.VARBINARY;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.String.format;
@@ -83,12 +78,12 @@ public class AvroColumnDecoder
             return true;
         }
 
-        if (type.getTypeSignature().getBase().equalsIgnoreCase(ARRAY)) {
+        if (type instanceof ArrayType) {
             checkArgument(type.getTypeParameters().size() == 1, "expecting exactly one type parameter for array");
             return isSupportedPrimitive(type.getTypeParameters().get(0));
         }
 
-        if (type.getTypeSignature().getBase().equalsIgnoreCase(MAP)) {
+        if (type instanceof MapType) {
             List<Type> typeParameters = type.getTypeParameters();
             checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
             checkArgument(typeParameters.get(0) instanceof VarcharType, "Unsupported column type '%s' for map key", typeParameters.get(0));
@@ -187,30 +182,26 @@ public class AvroColumnDecoder
 
     private static Slice getSlice(Object value, Type type, String columnName)
     {
-        switch (type.getTypeSignature().getBase()) {
-            case VARCHAR:
-                if (value instanceof Utf8) {
-                    return truncateToLength(utf8Slice(value.toString()), type);
-                }
-            case VARBINARY:
-                if (value instanceof ByteBuffer) {
-                    return Slices.wrappedBuffer((ByteBuffer) value);
-                }
-            default:
-                throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        if (type instanceof VarcharType && value instanceof Utf8) {
+            return truncateToLength(utf8Slice(value.toString()), type);
         }
+
+        if (type instanceof VarbinaryType && value instanceof ByteBuffer) {
+            return Slices.wrappedBuffer((ByteBuffer) value);
+        }
+
+        throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
     private static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
     {
-        switch (type.getTypeSignature().getBase()) {
-            case ARRAY:
-                return serializeList(builder, value, type, columnName);
-            case MAP:
-                return serializeMap(builder, value, type, columnName);
-            default:
-                serializeGeneric(builder, value, type, columnName);
+        if (type instanceof ArrayType) {
+            return serializeList(builder, value, type, columnName);
         }
+        if (type instanceof MapType) {
+            return serializeMap(builder, value, type, columnName);
+        }
+        serializeGeneric(builder, value, type, columnName);
         return null;
     }
 
@@ -253,23 +244,27 @@ public class AvroColumnDecoder
             return;
         }
 
-        switch (type.getTypeSignature().getBase()) {
-            case BOOLEAN:
-                type.writeBoolean(blockBuilder, (Boolean) value);
-                break;
-            case BIGINT:
-                type.writeLong(blockBuilder, (Long) value);
-                break;
-            case DOUBLE:
-                type.writeDouble(blockBuilder, (Double) value);
-                break;
-            case VARCHAR:
-            case VARBINARY:
-                type.writeSlice(blockBuilder, getSlice(value, type, columnName));
-                break;
-            default:
-                throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        if (type instanceof BooleanType) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
+            return;
         }
+
+        if (type instanceof BigintType) {
+            type.writeLong(blockBuilder, (Long) value);
+            return;
+        }
+
+        if (type instanceof DoubleType) {
+            type.writeDouble(blockBuilder, (Double) value);
+            return;
+        }
+
+        if (type instanceof VarcharType || type instanceof VarbinaryType) {
+            type.writeSlice(blockBuilder, getSlice(value, type, columnName));
+            return;
+        }
+
+        throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
     private static Block serializeMap(BlockBuilder blockBuilder, Object value, Type type, String columnName)

@@ -16,28 +16,28 @@ package io.prestosql.orc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.metadata.ColumnMetadata;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.BooleanStatistics;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.RangeStatistics;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
@@ -58,44 +58,34 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
-public class TupleDomainOrcPredicate<C>
+public class TupleDomainOrcPredicate
         implements OrcPredicate
 {
-    private final TupleDomain<C> effectivePredicate;
-    private final List<ColumnReference<C>> columnReferences;
-
+    private final List<ColumnDomain> columnDomains;
     private final boolean orcBloomFiltersEnabled;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled)
+    public static TupleDomainOrcPredicateBuilder builder()
     {
-        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
-        this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
+        return new TupleDomainOrcPredicateBuilder();
+    }
+
+    private TupleDomainOrcPredicate(List<ColumnDomain> columnDomains, boolean orcBloomFiltersEnabled)
+    {
+        this.columnDomains = ImmutableList.copyOf(requireNonNull(columnDomains, "columnDomains is null"));
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
     }
 
     @Override
-    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
+    public boolean matches(long numberOfRows, ColumnMetadata<ColumnStatistics> allColumnStatistics)
     {
-        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
-        if (!optionalEffectivePredicateDomains.isPresent()) {
-            // effective predicate is none, so skip this section
-            return false;
-        }
-        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
-
-        for (ColumnReference<C> columnReference : columnReferences) {
-            Domain predicateDomain = effectivePredicateDomains.get(columnReference.getColumn());
-            if (predicateDomain == null) {
-                // no predicate on this column, so we can't exclude this section
-                continue;
-            }
-            ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
+        for (ColumnDomain column : columnDomains) {
+            ColumnStatistics columnStatistics = allColumnStatistics.get(column.getColumnId());
             if (columnStatistics == null) {
                 // no statistics for this column, so we can't exclude this section
                 continue;
             }
 
-            if (!columnOverlaps(columnReference, predicateDomain, numberOfRows, columnStatistics)) {
+            if (!columnOverlaps(column.getDomain(), numberOfRows, columnStatistics)) {
                 return false;
             }
         }
@@ -104,20 +94,20 @@ public class TupleDomainOrcPredicate<C>
         return true;
     }
 
-    private boolean columnOverlaps(ColumnReference<C> columnReference, Domain predicateDomain, long numberOfRows, ColumnStatistics columnStatistics)
+    private boolean columnOverlaps(Domain predicateDomain, long numberOfRows, ColumnStatistics columnStatistics)
     {
-        Domain stripeDomain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
+        Domain stripeDomain = getDomain(predicateDomain.getType(), numberOfRows, columnStatistics);
         if (!stripeDomain.overlaps(predicateDomain)) {
             // there is no overlap between the predicate and this column
             return false;
         }
 
-        // if bloom filters are not enabled, we can not restrict the range overlap
+        // if bloom filters are not enabled, we cannot restrict the range overlap
         if (!orcBloomFiltersEnabled) {
             return true;
         }
 
-        // if there an overlap in null values, the bloom filter can not eliminate the overlap
+        // if there an overlap in null values, the bloom filter cannot eliminate the overlap
         if (predicateDomain.isNullAllowed() && stripeDomain.isNullAllowed()) {
             return true;
         }
@@ -228,7 +218,7 @@ public class TupleDomainOrcPredicate<C>
         else if (isVarcharType(type) && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
+        else if (type instanceof DateType && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
         else if (type.getJavaType() == long.class && columnStatistics.getIntegerStatistics() != null) {
@@ -265,42 +255,57 @@ public class TupleDomainOrcPredicate<C>
         return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
-    public static class ColumnReference<C>
+    public static class TupleDomainOrcPredicateBuilder
     {
-        private final C column;
-        private final int ordinal;
-        private final Type type;
+        private final List<ColumnDomain> columns = new ArrayList<>();
+        private boolean bloomFiltersEnabled;
 
-        public ColumnReference(C column, int ordinal, Type type)
+        public TupleDomainOrcPredicateBuilder addColumn(OrcColumnId columnId, Domain domain)
         {
-            this.column = requireNonNull(column, "column is null");
-            checkArgument(ordinal >= 0, "ordinal is negative");
-            this.ordinal = ordinal;
-            this.type = requireNonNull(type, "type is null");
+            requireNonNull(domain, "domain is null");
+            columns.add(new ColumnDomain(columnId, domain));
+            return this;
         }
 
-        public C getColumn()
+        public TupleDomainOrcPredicateBuilder setBloomFiltersEnabled(boolean bloomFiltersEnabled)
         {
-            return column;
+            this.bloomFiltersEnabled = bloomFiltersEnabled;
+            return this;
         }
 
-        public int getOrdinal()
+        public TupleDomainOrcPredicate build()
         {
-            return ordinal;
+            return new TupleDomainOrcPredicate(columns, bloomFiltersEnabled);
+        }
+    }
+
+    private static class ColumnDomain
+    {
+        private final OrcColumnId columnId;
+        private final Domain domain;
+
+        public ColumnDomain(OrcColumnId columnId, Domain domain)
+        {
+            this.columnId = requireNonNull(columnId, "columnId is null");
+            this.domain = requireNonNull(domain, "domain is null");
         }
 
-        public Type getType()
+        public OrcColumnId getColumnId()
         {
-            return type;
+            return columnId;
+        }
+
+        public Domain getDomain()
+        {
+            return domain;
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("column", column)
-                    .add("ordinal", ordinal)
-                    .add("type", type)
+                    .add("columnId", columnId)
+                    .add("domain", domain)
                     .toString();
         }
     }

@@ -19,6 +19,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.event.SplitMonitor;
+import io.prestosql.eventlistener.EventListenerConfig;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import io.prestosql.execution.buffer.OutputBuffers;
@@ -152,7 +153,7 @@ public final class TaskTestUtils
     public static SplitMonitor createTestSplitMonitor()
     {
         return new SplitMonitor(
-                new EventListenerManager(),
+                new EventListenerManager(new EventListenerConfig()),
                 new ObjectMapperProvider().get());
     }
 }

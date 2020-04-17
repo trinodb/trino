@@ -21,10 +21,9 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 
 import java.util.function.Supplier;
-
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class CodecSupplier<T>
         implements Supplier<JsonCodec<T>>
@@ -61,7 +60,7 @@ public final class CodecSupplier<T>
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            return metadata.getType(parseTypeSignature(value));
+            return metadata.getType(TypeId.of(value));
         }
     }
 }

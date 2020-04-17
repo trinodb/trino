@@ -15,12 +15,12 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.airlift.tpch.Customer;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.ColumnNaming;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.tpch.Customer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -48,6 +48,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -68,7 +69,7 @@ public class BenchmarkPlanner
         private String iterativeOptimizerEnabled = "true";
 
         @Param({"optimized", "created"})
-        private String stage = LogicalPlanner.Stage.OPTIMIZED.toString();
+        private String stage = OPTIMIZED.toString();
 
         private LocalQueryRunner queryRunner;
         private List<String> queries;
@@ -85,7 +86,7 @@ public class BenchmarkPlanner
                     .setSystemProperty("iterative_optimizer_enabled", iterativeOptimizerEnabled)
                     .build();
 
-            queryRunner = new LocalQueryRunner(session);
+            queryRunner = LocalQueryRunner.create(session);
             queryRunner.createCatalog(tpch, new TpchConnectorFactory(4), ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
 
             queries = IntStream.rangeClosed(1, 22)

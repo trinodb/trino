@@ -13,15 +13,10 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
-
-import java.util.function.Predicate;
-
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 
 public final class TypeUtils
 {
@@ -29,36 +24,16 @@ public final class TypeUtils
 
     public static boolean isArrayType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+        return type instanceof ArrayType;
     }
 
     public static boolean isMapType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
+        return type instanceof MapType;
     }
 
     public static boolean isRowType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
-    }
-
-    public static boolean isDateType(Type type)
-    {
-        return type.equals(DATE) ||
-                type.equals(TIME) ||
-                type.equals(TIMESTAMP) ||
-                type.equals(TIMESTAMP_WITH_TIME_ZONE);
-    }
-
-    public static boolean containsType(Type type, Predicate<Type> predicate, Predicate<Type>... orPredicates)
-    {
-        for (Predicate<Type> orPredicate : orPredicates) {
-            predicate = predicate.or(orPredicate);
-        }
-        if (predicate.test(type)) {
-            return true;
-        }
-
-        return type.getTypeParameters().stream().anyMatch(predicate);
+        return type instanceof RowType;
     }
 }

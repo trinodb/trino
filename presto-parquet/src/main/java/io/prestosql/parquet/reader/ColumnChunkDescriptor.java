@@ -20,21 +20,11 @@ public class ColumnChunkDescriptor
 {
     private final ColumnDescriptor columnDescriptor;
     private final ColumnChunkMetaData columnChunkMetaData;
-    private final int size;
 
-    public ColumnChunkDescriptor(
-            ColumnDescriptor columnDescriptor,
-            ColumnChunkMetaData columnChunkMetaData,
-            int size)
+    public ColumnChunkDescriptor(ColumnDescriptor columnDescriptor, ColumnChunkMetaData columnChunkMetaData)
     {
         this.columnDescriptor = columnDescriptor;
         this.columnChunkMetaData = columnChunkMetaData;
-        this.size = size;
-    }
-
-    public int getSize()
-    {
-        return size;
     }
 
     public ColumnDescriptor getColumnDescriptor()

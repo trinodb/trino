@@ -91,7 +91,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Stream.concat;
 
 public class HashGenerationOptimizer
         implements PlanOptimizer
@@ -358,9 +357,15 @@ public class HashGenerationOptimizer
                             .stream()
                             .filter(entry -> parentPreference.getHashes().contains(entry.getKey()))
                             .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+            Set<Symbol> preferredHashSymbols = ImmutableSet.copyOf(hashSymbolsWithParentPreferences.values());
+            Set<Symbol> leftOutputSymbols = ImmutableSet.copyOf(node.getLeftOutputSymbols());
+            Set<Symbol> rightOutputSymbols = ImmutableSet.copyOf(node.getRightOutputSymbols());
 
-            List<Symbol> outputSymbols = concat(left.getNode().getOutputSymbols().stream(), right.getNode().getOutputSymbols().stream())
-                    .filter(symbol -> node.getOutputSymbols().contains(symbol) || hashSymbolsWithParentPreferences.values().contains(symbol))
+            List<Symbol> newLeftOutputSymbols = left.getNode().getOutputSymbols().stream()
+                    .filter(symbol -> leftOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
+                    .collect(toImmutableList());
+            List<Symbol> newRightOutputSymbols = right.getNode().getOutputSymbols().stream()
+                    .filter(symbol -> rightOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
                     .collect(toImmutableList());
 
             return new PlanWithProperties(
@@ -370,13 +375,15 @@ public class HashGenerationOptimizer
                             left.getNode(),
                             right.getNode(),
                             node.getCriteria(),
-                            outputSymbols,
+                            newLeftOutputSymbols,
+                            newRightOutputSymbols,
                             node.getFilter(),
                             leftHashSymbol,
                             rightHashSymbol,
                             node.getDistributionType(),
                             node.isSpillable(),
-                            node.getDynamicFilters()),
+                            node.getDynamicFilters(),
+                            node.getReorderJoinStatsAndCost()),
                     hashSymbolsWithParentPreferences);
         }
 
@@ -885,7 +892,7 @@ public class HashGenerationOptimizer
         {
             requireNonNull(fields, "fields is null");
             this.fields = ImmutableList.copyOf(fields);
-            checkArgument(!this.fields.isEmpty(), "fields can not be empty");
+            checkArgument(!this.fields.isEmpty(), "fields cannot be empty");
         }
 
         public List<Symbol> getFields()

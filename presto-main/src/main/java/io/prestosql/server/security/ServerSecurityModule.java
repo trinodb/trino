@@ -13,26 +13,27 @@
  */
 package io.prestosql.server.security;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.MapBinder;
+import com.google.inject.util.Modules;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.TheServlet;
-import io.prestosql.server.security.SecurityConfig.AuthenticationType;
 
 import javax.servlet.Filter;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.JWT;
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.PASSWORD;
+import static java.util.Locale.ENGLISH;
 
 public class ServerSecurityModule
         extends AbstractConfigurationAwareModule
@@ -45,33 +46,52 @@ public class ServerSecurityModule
 
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
 
-        List<AuthenticationType> authTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes();
-        Multibinder<Authenticator> authBinder = newSetBinder(binder, Authenticator.class);
+        authenticatorBinder(binder); // create empty map binder
 
-        for (AuthenticationType authType : authTypes) {
-            if (authType == CERTIFICATE) {
-                authBinder.addBinding().to(CertificateAuthenticator.class).in(Scopes.SINGLETON);
-            }
-            else if (authType == KERBEROS) {
-                configBinder(binder).bindConfig(KerberosConfig.class);
-                authBinder.addBinding().to(KerberosAuthenticator.class).in(Scopes.SINGLETON);
-            }
-            else if (authType == PASSWORD) {
-                authBinder.addBinding().to(PasswordAuthenticator.class).in(Scopes.SINGLETON);
-            }
-            else if (authType == JWT) {
-                configBinder(binder).bindConfig(JsonWebTokenConfig.class);
-                authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
-            }
-            else {
-                throw new AssertionError("Unhandled auth type: " + authType);
-            }
-        }
+        installAuthenticator("certificate", CertificateAuthenticator.class, CertificateConfig.class);
+        installAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
+        installAuthenticator("password", PasswordAuthenticator.class, PasswordAuthenticatorConfig.class);
+        installAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
     }
 
     @Provides
-    List<Authenticator> getAuthenticatorList(Set<Authenticator> authenticators)
+    public List<Authenticator> getAuthenticatorList(SecurityConfig config, Map<String, Authenticator> authenticators)
     {
-        return ImmutableList.copyOf(authenticators);
+        return authenticationTypes(config).stream()
+                .map(type -> {
+                    Authenticator authenticator = authenticators.get(type);
+                    if (authenticator == null) {
+                        throw new RuntimeException("Unknown authenticator type: " + type);
+                    }
+                    return authenticator;
+                })
+                .collect(toImmutableList());
+    }
+
+    public static Module authenticatorModule(String name, Class<? extends Authenticator> clazz, Module module)
+    {
+        checkArgument(name.toLowerCase(ENGLISH).equals(name), "name is not lower case: %s", name);
+        Module authModule = binder -> authenticatorBinder(binder).addBinding(name).to(clazz).in(Scopes.SINGLETON);
+        return installModuleIf(
+                SecurityConfig.class,
+                config -> authenticationTypes(config).contains(name),
+                Modules.combine(module, authModule));
+    }
+
+    private void installAuthenticator(String name, Class<? extends Authenticator> authenticator, Class<?> config)
+    {
+        install(authenticatorModule(name, authenticator, binder -> configBinder(binder).bindConfig(config)));
+    }
+
+    private static MapBinder<String, Authenticator> authenticatorBinder(Binder binder)
+    {
+        return newMapBinder(binder, String.class, Authenticator.class);
+    }
+
+    private static List<String> authenticationTypes(SecurityConfig config)
+    {
+        return config.getAuthenticationTypes().stream()
+                .map(type -> type.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
     }
 }

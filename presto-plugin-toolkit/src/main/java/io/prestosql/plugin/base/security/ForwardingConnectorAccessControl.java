@@ -16,9 +16,12 @@ package io.prestosql.plugin.base.security;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
+import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
@@ -64,6 +67,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetSchemaAuthorization(context, schemaName, principal);
+    }
+
+    @Override
     public void checkCanShowSchemas(ConnectorSecurityContext context)
     {
         delegate().checkCanShowSchemas(context);
@@ -73,6 +82,12 @@ public abstract class ForwardingConnectorAccessControl
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
         return delegate().filterSchemas(context, schemaNames);
+    }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanShowCreateTable(context, tableName);
     }
 
     @Override
@@ -100,9 +115,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
+    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
-        delegate().checkCanShowTablesMetadata(context, schemaName);
+        delegate().checkCanShowTables(context, schemaName);
     }
 
     @Override
@@ -112,9 +127,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanShowColumnsMetadata(context, tableName);
+        delegate().checkCanShowColumns(context, tableName);
     }
 
     @Override
@@ -166,6 +181,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        delegate().checkCanRenameView(context, viewName, newViewName);
+    }
+
+    @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         delegate().checkCanDropView(context, viewName);
@@ -184,15 +205,15 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
-        delegate().checkCanGrantTablePrivilege(context, privilege, tableName, grantee, withGrantOption);
+        delegate().checkCanGrantTablePrivilege(context, privilege, tableName, grantee, grantOption);
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
-        delegate().checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOptionFor);
+        delegate().checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
     }
 
     @Override
@@ -208,15 +229,15 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        delegate().checkCanGrantRoles(context, roles, grantees, withAdminOption, grantor, catalogName);
+        delegate().checkCanGrantRoles(context, roles, grantees, adminOption, grantor, catalogName);
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        delegate().checkCanRevokeRoles(context, roles, grantees, adminOptionFor, grantor, catalogName);
+        delegate().checkCanRevokeRoles(context, roles, grantees, adminOption, grantor, catalogName);
     }
 
     @Override
@@ -241,5 +262,23 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         delegate().checkCanShowRoleGrants(context, catalogName);
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+        delegate().checkCanExecuteProcedure(context, procedure);
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return delegate().getRowFilter(context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 }

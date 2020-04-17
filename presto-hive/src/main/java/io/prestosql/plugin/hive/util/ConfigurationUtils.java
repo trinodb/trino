@@ -14,9 +14,14 @@
 package io.prestosql.plugin.hive.util;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
+import java.io.File;
+import java.util.List;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class ConfigurationUtils
 {
@@ -29,7 +34,7 @@ public final class ConfigurationUtils
         // must not be transitively reloaded during the future loading of various Hadoop modules
         // all the required default resources must be declared above
         INITIAL_CONFIGURATION = new Configuration(false);
-        Configuration defaultConfiguration = new Configuration();
+        Configuration defaultConfiguration = new Configuration(true);
         copy(defaultConfiguration, INITIAL_CONFIGURATION);
     }
 
@@ -60,5 +65,20 @@ public final class ConfigurationUtils
             return (JobConf) conf;
         }
         return new JobConf(conf);
+    }
+
+    public static Configuration readConfiguration(List<File> resourcePaths)
+    {
+        Configuration result = new Configuration(false);
+
+        for (File resourcePath : resourcePaths) {
+            checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
+
+            Configuration resourceProperties = new Configuration(false);
+            resourceProperties.addResource(new Path(resourcePath.toURI()));
+            copy(resourceProperties, result);
+        }
+
+        return result;
     }
 }

@@ -19,23 +19,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.type.CharParametricType;
 import io.prestosql.type.DecimalParametricType;
+import io.prestosql.type.Re2JRegexpType;
 import io.prestosql.type.VarcharParametricType;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -59,6 +61,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.ColorType.COLOR;
@@ -71,7 +74,6 @@ import static io.prestosql.type.JsonPathType.JSON_PATH;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 import static io.prestosql.type.MapParametricType.MAP;
-import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
 import static io.prestosql.type.RowParametricType.ROW;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.type.UuidType.UUID;
@@ -81,17 +83,16 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 final class TypeRegistry
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     private final Cache<TypeSignature, Type> parametricTypeCache;
 
-    @Inject
-    public TypeRegistry(Set<Type> types)
+    public TypeRegistry(FeaturesConfig featuresConfig)
     {
-        requireNonNull(types, "types is null");
-
-        // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
+        // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that cannot be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
 
         // always add the built-in types; Presto will not function without these
@@ -115,7 +116,7 @@ final class TypeRegistry
         addType(SET_DIGEST);
         addType(P4_HYPER_LOG_LOG);
         addType(JONI_REGEXP);
-        addType(RE2J_REGEXP);
+        addType(new Re2JRegexpType(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
         addType(COLOR);
@@ -132,9 +133,6 @@ final class TypeRegistry
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);
 
-        for (Type type : types) {
-            addType(type);
-        }
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .build();
@@ -153,6 +151,17 @@ final class TypeRegistry
             }
         }
         return type;
+    }
+
+    public Type getType(TypeManager typeManager, TypeId id)
+    {
+        // TODO: ID should be encoded in a more canonical form than SQL
+        return fromSqlType(typeManager, id.getId());
+    }
+
+    public Type fromSqlType(TypeManager typeManager, String sqlType)
+    {
+        return getType(typeManager, toTypeSignature(SQL_PARSER.createType(sqlType)));
     }
 
     private Type instantiateParametricType(TypeManager typeManager, TypeSignature signature)
@@ -204,7 +213,7 @@ final class TypeRegistry
         requireNonNull(alias, "alias is null");
         requireNonNull(type, "type is null");
 
-        Type existingType = types.putIfAbsent(TypeSignature.parseTypeSignature(alias), type);
+        Type existingType = types.putIfAbsent(new TypeSignature(alias), type);
         checkState(existingType == null || existingType.equals(type), "Alias %s is already mapped to %s", alias, type);
     }
 

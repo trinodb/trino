@@ -80,14 +80,14 @@ Constructors
 
     Returns a LineString formed from an array of points. If there are fewer than
     two non-empty points in the input array, an empty LineString will be returned.
-    Throws an exception if any element in the array is ``NULL`` or empty or same as the previous one.
+    Array elements must not be ``NULL`` or the same as the previous element.
     The returned geometry may not be simple, e.g. may self-intersect or may contain
     duplicate vertexes depending on the input.
 
 .. function:: ST_MultiPoint(array(Point)) -> MultiPoint
 
-    Returns a MultiPoint geometry object formed from the specified points. Return ``NULL`` if input array is empty.
-    Throws an exception if any element in the array is ``NULL`` or empty.
+    Returns a MultiPoint geometry object formed from the specified points. Returns ``NULL`` if input array is empty.
+    Array elements must not be ``NULL`` or empty.
     The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 
 .. function:: ST_Point(double, double) -> Point
@@ -185,7 +185,7 @@ Operations
 .. function:: ST_EnvelopeAsPts(Geometry) -> array(Geometry)
 
     Returns an array of two points: the lower left and upper right corners of the bounding
-    rectangular polygon of a geometry. Returns null if input geometry is empty.
+    rectangular polygon of a geometry. Returns ``NULL`` if input geometry is empty.
 
 .. function:: ST_ExteriorRing(Geometry) -> Geometry
 
@@ -231,7 +231,7 @@ Accessors
 
 .. function:: ST_CoordDim(Geometry) -> bigint
 
-    Return the coordinate dimension of the geometry.
+    Returns the coordinate dimension of the geometry.
 
 .. function:: ST_Dimension(Geometry) -> bigint
 
@@ -254,7 +254,7 @@ Accessors
     returns the geometry at a given index.
     If the given index is less than 1 or greater than the total number of elements in the collection,
     returns ``NULL``.
-    Use :func:``ST_NumGeometries`` to find out the total number of elements.
+    Use :func:`ST_NumGeometries` to find out the total number of elements.
     Singular geometries (e.g., POINT, LINESTRING, POLYGON), are treated as collections of one element.
     Empty geometries are treated as empty collections.
 
@@ -262,9 +262,8 @@ Accessors
 
    Returns the interior ring element at the specified index (indices start at 1). If
    the given index is less than 1 or greater than the total number of interior rings
-   in the input geometry, returns ``NULL``. Throws an error if the input geometry is
-   not a polygon.
-   Use :func:``ST_NumInteriorRing`` to find out the total number of elements.
+   in the input geometry, returns ``NULL``. The input geometry must be a polygon.
+   Use :func:`ST_NumInteriorRing` to find out the total number of elements.
 
 .. function:: ST_GeometryType(Geometry) -> varchar
 
@@ -306,7 +305,7 @@ Accessors
     Returns the vertex of a linestring at a given index (indices start at 1).
     If the given index is less than 1 or greater than the total number of elements in the collection,
     returns ``NULL``.
-    Use :func:``ST_NumPoints`` to find out the total number of elements.
+    Use :func:`ST_NumPoints` to find out the total number of elements.
 
 .. function:: ST_Points(Geometry) -> array(Point)
 
@@ -331,7 +330,7 @@ Accessors
 .. function:: ST_StartPoint(Geometry) -> point
 
     Returns the first point of a LineString geometry as a Point.
-    This is a shortcut for ST_PointN(geometry, 1).
+    This is a shortcut for ``ST_PointN(geometry, 1)``.
 
 .. function:: simplify_geometry(Geometry, double) -> Geometry
 
@@ -341,21 +340,21 @@ Accessors
 .. function:: ST_EndPoint(Geometry) -> point
 
     Returns the last point of a LineString geometry as a Point.
-    This is a shortcut for ST_PointN(geometry, ST_NumPoints(geometry)).
+    This is a shortcut for ``ST_PointN(geometry, ST_NumPoints(geometry))``.
 
 .. function:: ST_X(Point) -> double
 
-    Return the X coordinate of the point.
+    Returns the X coordinate of the point.
 
 .. function:: ST_Y(Point) -> double
 
-    Return the Y coordinate of the point.
+    Returns the Y coordinate of the point.
 
 .. function:: ST_InteriorRings(Geometry) -> array(Geometry)
 
    Returns an array of all interior rings found in the input geometry, or an empty
-   array if the polygon has no interior rings. Returns null if the input geometry
-   is empty. Throws an error if the input geometry is not a polygon.
+   array if the polygon has no interior rings. Returns ``NULL`` if the input geometry
+   is empty. The input geometry must be a polygon.
 
 .. function:: ST_NumGeometries(Geometry) -> bigint
 
@@ -368,7 +367,7 @@ Accessors
 .. function:: ST_Geometries(Geometry) -> array(Geometry)
 
    Returns an array of geometries in the specified collection. Returns a one-element array
-   if the input geometry is not a multi-geometry. Returns null if input geometry is empty.
+   if the input geometry is not a multi-geometry. Returns ``NULL`` if input geometry is empty.
 
 .. function:: ST_NumPoints(Geometry) -> bigint
 
@@ -378,6 +377,16 @@ Accessors
 .. function:: ST_NumInteriorRing(Geometry) -> bigint
 
     Returns the cardinality of the collection of interior rings of a polygon.
+
+.. function:: line_interpolate_point(LineString, double) -> double
+
+    Returns a Point interpolated along a LineString at the fraction given. The fraction
+    must be between 0 and 1, inclusive.
+
+.. function:: line_interpolate_points(LineString, double, repeated) -> double
+
+    Returns an array of Points interpolated along a LineString. The fraction must be
+    between 0 and 1, inclusive.
 
 .. function:: line_locate_point(LineString, Point) -> double
 
@@ -389,7 +398,7 @@ Accessors
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 
     Returns the reason for why the input geometry is not valid.
-    Returns null if the input is valid.
+    Returns ``NULL`` if the input is valid.
 
 .. function:: great_circle_distance(latitude1, longitude1, latitude2, longitude2) -> double
 
@@ -456,3 +465,17 @@ These functions convert between geometries and
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.
+
+Encoded Polylines
+-----------------
+
+These functions convert between geometries and
+`encoded polylines <https://developers.google.com/maps/documentation/utilities/polylinealgorithm>`_.
+
+.. function:: to_encoded_polyline(Geometry) -> varchar
+
+    Encodes a linestring or multipoint to a polyline.
+
+.. function:: from_encoded_polyline(varchar) -> Geometry
+
+    Decodes a polyline to a linestring.

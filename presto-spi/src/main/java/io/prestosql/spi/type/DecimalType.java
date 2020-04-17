@@ -101,8 +101,8 @@ public abstract class DecimalType
     private static List<TypeSignatureParameter> buildTypeParameters(int precision, int scale)
     {
         List<TypeSignatureParameter> typeParameters = new ArrayList<>();
-        typeParameters.add(TypeSignatureParameter.of(precision));
-        typeParameters.add(TypeSignatureParameter.of(scale));
+        typeParameters.add(TypeSignatureParameter.numericParameter(precision));
+        typeParameters.add(TypeSignatureParameter.numericParameter(scale));
         return unmodifiableList(typeParameters);
     }
 }

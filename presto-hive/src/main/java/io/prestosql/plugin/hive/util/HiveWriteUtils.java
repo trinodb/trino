@@ -17,10 +17,12 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveReadOnlyException;
 import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.avro.AvroRecordWriter;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -53,7 +55,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -61,7 +62,10 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
@@ -105,6 +109,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -133,6 +138,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.MATERIALIZED_VIEW;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
@@ -164,9 +170,6 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
 {
-    @SuppressWarnings("OctalInteger")
-    private static final FsPermission ALL_PERMISSIONS = new FsPermission((short) 0777);
-
     private HiveWriteUtils()
     {
     }
@@ -177,6 +180,15 @@ public final class HiveWriteUtils
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
                 return createParquetWriter(target, conf, properties, session);
+            }
+            if (outputFormatName.equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
+                return new TextRecordWriter(target, conf, properties, compress);
+            }
+            if (outputFormatName.equals(HiveSequenceFileOutputFormat.class.getName())) {
+                return new SequenceFileRecordWriter(target, conf, Text.class, compress);
+            }
+            if (outputFormatName.equals(AvroContainerOutputFormat.class.getName())) {
+                return new AvroRecordWriter(target, conf, compress, properties);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
@@ -255,10 +267,10 @@ public final class HiveWriteUtils
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
                             .map(parameter -> parameter.getNamedTypeSignature().getName().get())
-                            .collect(toList()),
+                            .collect(toImmutableList()),
                     type.getTypeParameters().stream()
                             .map(HiveWriteUtils::getJavaObjectInspector)
-                            .collect(toList()));
+                            .collect(toImmutableList()));
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
@@ -378,6 +390,10 @@ public final class HiveWriteUtils
 
     public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
     {
+        if (table.getTableType().equals(MATERIALIZED_VIEW.toString())) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot write to Hive materialized view");
+        }
+
         if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.toString())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
         }
@@ -428,7 +444,7 @@ public final class HiveWriteUtils
         // verify transactional
         if (isTransactionalTable(parameters)) {
             // TODO support writing to transactional tables
-            throw new PrestoException(NOT_SUPPORTED, "Hive transactional tables are not supported: " + tableName);
+            throw new PrestoException(NOT_SUPPORTED, "Writes to Hive transactional tables are not supported: " + tableName);
         }
     }
 
@@ -474,7 +490,7 @@ public final class HiveWriteUtils
     {
         try {
             FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
-            return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME);
+            return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME) || fileSystem instanceof CachingPrestoS3FileSystem;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
@@ -546,7 +562,7 @@ public final class HiveWriteUtils
     public static void createDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, ALL_PERMISSIONS)) {
+            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions())) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -556,7 +572,7 @@ public final class HiveWriteUtils
 
         // explicitly set permission since the default umask overrides it on creation
         try {
-            hdfsEnvironment.getFileSystem(context, path).setPermission(path, ALL_PERMISSIONS);
+            hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions());
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);

@@ -29,19 +29,27 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -53,20 +61,26 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
+    private static final String ORIGINAL_NAME = "original-name";
+    public static final String SUPPORTS_PREDICATES = "supports-predicates";
+
+    private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
 
     @Inject
-    public ElasticsearchMetadata(ElasticsearchClient client, ElasticsearchConfig config)
+    public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
-        requireNonNull(config, "config is null");
-
+        requireNonNull(typeManager, "typeManager is null");
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
+        requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
     }
 
@@ -121,20 +135,57 @@ public class ElasticsearchMetadata
         result.add(BuiltinColumns.SOURCE.getMetadata());
         result.add(BuiltinColumns.SCORE.getMetadata());
 
+        Map<String, Long> counts = metadata.getSchema()
+                .getFields().stream()
+                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
+
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toPrestoType(field.getType());
-            if (type == null) {
+            Type type = toPrestoType(field);
+            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
                 continue;
             }
 
-            result.add(new ColumnMetadata(field.getName(), type));
+            result.add(makeColumnMetadata(field.getName(), type, supportsPredicates(field.getType())));
         }
 
         return result.build();
     }
 
-    private Type toPrestoType(IndexMetadata.Type type)
+    private static boolean supportsPredicates(IndexMetadata.Type type)
     {
+        if (type instanceof DateTimeType) {
+            return true;
+        }
+
+        if (type instanceof PrimitiveType) {
+            switch (((PrimitiveType) type).getName().toLowerCase(ENGLISH)) {
+                case "boolean":
+                case "byte":
+                case "short":
+                case "integer":
+                case "long":
+                case "double":
+                case "float":
+                case "keyword":
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Type toPrestoType(IndexMetadata.Field metaDataField)
+    {
+        return toPrestoType(metaDataField, metaDataField.isArray());
+    }
+
+    private Type toPrestoType(IndexMetadata.Field metaDataField, boolean isArray)
+    {
+        IndexMetadata.Type type = metaDataField.getType();
+        if (isArray) {
+            Type elementType = toPrestoType(metaDataField, false);
+            return new ArrayType(elementType);
+        }
         if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
@@ -149,10 +200,11 @@ public class ElasticsearchMetadata
                     return INTEGER;
                 case "long":
                     return BIGINT;
-                case "string":
                 case "text":
                 case "keyword":
                     return VARCHAR;
+                case "ip":
+                    return ipAddressType;
                 case "boolean":
                     return BOOLEAN;
                 case "binary":
@@ -168,11 +220,21 @@ public class ElasticsearchMetadata
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
 
-            List<RowType.Field> fields = objectType.getFields().stream()
-                    .map(field -> RowType.field(field.getName(), toPrestoType(field.getType())))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
+            for (IndexMetadata.Field field : objectType.getFields()) {
+                Type prestoType = toPrestoType(field);
+                if (prestoType != null) {
+                    builder.add(RowType.field(field.getName(), prestoType));
+                }
+            }
 
-            return RowType.from(fields);
+            List<RowType.Field> fields = builder.build();
+
+            if (!fields.isEmpty()) {
+                return RowType.from(fields);
+            }
+
+            // otherwise, skip -- row types must have at least 1 field
         }
 
         return null;
@@ -185,9 +247,17 @@ public class ElasticsearchMetadata
             return ImmutableList.of();
         }
 
-        return client.getIndexes().stream()
+        ImmutableList.Builder<SchemaTableName> result = ImmutableList.builder();
+
+        client.getIndexes().stream()
                 .map(index -> new SchemaTableName(this.schemaName, index))
-                .collect(toImmutableList());
+                .forEach(result::add);
+
+        client.getAliases().stream()
+                .map(index -> new SchemaTableName(this.schemaName, index))
+                .forEach(result::add);
+
+        return result.build();
     }
 
     @Override
@@ -197,7 +267,10 @@ public class ElasticsearchMetadata
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            results.put(column.getName(), new ElasticsearchColumnHandle(column.getName(), column.getType()));
+            results.put(column.getName(), new ElasticsearchColumnHandle(
+                    (String) column.getProperties().getOrDefault(ORIGINAL_NAME, column.getName()),
+                    column.getType(),
+                    (Boolean) column.getProperties().get(SUPPORTS_PREDICATES)));
         }
 
         return results.build();
@@ -207,7 +280,7 @@ public class ElasticsearchMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ElasticsearchColumnHandle handle = (ElasticsearchColumnHandle) columnHandle;
-        return new ColumnMetadata(handle.getName(), handle.getType());
+        return makeColumnMetadata(handle.getName(), handle.getType(), handle.isSupportsPredicates());
     }
 
     @Override
@@ -236,17 +309,22 @@ public class ElasticsearchMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        return new ConnectorTableProperties();
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        return new ConnectorTableProperties(
+                handle.getConstraint(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
 
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
-        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        if (oldDomain.equals(newDomain)) {
+        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
@@ -254,8 +332,56 @@ public class ElasticsearchMetadata
                 handle.getSchema(),
                 handle.getIndex(),
                 handle.getConstraint(),
-                handle.getQuery());
+                handle.getQuery(),
+                OptionalLong.of(limit));
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new LimitApplicationResult<>(handle, false));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        Map<ColumnHandle, Domain> supported = new HashMap<>();
+        Map<ColumnHandle, Domain> unsupported = new HashMap<>();
+        if (constraint.getSummary().getDomains().isPresent()) {
+            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getSummary().getDomains().get().entrySet()) {
+                ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
+
+                if (column.isSupportsPredicates()) {
+                    supported.put(column, entry.getValue());
+                }
+                else {
+                    unsupported.put(column, entry.getValue());
+                }
+            }
+        }
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(supported));
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new ElasticsearchTableHandle(
+                handle.getSchema(),
+                handle.getIndex(),
+                newDomain,
+                handle.getQuery(),
+                handle.getLimit());
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported)));
+    }
+
+    private static ColumnMetadata makeColumnMetadata(String name, Type type, boolean supportsPredicates)
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setProperties(ImmutableMap.of(
+                        ORIGINAL_NAME, name,
+                        SUPPORTS_PREDICATES, supportsPredicates))
+                .build();
     }
 }

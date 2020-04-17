@@ -25,6 +25,7 @@ import static org.testng.Assert.fail;
 public class TestSqlParserErrorHandling
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final ParsingOptions PARSING_OPTIONS = new ParsingOptions();
 
     @DataProvider(name = "expressions")
     public Object[][] getExpressions()
@@ -65,10 +66,6 @@ public class TestSqlParserErrorHandling
                         "line 1:19: backquoted identifiers are not supported; use double quotes to quote identifiers"},
                 {"select 1x from dual",
                         "line 1:8: identifiers must not start with a digit; surround the identifier with double quotes"},
-                {"select * from foo@bar",
-                        "line 1:15: identifiers must not contain '@'"},
-                {"select * from foo:bar",
-                        "line 1:15: identifiers must not contain ':'"},
                 {"select fuu from dual order by fuu order by fuu",
                         "line 1:35: mismatched input 'order'. Expecting: '%', '*', '+', ',', '-', '.', '/', 'AND', 'ASC', 'AT', 'DESC', 'FETCH', 'LIMIT', 'NULLS', 'OFFSET', 'OR', '[', '||', <EOF>, <predicate>"},
                 {"select fuu from dual limit 10 order by fuu",
@@ -139,7 +136,13 @@ public class TestSqlParserErrorHandling
                 {"WITH t AS (SELECT 1 SELECT t.* FROM t",
                         "line 1:21: mismatched input 'SELECT'. Expecting: '%', '(', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
                                 "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'SELECT', 'TABLE', 'UNION', 'VALUES', 'WHERE', '[', '||', <EOF>, " +
-                                "<identifier>, <predicate>"}
+                                "<identifier>, <predicate>"},
+                {"SHOW CATALOGS LIKE '%$_%' ESCAPE",
+                        "line 1:33: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SHOW FUNCTIONS LIKE '%$_%' ESCAPE",
+                        "line 1:34: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SHOW SESSION LIKE '%$_%' ESCAPE",
+                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"}
         };
     }
 
@@ -160,11 +163,41 @@ public class TestSqlParserErrorHandling
                 "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '/', 'AT', 'THEN', '||'");
     }
 
+    @Test
+    public void testPossibleExponentialBacktracking2()
+    {
+        testStatement("SELECT id FROM t WHERE\n" +
+                        "(f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "OR (f()\n" +
+                        "GROUP BY id",
+                "line 24:1: mismatched input 'GROUP'. Expecting: ')', ',', '.', 'FILTER', 'IGNORE', 'OVER', 'RESPECT', '['");
+    }
+
     @Test(dataProvider = "statements")
     public void testStatement(String sql, String error)
     {
         try {
-            SQL_PARSER.createStatement(sql);
+            SQL_PARSER.createStatement(sql, PARSING_OPTIONS);
             fail("Expected parsing to fail");
         }
         catch (ParsingException e) {
@@ -176,7 +209,7 @@ public class TestSqlParserErrorHandling
     public void testExpression(String sql, String error)
     {
         try {
-            SQL_PARSER.createExpression(sql);
+            SQL_PARSER.createExpression(sql, PARSING_OPTIONS);
             fail("Expected parsing to fail");
         }
         catch (ParsingException e) {
@@ -188,7 +221,7 @@ public class TestSqlParserErrorHandling
     public void testParsingExceptionPositionInfo()
     {
         try {
-            SQL_PARSER.createStatement("select *\nfrom x\nwhere from");
+            SQL_PARSER.createStatement("select *\nfrom x\nwhere from", PARSING_OPTIONS);
             fail("expected exception");
         }
         catch (ParsingException e) {
@@ -203,7 +236,7 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowExpression()
     {
         for (int size = 3000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")));
+            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")), new ParsingOptions());
         }
     }
 
@@ -211,7 +244,7 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowStatement()
     {
         for (int size = 6000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")));
+            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")), PARSING_OPTIONS);
         }
     }
 }

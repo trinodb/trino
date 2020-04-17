@@ -14,20 +14,23 @@
 package io.prestosql.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.tests.QueryAssertions.assertContains;
+import static io.prestosql.testing.QueryAssertions.assertContains;
 
 public class TestThriftIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestThriftIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createThriftQueryRunner(2, 2, false, ImmutableMap.of()));
+        return createThriftQueryRunner(2, false, ImmutableMap.of());
     }
 
     @Override

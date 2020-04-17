@@ -16,14 +16,10 @@ package io.prestosql.plugin.tpch;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.PartColumn;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.tpch.util.PredicateUtils;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -33,6 +29,9 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.tpch.PartColumn;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -42,30 +41,29 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.tpch.CustomerColumn.MARKET_SEGMENT;
-import static io.airlift.tpch.CustomerColumn.NAME;
-import static io.airlift.tpch.LineItemColumn.LINE_NUMBER;
-import static io.airlift.tpch.NationColumn.NATION_KEY;
-import static io.airlift.tpch.OrderColumn.CLERK;
-import static io.airlift.tpch.OrderColumn.ORDER_DATE;
-import static io.airlift.tpch.OrderColumn.ORDER_KEY;
-import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
-import static io.airlift.tpch.PartColumn.PART_KEY;
-import static io.airlift.tpch.PartColumn.RETAIL_PRICE;
-import static io.airlift.tpch.TpchTable.CUSTOMER;
-import static io.airlift.tpch.TpchTable.LINE_ITEM;
-import static io.airlift.tpch.TpchTable.NATION;
-import static io.airlift.tpch.TpchTable.ORDERS;
-import static io.airlift.tpch.TpchTable.PART;
-import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
-import static io.airlift.tpch.TpchTable.REGION;
-import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static io.prestosql.plugin.tpch.TpchMetadata.getPrestoType;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static io.prestosql.spi.connector.Constraint.alwaysFalse;
 import static io.prestosql.spi.connector.Constraint.alwaysTrue;
+import static io.prestosql.tpch.CustomerColumn.MARKET_SEGMENT;
+import static io.prestosql.tpch.CustomerColumn.NAME;
+import static io.prestosql.tpch.LineItemColumn.LINE_NUMBER;
+import static io.prestosql.tpch.NationColumn.NATION_KEY;
+import static io.prestosql.tpch.OrderColumn.CLERK;
+import static io.prestosql.tpch.OrderColumn.ORDER_DATE;
+import static io.prestosql.tpch.OrderColumn.ORDER_KEY;
+import static io.prestosql.tpch.OrderColumn.ORDER_STATUS;
+import static io.prestosql.tpch.PartColumn.PART_KEY;
+import static io.prestosql.tpch.PartColumn.RETAIL_PRICE;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.LINE_ITEM;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.PART;
+import static io.prestosql.tpch.TpchTable.PART_SUPPLIER;
+import static io.prestosql.tpch.TpchTable.REGION;
+import static io.prestosql.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -382,12 +380,6 @@ public class TestTpchMetadata
                 ImmutableMap.of(
                         tpchMetadata.toColumnHandle(column1), new NullableValue(getPrestoType(column1), value1),
                         tpchMetadata.toColumnHandle(column2), new NullableValue(getPrestoType(column2), value2)));
-    }
-
-    private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
-    {
-        List<ConnectorTableLayoutResult> tableLayouts = tpchMetadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
-        return getOnlyElement(tableLayouts);
     }
 
     private ColumnStatistics noColumnStatistics()

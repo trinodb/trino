@@ -83,7 +83,7 @@ public class TestExchangeClient
     @Test
     public void testHappyPath()
     {
-        DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
@@ -94,7 +94,7 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(32, Unit.MEGABYTE),
+                DataSize.of(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -128,12 +128,12 @@ public class TestExchangeClient
     public void testAddLocation()
             throws Exception
     {
-        DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(32, Unit.MEGABYTE),
+                DataSize.of(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -192,7 +192,7 @@ public class TestExchangeClient
     @Test
     public void testBufferLimit()
     {
-        DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
+        DataSize maxResponseSize = DataSize.ofBytes(1);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
@@ -205,7 +205,7 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(1, Unit.BYTE),
+                DataSize.ofBytes(1),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -277,7 +277,7 @@ public class TestExchangeClient
     public void testClose()
             throws Exception
     {
-        DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
+        DataSize maxResponseSize = DataSize.ofBytes(1);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
@@ -287,7 +287,7 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(1, Unit.BYTE),
+                DataSize.ofBytes(1),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -338,7 +338,8 @@ public class TestExchangeClient
         assertEquals(PAGES_SERDE.deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
     }
 
-    private static void assertStatus(PageBufferClientStatus clientStatus,
+    private static void assertStatus(
+            PageBufferClientStatus clientStatus,
             URI location,
             String status,
             int pagesReceived,

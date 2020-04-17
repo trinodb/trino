@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.TypeSignature;
 
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +44,8 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
     private final List<T> genericImplementations;
 
     private final Signature signature;
+    private final boolean nullable;
+    private final List<FunctionArgumentDefinition> argumentDefinitions;
 
     public ParametricImplementationsGroup(
             Map<Signature, T> exactImplementations,
@@ -53,6 +57,32 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
         this.specializedImplementations = ImmutableList.copyOf(requireNonNull(specializedImplementations, "specializedImplementations cannot be null"));
         this.genericImplementations = ImmutableList.copyOf(requireNonNull(genericImplementations, "genericImplementations cannot be null"));
         this.signature = requireNonNull(signature, "signature cannot be null");
+
+        List<T> allImplementations = ImmutableList.<T>builder()
+                .addAll(exactImplementations.values())
+                .addAll(specializedImplementations)
+                .addAll(genericImplementations)
+                .build();
+        checkArgument(!allImplementations.isEmpty(), "No implementations provided");
+        this.nullable = allImplementations.get(0).isNullable();
+        this.argumentDefinitions = allImplementations.get(0).getArgumentDefinitions();
+
+        checkArgument(allImplementations.stream().allMatch(choice -> choice.isNullable() == nullable), "all implementations must have the same nullable flag: %s", signature);
+        checkArgument(
+                allImplementations.stream()
+                        .map(T::getArgumentDefinitions)
+                        .allMatch(argumentDefinitions::equals),
+                "all implementations must have the argument definitions: %s", signature);
+    }
+
+    public boolean isNullable()
+    {
+        return nullable;
+    }
+
+    public List<FunctionArgumentDefinition> getArgumentDefinitions()
+    {
+        return argumentDefinitions;
     }
 
     public static <T extends ParametricImplementation> ParametricImplementationsGroup<T> of(T... implementations)

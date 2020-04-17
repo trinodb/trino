@@ -16,6 +16,7 @@ package io.prestosql.sql;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
@@ -35,7 +36,6 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -92,7 +92,7 @@ public class TestSqlToRowExpressionTranslator
 
     private RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, ImmutableMap.of(), metadata, TEST_SESSION, true);
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata, TEST_SESSION, true);
     }
 
     private Expression simplifyExpression(Expression expression)
@@ -109,6 +109,7 @@ public class TestSqlToRowExpressionTranslator
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata,
+                new AllowAllAccessControl(),
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyMap(),

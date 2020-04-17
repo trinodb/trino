@@ -146,7 +146,6 @@ public class KinesisConfig
         return this.maxBatches;
     }
 
-    @Min(1)
     @Config("kinesis.max-batches")
     @ConfigDescription("Maximum number of calls to Kinesis per query")
     public KinesisConfig setMaxBatches(int maxBatches)
@@ -162,8 +161,6 @@ public class KinesisConfig
         return this.fetchAttempts;
     }
 
-    @Min(1)
-    @Max(1000)
     @Config("kinesis.fetch-attempts")
     @ConfigDescription("Maximum number of attempts to fetch the next batch from a shard iterator")
     public KinesisConfig setFetchAttempts(int fetchAttempts)
@@ -295,7 +292,6 @@ public class KinesisConfig
         return iteratorNumber;
     }
 
-    @Min(0)
     @Config("kinesis.iterator-number")
     @ConfigDescription("Checkpoint iteration number")
     public KinesisConfig setIteratorNumber(int iteratorNumber)

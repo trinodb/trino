@@ -25,6 +25,7 @@ import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.Field;
 import io.prestosql.sql.analyzer.FieldId;
 import io.prestosql.sql.analyzer.RelationId;
@@ -87,6 +88,7 @@ import static io.prestosql.SystemSessionProperties.isSkipRedundantSort;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -134,20 +136,31 @@ class QueryPlanner
 
         List<Expression> orderBy = analysis.getOrderByExpressions(query);
         builder = handleSubqueries(builder, query, orderBy);
-        List<Expression> outputs = analysis.getOutputExpressions(query);
-        builder = handleSubqueries(builder, query, outputs);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+
+        List<SelectExpression> selectExpressions = analysis.getSelectExpressions(query);
+        List<Expression> expressions = selectExpressions.stream()
+                .map(SelectExpression::getExpression)
+                .collect(toImmutableList());
+        List<Expression> outputs = expressions;
+        builder = handleSubqueries(builder, query, expressions);
+        builder = project(builder, Iterables.concat(orderBy, expressions));
+
+        if (hasExpressionsToUnfold(selectExpressions)) {
+            List<Expression> outputExpressions = outputExpressions(selectExpressions);
+            builder = project(builder, Iterables.concat(orderBy, outputExpressions));
+            outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
+        }
 
         Optional<OrderingScheme> orderingScheme = orderingScheme(builder, query.getOrderBy(), analysis.getOrderByExpressions(query));
         builder = sort(builder, orderingScheme);
         builder = offset(builder, query.getOffset());
         builder = limit(builder, query.getLimit(), orderingScheme);
-        builder = project(builder, analysis.getOutputExpressions(query));
+        builder = project(builder, outputs);
 
         return new RelationPlan(
                 builder.getRoot(),
                 analysis.getScope(query),
-                computeOutputs(builder, analysis.getOutputExpressions(query)));
+                computeOutputs(builder, outputs));
     }
 
     public RelationPlan plan(QuerySpecification node)
@@ -161,28 +174,51 @@ class QueryPlanner
 
         builder = window(builder, node);
 
-        List<Expression> outputs = analysis.getOutputExpressions(node);
-        builder = handleSubqueries(builder, node, outputs);
+        List<SelectExpression> selectExpressions = analysis.getSelectExpressions(node);
+        List<Expression> expressions = selectExpressions.stream()
+                .map(SelectExpression::getExpression)
+                .collect(toImmutableList());
+        List<Expression> outputs = expressions;
+        builder = handleSubqueries(builder, node, expressions);
+        List<Expression> outputExpressions = outputExpressions(selectExpressions);
 
         if (node.getOrderBy().isPresent()) {
             if (!analysis.isAggregation(node)) {
                 // ORDER BY requires both output and source fields to be visible if there are no aggregations
-                builder = project(builder, outputs, fromRelationPlan);
-                outputs = toSymbolReferences(computeOutputs(builder, outputs));
+                builder = project(builder, Iterables.concat(expressions, toSymbolReferences(fromRelationPlan.getFieldMappings())));
+                outputs = toSymbolReferences(computeOutputs(builder, expressions));
+
+                if (hasExpressionsToUnfold(selectExpressions)) {
+                    builder = project(builder, Iterables.concat(outputExpressions, toSymbolReferences(fromRelationPlan.getFieldMappings())));
+                    outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
+                }
+
                 builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()));
             }
             else {
                 // ORDER BY requires output fields, groups and translated aggregations to be visible for queries with aggregation
                 List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
-                builder = project(builder, Iterables.concat(outputs, orderByAggregates));
-                outputs = toSymbolReferences(computeOutputs(builder, outputs));
+                builder = project(builder, Iterables.concat(expressions, orderByAggregates));
+                outputs = toSymbolReferences(computeOutputs(builder, expressions));
+
+                if (hasExpressionsToUnfold(selectExpressions)) {
+                    builder = project(builder, Iterables.concat(outputExpressions, orderByAggregates));
+                    outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
+                }
+
                 List<Expression> complexOrderByAggregatesToRemap = orderByAggregates.stream()
                         .filter(expression -> !analysis.isColumnReference(expression))
                         .collect(toImmutableList());
                 builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), complexOrderByAggregatesToRemap);
             }
-
             builder = window(builder, node.getOrderBy().get());
+        }
+        else {
+            if (hasExpressionsToUnfold(selectExpressions)) {
+                builder = project(builder, Iterables.concat(expressions, toSymbolReferences(builder.getRoot().getOutputSymbols())));
+                builder = project(builder, Iterables.concat(outputExpressions, toSymbolReferences(builder.getRoot().getOutputSymbols())));
+                outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
+            }
         }
 
         List<Expression> orderBy = analysis.getOrderByExpressions(node);
@@ -200,6 +236,27 @@ class QueryPlanner
                 builder.getRoot(),
                 analysis.getScope(node),
                 computeOutputs(builder, outputs));
+    }
+
+    private boolean hasExpressionsToUnfold(List<SelectExpression> selectExpressions)
+    {
+        return selectExpressions.stream()
+                .map(SelectExpression::getUnfoldedExpressions)
+                .anyMatch(Optional::isPresent);
+    }
+
+    private List<Expression> outputExpressions(List<SelectExpression> selectExpressions)
+    {
+        ImmutableList.Builder<Expression> result = ImmutableList.builder();
+        for (SelectExpression selectExpression : selectExpressions) {
+            if (selectExpression.getUnfoldedExpressions().isPresent()) {
+                result.addAll(selectExpression.getUnfoldedExpressions().get());
+            }
+            else {
+                result.add(selectExpression.getExpression());
+            }
+        }
+        return result.build();
     }
 
     public DeleteNode plan(Delete node)
@@ -331,11 +388,6 @@ class QueryPlanner
         return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewrittenAfterSubqueries));
     }
 
-    private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions, RelationPlan parentRelationPlan)
-    {
-        return project(subPlan, Iterables.concat(expressions, toSymbolReferences(parentRelationPlan.getFieldMappings())));
-    }
-
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions)
     {
         TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
@@ -372,7 +424,7 @@ class QueryPlanner
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
-                        coercion.getTypeSignature().toString(),
+                        toSqlType(coercion),
                         false,
                         typeCoercion.isTypeOnlyCoercion(type, coercion));
             }
@@ -565,7 +617,7 @@ class QueryPlanner
 
             FunctionCall functionCall = (FunctionCall) rewritten;
             aggregationsBuilder.put(newSymbol, new Aggregation(
-                    analysis.getFunctionSignature(aggregate),
+                    analysis.getResolvedFunction(aggregate),
                     functionCall.getArguments(),
                     functionCall.isDistinct(),
                     functionCall.getFilter().map(Symbol::from),
@@ -689,7 +741,7 @@ class QueryPlanner
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
-                        coercion.getTypeSignature().toString(),
+                        toSqlType(coercion),
                         false,
                         typeCoercion.isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
@@ -816,7 +868,7 @@ class QueryPlanner
                     .orElse(NullTreatment.RESPECT);
 
             WindowNode.Function function = new WindowNode.Function(
-                    analysis.getFunctionSignature(windowFunction),
+                    analysis.getResolvedFunction(windowFunction),
                     ((FunctionCall) rewritten).getArguments(),
                     frame,
                     nullTreatment == NullTreatment.IGNORE);

@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SetRole;
@@ -25,7 +26,7 @@ import io.prestosql.transaction.TransactionManager;
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createCatalogName;
+import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
 import static java.util.Locale.ENGLISH;
 
 public class SetRoleTask
@@ -41,11 +42,10 @@ public class SetRoleTask
     public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        String catalog = createCatalogName(session, statement);
+        String catalog = getSessionCatalog(metadata, session, statement);
         if (statement.getType() == SetRole.Type.ROLE) {
             accessControl.checkCanSetRole(
-                    session.getRequiredTransactionId(),
-                    session.getIdentity(),
+                    SecurityContext.of(session),
                     statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).get(),
                     catalog);
         }

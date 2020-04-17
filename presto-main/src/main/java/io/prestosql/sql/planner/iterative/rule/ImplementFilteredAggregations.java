@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -63,6 +64,13 @@ public class ImplementFilteredAggregations
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(ImplementFilteredAggregations::hasFilters);
 
+    private final Metadata metadata;
+
+    public ImplementFilteredAggregations(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
+
     private static boolean hasFilters(AggregationNode aggregation)
     {
         return aggregation.getAggregations()
@@ -106,7 +114,7 @@ public class ImplementFilteredAggregations
             }
 
             aggregations.put(output, new Aggregation(
-                    aggregation.getSignature(),
+                    aggregation.getResolvedFunction(),
                     aggregation.getArguments(),
                     aggregation.isDistinct(),
                     Optional.empty(),
@@ -116,7 +124,7 @@ public class ImplementFilteredAggregations
 
         Expression predicate = TRUE_LITERAL;
         if (!aggregationNode.hasNonEmptyGroupingSet() && !aggregateWithoutFilterPresent) {
-            predicate = combineDisjunctsWithDefault(maskSymbols.build(), TRUE_LITERAL);
+            predicate = combineDisjunctsWithDefault(metadata, maskSymbols.build(), TRUE_LITERAL);
         }
 
         // identity projection for all existing inputs

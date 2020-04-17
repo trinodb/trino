@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.prestosql.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.ArrayBlock;
@@ -58,6 +59,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPTY;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.prestosql.plugin.hive.HiveType.HIVE_BYTE;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
@@ -119,12 +121,14 @@ public class HivePageSource
     private final Object[] prefilledValues;
     private final Type[] types;
     private final List<Optional<Function<Block, Block>>> coercers;
+    private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
 
     private final ConnectorPageSource delegate;
 
     public HivePageSource(
             List<ColumnMapping> columnMappings,
             Optional<BucketAdaptation> bucketAdaptation,
+            Optional<ReaderProjectionsAdapter> projectionsAdapter,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             ConnectorPageSource delegate)
@@ -137,6 +141,8 @@ public class HivePageSource
         this.columnMappings = columnMappings;
         this.bucketAdapter = bucketAdaptation.map(BucketAdapter::new);
 
+        this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
+
         int size = columnMappings.size();
 
         prefilledValues = new Object[size];
@@ -148,17 +154,25 @@ public class HivePageSource
             HiveColumnHandle column = columnMapping.getHiveColumnHandle();
 
             String name = column.getName();
-            Type type = typeManager.getType(column.getTypeSignature());
+            Type type = column.getType();
             types[columnIndex] = type;
 
-            if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers.add(Optional.of(createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType())));
+            if (columnMapping.getKind() != EMPTY && columnMapping.getBaseTypeCoercionFrom().isPresent()) {
+                List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
+                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                        .orElse(ImmutableList.of());
+                HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
+                coercers.add(Optional.of(createCoercer(typeManager, fromType, toType)));
             }
             else {
                 coercers.add(Optional.empty());
             }
 
-            if (columnMapping.getKind() == PREFILLED) {
+            if (columnMapping.getKind() == EMPTY) {
+                prefilledValues[columnIndex] = null;
+            }
+            else if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);
 
@@ -245,19 +259,13 @@ public class HivePageSource
                 return null;
             }
 
+            if (projectionsAdapter.isPresent()) {
+                dataPage = projectionsAdapter.get().adaptPage(dataPage);
+            }
+
             if (bucketAdapter.isPresent()) {
                 IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
-                Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
-                for (int i = 0; i < adaptedBlocks.length; i++) {
-                    Block block = dataPage.getBlock(i);
-                    if (!block.isLoaded()) {
-                        adaptedBlocks[i] = new LazyBlock(rowsToKeep.size(), new RowFilterLazyBlockLoader(dataPage.getBlock(i), rowsToKeep));
-                    }
-                    else {
-                        adaptedBlocks[i] = block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
-                    }
-                }
-                dataPage = new Page(rowsToKeep.size(), adaptedBlocks);
+                dataPage = dataPage.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
             }
 
             int batchSize = dataPage.getPositionCount();
@@ -266,6 +274,7 @@ public class HivePageSource
                 ColumnMapping columnMapping = columnMappings.get(fieldId);
                 switch (columnMapping.getKind()) {
                     case PREFILLED:
+                    case EMPTY:
                         blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
                         break;
                     case REGULAR:
@@ -339,8 +348,8 @@ public class HivePageSource
 
     private static Function<Block, Block> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
     {
-        Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
-        Type toType = typeManager.getType(toHiveType.getTypeSignature());
+        Type fromType = fromHiveType.getType(typeManager);
+        Type toType = toHiveType.getType(typeManager);
         if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
             return new IntegerNumberToVarcharCoercer<>(fromType, (VarcharType) toType);
         }
@@ -516,7 +525,7 @@ public class HivePageSource
     }
 
     private static final class CoercionLazyBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+            implements LazyBlockLoader
     {
         private final Function<Block, Block> coercer;
         private Block block;
@@ -528,38 +537,15 @@ public class HivePageSource
         }
 
         @Override
-        public void load(LazyBlock lazyBlock)
+        public Block load()
         {
             checkState(block != null, "Already loaded");
 
-            lazyBlock.setBlock(coercer.apply(block.getLoadedBlock()));
-
+            Block loaded = coercer.apply(block.getLoadedBlock());
             // clear reference to loader to free resources, since load was successful
             block = null;
-        }
-    }
 
-    private static final class RowFilterLazyBlockLoader
-            implements LazyBlockLoader<LazyBlock>
-    {
-        private Block block;
-        private final IntArrayList rowsToKeep;
-
-        public RowFilterLazyBlockLoader(Block block, IntArrayList rowsToKeep)
-        {
-            this.block = requireNonNull(block, "block is null");
-            this.rowsToKeep = requireNonNull(rowsToKeep, "rowsToKeep is null");
-        }
-
-        @Override
-        public void load(LazyBlock lazyBlock)
-        {
-            checkState(block != null, "Already loaded");
-
-            lazyBlock.setBlock(block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size()));
-
-            // clear reference to loader to free resources, since load was successful
-            block = null;
+            return loaded;
         }
     }
 
@@ -576,6 +562,7 @@ public class HivePageSource
     public static class BucketAdapter
     {
         private final int[] bucketColumns;
+        private final BucketingVersion bucketingVersion;
         private final int bucketToKeep;
         private final int tableBucketCount;
         private final int partitionBucketCount; // for sanity check only
@@ -584,6 +571,7 @@ public class HivePageSource
         public BucketAdapter(BucketAdaptation bucketAdaptation)
         {
             this.bucketColumns = bucketAdaptation.getBucketColumnIndices();
+            this.bucketingVersion = bucketAdaptation.getBucketingVersion();
             this.bucketToKeep = bucketAdaptation.getBucketToKeep();
             this.typeInfoList = bucketAdaptation.getBucketColumnHiveTypes().stream()
                     .map(HiveType::getTypeInfo)
@@ -597,7 +585,7 @@ public class HivePageSource
             IntArrayList ids = new IntArrayList(page.getPositionCount());
             Page bucketColumnsPage = extractColumns(page, bucketColumns);
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int bucket = getHiveBucket(tableBucketCount, typeInfoList, bucketColumnsPage, position);
+                int bucket = getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, bucketColumnsPage, position);
                 if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
                     throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
                             "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",

@@ -104,7 +104,7 @@ public class ArrayBlock
         this.values = requireNonNull(values);
 
         sizeInBytes = -1;
-        retainedSizeInBytes = INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(valueIsNull);
     }
 
     @Override
@@ -117,6 +117,9 @@ public class ArrayBlock
     public long getSizeInBytes()
     {
         if (sizeInBytes < 0) {
+            if (!values.isLoaded()) {
+                return getBaseSizeInBytes();
+            }
             calculateSize();
         }
         return sizeInBytes;
@@ -126,13 +129,18 @@ public class ArrayBlock
     {
         int valueStart = offsets[arrayOffset];
         int valueEnd = offsets[arrayOffset + positionCount];
-        sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount);
+        sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + getBaseSizeInBytes();
+    }
+
+    private long getBaseSizeInBytes()
+    {
+        return (Integer.BYTES + Byte.BYTES) * (long) this.positionCount;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return retainedSizeInBytes;
+        return retainedSizeInBytes + values.getRetainedSizeInBytes();
     }
 
     @Override

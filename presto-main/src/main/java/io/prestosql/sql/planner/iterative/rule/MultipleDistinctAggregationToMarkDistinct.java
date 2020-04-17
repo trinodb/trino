@@ -146,7 +146,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                 // remove the distinct flag and set the distinct marker
                 newAggregations.put(entry.getKey(),
                         new Aggregation(
-                                aggregation.getSignature(),
+                                aggregation.getResolvedFunction(),
                                 aggregation.getArguments(),
                                 false,
                                 aggregation.getFilter(),

@@ -14,7 +14,7 @@
 package io.prestosql.sql.relational;
 
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.PrestoException;
 
 import static java.util.Objects.requireNonNull;
@@ -58,8 +58,8 @@ public class DeterminismEvaluator
         @Override
         public Boolean visitCall(CallExpression call, Void context)
         {
-            Signature signature = call.getSignature();
-            if (!isDeterministic(signature)) {
+            ResolvedFunction resolvedFunction = call.getResolvedFunction();
+            if (!isDeterministic(resolvedFunction)) {
                 return false;
             }
 
@@ -67,10 +67,10 @@ public class DeterminismEvaluator
                     .allMatch(expression -> expression.accept(this, context));
         }
 
-        private boolean isDeterministic(Signature signature)
+        private boolean isDeterministic(ResolvedFunction resolvedFunction)
         {
             try {
-                return metadata.getScalarFunctionImplementation(signature).isDeterministic();
+                return metadata.getFunctionMetadata(resolvedFunction).isDeterministic();
             }
             catch (PrestoException ignored) {
                 // unknown functions are typically special forms and are deterministic

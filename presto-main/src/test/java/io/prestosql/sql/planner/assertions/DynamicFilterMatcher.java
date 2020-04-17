@@ -39,6 +39,8 @@ import static java.util.Objects.requireNonNull;
 public class DynamicFilterMatcher
         implements Matcher
 {
+    private final Metadata metadata;
+
     // LEFT_SYMBOL -> RIGHT_SYMBOL
     private final Map<SymbolAlias, SymbolAlias> expectedDynamicFilters;
     private final Map<String, String> joinExpectedMappings;
@@ -49,8 +51,9 @@ public class DynamicFilterMatcher
     private SymbolAliases symbolAliases;
     private FilterNode filterNode;
 
-    public DynamicFilterMatcher(Map<SymbolAlias, SymbolAlias> expectedDynamicFilters, Optional<Expression> expectedStaticFilter)
+    public DynamicFilterMatcher(Metadata metadata, Map<SymbolAlias, SymbolAlias> expectedDynamicFilters, Optional<Expression> expectedStaticFilter)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.expectedDynamicFilters = requireNonNull(expectedDynamicFilters, "expectedDynamicFilters is null");
         this.joinExpectedMappings = expectedDynamicFilters.values().stream()
                 .collect(toImmutableMap(rightSymbol -> rightSymbol.toString() + "_alias", SymbolAlias::toString));
@@ -59,15 +62,15 @@ public class DynamicFilterMatcher
         this.expectedStaticFilter = requireNonNull(expectedStaticFilter, "expectedStaticFilter is null");
     }
 
-    public MatchResult match(JoinNode joinNode, SymbolAliases symbolAliases)
+    public MatchResult match(Metadata metadata, JoinNode joinNode, SymbolAliases symbolAliases)
     {
         checkState(this.joinNode == null, "joinNode must be null at this point");
         this.joinNode = joinNode;
         this.symbolAliases = symbolAliases;
-        return new MatchResult(match());
+        return new MatchResult(match(metadata));
     }
 
-    public MatchResult match(FilterNode filterNode, SymbolAliases symbolAliases)
+    public MatchResult match(Metadata metadata, FilterNode filterNode, SymbolAliases symbolAliases)
     {
         checkState(this.filterNode == null, "filterNode must be null at this point");
         this.filterNode = filterNode;
@@ -75,14 +78,14 @@ public class DynamicFilterMatcher
 
         boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
             ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-            Expression staticFilter = combineConjuncts(extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());
+            Expression staticFilter = combineConjuncts(metadata, extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());
             return verifier.process(staticFilter, filter);
         }).orElse(true);
 
-        return new MatchResult(match() && staticFilterMatches);
+        return new MatchResult(match(metadata) && staticFilterMatches);
     }
 
-    private boolean match()
+    private boolean match(Metadata metadata)
     {
         checkState(symbolAliases != null, "symbolAliases is null");
 
@@ -133,7 +136,7 @@ public class DynamicFilterMatcher
         if (!(node instanceof FilterNode)) {
             return new MatchResult(false);
         }
-        return match((FilterNode) node, symbolAliases);
+        return match(metadata, (FilterNode) node, symbolAliases);
     }
 
     public Map<String, String> getJoinExpectedMappings()

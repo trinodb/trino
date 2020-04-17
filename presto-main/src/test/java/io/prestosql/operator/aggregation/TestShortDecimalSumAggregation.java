@@ -16,16 +16,18 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Type;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 
 public class TestShortDecimalSumAggregation
         extends AbstractTestDecimalSumAggregation
 {
-    DecimalType shortDecimalType = DecimalType.createDecimalType(MAX_SHORT_PRECISION - 1);
+    DecimalType shortDecimalType = createDecimalType(MAX_SHORT_PRECISION - 1);
 
     @Override
     protected DecimalType getDecimalType()
@@ -40,8 +42,8 @@ public class TestShortDecimalSumAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of("decimal(16,2)");
+        return ImmutableList.of(createDecimalType(16, 2));
     }
 }

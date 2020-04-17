@@ -176,6 +176,7 @@ abstract class SimulationSplit
             this.perQuantaNanos = perQuantaNanos;
         }
 
+        @Override
         public boolean process()
         {
             if (getCompletedProcessNanos() >= super.scheduledTimeNanos) {
@@ -196,6 +197,7 @@ abstract class SimulationSplit
             return false;
         }
 
+        @Override
         public ListenableFuture<?> getProcessResult()
         {
             return NOT_BLOCKED;
@@ -238,6 +240,7 @@ abstract class SimulationSplit
             doneFuture.set(null);
         }
 
+        @Override
         public boolean process()
         {
             try {
@@ -254,6 +257,7 @@ abstract class SimulationSplit
             return true;
         }
 
+        @Override
         public ListenableFuture<?> getProcessResult()
         {
             future = SettableFuture.create();

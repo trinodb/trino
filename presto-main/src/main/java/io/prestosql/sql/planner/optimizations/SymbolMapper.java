@@ -112,7 +112,7 @@ public class SymbolMapper
     private Aggregation map(Aggregation aggregation)
     {
         return new Aggregation(
-                aggregation.getSignature(),
+                aggregation.getResolvedFunction(),
                 aggregation.getArguments().stream()
                         .map(this::map)
                         .collect(toImmutableList()),

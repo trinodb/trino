@@ -46,18 +46,11 @@ public class PruneAggregationSourceColumns
                 aggregationNode.getGroupingKeys().stream(),
                 aggregationNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()),
                 aggregationNode.getAggregations().values().stream()
-                        .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
+                        .flatMap(aggregation -> SymbolsExtractor.extractUnique(aggregation).stream()))
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
-    }
-
-    private static Stream<Symbol> getAggregationInputs(AggregationNode.Aggregation aggregation)
-    {
-        return Streams.concat(
-                SymbolsExtractor.extractUnique(aggregation).stream(),
-                aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
     }
 }

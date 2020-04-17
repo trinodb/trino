@@ -33,7 +33,7 @@ import io.prestosql.version.EmbedVersion;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 
-public class TestingConnectorContext
+public final class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
@@ -77,5 +77,11 @@ public class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public ClassLoader duplicatePluginClassLoader()
+    {
+        return getClass().getClassLoader();
     }
 }

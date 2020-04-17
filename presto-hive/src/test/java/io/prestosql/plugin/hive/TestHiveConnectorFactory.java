@@ -14,16 +14,15 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -48,16 +47,11 @@ public class TestHiveConnectorFactory
 
     private static void assertCreateConnector(String metastoreUri)
     {
-        HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
-                "hive-test",
-                HiveConnector.class.getClassLoader(),
-                Optional.empty());
-
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", metastoreUri)
                 .build();
 
-        Connector connector = connectorFactory.create("hive-test", config, new TestingConnectorContext());
+        Connector connector = new HiveConnectorFactory("hive").create("hive-test", config, new TestingConnectorContext());
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true);
         assertInstanceOf(connector.getMetadata(transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);

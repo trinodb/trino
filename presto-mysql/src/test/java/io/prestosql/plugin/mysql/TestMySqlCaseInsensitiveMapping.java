@@ -16,20 +16,15 @@ package io.prestosql.plugin.mysql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.tpch.TpchTable;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -39,35 +34,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestMySqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private final DockerizedMySqlServer mySqlServer;
+    private TestingMySqlServer mySqlServer;
 
-    public TestMySqlCaseInsensitiveMapping()
-    {
-        // Using dockerized MySQL server instead of TestingMySqlServer because TestingMySqlServer depends on host's file system.
-        // Because host file system may be case insensitive, it would not be possible to create schemas/tables with names differing in case only.
-        this(new DockerizedMySqlServer());
-    }
-
-    public TestMySqlCaseInsensitiveMapping(DockerizedMySqlServer mySqlServer)
-    {
-        super(() -> createMySqlQueryRunner(
-                mySqlServer,
-                ImmutableMap.of("case-insensitive-name-matching", "true"),
-                ImmutableList.of()));
-        this.mySqlServer = mySqlServer;
-    }
-
-    private static QueryRunner createMySqlQueryRunner(DockerizedMySqlServer mySqlServer, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        try {
-            mySqlServer.init();
-            return MySqlQueryRunner.createMySqlQueryRunner(mySqlServer.getJdbcUrl(), connectorProperties, tables);
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, mySqlServer);
-            throw e;
-        }
+        mySqlServer = new TestingMySqlServer();
+        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -197,12 +171,6 @@ public class TestMySqlCaseInsensitiveMapping
 
     private void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(mySqlServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to execute statement: " + sql, e);
-        }
+        mySqlServer.execute(sql, mySqlServer.getUsername(), mySqlServer.getPassword());
     }
 }

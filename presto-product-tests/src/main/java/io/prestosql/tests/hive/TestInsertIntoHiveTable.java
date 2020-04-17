@@ -35,6 +35,7 @@ import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableT
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestInsertIntoHiveTable
         extends ProductTest
@@ -111,7 +112,7 @@ public class TestInsertIntoHiveTable
                         "ala ma kot",
                         "ala ma    ",
                         true,
-                        "kot binarny".getBytes()));
+                        "kot binarny".getBytes(UTF_8)));
     }
 
     @Test
@@ -136,7 +137,7 @@ public class TestInsertIntoHiveTable
                         "ala ma kot",
                         "ala ma    ",
                         true,
-                        "kot binarny".getBytes()));
+                        "kot binarny".getBytes(UTF_8)));
     }
 
     @Test

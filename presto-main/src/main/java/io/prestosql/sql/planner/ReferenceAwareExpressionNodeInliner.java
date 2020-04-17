@@ -33,13 +33,13 @@ public class ReferenceAwareExpressionNodeInliner
 
     private final Map<NodeRef<Expression>, Expression> mappings;
 
-    public ReferenceAwareExpressionNodeInliner(Map<NodeRef<Expression>, Expression> mappings)
+    private ReferenceAwareExpressionNodeInliner(Map<NodeRef<Expression>, Expression> mappings)
     {
         this.mappings = ImmutableMap.copyOf(requireNonNull(mappings, "mappings is null"));
     }
 
     @Override
-    public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
         return mappings.get(NodeRef.of(node));
     }

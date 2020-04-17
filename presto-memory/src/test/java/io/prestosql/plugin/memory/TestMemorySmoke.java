@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.operator.OperatorStats;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
-import io.prestosql.tests.ResultWithQueryId;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.ResultWithQueryId;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -32,6 +34,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
@@ -40,9 +43,11 @@ import static org.testng.Assert.assertTrue;
 public class TestMemorySmoke
         extends AbstractTestQueryFramework
 {
-    public TestMemorySmoke()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(MemoryQueryRunner::createQueryRunner);
+        return MemoryQueryRunner.createQueryRunner();
     }
 
     @Test
@@ -96,10 +101,10 @@ public class TestMemorySmoke
 
         // Probe-side is not scanned at all, due to dynamic filtering:
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.getQueryId()).getQueryStats();
-        Set rowsRead = stats.getOperatorSummaries()
+        Set<Long> rowsRead = stats.getOperatorSummaries()
                 .stream()
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
-                .map(summary -> summary.getInputPositions())
+                .map(OperatorStats::getInputPositions)
                 .collect(toImmutableSet());
         assertEquals(rowsRead, ImmutableSet.of(0L, buildSideRowsCount));
     }
@@ -125,12 +130,31 @@ public class TestMemorySmoke
 
         // Probe-side is dynamically filtered:
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.getQueryId()).getQueryStats();
-        Set rowsRead = stats.getOperatorSummaries()
+        Set<Long> rowsRead = stats.getOperatorSummaries()
                 .stream()
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
-                .map(summary -> summary.getInputPositions())
+                .map(OperatorStats::getInputPositions)
                 .collect(toImmutableSet());
         assertEquals(rowsRead, ImmutableSet.of(6L, buildSideRowsCount));
+    }
+
+    @Test
+    public void testJoinDynamicFilteringMultiJoin()
+    {
+        assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
+        assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
+        assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
+        assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
+        assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
+        assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
+
+        String query = "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)";
+        Session session = Session.builder(getSession())
+                                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                                 .build();
+        assertQuery(session, query, "SELECT 1, 1, 1");
     }
 
     @Test
@@ -247,6 +271,24 @@ public class TestMemorySmoke
         assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
     }
 
+    @Test
+    public void testRenameView()
+    {
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+
+        assertUpdate("CREATE VIEW test_view_to_be_renamed AS " + query);
+        assertQueryFails("ALTER VIEW test_view_to_be_renamed RENAME TO memory.test_schema_not_exist.test_view_renamed", "Schema test_schema_not_exist not found");
+        assertUpdate("ALTER VIEW test_view_to_be_renamed RENAME TO test_view_renamed");
+        assertQuery("SELECT * FROM test_view_renamed", query);
+
+        assertUpdate("CREATE SCHEMA test_different_schema");
+        assertUpdate("ALTER VIEW test_view_renamed RENAME TO test_different_schema.test_view_renamed");
+        assertQuery("SELECT * FROM test_different_schema.test_view_renamed", query);
+
+        assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
+        assertUpdate("DROP SCHEMA test_different_schema");
+    }
+
     private List<QualifiedObjectName> listMemoryTables()
     {
         return getQueryRunner().listTables(getSession(), "memory", "default");
@@ -260,10 +302,10 @@ public class TestMemorySmoke
         for (int i = 0; i < expected.length; i++) {
             MaterializedRow materializedRow = rows.getMaterializedRows().get(i);
             int fieldCount = materializedRow.getFieldCount();
-            assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
+            assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
             Object value = materializedRow.getField(0);
             assertEquals(value, expected[i]);
-            assertTrue(materializedRow.getFieldCount() == 1);
+            assertEquals(materializedRow.getFieldCount(), 1);
         }
     }
 }

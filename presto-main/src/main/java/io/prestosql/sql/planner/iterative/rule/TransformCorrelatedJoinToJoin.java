@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
@@ -27,8 +28,11 @@ import io.prestosql.sql.tree.Expression;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.matching.Pattern.nonEmpty;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -43,6 +47,13 @@ public class TransformCorrelatedJoinToJoin
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()));
 
+    private final Metadata metadata;
+
+    public TransformCorrelatedJoinToJoin(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
+
     @Override
     public Pattern<CorrelatedJoinNode> getPattern()
     {
@@ -52,30 +63,35 @@ public class TransformCorrelatedJoinToJoin
     @Override
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
+        checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "correlation in %s JOIN", correlatedJoinNode.getType().name());
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
-        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, correlatedJoinNode.getCorrelation());
+        if (!decorrelatedNodeOptional.isPresent()) {
+            return Result.empty();
+        }
+        DecorrelatedNode decorrelatedSubquery = decorrelatedNodeOptional.get();
 
-        return decorrelatedNodeOptional
-                .map(decorrelatedNode -> {
-                    Expression joinFilter = combineConjuncts(
-                            decorrelatedNode.getCorrelatedPredicates().orElse(TRUE_LITERAL),
-                            correlatedJoinNode.getFilter());
-                    return Result.ofPlanNode(new JoinNode(
-                            context.getIdAllocator().getNextId(),
-                            correlatedJoinNode.getType().toJoinNodeType(),
-                            correlatedJoinNode.getInput(),
-                            decorrelatedNode.getNode(),
-                            ImmutableList.of(),
-                            correlatedJoinNode.getOutputSymbols(),
-                            joinFilter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(joinFilter),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            ImmutableMap.of()));
-                })
-                .orElseGet(Result::empty);
+        Expression filter = combineConjuncts(
+                metadata,
+                decorrelatedSubquery.getCorrelatedPredicates().orElse(TRUE_LITERAL),
+                correlatedJoinNode.getFilter());
+
+        return Result.ofPlanNode(new JoinNode(
+                correlatedJoinNode.getId(),
+                correlatedJoinNode.getType().toJoinNodeType(),
+                correlatedJoinNode.getInput(),
+                decorrelatedSubquery.getNode(),
+                ImmutableList.of(),
+                correlatedJoinNode.getInput().getOutputSymbols(),
+                correlatedJoinNode.getSubquery().getOutputSymbols(),
+                filter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(filter),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty()));
     }
 }

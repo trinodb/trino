@@ -39,16 +39,18 @@ public class TestDeterminismEvaluator
     @Test
     public void testSanity()
     {
-        assertFalse(DeterminismEvaluator.isDeterministic(function("rand")));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("random")));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral()))));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("uuid")));
-        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol")))));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand")))));
-        assertTrue(DeterminismEvaluator.isDeterministic(function(
-                "abs",
-                ImmutableList.of(DOUBLE),
-                ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol")))))));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("rand"), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("random"), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("uuid"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(
+                function(
+                        "abs",
+                        ImmutableList.of(DOUBLE),
+                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))))),
+                metadata));
     }
 
     private FunctionCall function(String name)

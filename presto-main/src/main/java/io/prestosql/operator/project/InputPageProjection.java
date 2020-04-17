@@ -18,7 +18,6 @@ import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
@@ -60,24 +59,13 @@ public class InputPageProjection
         Block block = requireNonNull(page, "page is null").getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
 
-        if (!block.isLoaded()) {
-            return new CompletedWork<>(
-                    new LazyBlock(
-                            selectedPositions.size(),
-                            lazyBlock -> lazyBlock.setBlock(projectPositions(block, selectedPositions))));
+        // TODO: make it lazy when MergePages have better merging heuristics for small lazy pages
+        if (selectedPositions.isList()) {
+            block = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
         }
         else {
-            // TODO: make it lazy when MergePages have better merging heuristics for small lazy pages
-            return new CompletedWork<>(projectPositions(block, selectedPositions));
+            block = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
         }
-    }
-
-    private Block projectPositions(Block block, SelectedPositions selectedPositions)
-    {
-        if (selectedPositions.isList()) {
-            return block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
-        }
-
-        return block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
+        return new CompletedWork<>(block);
     }
 }

@@ -68,18 +68,21 @@ public class KinesisColumnHandle
         return ordinalPosition;
     }
 
+    @Override
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @Override
     @JsonProperty
     public Type getType()
     {
         return type;
     }
 
+    @Override
     @Nullable
     @JsonProperty
     public String getMapping()
@@ -87,6 +90,7 @@ public class KinesisColumnHandle
         return mapping;
     }
 
+    @Override
     @Nullable
     @JsonProperty
     public String getDataFormat()
@@ -94,6 +98,7 @@ public class KinesisColumnHandle
         return dataFormat;
     }
 
+    @Override
     @JsonProperty
     public String getFormatHint()
     {
@@ -106,6 +111,7 @@ public class KinesisColumnHandle
         return hidden;
     }
 
+    @Override
     @JsonProperty
     public boolean isInternal()
     {
@@ -114,7 +120,11 @@ public class KinesisColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, null, hidden); // name/type/comment/hidden
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(hidden)
+                .build();
     }
 
     @Override

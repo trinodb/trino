@@ -76,8 +76,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunctionUsingSqlTime;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUnsupportedTypeHandling;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.phoenix.MetadataUtil.toPhoenixSchemaName;
 import static io.prestosql.plugin.phoenix.PhoenixClientModule.getConnectionProperties;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
@@ -142,12 +144,7 @@ public class PhoenixClient
 
     public void execute(ConnectorSession session, String statement)
     {
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
-            execute(connection, statement);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(PHOENIX_QUERY_ERROR, "Error while executing statement", e);
-        }
+        execute(JdbcIdentity.from(session), statement);
     }
 
     @Override
@@ -246,11 +243,14 @@ public class PhoenixClient
                 if (typeHandle.getColumnSize() == 0) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return super.toPrestoType(session, connection, typeHandle);
+                break;
             // TODO add support for TIMESTAMP after Phoenix adds support for LocalDateTime
             case TIMESTAMP:
             case TIME_WITH_TIMEZONE:
             case TIMESTAMP_WITH_TIMEZONE:
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    return mapToUnboundedVarchar(typeHandle);
+                }
                 return Optional.empty();
             case FLOAT:
                 return Optional.of(realColumnMapping());
@@ -282,7 +282,7 @@ public class PhoenixClient
             return WriteMapping.longMapping("float", realWriteFunction());
         }
         if (TIME.equals(type)) {
-            return WriteMapping.longMapping("time", timeWriteFunction());
+            return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime(session));
         }
         // Phoenix doesn't support _WITH_TIME_ZONE
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {

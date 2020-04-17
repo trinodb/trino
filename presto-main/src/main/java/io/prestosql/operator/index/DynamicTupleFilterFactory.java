@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
+import io.prestosql.operator.FilterAndProjectOperator;
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.operator.project.PageProjection;
@@ -35,8 +36,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.prestosql.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicTupleFilterFactory
@@ -87,7 +86,7 @@ public class DynamicTupleFilterFactory
     {
         Page filterTuple = getFilterTuple(tuplePage);
         Supplier<PageProcessor> processor = createPageProcessor(filterTuple, OptionalInt.empty());
-        return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, new DataSize(0, BYTE), 0);
+        return FilterAndProjectOperator.createOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, DataSize.ofBytes(0), 0);
     }
 
     @VisibleForTesting

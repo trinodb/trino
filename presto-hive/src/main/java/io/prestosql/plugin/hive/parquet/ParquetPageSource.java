@@ -91,10 +91,13 @@ public class ParquetPageSource
 
             Block[] blocks = new Block[fields.size()];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Type type = types.get(fieldId);
-                blocks[fieldId] = fields.get(fieldId)
-                        .map(field -> (Block) new LazyBlock(batchSize, new ParquetBlockLoader(field)))
-                        .orElse(RunLengthEncodedBlock.create(type, null, batchSize));
+                Optional<Field> field = fields.get(fieldId);
+                if (field.isPresent()) {
+                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
+                }
+                else {
+                    blocks[fieldId] = RunLengthEncodedBlock.create(types.get(fieldId), null, batchSize);
+                }
             }
             return new Page(batchSize, blocks);
         }
@@ -139,7 +142,7 @@ public class ParquetPageSource
     }
 
     private final class ParquetBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+            implements LazyBlockLoader
     {
         private final int expectedBatchId = batchId;
         private final Field field;
@@ -151,14 +154,14 @@ public class ParquetPageSource
         }
 
         @Override
-        public final void load(LazyBlock lazyBlock)
+        public final Block load()
         {
             checkState(!loaded, "Already loaded");
             checkState(batchId == expectedBatchId);
 
+            Block block;
             try {
-                Block block = parquetReader.readBlock(field);
-                lazyBlock.setBlock(block);
+                block = parquetReader.readBlock(field);
             }
             catch (ParquetCorruptionException e) {
                 throw new PrestoException(HIVE_BAD_DATA, e);
@@ -166,7 +169,9 @@ public class ParquetPageSource
             catch (IOException e) {
                 throw new PrestoException(HIVE_CURSOR_ERROR, e);
             }
+
             loaded = true;
+            return block;
         }
     }
 }

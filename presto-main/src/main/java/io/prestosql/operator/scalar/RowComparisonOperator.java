@@ -15,19 +15,20 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.metadata.Signature.orderableWithVariadicBound;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.type.TypeUtils.checkElementNotNull;
 import static io.prestosql.util.Failures.internalError;
@@ -40,16 +41,17 @@ public abstract class RowComparisonOperator
         super(operatorType,
                 ImmutableList.of(orderableWithVariadicBound("T", StandardTypes.ROW)),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+                false);
     }
 
     protected List<MethodHandle> getMethodHandles(RowType type, Metadata metadata, OperatorType operatorType)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            Signature signature = metadata.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(metadata.getScalarFunctionImplementation(signature).getMethodHandle());
+            ResolvedFunction resolvedFunction = metadata.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+            argumentMethods.add(metadata.getScalarFunctionImplementation(resolvedFunction).getMethodHandle());
         }
         return argumentMethods.build();
     }

@@ -19,7 +19,7 @@ import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -32,17 +32,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class CachingDirectoryLister
         implements DirectoryLister
 {
     private final Cache<Path, List<LocatedFileStatus>> cache;
-    private final Set<SchemaTableName> tableNames;
+    private final List<SchemaTablePrefix> tablePrefixes;
 
     @Inject
     public CachingDirectoryLister(HiveConfig hiveClientConfig)
@@ -58,16 +57,24 @@ public class CachingDirectoryLister
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .recordStats()
                 .build();
-        this.tableNames = tables.stream()
+        this.tablePrefixes = tables.stream()
                 .map(CachingDirectoryLister::parseTableName)
-                .collect(Collectors.toSet());
+                .collect(toImmutableList());
     }
 
-    private static SchemaTableName parseTableName(String tableName)
+    private static SchemaTablePrefix parseTableName(String tableName)
     {
+        if (tableName.equals("*")) {
+            return new SchemaTablePrefix();
+        }
         String[] parts = tableName.split("\\.");
         checkArgument(parts.length == 2, "Invalid schemaTableName: %s", tableName);
-        return new SchemaTableName(parts[0], parts[1]);
+        String schema = parts[0];
+        String table = parts[1];
+        if (table.equals("*")) {
+            return new SchemaTablePrefix(schema);
+        }
+        return new SchemaTablePrefix(schema, table);
     }
 
     @Override
@@ -80,7 +87,7 @@ public class CachingDirectoryLister
         }
         RemoteIterator<LocatedFileStatus> iterator = fs.listLocatedStatus(path);
 
-        if (!tableNames.contains(table.getSchemaTableName())) {
+        if (tablePrefixes.stream().noneMatch(prefix -> prefix.matches(table.getSchemaTableName()))) {
             return iterator;
         }
         return cachingRemoteIterator(iterator, path);

@@ -14,7 +14,6 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.Requirements;
 import io.prestosql.tempto.RequirementsProvider;
@@ -24,9 +23,11 @@ import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestosql.tempto.fulfillment.table.hive.InlineDataSource;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Objects;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
@@ -35,7 +36,6 @@ import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
@@ -43,7 +43,7 @@ import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestHiveTableStatistics
-        extends ProductTest
+        extends HiveProductTest
 {
     private static class UnpartitionedNationTable
             implements RequirementsProvider
@@ -101,60 +101,6 @@ public class TestHiveTableStatistics
                     "\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\n"))
             .build();
 
-    private static final List<Row> ALL_TYPES_TABLE_STATISTICS = ImmutableList.of(
-            row("c_tinyint", null, 2.0, 0.0, null, "121", "127"),
-            row("c_smallint", null, 2.0, 0.0, null, "32761", "32767"),
-            row("c_int", null, 2.0, 0.0, null, "2147483641", "2147483647"),
-            row("c_bigint", null, 2.0, 0.0, null, "9223372036854775807", "9223372036854775807"),
-            row("c_float", null, 2.0, 0.0, null, "123.341", "123.345"),
-            row("c_double", null, 2.0, 0.0, null, "234.561", "235.567"),
-            row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
-            row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
-            row("c_timestamp", null, 2.0, 0.0, null, null, null),
-            row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
-            row("c_string", 22.0, 2.0, 0.0, null, null, null),
-            row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
-            row("c_char", 12.0, 2.0, 0.0, null, null, null),
-            row("c_boolean", null, 2.0, 0.0, null, null, null),
-            row("c_binary", 23.0, null, 0.0, null, null, null),
-            row(null, null, null, null, 2.0, null, null));
-
-    private static final List<Row> ALL_TYPES_ALL_NULL_TABLE_STATISTICS = ImmutableList.of(
-            row("c_tinyint", null, 0.0, 1.0, null, null, null),
-            row("c_smallint", null, 0.0, 1.0, null, null, null),
-            row("c_int", null, 0.0, 1.0, null, null, null),
-            row("c_bigint", null, 0.0, 1.0, null, null, null),
-            row("c_float", null, 0.0, 1.0, null, null, null),
-            row("c_double", null, 0.0, 1.0, null, null, null),
-            row("c_decimal", null, 0.0, 1.0, null, null, null),
-            row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
-            row("c_timestamp", null, 0.0, 1.0, null, null, null),
-            row("c_date", null, 0.0, 1.0, null, null, null),
-            row("c_string", 0.0, 0.0, 1.0, null, null, null),
-            row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
-            row("c_char", 0.0, 0.0, 1.0, null, null, null),
-            row("c_boolean", null, 0.0, 1.0, null, null, null),
-            row("c_binary", 0.0, null, 1.0, null, null, null),
-            row(null, null, null, null, 1.0, null, null));
-
-    private static final List<Row> ALL_TYPES_EMPTY_TABLE_STATISTICS = ImmutableList.of(
-            row("c_tinyint", null, 0.0, 0.0, null, null, null),
-            row("c_smallint", null, 0.0, 0.0, null, null, null),
-            row("c_int", null, 0.0, 0.0, null, null, null),
-            row("c_bigint", null, 0.0, 0.0, null, null, null),
-            row("c_float", null, 0.0, 0.0, null, null, null),
-            row("c_double", null, 0.0, 0.0, null, null, null),
-            row("c_decimal", null, 0.0, 0.0, null, null, null),
-            row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
-            row("c_timestamp", null, 0.0, 0.0, null, null, null),
-            row("c_date", null, 0.0, 0.0, null, null, null),
-            row("c_string", 0.0, 0.0, 0.0, null, null, null),
-            row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
-            row("c_char", 0.0, 0.0, 0.0, null, null, null),
-            row("c_boolean", null, 0.0, 0.0, null, null, null),
-            row("c_binary", 0.0, null, 0.0, null, null, null),
-            row(null, null, null, null, 0.0, null, null));
-
     private static final class AllTypesTable
             implements RequirementsProvider
     {
@@ -168,6 +114,75 @@ public class TestHiveTableStatistics
         }
     }
 
+    private List<Row> getAllTypesTableStatistics()
+    {
+        return ImmutableList.of(
+                row("c_tinyint", null, 2.0, 0.0, null, "121", "127"),
+                row("c_smallint", null, 2.0, 0.0, null, "32761", "32767"),
+                row("c_int", null, 2.0, 0.0, null, "2147483641", "2147483647"),
+                row("c_bigint", null, 2.0, 0.0, null, "9223372036854775807", "9223372036854775807"),
+                row("c_float", null, 2.0, 0.0, null, "123.341", "123.345"),
+                row("c_double", null, 2.0, 0.0, null, "234.561", "235.567"),
+                row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
+                row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
+                row("c_timestamp", null, 2.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+                row("c_string", 22.0, 2.0, 0.0, null, null, null),
+                row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
+                row("c_char", 12.0, 2.0, 0.0, null, null, null),
+                row("c_boolean", null, 2.0, 0.0, null, null, null),
+                row("c_binary", 23.0, null, 0.0, null, null, null),
+                row(null, null, null, null, 2.0, null, null));
+    }
+
+    private List<Row> getAllTypesAllNullTableStatistics()
+    {
+        return ImmutableList.of(
+                row("c_tinyint", null, 0.0, 1.0, null, null, null),
+                row("c_smallint", null, 0.0, 1.0, null, null, null),
+                row("c_int", null, 0.0, 1.0, null, null, null),
+                row("c_bigint", null, 0.0, 1.0, null, null, null),
+                row("c_float", null, 0.0, 1.0, null, null, null),
+                row("c_double", null, 0.0, 1.0, null, null, null),
+                row("c_decimal", null, 0.0, 1.0, null, null, null),
+                row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
+                row("c_timestamp", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 1.0, null, null, null),
+                row("c_string", 0.0, 0.0, 1.0, null, null, null),
+                row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
+                row("c_char", 0.0, 0.0, 1.0, null, null, null),
+                row("c_boolean", null, 0.0, 1.0, null, null, null),
+                row("c_binary", 0.0, null, 1.0, null, null, null),
+                row(null, null, null, null, 1.0, null, null));
+    }
+
+    private List<Row> getAllTypesEmptyTableStatistics()
+    {
+        return ImmutableList.of(
+                row("c_tinyint", null, 0.0, 0.0, null, null, null),
+                row("c_smallint", null, 0.0, 0.0, null, null, null),
+                row("c_int", null, 0.0, 0.0, null, null, null),
+                row("c_bigint", null, 0.0, 0.0, null, null, null),
+                row("c_float", null, 0.0, 0.0, null, null, null),
+                row("c_double", null, 0.0, 0.0, null, null, null),
+                row("c_decimal", null, 0.0, 0.0, null, null, null),
+                row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
+                row("c_timestamp", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 0.0, null, null, null),
+                row("c_string", 0.0, 0.0, 0.0, null, null, null),
+                row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
+                row("c_char", 0.0, 0.0, 0.0, null, null, null),
+                row("c_boolean", null, 0.0, 0.0, null, null, null),
+                row("c_binary", 0.0, null, 0.0, null, null, null),
+                row(null, null, null, null, 0.0, null, null));
+    }
+
     @Test
     @Requires(UnpartitionedNationTable.class)
     public void testStatisticsForUnpartitionedTable()
@@ -179,10 +194,10 @@ public class TestHiveTableStatistics
         // table not analyzed
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_name", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_regionkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_comment", null, null, anyOf(null, 0.0), null, null, null),
+                row("n_nationkey", null, null, null, null, null, null),
+                row("n_name", null, null, null, null, null, null),
+                row("n_regionkey", null, null, null, null, null, null),
+                row("n_comment", null, null, null, null, null, null),
                 row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         // basic analysis
@@ -201,8 +216,8 @@ public class TestHiveTableStatistics
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, 19.0, 0.0, null, "0", "24"),
-                row("n_name", 177.0, 24.0, 0.0, null, null, null),
+                row("n_nationkey", null, anyOf(19., 25.), 0.0, null, "0", "24"),
+                row("n_name", 177.0, anyOf(24., 25.), 0.0, null, null, null),
                 row("n_regionkey", null, 5.0, 0.0, null, "0", "4"),
                 row("n_comment", 1857.0, 25.0, 0.0, null, null, null),
                 row(null, null, null, null, 25.0, null, null));
@@ -328,7 +343,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, 4.0, 0.0, null, "8", "21"),
+                row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
                 row("p_comment", 351.0, 5.0, 0.0, null, null, null),
@@ -455,7 +470,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, 4.0, 0.0, null, "8", "21"),
+                row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 20.0, 1.0, 0.0, null, null, null),
                 row("p_comment", 351.0, 5.0, 0.0, null, null, null),
@@ -463,7 +478,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
     {
@@ -489,7 +504,14 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        if (isHiveVersionBefore12()) {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS " +
+                    "c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, " +
+                    "c_string, c_varchar, c_char, c_bigint, c_binary");
+        }
+        else {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        }
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -502,16 +524,20 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
                 row("c_timestamp", null, 2.0, 0.0, null, null, null), // timestamp is shifted by hive.time-zone on read
-                row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
                 row("c_string", 22.0, 2.0, 0.0, null, null, null),
                 row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
                 row("c_char", 12.0, 2.0, 0.0, null, null, null),
-                row("c_boolean", null, 2.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_boolean", null, null, null, null, null, null)
+                        : row("c_boolean", null, 2.0, 0.0, null, null, null),
                 row("c_binary", 23.0, null, 0.0, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesNoData()
     {
@@ -537,7 +563,14 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 0.0, null, null));
 
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        if (isHiveVersionBefore12()) {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS " +
+                    "c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, " +
+                    "c_string, c_varchar, c_char, c_bigint, c_binary");
+        }
+        else {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        }
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 0.0, 0.0, null, null, null),
@@ -549,16 +582,20 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 0.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
                 row("c_timestamp", null, 0.0, 0.0, null, null, null),
-                row("c_date", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 0.0, null, null, null),
                 row("c_string", 0.0, 0.0, 0.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
                 row("c_char", 0.0, 0.0, 0.0, null, null, null),
-                row("c_boolean", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_boolean", null, null, null, null, null, null)
+                        : row("c_boolean", null, 0.0, 0.0, null, null, null),
                 row("c_binary", 0.0, null, 0.0, null, null, null),
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {
@@ -585,7 +622,14 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
 
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        if (isHiveVersionBefore12()) {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS " +
+                    "c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, " +
+                    "c_string, c_varchar, c_char, c_bigint, c_binary");
+        }
+        else {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        }
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 0.0, 1.0, null, null, null),
@@ -597,11 +641,15 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 1.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
                 row("c_timestamp", null, 0.0, 1.0, null, null, null),
-                row("c_date", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 1.0, null, null, null),
                 row("c_string", 0.0, 0.0, 1.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
                 row("c_char", 0.0, 0.0, 1.0, null, null, null),
-                row("c_boolean", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_boolean", null, null, null, null, null, null)
+                        : row("c_boolean", null, 0.0, 1.0, null, null, null),
                 row("c_binary", 0.0, null, 1.0, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
     }
@@ -665,10 +713,10 @@ public class TestHiveTableStatistics
 
         // table not analyzed
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_name", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_regionkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_comment", null, null, anyOf(null, 0.0), null, null, null),
+                row("n_nationkey", null, null, null, null, null, null),
+                row("n_name", null, null, null, null, null, null),
+                row("n_regionkey", null, null, null, null, null, null),
+                row("n_comment", null, null, null, null, null, null),
                 row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(25));
@@ -836,7 +884,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypes()
     {
@@ -858,7 +906,7 @@ public class TestHiveTableStatistics
                 row("c_char", null, null, null, null, null, null),
                 row("c_boolean", null, null, null, null, null, null),
                 row("c_binary", null, null, null, null, null, null),
-                row(null, null, null, null, 0.0, null, null));
+                row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(2));
 
@@ -873,7 +921,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
                 row("c_timestamp", null, 2.0, 0.0, null, null, null),
-                row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
                 row("c_string", 22.0, 2.0, 0.0, null, null, null),
                 row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
                 row("c_char", 12.0, 2.0, 0.0, null, null, null),
@@ -882,7 +932,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesNoData()
     {
@@ -904,7 +954,7 @@ public class TestHiveTableStatistics
                 row("c_char", null, null, null, null, null, null),
                 row("c_boolean", null, null, null, null, null, null),
                 row("c_binary", null, null, null, null, null, null),
-                row(null, null, null, null, 0.0, null, null));
+                row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(0));
 
@@ -918,7 +968,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 0.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
                 row("c_timestamp", null, 0.0, 0.0, null, null, null),
-                row("c_date", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 0.0, null, null, null),
                 row("c_string", 0.0, 0.0, 0.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
                 row("c_char", 0.0, 0.0, 0.0, null, null, null),
@@ -927,7 +979,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesOnlyNulls()
     {
@@ -966,7 +1018,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 1.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
                 row("c_timestamp", null, 0.0, 1.0, null, null, null),
-                row("c_date", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 1.0, null, null, null),
                 row("c_string", 0.0, 0.0, 1.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
                 row("c_char", 0.0, 0.0, 1.0, null, null, null),
@@ -983,9 +1037,9 @@ public class TestHiveTableStatistics
         String emptyAllTypesTable = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
         String allTypesAllNullTable = mutableTablesState().get(ALL_TYPES_ALL_NULL_TABLE_NAME).getNameInDatabase();
 
-        assertComputeTableStatisticsOnCreateTable(allTypesTable, ALL_TYPES_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnCreateTable(emptyAllTypesTable, ALL_TYPES_EMPTY_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnCreateTable(allTypesAllNullTable, ALL_TYPES_ALL_NULL_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnCreateTable(allTypesTable, getAllTypesTableStatistics());
+        assertComputeTableStatisticsOnCreateTable(emptyAllTypesTable, getAllTypesEmptyTableStatistics());
+        assertComputeTableStatisticsOnCreateTable(allTypesAllNullTable, getAllTypesAllNullTableStatistics());
     }
 
     @Test
@@ -996,9 +1050,9 @@ public class TestHiveTableStatistics
         String emptyAllTypesTable = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
         String allTypesAllNullTable = mutableTablesState().get(ALL_TYPES_ALL_NULL_TABLE_NAME).getNameInDatabase();
 
-        assertComputeTableStatisticsOnInsert(allTypesTable, ALL_TYPES_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnInsert(emptyAllTypesTable, ALL_TYPES_EMPTY_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnInsert(allTypesAllNullTable, ALL_TYPES_ALL_NULL_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnInsert(allTypesTable, getAllTypesTableStatistics());
+        assertComputeTableStatisticsOnInsert(emptyAllTypesTable, getAllTypesEmptyTableStatistics());
+        assertComputeTableStatisticsOnInsert(allTypesAllNullTable, getAllTypesAllNullTableStatistics());
 
         String tableName = "test_update_table_statistics";
         query(format("DROP TABLE IF EXISTS %s", tableName));
@@ -1017,7 +1071,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 2.0, 0.5, null, "345.0", "346.0"),
                     row("c_decimal_w_params", null, 2.0, 0.5, null, "345.671", "345.678"),
                     row("c_timestamp", null, 2.0, 0.5, null, null, null),
-                    row("c_date", null, 2.0, 0.5, null, "2015-05-09", "2015-06-10"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 2.0, 0.5, null, "2015-05-09", "2015-06-10"),
                     row("c_string", 22.0, 2.0, 0.5, null, null, null),
                     row("c_varchar", 20.0, 2.0, 0.5, null, null, null),
                     row("c_char", 12.0, 2.0, 0.5, null, null, null),
@@ -1052,7 +1108,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 2.0, 0.4, null, "343.0", "346.0"),
                     row("c_decimal_w_params", null, 2.0, 0.4, null, "345.67", "345.678"),
                     row("c_timestamp", null, 2.0, 0.4, null, null, null),
-                    row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
                     row("c_string", 32.0, 2.0, 0.4, null, null, null),
                     row("c_varchar", 29.0, 2.0, 0.4, null, null, null),
                     row("c_char", 17.0, 2.0, 0.4, null, null, null),
@@ -1128,7 +1186,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "343.0", "343.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67", "345.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1148,7 +1208,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "888.0", "888.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67", "999.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1214,7 +1276,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "343.0", "343.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67", "345.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1234,7 +1298,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "888.0", "888.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67", "999.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1257,7 +1323,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "342.0", "343.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "344.67", "345.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-07", "2015-05-08"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-07", "2015-05-08"),
                     row("c_string", 20.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 20.0, 1.0, 0.5, null, null, null),
                     row("c_char", 18.0, 1.0, 0.5, null, null, null),
@@ -1280,7 +1348,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "888.0", "889.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67", "1000.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-10"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-10"),
                     row("c_string", 20.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 20.0, 1.0, 0.5, null, null, null),
                     row("c_char", 18.0, 1.0, 0.5, null, null, null),
@@ -1293,6 +1363,53 @@ public class TestHiveTableStatistics
         finally {
             query(format("DROP TABLE IF EXISTS %s", tableName));
         }
+    }
+
+    @Test(dataProvider = "testComputeFloatingPointStatisticsDataProvider")
+    public void testComputeFloatingPointStatistics(String dataType)
+    {
+        String tableName = "test_compute_floating_point_statistics";
+        query("DROP TABLE IF EXISTS " + tableName);
+        try {
+            query(format("CREATE TABLE %1$s(c_basic %2$s, c_minmax %2$s, c_inf %2$s, c_ninf %2$s, c_nan %2$s, c_nzero %2$s)", tableName, dataType));
+            query("ANALYZE " + tableName); // TODO remove after https://github.com/prestosql/presto/issues/2469
+
+            query(format(
+                    "INSERT INTO %1$s(c_basic, c_minmax, c_inf, c_ninf, c_nan, c_nzero) VALUES " +
+                            "  (%2$s '42.3', %2$s '576234.567',  %2$s 'Infinity', %2$s '-Infinity', %2$s 'NaN', %2$s '-0')," +
+                            "  (%2$s '42.3', %2$s '-1234567.89', %2$s '-15', %2$s '45', %2$s '12345', %2$s '-47'), " +
+                            "  (NULL, NULL, NULL, NULL, NULL, NULL)",
+                    tableName,
+                    dataType));
+
+            List<Row> expectedStatistics = ImmutableList.of(
+                    row("c_basic", null, 1., 0.33333333333, null, "42.3", "42.3"),
+                    Objects.equals(dataType, "double")
+                            ? row("c_minmax", null, 2., 0.33333333333, null, "-1234567.89", "576234.567")
+                            : row("c_minmax", null, 2., 0.33333333333, null, "-1234567.9", "576234.56"),
+                    row("c_inf", null, 2., 0.33333333333, null, null, null), // -15, +inf
+                    row("c_ninf", null, 2., 0.33333333333, null, null, null), // -inf, 45
+                    row("c_nan", null, 2., 0.33333333333, null, null, null), // 12345., NaN
+                    row("c_nzero", null, 2., 0.33333333333, null, "-47.0", "0.0"),
+                    row(null, null, null, null, 3., null, null));
+
+            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+
+            query("ANALYZE " + tableName);
+            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+        }
+        finally {
+            query("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] testComputeFloatingPointStatisticsDataProvider()
+    {
+        return new Object[][] {
+                {"real"},
+                {"double"},
+        };
     }
 
     private static void assertComputeTableStatisticsOnCreateTable(String sourceTableName, List<Row> expectedStatistics)
@@ -1308,13 +1425,13 @@ public class TestHiveTableStatistics
         }
     }
 
-    private static void assertComputeTableStatisticsOnInsert(String sourceTableName, List<Row> expectedStatistics)
+    private void assertComputeTableStatisticsOnInsert(String sourceTableName, List<Row> expectedStatistics)
     {
         String copiedTableName = "assert_compute_table_statistics_on_insert_" + sourceTableName;
         query(format("DROP TABLE IF EXISTS %s", copiedTableName));
         try {
             query(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", copiedTableName, sourceTableName));
-            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(ALL_TYPES_EMPTY_TABLE_STATISTICS);
+            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(getAllTypesEmptyTableStatistics());
             query(format("INSERT INTO %s SELECT * FROM %s", copiedTableName, sourceTableName));
             assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
         }

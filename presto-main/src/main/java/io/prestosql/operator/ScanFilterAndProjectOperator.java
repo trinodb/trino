@@ -32,15 +32,17 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.EmptySplit;
-import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -51,7 +53,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
@@ -65,13 +66,16 @@ public class ScanFilterAndProjectOperator
 {
     private final WorkProcessor<Page> pages;
 
+    @Nullable
     private RecordCursor cursor;
+    @Nullable
     private ConnectorPageSource pageSource;
 
     private long processedPositions;
     private long processedBytes;
     private long physicalBytes;
     private long readTimeNanos;
+    private long dynamicFilterSplitsProcessed;
 
     private ScanFilterAndProjectOperator(
             Session session,
@@ -120,7 +124,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public DataSize getPhysicalInputDataSize()
     {
-        return new DataSize(physicalBytes, BYTE);
+        return DataSize.ofBytes(physicalBytes);
     }
 
     @Override
@@ -132,7 +136,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public DataSize getInputDataSize()
     {
-        return new DataSize(processedBytes, BYTE);
+        return DataSize.ofBytes(processedBytes);
     }
 
     @Override
@@ -145,6 +149,12 @@ public class ScanFilterAndProjectOperator
     public Duration getReadTime()
     {
         return new Duration(readTimeNanos, NANOSECONDS);
+    }
+
+    @Override
+    public long getDynamicFilterSplitsProcessed()
+    {
+        return dynamicFilterSplitsProcessed;
     }
 
     @Override
@@ -232,9 +242,13 @@ public class ScanFilterAndProjectOperator
 
             checkState(cursor == null && pageSource == null, "Table scan split already set");
 
+            if (!dynamicFilter.get().isAll()) {
+                dynamicFilterSplitsProcessed++;
+            }
+
             ConnectorPageSource source;
             if (split.getConnectorSplit() instanceof EmptySplit) {
-                source = new EmptySplitPageSource();
+                source = new EmptyPageSource();
             }
             else {
                 source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
@@ -371,7 +385,7 @@ public class ScanFilterAndProjectOperator
                 }
             }
 
-            page = recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
+            recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
 
             // update operator stats
             processedPositions += page.getPositionCount();
@@ -469,7 +483,9 @@ public class ScanFilterAndProjectOperator
             return create(session, memoryTrackingContext, yieldSignal, splits, true);
         }
 
-        public WorkProcessorSourceOperator createAdapterOperator(Session session,
+        @Override
+        public WorkProcessorSourceOperator createAdapterOperator(
+                Session session,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)

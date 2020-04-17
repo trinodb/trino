@@ -16,6 +16,8 @@ package io.prestosql.sql;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -85,8 +87,12 @@ public final class DynamicFilters
         }
 
         FunctionCall functionCall = (FunctionCall) expression;
-
-        if (!functionCall.getName().getSuffix().equals(Function.NAME)) {
+        boolean isDynamicFilterFunction = ResolvedFunction.fromQualifiedName(functionCall.getName())
+                .map(ResolvedFunction::getSignature)
+                .map(Signature::getName)
+                .map(Function.NAME::equals)
+                .orElse(false);
+        if (!isDynamicFilterFunction) {
             return Optional.empty();
         }
 
@@ -172,7 +178,7 @@ public final class DynamicFilters
         }
     }
 
-    @ScalarFunction(value = Function.NAME, hidden = true, deterministic = false)
+    @ScalarFunction(value = Function.NAME, hidden = true)
     public static final class Function
     {
         private Function() {}

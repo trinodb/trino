@@ -52,11 +52,13 @@ public class MongoHandleResolver
         return MongoSplit.class;
     }
 
+    @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return MongoOutputTableHandle.class;
     }
 
+    @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return MongoInsertTableHandle.class;

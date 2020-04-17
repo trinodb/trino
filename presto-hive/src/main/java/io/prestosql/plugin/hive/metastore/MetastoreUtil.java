@@ -32,7 +32,9 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
+import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.stream.Collectors.toList;
@@ -178,7 +180,19 @@ public final class MetastoreUtil
         return getProtectMode(table.getParameters());
     }
 
-    public static String makePartName(List<Column> partitionColumns, List<String> values)
+    public static boolean isAvroTableWithSchemaSet(Table table)
+    {
+        return AVRO.getSerDe().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
+                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
+    }
+
+    public static String makePartitionName(Table table, Partition partition)
+    {
+        return makePartitionName(table.getPartitionColumns(), partition.getValues());
+    }
+
+    public static String makePartitionName(List<Column> partitionColumns, List<String> values)
     {
         return toPartitionName(partitionColumns.stream().map(Column::getName).collect(toList()), values);
     }

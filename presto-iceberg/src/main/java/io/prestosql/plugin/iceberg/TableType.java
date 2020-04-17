@@ -16,8 +16,9 @@ package io.prestosql.plugin.iceberg;
 public enum TableType
 {
     DATA,
-    HISTORY, // TODO: to be implemented
-    SNAPSHOTS, // TODO: to be implemented
-    MANIFESTS, // TODO: to be implemented
+    HISTORY,
+    SNAPSHOTS,
+    MANIFESTS,
     PARTITIONS,
+    FILES,
 }

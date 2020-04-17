@@ -16,7 +16,7 @@ package io.prestosql.orc;
 import com.google.common.base.Strings;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.spi.block.Block;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -65,17 +65,15 @@ public class TestOrcReaderMemoryUsage
             long readerSystemMemoryUsage = reader.getSystemMemoryUsage();
 
             while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
+                Page page = reader.nextPage();
+                if (page == null) {
                     break;
                 }
-
-                Block block = reader.readBlock(0);
-                assertEquals(block.getPositionCount(), batchSize);
+                page = page.getLoadedPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
-                if (batchSize < MAX_BATCH_SIZE) {
+                if (page.getPositionCount() < MAX_BATCH_SIZE) {
                     continue;
                 }
 
@@ -112,17 +110,15 @@ public class TestOrcReaderMemoryUsage
             long readerSystemMemoryUsage = reader.getSystemMemoryUsage();
 
             while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
+                Page page = reader.nextPage();
+                if (page == null) {
                     break;
                 }
-
-                Block block = reader.readBlock(0);
-                assertEquals(block.getPositionCount(), batchSize);
+                page = page.getLoadedPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
-                if (batchSize < MAX_BATCH_SIZE) {
+                if (page.getPositionCount() < MAX_BATCH_SIZE) {
                     continue;
                 }
 
@@ -147,7 +143,7 @@ public class TestOrcReaderMemoryUsage
     public void testMapTypeWithNulls()
             throws Exception
     {
-        Type mapType = METADATA.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(BIGINT.getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
+        Type mapType = METADATA.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
 
         int rows = 10000;
         OrcRecordReader reader = null;
@@ -161,17 +157,15 @@ public class TestOrcReaderMemoryUsage
             long readerSystemMemoryUsage = reader.getSystemMemoryUsage();
 
             while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
+                Page page = reader.nextPage();
+                if (page == null) {
                     break;
                 }
-
-                Block block = reader.readBlock(0);
-                assertEquals(block.getPositionCount(), batchSize);
+                page = page.getLoadedPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
-                if (batchSize < MAX_BATCH_SIZE) {
+                if (page.getPositionCount() < MAX_BATCH_SIZE) {
                     continue;
                 }
 

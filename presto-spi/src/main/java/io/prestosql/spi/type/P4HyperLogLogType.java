@@ -20,7 +20,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class P4HyperLogLogType
         extends AbstractVariableWidthType
@@ -30,7 +29,7 @@ public class P4HyperLogLogType
     @JsonCreator
     public P4HyperLogLogType()
     {
-        super(parseTypeSignature(StandardTypes.P4_HYPER_LOG_LOG), Slice.class);
+        super(new TypeSignature(StandardTypes.P4_HYPER_LOG_LOG), Slice.class);
     }
 
     @Override

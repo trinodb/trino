@@ -19,8 +19,9 @@ import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.Type;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
@@ -32,17 +33,19 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.tests.QueryAssertions.assertContains;
-import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.QueryAssertions.assertContains;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestHiveRoles
         extends AbstractTestQueryFramework
 {
-    protected TestHiveRoles()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(HiveQueryRunner::createQueryRunner);
+        return HiveQueryRunner.create();
     }
 
     @AfterMethod(alwaysRun = true)

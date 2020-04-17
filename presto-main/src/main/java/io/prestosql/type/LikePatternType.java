@@ -13,26 +13,24 @@
  */
 package io.prestosql.type;
 
-import io.airlift.joni.Regex;
-import io.prestosql.spi.PrestoException;
+import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractType;
+import io.prestosql.spi.type.AbstractVariableWidthType;
 import io.prestosql.spi.type.TypeSignature;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.operator.scalar.JoniRegexpCasts.joniRegexp;
 
 public class LikePatternType
-        extends AbstractType
+        extends AbstractVariableWidthType
 {
     public static final LikePatternType LIKE_PATTERN = new LikePatternType();
     public static final String NAME = "LikePattern";
 
-    public LikePatternType()
+    private LikePatternType()
     {
-        super(new TypeSignature(NAME), Regex.class);
+        super(new TypeSignature(NAME), JoniRegexp.class);
     }
 
     @Override
@@ -48,14 +46,19 @@ public class LikePatternType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public Object getObject(Block block, int position)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "LikePattern type cannot be serialized");
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        return joniRegexp(block.getSlice(position, 0, block.getSliceLength(position)));
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "LikePattern type cannot be serialized");
+        Slice pattern = ((JoniRegexp) value).pattern();
+        blockBuilder.writeBytes(pattern, 0, pattern.length()).closeEntry();
     }
 }

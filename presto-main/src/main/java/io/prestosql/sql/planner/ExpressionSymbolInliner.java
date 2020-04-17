@@ -13,6 +13,8 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multiset;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -20,13 +22,11 @@ import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.SymbolReference;
 
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 
 public final class ExpressionSymbolInliner
 {
@@ -55,7 +55,7 @@ public final class ExpressionSymbolInliner
     private class Visitor
             extends ExpressionRewriter<Void>
     {
-        private final Set<String> excludedNames = new HashSet<>();
+        private final Multiset<String> excludedNames = HashMultiset.create();
 
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
@@ -73,14 +73,11 @@ public final class ExpressionSymbolInliner
         public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                String argumentName = argument.getName().getValue();
-                // Symbol names are unique. As a result, a symbol should never be excluded multiple times.
-                checkArgument(!excludedNames.contains(argumentName));
-                excludedNames.add(argumentName);
+                excludedNames.add(argument.getName().getValue());
             }
             Expression result = treeRewriter.defaultRewrite(node, context);
             for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                excludedNames.remove(argument.getName().getValue());
+                verify(excludedNames.remove(argument.getName().getValue()));
             }
             return result;
         }

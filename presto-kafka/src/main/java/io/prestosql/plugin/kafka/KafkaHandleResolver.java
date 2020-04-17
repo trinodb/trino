@@ -22,9 +22,6 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific {@link io.prestosql.spi.connector.ConnectorHandleResolver} implementation.
- */
 public class KafkaHandleResolver
         implements ConnectorHandleResolver
 {

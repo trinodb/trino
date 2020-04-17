@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
@@ -22,6 +21,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.prestosql.GroupByHashPageIndexerFactory;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.prestosql.plugin.hive.AbstractTestHive.Transaction;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -33,7 +33,6 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.TestingMetastoreLocator;
@@ -56,13 +55,16 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -71,18 +73,19 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.OptionalLong;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.AbstractTestHive.createTableProperties;
 import static io.prestosql.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles;
@@ -92,26 +95,30 @@ import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
+import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.util.Locale.ENGLISH;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestHiveFileSystem
 {
-    private static final HdfsContext TESTING_CONTEXT = new HdfsContext(new ConnectorIdentity("test", Optional.empty(), Optional.empty()));
+    protected static final HdfsContext TESTING_CONTEXT = new HdfsContext(ConnectorIdentity.ofUser("test"));
 
     protected String database;
     protected SchemaTableName table;
+    protected SchemaTableName tableWithHeader;
+    protected SchemaTableName tableWithHeaderAndFooter;
     protected SchemaTableName temporaryCreateTable;
 
     protected HdfsEnvironment hdfsEnvironment;
@@ -125,11 +132,13 @@ public abstract class AbstractTestHiveFileSystem
 
     private ExecutorService executor;
     private HiveConfig config;
+    private ScheduledExecutorService heartbeatService;
 
     @BeforeClass
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        heartbeatService = newScheduledThreadPool(1);
     }
 
     @AfterClass(alwaysRun = true)
@@ -139,16 +148,24 @@ public abstract class AbstractTestHiveFileSystem
             executor.shutdownNow();
             executor = null;
         }
+        if (heartbeatService != null) {
+            heartbeatService.shutdownNow();
+            heartbeatService = null;
+        }
     }
 
     protected abstract Path getBasePath();
+
+    protected void onSetupComplete() {}
 
     protected void setup(String host, int port, String databaseName, boolean s3SelectPushdownEnabled, HdfsConfiguration hdfsConfiguration)
     {
         database = databaseName;
         table = new SchemaTableName(database, "presto_test_external_fs");
+        tableWithHeader = new SchemaTableName(database, "presto_test_external_fs_with_header");
+        tableWithHeaderAndFooter = new SchemaTableName(database, "presto_test_external_fs_with_header_and_footer");
 
-        String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+        String random = randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
 
         config = new HiveConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
@@ -159,28 +176,30 @@ public abstract class AbstractTestHiveFileSystem
         MetastoreLocator metastoreLocator = new TestingMetastoreLocator(proxy, HostAndPort.fromParts(host, port));
 
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
-        HivePartitionManager hivePartitionManager = new HivePartitionManager(TYPE_MANAGER, config);
+        HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig())),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
                 executor,
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
+                new CatalogName("hive"),
                 config,
                 metastoreClient,
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
+                heartbeatService,
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
                 new HiveTypeTranslator(),
                 new NodeVersion("test_version"),
-                SqlStandardAccessControlMetadata::new);
+                (metastore) -> new SqlStandardAccessControlMetadata(metastore));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
@@ -212,14 +231,16 @@ public abstract class AbstractTestHiveFileSystem
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 getHiveSessionProperties(config),
-                new HiveWriterStats(),
-                getDefaultOrcFileWriterFactory(config, hdfsEnvironment));
+                new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
+                TYPE_MANAGER,
                 config,
                 hdfsEnvironment,
-                getDefaultHiveRecordCursorProvider(config, hdfsEnvironment),
-                getDefaultHivePageSourceFactories(config, hdfsEnvironment),
-                TYPE_MANAGER);
+                getDefaultHivePageSourceFactories(hdfsEnvironment),
+                getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
+
+        onSetupComplete();
     }
 
     protected ConnectorSession newSession()
@@ -229,40 +250,49 @@ public abstract class AbstractTestHiveFileSystem
 
     protected Transaction newTransaction()
     {
-        return new HiveTransaction(transactionManager, metadataFactory.get());
+        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
     }
 
     @Test
     public void testGetRecords()
             throws Exception
     {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession();
+        assertEqualsIgnoreOrder(
+                readTable(table),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(3L).row(14L).row(15L) // test_table.csv
+                        .row(92L).row(65L).row(35L) // test_table.csv.gz
+                        .row(89L).row(79L).row(32L) // test_table.csv.bz2
+                        .row(38L).row(46L).row(26L) // test_table.csv.lz4
+                        .build());
+    }
 
-            ConnectorTableHandle table = getTableHandle(metadata, this.table);
-            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
-            Map<String, Integer> columnIndex = indexColumns(columnHandles);
+    @Test
+    public void testGetRecordsWithHeader()
+            throws IOException
+    {
+        assertEqualsIgnoreOrder(
+                readTable(tableWithHeader),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(2L).row(71L).row(82L) // test_table_with_header.csv
+                        .row(81L).row(82L).row(84L) // test_table_with_header.csv.gz
+                        .row(59L).row(4L).row(52L) // test_table_with_header.csv.bz2
+                        .row(35L).row(36L).row(2L) // test_table_with_header.csv.lz4
+                        .build());
+    }
 
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
-
-            List<ConnectorSplit> splits = getAllSplits(splitSource);
-            assertEquals(splits.size(), 1);
-
-            long sum = 0;
-            for (ConnectorSplit split : splits) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles)) {
-                    MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
-
-                    for (MaterializedRow row : result) {
-                        sum += (Long) row.getField(columnIndex.get("t_bigint"));
-                    }
-                }
-            }
-            // The test table is made up of multiple S3 objects with same data and different compression codec
-            // formats: uncompressed | .gz | .lz4 | .bz2
-            assertEquals(sum, 78300 * 4);
-        }
+    @Test
+    public void testGetRecordsWithHeaderAndFooter()
+            throws IOException
+    {
+        assertEqualsIgnoreOrder(
+                readTable(tableWithHeaderAndFooter),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(1L).row(41L).row(42L) // test_table_with_header_and_footer.csv
+                        .row(13L).row(56L).row(23L) // test_table_with_header_and_footer.csv.gz
+                        .row(73L).row(9L).row(50L) // test_table_with_header_and_footer.csv.bz2
+                        .row(48L).row(80L).row(16L) // test_table_with_header_and_footer.csv.lz4
+                        .build());
     }
 
     @Test
@@ -271,20 +301,22 @@ public abstract class AbstractTestHiveFileSystem
     {
         Path basePath = getBasePath();
         Path tablePath = new Path(basePath, "presto_test_external_fs");
-        Path filePath = new Path(tablePath, "test1.csv");
+        Path filePath = new Path(tablePath, "test_table.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
-        assertTrue(fs.getFileStatus(basePath).isDirectory());
-        assertTrue(fs.getFileStatus(tablePath).isDirectory());
-        assertFalse(fs.getFileStatus(filePath).isDirectory());
-        assertFalse(fs.exists(new Path(basePath, "foo")));
+        assertTrue(fs.getFileStatus(basePath).isDirectory(), "basePath should be considered a directory");
+        assertTrue(fs.getFileStatus(tablePath).isDirectory(), "tablePath should be considered a directory");
+        assertTrue(fs.getFileStatus(filePath).isFile(), "filePath should be considered a file");
+        assertFalse(fs.getFileStatus(filePath).isDirectory(), "filePath should not be considered a directory");
+        assertFalse(fs.exists(new Path(basePath, "foo-" + randomUUID())), "foo-random path should be found not to exist");
+        assertFalse(fs.exists(new Path(basePath, "foo")), "foo path should be found not to exist");
     }
 
     @Test
     public void testRename()
             throws Exception
     {
-        Path basePath = new Path(getBasePath(), UUID.randomUUID().toString());
+        Path basePath = new Path(getBasePath(), randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
         assertFalse(fs.exists(basePath));
 
@@ -308,7 +340,7 @@ public abstract class AbstractTestHiveFileSystem
         assertFalse(fs.rename(path, newPath));
 
         // rename foo.txt to foo.txt when foo.txt exists
-        assertFalse(fs.rename(path, path));
+        assertEquals(fs.rename(path, path), fs instanceof AzureBlobFileSystem);
 
         // delete foo.txt
         assertTrue(fs.delete(path, false));
@@ -414,13 +446,16 @@ public abstract class AbstractTestHiveFileSystem
             assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
 
             // verify the data
+            metadata.beginQuery(session);
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, TupleDomain.all())) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }
+
+            metadata.cleanupQuery(session);
         }
     }
 
@@ -432,6 +467,44 @@ public abstract class AbstractTestHiveFileSystem
         }
     }
 
+    protected MaterializedResult readTable(SchemaTableName tableName)
+            throws IOException
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle table = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
+
+            metadata.beginQuery(session);
+            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
+
+            List<Type> allTypes = getTypes(columnHandles);
+            List<Type> dataTypes = getTypes(columnHandles.stream()
+                    .filter(columnHandle -> !((HiveColumnHandle) columnHandle).isHidden())
+                    .collect(toImmutableList()));
+            MaterializedResult.Builder result = MaterializedResult.resultBuilder(session, dataTypes);
+
+            List<ConnectorSplit> splits = getAllSplits(splitSource);
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles, TupleDomain.all())) {
+                    MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
+                    for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
+                        Object[] dataValues = IntStream.range(0, row.getFieldCount())
+                                .filter(channel -> !((HiveColumnHandle) columnHandles.get(channel)).isHidden())
+                                .mapToObj(row::getField)
+                                .toArray();
+                        result.row(dataValues);
+                    }
+                }
+            }
+
+            metadata.cleanupQuery(session);
+            return result.build();
+        }
+    }
+
     private ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(newSession(), tableName);
@@ -439,19 +512,7 @@ public abstract class AbstractTestHiveFileSystem
         return handle;
     }
 
-    private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
-    {
-        ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
-        int i = 0;
-        for (ColumnHandle columnHandle : columnHandles) {
-            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
-            index.put(hiveColumnHandle.getName(), i);
-            i++;
-        }
-        return index.build();
-    }
-
-    private static class TestingHiveMetastore
+    protected static class TestingHiveMetastore
             extends CachingHiveMetastore
     {
         private final Path basePath;
@@ -459,7 +520,7 @@ public abstract class AbstractTestHiveFileSystem
 
         public TestingHiveMetastore(HiveMetastore delegate, Executor executor, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, new CachingHiveMetastoreConfig());
+            super(delegate, executor, OptionalLong.empty(), OptionalLong.empty(), 0);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }
@@ -545,7 +606,7 @@ public abstract class AbstractTestHiveFileSystem
 
             Optional<List<String>> partitionNames = getPartitionNames(identity, schemaName, tableName);
             if (partitionNames.isPresent()) {
-                getPartitionsByNames(identity, schemaName, tableName, partitionNames.get()).values().stream()
+                getPartitionsByNames(identity, table, partitionNames.get()).values().stream()
                         .map(Optional::get)
                         .map(partition -> partition.getStorage().getLocation())
                         .filter(location -> !location.startsWith(table.getStorage().getLocation()))

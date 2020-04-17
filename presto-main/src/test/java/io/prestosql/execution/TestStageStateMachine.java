@@ -51,7 +51,12 @@ public class TestStageStateMachine
     private static final StageId STAGE_ID = new StageId("query", 0);
     private static final URI LOCATION = URI.create("fake://fake-stage");
     private static final PlanFragment PLAN_FRAGMENT = createValuesPlan();
-    private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
+    private static final SQLException FAILED_CAUSE;
+
+    static {
+        FAILED_CAUSE = new SQLException("FAILED");
+        FAILED_CAUSE.setStackTrace(new StackTraceElement[0]);
+    }
 
     private final ExecutorService executor = newCachedThreadPool();
 
@@ -290,12 +295,10 @@ public class TestStageStateMachine
     private static void assertState(StageStateMachine stateMachine, StageState expectedState)
     {
         assertEquals(stateMachine.getStageId(), STAGE_ID);
-        assertEquals(stateMachine.getLocation(), LOCATION);
         assertSame(stateMachine.getSession(), TEST_SESSION);
 
         StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of);
         assertEquals(stageInfo.getStageId(), STAGE_ID);
-        assertEquals(stageInfo.getSelf(), LOCATION);
         assertEquals(stageInfo.getSubStages(), ImmutableList.of());
         assertEquals(stageInfo.getTasks(), ImmutableList.of());
         assertEquals(stageInfo.getTypes(), ImmutableList.of(VARCHAR));
@@ -316,7 +319,7 @@ public class TestStageStateMachine
 
     private StageStateMachine createStageStateMachine()
     {
-        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, ImmutableMap.of(), executor, new SplitSchedulerStats());
+        return new StageStateMachine(STAGE_ID, TEST_SESSION, PLAN_FRAGMENT, ImmutableMap.of(), executor, new SplitSchedulerStats());
     }
 
     private static PlanFragment createValuesPlan()

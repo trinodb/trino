@@ -36,7 +36,7 @@ public class TestImplementLimitWithTies
     @Test
     public void testReplaceLimitWithTies()
     {
-        tester().assertThat(new ImplementLimitWithTies())
+        tester().assertThat(new ImplementLimitWithTies(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

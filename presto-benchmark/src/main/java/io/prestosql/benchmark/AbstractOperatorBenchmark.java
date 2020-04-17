@@ -76,12 +76,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.stats.CpuTimer.CpuDuration;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -143,7 +141,7 @@ public abstract class AbstractOperatorBenchmark
         Metadata metadata = localQueryRunner.getMetadata();
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName)
-                .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
+                .orElseThrow(() -> new IllegalArgumentException(format("Table '%s' does not exist", qualifiedTableName)));
 
         Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
         return Arrays.stream(columnNames)
@@ -161,14 +159,14 @@ public abstract class AbstractOperatorBenchmark
         Metadata metadata = localQueryRunner.getMetadata();
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName).orElse(null);
-        checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
+        checkArgument(tableHandle != null, "Table '%s' does not exist", qualifiedTableName);
 
         // lookup the columns
         Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
             ColumnHandle columnHandle = allColumnHandles.get(columnName);
-            checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
+            checkArgument(columnHandle != null, "Table '%s' does not have a column '%s'", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
         }
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
@@ -182,7 +180,7 @@ public abstract class AbstractOperatorBenchmark
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, "BenchmarkSource");
-                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle, columnHandles, () -> TupleDomain.all());
+                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle, columnHandles, TupleDomain::all);
                 return new PageSourceOperator(pageSource, operatorContext);
             }
 
@@ -236,12 +234,12 @@ public abstract class AbstractOperatorBenchmark
         Map<NodeRef<Expression>, Type> expressionTypes = new TypeAnalyzer(localQueryRunner.getSqlParser(), localQueryRunner.getMetadata())
                 .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
-        RowExpression translated = translate(hashExpression.get(), SCALAR, expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata(), session, false);
+        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata(), session, false);
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
         projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());
 
-        return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        return FilterAndProjectOperator.createOperatorFactory(
                 operatorId,
                 planNodeId,
                 () -> new PageProcessor(Optional.empty(), projections.build()),
@@ -264,7 +262,7 @@ public abstract class AbstractOperatorBenchmark
                 if (!driver.isFinished()) {
                     driver.process();
                     long lastPeakMemory = peakMemory;
-                    peakMemory = (long) taskContext.getTaskStats().getUserMemoryReservation().getValue(BYTE);
+                    peakMemory = taskContext.getTaskStats().getUserMemoryReservation().toBytes();
                     if (peakMemory <= lastPeakMemory) {
                         peakMemory = lastPeakMemory;
                     }
@@ -281,19 +279,20 @@ public abstract class AbstractOperatorBenchmark
     {
         Session session = testSessionBuilder()
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
+                .setTransactionId(this.session.getRequiredTransactionId())
                 .build();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
 
         TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
-                new DataSize(256, MEGABYTE),
-                new DataSize(512, MEGABYTE),
+                DataSize.of(256, MEGABYTE),
+                DataSize.of(512, MEGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
-                new DataSize(256, MEGABYTE),
+                DataSize.of(256, MEGABYTE),
                 spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         session,
@@ -311,7 +310,7 @@ public abstract class AbstractOperatorBenchmark
         long outputRows = taskStats.getOutputPositions();
         long outputBytes = taskStats.getOutputDataSize().toBytes();
 
-        double inputMegaBytes = new DataSize(inputBytes, BYTE).getValue(MEGABYTE);
+        double inputMegaBytes = ((double) inputBytes) / MEGABYTE.inBytes();
 
         return ImmutableMap.<String, Long>builder()
                 // legacy computed values

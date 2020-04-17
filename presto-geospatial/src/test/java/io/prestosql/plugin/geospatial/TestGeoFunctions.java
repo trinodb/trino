@@ -48,9 +48,7 @@ public class TestGeoFunctions
     @BeforeClass
     protected void registerFunctions()
     {
-        GeoPlugin plugin = new GeoPlugin();
-        registerTypes(plugin);
-        registerFunctions(plugin);
+        functionAssertions.installPlugin(new GeoPlugin());
     }
 
     @Test
@@ -338,7 +336,7 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), 0.5))", VARCHAR, "POLYGON ((1 0, 4 0, 4 1, 3 1, 3 3, 2 3, 2 1, 1 1, 1 0))");
 
         // Negative distance tolerance is invalid.
-        assertInvalidFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('" + "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))" + "'), -0.5))", "distanceTolerance is negative");
+        assertInvalidFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), -0.5))", "distanceTolerance is negative");
     }
 
     @Test
@@ -473,6 +471,63 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testLineInterpolatePoint()
+    {
+        assertFunction("ST_AsText(line_interpolate_point(ST_GeometryFromText('LINESTRING EMPTY'), 0.5))", VARCHAR, null);
+
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.0, "POINT (0 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.1, "POINT (1 1)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.05, "POINT (0.5 0.5)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.4, "POINT (4.000000000000001 4.000000000000001)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 1.0, "POINT (10 10)");
+
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.0, "POINT (0 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.1, "POINT (0.1 0.1)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.05, "POINT (0.05 0.05)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.4, "POINT (0.4 0.4)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 1.0, "POINT (1 1)");
+
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.0, "POINT (0 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.05, "POINT (0.5 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.1, "POINT (1 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.5, "POINT (1 4)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 1.0, "POINT (1 9)");
+
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+    }
+
+    @Test
+    public void testLineInterpolatePoints()
+    {
+        assertFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING EMPTY'), 0.5)", new ArrayType(GEOMETRY), null);
+
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.0, "0 0");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.4, "4.000000000000001 4.000000000000001", "8 8");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.3, "3 3", "6 6", "9 9");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.5, "5.000000000000001 5.000000000000001", "10 10");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 1, "10 10");
+
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+    }
+
+    private void assertLineInterpolatePoint(String wkt, double fraction, String expectedPoint)
+    {
+        assertFunction(format("ST_AsText(line_interpolate_point(ST_GeometryFromText('%s)'), %s))", wkt, fraction), VARCHAR, expectedPoint);
+    }
+
+    private void assertLineInterpolatePoints(String wkt, double fraction, String... expected)
+    {
+        assertFunction(
+                format("transform(line_interpolate_points(ST_GeometryFromText('%s'), %s), x -> ST_AsText(x))", wkt, fraction),
+                new ArrayType(VARCHAR),
+                Arrays.stream(expected).map(s -> "POINT (" + s + ")").collect(toImmutableList()));
+    }
+
+    @Test
     public void testSTMax()
     {
         assertFunction("ST_XMax(ST_GeometryFromText('POINT (1.5 2.5)'))", DOUBLE, 1.5);
@@ -576,7 +631,47 @@ public class TestGeoFunctions
         assertSTPoints("LINESTRING (8 4, 3 9, 8 4)", "8 4", "3 9", "8 4");
         assertSTPoints("LINESTRING (8 4, 3 9, 5 6)", "8 4", "3 9", "5 6");
         assertSTPoints("LINESTRING (8 4, 3 9, 5 6, 3 9, 8 4)", "8 4", "3 9", "5 6", "3 9", "8 4");
-        assertInvalidFunction("ST_Points(ST_GeometryFromText('POLYGON ((8 4, 3 9, 5 6))'))", "ST_Points only applies to LINE_STRING. Input type is: POLYGON");
+
+        assertFunction("ST_Points(ST_GeometryFromText('POLYGON EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 8 4))", "8 4", "5 6", "3 9", "8 4");
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 7 2, 8 4))", "8 4", "7 2", "5 6", "3 9", "8 4");
+
+        assertFunction("ST_Points(ST_GeometryFromText('POINT EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("POINT (0 0)", "0 0");
+        assertSTPoints("POINT (0 1)", "0 1");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTIPOINT EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTIPOINT (0 0)", "0 0");
+        assertSTPoints("MULTIPOINT (0 0, 1 2)", "0 0", "1 2");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTILINESTRING EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1), (2 3, 3 2))", "0 0", "1 1", "2 3", "3 2");
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))", "0 0", "1 1", "1 2", "2 3", "3 2", "5 4");
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1, 1 2), (1 2, 3 2, 5 4))", "0 0", "1 1", "1 2", "1 2", "3 2", "5 4");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTIPOLYGON EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))",
+                "0 0", "0 4", "4 4", "4 0", "0 0",
+                "1 1", "2 1", "2 2", "1 2", "1 1",
+                "-1 -1", "-1 -2", "-2 -2", "-2 -1", "-1 -1");
+
+        assertFunction("ST_Points(ST_GeometryFromText('GEOMETRYCOLLECTION EMPTY'))", new ArrayType(GEOMETRY), null);
+        String newLine = System.getProperty("line.separator");
+        String geometryCollection = String.join(newLine,
+                "GEOMETRYCOLLECTION(",
+                "          POINT ( 0 1 ),",
+                "          LINESTRING ( 0 3, 3 4 ),",
+                "          POLYGON (( 2 0, 2 3, 0 2, 2 0 )),",
+                "          POLYGON (( 3 0, 3 3, 6 3, 6 0, 3 0 ),",
+                "                   ( 5 1, 4 2, 5 2, 5 1 )),",
+                "          MULTIPOLYGON (",
+                "                  (( 0 5, 0 8, 4 8, 4 5, 0 5 ),",
+                "                   ( 1 6, 3 6, 2 7, 1 6 )),",
+                "                  (( 5 4, 5 8, 6 7, 5 4 ))",
+                "           )",
+                ")");
+        assertSTPoints(geometryCollection, "0 1", "0 3", "3 4", "2 0", "0 2", "2 3", "2 0", "3 0", "3 3", "6 3", "6 0", "3 0",
+                "5 1", "5 2", "4 2", "5 1", "0 5", "0 8", "4 8", "4 5", "0 5", "1 6", "3 6", "2 7", "1 6", "5 4", "5 8", "6 7", "5 4");
     }
 
     private void assertSTPoints(String wkt, String... expected)

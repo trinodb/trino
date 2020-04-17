@@ -25,7 +25,7 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 @Description("Returns true if all elements of the array don't match the given predicate")
-@ScalarFunction(value = "none_match")
+@ScalarFunction("none_match")
 public final class ArrayNoneMatchFunction
 {
     private ArrayNoneMatchFunction() {}

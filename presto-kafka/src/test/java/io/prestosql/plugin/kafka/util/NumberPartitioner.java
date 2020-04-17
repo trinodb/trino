@@ -13,26 +13,28 @@
  */
 package io.prestosql.plugin.kafka.util;
 
-import kafka.producer.Partitioner;
-import kafka.utils.VerifiableProperties;
+import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.common.Cluster;
+
+import java.util.Map;
 
 import static java.lang.Math.toIntExact;
 
 public class NumberPartitioner
         implements Partitioner
 {
-    @SuppressWarnings("UnusedParameters")
-    public NumberPartitioner(VerifiableProperties properties)
-    {
-        // constructor required by Kafka
-    }
+    @Override
+    public void configure(Map<String, ?> configs) {}
 
     @Override
-    public int partition(Object key, int numPartitions)
+    public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster)
     {
         if (key instanceof Number) {
-            return toIntExact(((Number) key).longValue() % numPartitions);
+            return toIntExact(((Number) key).longValue() % cluster.partitionCountForTopic(topic));
         }
         return 0;
     }
+
+    @Override
+    public void close() {}
 }

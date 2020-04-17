@@ -19,7 +19,7 @@ Driver Name
 -----------
 
 The driver class name is ``io.prestosql.jdbc.PrestoDriver``.
-Most users will not need this information as drivers are loaded automatically.
+Most users do not need this information as drivers are loaded automatically.
 
 Connecting
 ----------
@@ -50,7 +50,7 @@ The above URL can be used as follows to create a connection:
 Connection Parameters
 ---------------------
 
-The driver supports various parameters that may be set as URL parameters
+The driver supports various parameters that may be set as URL parameters,
 or as properties passed to ``DriverManager``. Both of the following
 examples are equivalent:
 
@@ -68,7 +68,7 @@ examples are equivalent:
     String url = "jdbc:presto://example.net:8080/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
-These methods may be mixed; some parameters may be specified in the URL
+These methods may be mixed; some parameters may be specified in the URL,
 while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
@@ -82,16 +82,19 @@ Name                                   Description
 ``password``                           Password to use for LDAP authentication.
 ``socksProxy``                         SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                          HTTP proxy host and port. Example: ``localhost:8888``
+``clientInfo``                         Extra information about the client.
+``clientTags``                         Client tags for selecting resource groups. Example: ``abc,xyz``
+``traceToken``                         Trace token for correlating requests across systems.
 ``applicationNamePrefix``              Prefix to append to any specified ``ApplicationName`` client info
                                        property, which is used to set the source name for the Presto query.
                                        If neither this property nor ``ApplicationName`` are set, the source
-                                       for the query will be ``presto-jdbc``.
+                                       for the query is ``presto-jdbc``.
 ``accessToken``                        Access token for token based authentication.
 ``SSL``                                Use HTTPS for connections
 ``SSLKeyStorePath``                    The location of the Java KeyStore file that contains the certificate
                                        and private key to use for authentication.
 ``SSLKeyStorePassword``                The password for the KeyStore.
-``SSLTrustStorePath``                  The location of the Java TrustStore file that will be used
+``SSLTrustStorePath``                  The location of the Java TrustStore file to use.
                                        to validate HTTPS server certificates.
 ``SSLTrustStorePassword``              The password for the TrustStore.
 ``KerberosRemoteServiceName``          Presto coordinator Kerberos service name. This parameter is
@@ -108,7 +111,17 @@ Name                                   Description
 ``KerberosConfigPath``                 Kerberos configuration file.
 ``KerberosKeytabPath``                 Kerberos keytab file.
 ``KerberosCredentialCachePath``        Kerberos credential cache.
-``extraCredentials``                   Extra credentials for connecting to external services. The
-                                       extraCredentials is a list of key-value pairs. Example:
-                                       ``foo:bar;abc:xyz`` will create credentials ``abc=xyz`` and ``foo=bar``
+``extraCredentials``                   Extra credentials for connecting to external services,
+                                       specified as a list of key-value pairs. For example,
+                                       ``foo:bar;abc:xyz`` creates the credential named ``abc``
+                                       with value ``xyz`` and the credential named ``foo`` with value ``bar``.
+``roles``                              Authorization roles to use for catalogs, specified as a list of
+                                       key-value pairs for the catalog and role. For example,
+                                       ``catalog1:roleA;catalog2:roleB`` sets ``roleA``
+                                       for ``catalog1`` and ``roleB`` for ``catalog2``.
+``sessionProperties``                  Session properties to set for the system and for catalogs,
+                                       specified as a list of key-value pairs.
+                                       For example, ``abc:xyz;example.foo:bar`` sets the system property
+                                       ``abc`` to the value ``xyz`` and the ``foo`` property for
+                                       catalog ``example`` to the value ``bar``.
 ====================================== =======================================================================

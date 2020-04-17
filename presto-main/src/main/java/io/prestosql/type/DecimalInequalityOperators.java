@@ -13,9 +13,9 @@
  */
 package io.prestosql.type;
 
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -44,15 +44,15 @@ import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Arrays.asList;
 
 public final class DecimalInequalityOperators
 {
-    private static final TypeSignature DECIMAL_SIGNATURE = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+    private static final TypeSignature DECIMAL_SIGNATURE = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
 
     private static final MethodHandle IS_RESULT_EQUAL = methodHandle(DecimalInequalityOperators.class, "getResultEqual", int.class);
     private static final MethodHandle IS_RESULT_NOT_EQUAL = methodHandle(DecimalInequalityOperators.class, "isResultNotEqual", int.class);
@@ -114,7 +114,7 @@ public final class DecimalInequalityOperators
                 .kind(SCALAR)
                 .operatorType(operatorType)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
-                .returnType(parseTypeSignature(BOOLEAN))
+                .returnType(BOOLEAN.getTypeSignature())
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
@@ -124,6 +124,7 @@ public final class DecimalInequalityOperators
     private static SqlScalarFunction equalityOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
     {
         return makeBinaryOperatorFunctionBuilder(operatorType)
+                .nullableResult(true)
                 .choice(choice -> choice
                         .nullableResult(true)
                         .implementation(methodsGroup -> methodsGroup
@@ -171,6 +172,9 @@ public final class DecimalInequalityOperators
     private static SqlScalarFunction distinctOperator()
     {
         return makeBinaryOperatorFunctionBuilder(IS_DISTINCT_FROM)
+                .argumentDefinitions(
+                        new FunctionArgumentDefinition(true),
+                        new FunctionArgumentDefinition(true))
                 .choice(choice -> choice
                         .argumentProperties(
                                 valueTypeArgumentProperty(USE_NULL_FLAG),
@@ -201,8 +205,8 @@ public final class DecimalInequalityOperators
 
         long leftLow = left.getLong(leftPosition, 0);
         long leftHigh = left.getLong(leftPosition, SIZE_OF_LONG);
-        long rightLow = left.getLong(rightPosition, 0);
-        long rightHigh = left.getLong(rightPosition, SIZE_OF_LONG);
+        long rightLow = right.getLong(rightPosition, 0);
+        long rightHigh = right.getLong(rightPosition, SIZE_OF_LONG);
         return UnscaledDecimal128Arithmetic.compare(leftLow, leftHigh, rightLow, rightHigh) != 0;
     }
 
@@ -263,7 +267,7 @@ public final class DecimalInequalityOperators
                 .kind(SCALAR)
                 .operatorType(BETWEEN)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
-                .returnType(parseTypeSignature(BOOLEAN))
+                .returnType(BOOLEAN.getTypeSignature())
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)

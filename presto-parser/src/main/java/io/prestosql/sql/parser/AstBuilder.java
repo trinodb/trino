@@ -47,6 +47,9 @@ import io.prestosql.sql.tree.Cube;
 import io.prestosql.sql.tree.CurrentPath;
 import io.prestosql.sql.tree.CurrentTime;
 import io.prestosql.sql.tree.CurrentUser;
+import io.prestosql.sql.tree.DataType;
+import io.prestosql.sql.tree.DataTypeParameter;
+import io.prestosql.sql.tree.DateTimeDataType;
 import io.prestosql.sql.tree.Deallocate;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.Delete;
@@ -73,6 +76,7 @@ import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.FunctionCall.NullTreatment;
+import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
 import io.prestosql.sql.tree.GrantRoles;
@@ -87,6 +91,7 @@ import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.Intersect;
+import io.prestosql.sql.tree.IntervalDayTimeDataType;
 import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
@@ -109,9 +114,9 @@ import io.prestosql.sql.tree.NodeLocation;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
-import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.PathElement;
 import io.prestosql.sql.tree.PathSpecification;
 import io.prestosql.sql.tree.Prepare;
@@ -126,18 +131,21 @@ import io.prestosql.sql.tree.Relation;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
+import io.prestosql.sql.tree.RenameView;
 import io.prestosql.sql.tree.ResetSession;
 import io.prestosql.sql.tree.Revoke;
 import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.Rollup;
 import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.RowDataType;
 import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
+import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
@@ -167,6 +175,7 @@ import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.TransactionAccessMode;
 import io.prestosql.sql.tree.TransactionMode;
 import io.prestosql.sql.tree.TryExpression;
+import io.prestosql.sql.tree.TypeParameter;
 import io.prestosql.sql.tree.Union;
 import io.prestosql.sql.tree.Unnest;
 import io.prestosql.sql.tree.Use;
@@ -184,11 +193,14 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.sql.QueryUtil.query;
+import static io.prestosql.sql.parser.SqlBaseParser.TIME;
+import static io.prestosql.sql.parser.SqlBaseParser.TIMESTAMP;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -216,6 +228,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitStandaloneType(SqlBaseParser.StandaloneTypeContext context)
+    {
+        return visit(context.type());
+    }
+
+    @Override
     public Node visitStandalonePathSpecification(SqlBaseParser.StandalonePathSpecificationContext context)
     {
         return visit(context.pathSpecification());
@@ -235,6 +253,11 @@ class AstBuilder
     @Override
     public Node visitCreateSchema(SqlBaseParser.CreateSchemaContext context)
     {
+        Optional<PrincipalSpecification> principal = Optional.empty();
+        if (context.AUTHORIZATION() != null) {
+            principal = Optional.of(getPrincipalSpecification(context.principal()));
+        }
+
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
@@ -244,7 +267,8 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 context.EXISTS() != null,
-                properties);
+                properties,
+                principal);
     }
 
     @Override
@@ -264,6 +288,15 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitSetSchemaAuthorization(SqlBaseParser.SetSchemaAuthorizationContext context)
+    {
+        return new SetSchemaAuthorization(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getPrincipalSpecification(context.principal()));
     }
 
     @Override
@@ -412,6 +445,11 @@ class AstBuilder
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
         Optional<CreateView.Security> security = Optional.empty();
         if (context.DEFINER() != null) {
             security = Optional.of(CreateView.Security.DEFINER);
@@ -425,7 +463,14 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.REPLACE() != null,
+                comment,
                 security);
+    }
+
+    @Override
+    public Node visitRenameView(SqlBaseParser.RenameViewContext context)
+    {
+        return new RenameView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
     }
 
     @Override
@@ -827,6 +872,8 @@ class AstBuilder
     {
         return new ShowCatalogs(getLocation(context),
                 getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
                         .map(AstBuilder::unquote));
     }
 
@@ -846,8 +893,7 @@ class AstBuilder
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
         QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
-        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty());
-        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
+        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query(specification)));
     }
 
     @Override
@@ -859,13 +905,21 @@ class AstBuilder
     @Override
     public Node visitShowFunctions(SqlBaseParser.ShowFunctionsContext context)
     {
-        return new ShowFunctions(getLocation(context));
+        return new ShowFunctions(getLocation(context),
+                getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
+                        .map(AstBuilder::unquote));
     }
 
     @Override
     public Node visitShowSession(SqlBaseParser.ShowSessionContext context)
     {
-        return new ShowSession(getLocation(context));
+        return new ShowSession(getLocation(context),
+                getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
+                        .map(AstBuilder::unquote));
     }
 
     @Override
@@ -1352,7 +1406,7 @@ class AstBuilder
     public Node visitCast(SqlBaseParser.CastContext context)
     {
         boolean isTryCast = context.TRY_CAST() != null;
-        return new Cast(getLocation(context), (Expression) visit(context.expression()), getType(context.type()), isTryCast);
+        return new Cast(getLocation(context), (Expression) visit(context.expression()), (DataType) visit(context.type()), isTryCast);
     }
 
     @Override
@@ -1411,7 +1465,10 @@ class AstBuilder
     {
         Expression str = (Expression) visit(context.valueExpression());
         String normalForm = Optional.ofNullable(context.normalForm()).map(ParserRuleContext::getText).orElse("NFC");
-        return new FunctionCall(getLocation(context), QualifiedName.of("normalize"), ImmutableList.of(str, new StringLiteral(getLocation(context), normalForm)));
+        return new FunctionCall(
+                getLocation(context),
+                QualifiedName.of(ImmutableList.of(new Identifier("normalize", true))), // delimited to avoid ambiguity with NORMALIZE SQL construct
+                ImmutableList.of(str, new StringLiteral(getLocation(context), normalForm)));
     }
 
     @Override
@@ -1636,7 +1693,7 @@ class AstBuilder
         return new ColumnDefinition(
                 getLocation(context),
                 (Identifier) visit(context.identifier()),
-                getType(context.type()),
+                (DataType) visit(context.type()),
                 nullable,
                 properties,
                 comment);
@@ -1752,7 +1809,7 @@ class AstBuilder
     {
         String value = ((StringLiteral) visit(context.string())).getValue();
 
-        if (context.DOUBLE_PRECISION() != null) {
+        if (context.DOUBLE() != null) {
             // TODO: Temporary hack that should be removed with new planner.
             return new GenericLiteral(getLocation(context), "DOUBLE", value);
         }
@@ -1825,7 +1882,7 @@ class AstBuilder
     @Override
     public Node visitParameter(SqlBaseParser.ParameterContext context)
     {
-        Parameter parameter = new Parameter(getLocation(context), parameterPosition);
+        io.prestosql.sql.tree.Parameter parameter = new io.prestosql.sql.tree.Parameter(getLocation(context), parameterPosition);
         parameterPosition++;
         return parameter;
     }
@@ -1860,6 +1917,124 @@ class AstBuilder
     public Node visitPathSpecification(SqlBaseParser.PathSpecificationContext context)
     {
         return new PathSpecification(getLocation(context), visit(context.pathElement(), PathElement.class));
+    }
+
+    @Override
+    public Node visitRowType(SqlBaseParser.RowTypeContext context)
+    {
+        List<RowDataType.Field> fields = context.rowField().stream()
+                .map(this::visit)
+                .map(RowDataType.Field.class::cast)
+                .collect(toImmutableList());
+
+        return new RowDataType(getLocation(context), fields);
+    }
+
+    @Override
+    public Node visitRowField(SqlBaseParser.RowFieldContext context)
+    {
+        return new RowDataType.Field(
+                getLocation(context),
+                visitIfPresent(context.identifier(), Identifier.class),
+                (DataType) visit(context.type()));
+    }
+
+    @Override
+    public Node visitGenericType(SqlBaseParser.GenericTypeContext context)
+    {
+        List<DataTypeParameter> parameters = context.typeParameter().stream()
+                .map(this::visit)
+                .map(DataTypeParameter.class::cast)
+                .collect(toImmutableList());
+
+        return new GenericDataType(getLocation(context), (Identifier) visit(context.identifier()), parameters);
+    }
+
+    @Override
+    public Node visitTypeParameter(SqlBaseParser.TypeParameterContext context)
+    {
+        if (context.INTEGER_VALUE() != null) {
+            return new NumericParameter(getLocation(context), context.getText());
+        }
+
+        return new TypeParameter((DataType) visit(context.type()));
+    }
+
+    @Override
+    public Node visitIntervalType(SqlBaseParser.IntervalTypeContext context)
+    {
+        String from = context.from.getText();
+        String to = getTextIfPresent(context.to)
+                .orElse(from);
+
+        return new IntervalDayTimeDataType(
+                getLocation(context),
+                IntervalDayTimeDataType.Field.valueOf(from.toUpperCase(ENGLISH)),
+                IntervalDayTimeDataType.Field.valueOf(to.toUpperCase(ENGLISH)));
+    }
+
+    @Override
+    public Node visitDateTimeType(SqlBaseParser.DateTimeTypeContext context)
+    {
+        DateTimeDataType.Type type;
+
+        if (context.base.getType() == TIME) {
+            type = DateTimeDataType.Type.TIME;
+        }
+        else if (context.base.getType() == TIMESTAMP) {
+            type = DateTimeDataType.Type.TIMESTAMP;
+        }
+        else {
+            throw new ParsingException("Unexpected datetime type: " + context.getText());
+        }
+
+        return new DateTimeDataType(
+                getLocation(context),
+                type,
+                context.WITH() != null,
+                getTextIfPresent(context.precision));
+    }
+
+    @Override
+    public Node visitDoublePrecisionType(SqlBaseParser.DoublePrecisionTypeContext context)
+    {
+        return new GenericDataType(
+                getLocation(context),
+                new Identifier(getLocation(context.DOUBLE()), context.DOUBLE().getText(), false),
+                ImmutableList.of());
+    }
+
+    @Override
+    public Node visitLegacyArrayType(SqlBaseParser.LegacyArrayTypeContext context)
+    {
+        return new GenericDataType(
+                getLocation(context),
+                new Identifier(getLocation(context.ARRAY()), context.ARRAY().getText(), false),
+                ImmutableList.of(new TypeParameter((DataType) visit(context.type()))));
+    }
+
+    @Override
+    public Node visitLegacyMapType(SqlBaseParser.LegacyMapTypeContext context)
+    {
+        return new GenericDataType(
+                getLocation(context),
+                new Identifier(getLocation(context.MAP()), context.MAP().getText(), false),
+                ImmutableList.of(
+                        new TypeParameter((DataType) visit(context.keyType)),
+                        new TypeParameter((DataType) visit(context.valueType))));
+    }
+
+    @Override
+    public Node visitArrayType(SqlBaseParser.ArrayTypeContext context)
+    {
+        if (context.INTEGER_VALUE() != null) {
+            throw new UnsupportedOperationException("Explicit array size not supported");
+        }
+
+        return new GenericDataType(
+                getLocation(context),
+                new Identifier(getLocation(context.ARRAY()), context.ARRAY().getText(), false),
+                ImmutableList.of(new TypeParameter((DataType) visit(context.type()))));
     }
 
     // ***************** helpers *****************
@@ -2226,66 +2401,6 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
-    }
-
-    private String getType(SqlBaseParser.TypeContext type)
-    {
-        if (type.baseType() != null) {
-            String signature = type.baseType().getText();
-            if (type.baseType().DOUBLE_PRECISION() != null) {
-                // TODO: Temporary hack that should be removed with new planner.
-                signature = "DOUBLE";
-            }
-            if (!type.typeParameter().isEmpty()) {
-                String typeParameterSignature = type
-                        .typeParameter()
-                        .stream()
-                        .map(this::typeParameterToString)
-                        .collect(Collectors.joining(","));
-                signature += "(" + typeParameterSignature + ")";
-            }
-            return signature;
-        }
-
-        if (type.ARRAY() != null) {
-            return "ARRAY(" + getType(type.type(0)) + ")";
-        }
-
-        if (type.MAP() != null) {
-            return "MAP(" + getType(type.type(0)) + "," + getType(type.type(1)) + ")";
-        }
-
-        if (type.ROW() != null) {
-            StringBuilder builder = new StringBuilder("(");
-            for (int i = 0; i < type.identifier().size(); i++) {
-                if (i != 0) {
-                    builder.append(",");
-                }
-                builder.append(visit(type.identifier(i)))
-                        .append(" ")
-                        .append(getType(type.type(i)));
-            }
-            builder.append(")");
-            return "ROW" + builder.toString();
-        }
-
-        if (type.INTERVAL() != null) {
-            return "INTERVAL " + getIntervalFieldType((Token) type.from.getChild(0).getPayload()) +
-                    " TO " + getIntervalFieldType((Token) type.to.getChild(0).getPayload());
-        }
-
-        throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
-    }
-
-    private String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter)
-    {
-        if (typeParameter.INTEGER_VALUE() != null) {
-            return typeParameter.INTEGER_VALUE().toString();
-        }
-        if (typeParameter.type() != null) {
-            return getType(typeParameter.type());
-        }
-        throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
     }
 
     private List<Identifier> getIdentifiers(List<SqlBaseParser.IdentifierContext> identifiers)

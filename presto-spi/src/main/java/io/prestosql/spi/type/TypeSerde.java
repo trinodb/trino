@@ -16,7 +16,6 @@ package io.prestosql.spi.type;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -28,17 +27,17 @@ public final class TypeSerde
     {
         requireNonNull(sliceOutput, "sliceOutput is null");
         requireNonNull(type, "type is null");
-        writeLengthPrefixedString(sliceOutput, type.getTypeSignature().toString());
+        writeLengthPrefixedString(sliceOutput, type.getTypeId().getId());
     }
 
     public static Type readType(TypeManager typeManager, SliceInput sliceInput)
     {
         requireNonNull(sliceInput, "sliceInput is null");
 
-        String name = readLengthPrefixedString(sliceInput);
-        Type type = typeManager.getType(parseTypeSignature(name));
+        String id = readLengthPrefixedString(sliceInput);
+        Type type = typeManager.getType(TypeId.of(id));
         if (type == null) {
-            throw new IllegalArgumentException("Unknown type " + name);
+            throw new IllegalArgumentException("Unknown type " + id);
         }
         return type;
     }

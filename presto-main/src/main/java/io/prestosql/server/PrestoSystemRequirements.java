@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
@@ -71,10 +72,13 @@ final class PrestoSystemRequirements
         String osName = StandardSystemProperty.OS_NAME.value();
         String osArch = StandardSystemProperty.OS_ARCH.value();
         if ("Linux".equals(osName)) {
-            if (!"amd64".equals(osArch) && !"ppc64le".equals(osArch)) {
-                failRequirement("Presto requires amd64 or ppc64le on Linux (found %s)", osArch);
+            if (!ImmutableSet.of("amd64", "aarch64", "ppc64le").contains(osArch)) {
+                failRequirement("Presto requires amd64, aarch64, or ppc64le on Linux (found %s)", osArch);
             }
-            if ("ppc64le".equals(osArch)) {
+            if ("aarch64".equals(osArch)) {
+                warnRequirement("Support for the ARM architecture is experimental");
+            }
+            else if ("ppc64le".equals(osArch)) {
                 warnRequirement("Support for the POWER architecture is experimental");
             }
         }
@@ -96,11 +100,22 @@ final class PrestoSystemRequirements
         }
 
         JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) {
+
+        if (version.getMajor() >= 11) {
             return;
         }
 
-        if (version.getMajor() >= 9) {
+        if (!Boolean.getBoolean("presto-temporarily-allow-java8")) {
+            failRequirement("" +
+                    "Future versions of Presto will require Java 11 after March 2020.\n\n" +
+                    "You may temporarily continue running on Java 8 by adding the following\n" +
+                    "JVM config option:\n\n" +
+                    "    -Dpresto-temporarily-allow-java8=true\n");
+        }
+
+        if ((version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) ||
+                (version.getMajor() > 8 && version.getMajor() < 11)) {
+            warnRequirement("Future versions of Presto will require Java 11+ (found: %s)", javaVersion);
             return;
         }
 
@@ -177,7 +192,7 @@ final class PrestoSystemRequirements
 
     private static void failRequirement(String format, Object... args)
     {
-        System.err.println(format(format, args));
+        System.err.println("ERROR: " + format(format, args));
         System.exit(100);
     }
 

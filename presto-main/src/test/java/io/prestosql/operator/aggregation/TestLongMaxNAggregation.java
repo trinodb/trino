@@ -15,7 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -25,6 +25,7 @@ import java.util.PriorityQueue;
 import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 
 public class TestLongMaxNAggregation
         extends AbstractTestAggregationFunction
@@ -42,9 +43,9 @@ public class TestLongMaxNAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BIGINT, StandardTypes.BIGINT);
+        return ImmutableList.of(BIGINT, BIGINT);
     }
 
     @Override

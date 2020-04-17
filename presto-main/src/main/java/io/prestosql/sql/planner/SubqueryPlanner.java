@@ -57,8 +57,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -236,7 +237,7 @@ class SubqueryPlanner
         PlanNode subqueryNode = subqueryPlan.getRoot();
         Map<NodeRef<Expression>, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
-            throw notSupportedException(query, "Correlated subquery in given context");
+            throw semanticException(NOT_SUPPORTED, query, "Correlated subquery in given context is not supported");
         }
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
@@ -434,7 +435,7 @@ class SubqueryPlanner
     {
         Map<NodeRef<Expression>, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
-            throw notSupportedException(subquery, "Correlated subquery in given context");
+            throw semanticException(NOT_SUPPORTED, subquery, "Correlated subquery in given context is not supported");
         }
         subPlan = subPlan.appendProjections(
                 correlation.keySet().stream().map(NodeRef::getNode).collect(toImmutableSet()),

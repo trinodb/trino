@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.util.Failures.toFailure;
@@ -181,16 +180,17 @@ public class FailedDispatchQuery
     @Override
     public DataSize getTotalMemoryReservation()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     @Override
     public DataSize getUserMemoryReservation()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
-    private static QueryInfo immediateFailureQueryInfo(Session session,
+    private static QueryInfo immediateFailureQueryInfo(
+            Session session,
             String query,
             Optional<String> preparedQuery,
             URI self,
@@ -226,6 +226,8 @@ public class FailedDispatchQuery
                 ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 true,
                 resourceGroupId);
 
@@ -257,32 +259,33 @@ public class FailedDispatchQuery
                 0,
                 0,
                 0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 false,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 ImmutableList.of(),
                 ImmutableList.of());
     }

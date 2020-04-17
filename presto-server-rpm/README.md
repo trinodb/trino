@@ -6,18 +6,15 @@ You can build an RPM package for Presto server and install Presto using the RPM.
 
 The RPM builds by default in Maven, and can be found under the directory `presto-server-rpm/target/`
 
-The RPM has a pre-requisite of Python >= 2.4. It also needs Oracle Java 1.8 update 40 (8u40 64-bit) pre-installed. The RPM installation will fail if any of these requirements are not
-satisfied.
-
 To install Presto using an RPM, run:
 
-    rpm -i presto-server-<version>-1.0.x86_64.rpm
+    rpm -i presto-server-rpm-<version>-x86_64.rpm
 
 This will install Presto in single node mode, where both coordinator and workers are co-located on localhost. This will deploy the necessary default configurations along with a service script to control the Presto server process.
 
 Uninstalling the RPM is like uninstalling any other RPM, just run:
 
-    rpm -e presto
+    rpm -e presto-server-rpm-<version>
 
 Note: During uninstall, any Presto related files deployed will be deleted except for the Presto logs directory `/var/log/presto`.
 
@@ -43,4 +40,3 @@ We use the following directory structure to deploy various Presto artifacts.
 The node.properties file requires the following two additional properties since our directory structure is different from what standard Presto expects.
 
     catalog.config-dir=/etc/presto/catalog
-    plugin.dir=/usr/lib/presto/lib/plugin

@@ -31,6 +31,7 @@ import io.prestosql.sql.tree.SubscriptExpression;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +89,7 @@ public final class DesugarRowSubscriptRewriter
 
                 // Do not cast if Row fields are named
                 if (fieldName.isPresent()) {
-                    result = new DereferenceExpression(base, new Identifier(fieldName.get()));
+                    result = new DereferenceExpression(base, new Identifier(fieldName.get(), true));
                 }
                 else {
                     // Cast to Row with named fields
@@ -97,7 +98,7 @@ public final class DesugarRowSubscriptRewriter
                         namedFields.add(new RowType.Field(Optional.of("f" + i), rowType.getTypeParameters().get(i)));
                     }
                     RowType namedRowType = RowType.from(namedFields.build());
-                    Cast cast = new Cast(base, namedRowType.getTypeSignature().toString());
+                    Cast cast = new Cast(base, toSqlType(namedRowType));
                     result = new DereferenceExpression(cast, new Identifier("f" + position));
                 }
             }

@@ -22,7 +22,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
 
@@ -34,7 +33,7 @@ public final class DoubleType
 
     private DoubleType()
     {
-        super(parseTypeSignature(StandardTypes.DOUBLE), double.class);
+        super(new TypeSignature(StandardTypes.DOUBLE), double.class);
     }
 
     @Override

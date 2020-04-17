@@ -13,49 +13,29 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestKuduIntegrationSchemaNotExisting
         extends AbstractTestQueryFramework
 {
-    private static String oldPrefix;
-    private QueryRunner queryRunner;
+    private TestingKuduServer kuduServer;
 
-    private static final String SCHEMA_NAME = "test_presto_schema";
-
-    private static final String CREATE_SCHEMA = "create schema kudu." + SCHEMA_NAME;
-
-    private static final String DROP_SCHEMA = "drop schema if exists kudu." + SCHEMA_NAME;
-
-    private static final String CREATE_TABLE = "create table if not exists kudu." + SCHEMA_NAME + ".test_presto_table (\n" +
-            "id INT WITH (primary_key=true),\n" +
-            "user_name VARCHAR\n" +
-            ") WITH (\n" +
-            " partition_by_hash_columns = ARRAY['id'],\n" +
-            " partition_by_hash_buckets = 2\n" +
-            ")";
-
-    private static final String DROP_TABLE = "drop table if exists kudu." + SCHEMA_NAME + ".test_presto_table";
-
-    public TestKuduIntegrationSchemaNotExisting()
-    {
-        super(() -> createKuduQueryRunner());
-    }
-
-    private static QueryRunner createKuduQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        oldPrefix = System.getProperty("kudu.schema-emulation.prefix");
+        String oldPrefix = System.getProperty("kudu.schema-emulation.prefix");
         System.setProperty("kudu.schema-emulation.prefix", "");
         try {
-            return KuduQueryRunnerFactory.createKuduQueryRunner("test_dummy");
+            kuduServer = new TestingKuduServer();
+            return createKuduQueryRunner(kuduServer, "test_dummy");
         }
         catch (Throwable t) {
             System.setProperty("kudu.schema-emulation.prefix", oldPrefix);
@@ -63,36 +43,36 @@ public class TestKuduIntegrationSchemaNotExisting
         }
     }
 
-    @Test
-    public void testCreateTableWithoutSchema()
-    {
-        try {
-            queryRunner.execute(CREATE_TABLE);
-            fail();
-        }
-        catch (Exception e) {
-            assertEquals("Schema " + SCHEMA_NAME + " not found", e.getMessage());
-        }
-
-        queryRunner.execute(CREATE_SCHEMA);
-        queryRunner.execute(CREATE_TABLE);
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
-    }
-
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        System.setProperty("kudu.schema-emulation.prefix", oldPrefix);
-        if (queryRunner != null) {
-            queryRunner.execute(DROP_TABLE);
-            queryRunner.execute(DROP_SCHEMA);
-            queryRunner.close();
-            queryRunner = null;
+        kuduServer.close();
+    }
+
+    @Test
+    public void testCreateTableWithoutSchema()
+    {
+        String createTable = "" +
+                "CREATE TABLE IF NOT EXISTS kudu.test_presto_schema.test_presto_table (\n" +
+                "id INT WITH (primary_key=true),\n" +
+                "user_name VARCHAR\n" +
+                ") WITH (\n" +
+                " partition_by_hash_columns = ARRAY['id'],\n" +
+                " partition_by_hash_buckets = 2\n" +
+                ")";
+
+        try {
+            assertUpdate(createTable);
+            fail();
         }
+        catch (Exception e) {
+            assertEquals("Schema test_presto_schema not found", e.getMessage());
+        }
+
+        assertUpdate("CREATE SCHEMA kudu.test_presto_schema");
+        assertUpdate(createTable);
+
+        assertUpdate("DROP TABLE IF EXISTS kudu.test_presto_schema.test_presto_table");
+        assertUpdate("DROP SCHEMA IF EXISTS kudu.test_presto_schema");
     }
 }

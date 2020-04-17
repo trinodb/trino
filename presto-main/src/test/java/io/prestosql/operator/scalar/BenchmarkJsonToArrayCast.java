@@ -16,9 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -60,6 +58,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.type.JsonType.JSON;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -111,12 +110,12 @@ public class BenchmarkJsonToArrayCast
                     throw new UnsupportedOperationException();
             }
 
-            Signature signature = new Signature("$operator$CAST", FunctionKind.SCALAR, new ArrayType(elementType).getTypeSignature(), JSON.getTypeSignature());
-
-            List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));
-
             Metadata metadata = createTestMetadataManager();
+            List<RowExpression> projections = ImmutableList.of(new CallExpression(
+                    metadata.getCoercion(JSON, new ArrayType(elementType)),
+                    new ArrayType(elementType),
+                    ImmutableList.of(field(0, JSON))));
+
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
@@ -135,7 +134,7 @@ public class BenchmarkJsonToArrayCast
                         jsonSlice.appendByte(',');
                     }
                     String value = generateRandomJsonValue(elementType);
-                    jsonSlice.appendBytes(value.getBytes());
+                    jsonSlice.appendBytes(value.getBytes(UTF_8));
                 }
                 jsonSlice.appendByte(']');
 

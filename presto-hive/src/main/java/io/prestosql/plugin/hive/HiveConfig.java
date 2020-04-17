@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -30,6 +31,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -50,10 +52,10 @@ public class HiveConfig
 
     private String timeZone = TimeZone.getDefault().getID();
 
-    private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
+    private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
     private int maxOutstandingSplits = 1_000;
-    private DataSize maxOutstandingSplitsSize = new DataSize(256, MEGABYTE);
+    private DataSize maxOutstandingSplitsSize = DataSize.of(256, MEGABYTE);
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
@@ -62,11 +64,13 @@ public class HiveConfig
     private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
-    private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
+    private DataSize writerSortBufferSize = DataSize.of(64, MEGABYTE);
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
+    private boolean ignoreAbsentPartitions;
 
     private int maxConcurrentFileRenames = 20;
+    private int maxConcurrentMetastoreDrops = 20;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -81,7 +85,7 @@ public class HiveConfig
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
 
-    private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
+    private DataSize textMaxLineLength = DataSize.of(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
 
@@ -116,6 +120,14 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private boolean translateHiveViews;
+
+    private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
+    private int hiveTransactionHeartbeatThreads = 5;
+
+    private boolean allowRegisterPartition;
+    private boolean queryPartitionFilterRequired;
+    private boolean partitionUseColumnNames;
 
     public int getMaxInitialSplits()
     {
@@ -132,7 +144,7 @@ public class HiveConfig
     public DataSize getMaxInitialSplitSize()
     {
         if (maxInitialSplitSize == null) {
-            return new DataSize(maxSplitSize.getValue() / 2, maxSplitSize.getUnit());
+            return DataSize.ofBytes(maxSplitSize.toBytes() / 2).to(maxSplitSize.getUnit());
         }
         return maxInitialSplitSize;
     }
@@ -225,6 +237,19 @@ public class HiveConfig
         return this;
     }
 
+    @Min(1)
+    public int getMaxConcurrentMetastoreDrops()
+    {
+        return maxConcurrentMetastoreDrops;
+    }
+
+    @Config("hive.max-concurrent-metastore-drops")
+    public HiveConfig setMaxConcurrentMetastoreDrops(int maxConcurrentMetastoreDeletes)
+    {
+        this.maxConcurrentMetastoreDrops = maxConcurrentMetastoreDeletes;
+        return this;
+    }
+
     @Config("hive.recursive-directories")
     public HiveConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
     {
@@ -235,6 +260,18 @@ public class HiveConfig
     public boolean getRecursiveDirWalkerEnabled()
     {
         return recursiveDirWalkerEnabled;
+    }
+
+    public boolean isIgnoreAbsentPartitions()
+    {
+        return ignoreAbsentPartitions;
+    }
+
+    @Config("hive.ignore-absent-partitions")
+    public HiveConfig setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
+    {
+        this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        return this;
     }
 
     public DateTimeZone getDateTimeZone()
@@ -338,12 +375,12 @@ public class HiveConfig
         return this;
     }
 
+    @Min(1)
     public long getPerTransactionMetastoreCacheMaximumSize()
     {
         return perTransactionMetastoreCacheMaximumSize;
     }
 
-    @Min(1)
     @Config("hive.per-transaction-metastore-cache-maximum-size")
     public HiveConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
@@ -557,6 +594,20 @@ public class HiveConfig
     public HiveConfig setFileStatusCacheTables(String fileStatusCacheTables)
     {
         this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        return this;
+    }
+
+    public boolean isTranslateHiveViews()
+    {
+        return translateHiveViews;
+    }
+
+    @LegacyConfig("hive.views-execution.enabled")
+    @Config("hive.translate-hive-views")
+    @ConfigDescription("Experimental: Allow translation of Hive views into Presto views")
+    public HiveConfig setTranslateHiveViews(boolean translateHiveViews)
+    {
+        this.translateHiveViews = translateHiveViews;
         return this;
     }
 
@@ -803,5 +854,72 @@ public class HiveConfig
     public String getTemporaryStagingDirectoryPath()
     {
         return temporaryStagingDirectoryPath;
+    }
+
+    @Config("hive.transaction-heartbeat-interval")
+    @ConfigDescription("Interval after which heartbeat is sent for open Hive transaction")
+    public HiveConfig setHiveTransactionHeartbeatInterval(Duration interval)
+    {
+        this.hiveTransactionHeartbeatInterval = Optional.ofNullable(interval);
+        return this;
+    }
+
+    @NotNull
+    public Optional<Duration> getHiveTransactionHeartbeatInterval()
+    {
+        return hiveTransactionHeartbeatInterval;
+    }
+
+    public int getHiveTransactionHeartbeatThreads()
+    {
+        return hiveTransactionHeartbeatThreads;
+    }
+
+    @Config("hive.transaction-heartbeat-threads")
+    @ConfigDescription("Number of threads to run in the Hive transaction heartbeat service")
+    public HiveConfig setHiveTransactionHeartbeatThreads(int hiveTransactionHeartbeatThreads)
+    {
+        this.hiveTransactionHeartbeatThreads = hiveTransactionHeartbeatThreads;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isAllowRegisterPartition()
+    {
+        return allowRegisterPartition;
+    }
+
+    @Deprecated
+    @Config("hive.allow-register-partition-procedure")
+    public HiveConfig setAllowRegisterPartition(boolean allowRegisterPartition)
+    {
+        this.allowRegisterPartition = allowRegisterPartition;
+        return this;
+    }
+
+    @Config("hive.query-partition-filter-required")
+    @ConfigDescription("Require filter on at least one partition column")
+    public HiveConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
+    {
+        this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
+    }
+
+    public boolean getPartitionUseColumnNames()
+    {
+        return partitionUseColumnNames;
+    }
+
+    @Config("hive.partition-use-column-names")
+    @ConfigDescription("Access partition columns by names")
+    public HiveConfig setPartitionUseColumnNames(boolean partitionUseColumnNames)
+    {
+        this.partitionUseColumnNames = partitionUseColumnNames;
+        return this;
     }
 }

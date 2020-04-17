@@ -10,7 +10,7 @@ Elasticsearch Connector
 Overview
 --------
 
-The Elasticsearch Connector allows access to Elasticsearch data from Presto.
+The Elasticsearch Connector allows access to `Elasticsearch <https://www.elastic.co/products/elasticsearch>`_ data from Presto.
 This document describes how to setup the Elasticsearch Connector to run SQL queries against Elasticsearch.
 
 .. note::
@@ -67,7 +67,7 @@ This property is optional; the default is ``9200``.
 ``elasticsearch.default-schema-name``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Defines the schema that will contain all tables defined without
+Defines the schema that contains all tables defined without
 a qualifying schema name.
 
 This property is optional; the default is ``default``.
@@ -83,7 +83,7 @@ This property is optional; the default is ``1000``.
 ``elasticsearch.scroll-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This property defines the amount of time (ms) Elasticsearch will keep the `search context alive`_ for scroll requests
+This property defines the amount of time (ms) Elasticsearch keeps the `search context alive`_ for scroll requests
 
 This property is optional; the default is ``1m``.
 
@@ -182,8 +182,57 @@ Elasticsearch Presto
 ``keyword``   ``VARCHAR``
 ``text``      ``VARCHAR``
 ``date``      ``TIMESTAMP``
+``ip``        ``IPADDRESS``
 (all others)  (unsupported)
 ============= =============
+
+.. _elasticsearch-array-types:
+
+Array Types
+^^^^^^^^^^^
+
+Fields in Elasticsearch can contain `zero or more values <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_
+, but there is no dedicated array type. To indicate a field contains an array, it can be annotated in a Presto-specific structure in
+the `_meta <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_ section of the index mapping.
+
+For example, you can have an Elasticsearch index that contains documents with the following structure:
+
+.. code-block:: json
+
+    {
+        "array_string_field": ["presto","is","the","besto"],
+        "long_field": 314159265359,
+        "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
+        "timestamp_field": "1987-09-17T06:22:48.000Z",
+        "object_field": {
+            "array_int_field": [86,75,309],
+            "int_field": 2
+        }
+    }
+
+The array fields of this structure can be defined by using the following command to add the field
+property definition to the ``_meta.presto`` property of the target index mapping.
+
+.. code-block:: shell
+
+    curl --request PUT \
+        --url localhost:9200/doc/_mapping \
+        --header 'content-type: application/json' \
+        --data '
+    {
+        "_meta": {
+            "presto":{
+                "array_string_field":{
+                    "isArray":true
+                },
+                "object_field":{
+                    "array_int_field":{
+                        "isArray":true
+                    }
+                },
+            }
+        }
+    }'
 
 Special Columns
 ---------------
@@ -225,6 +274,5 @@ Property Name                                    Description
 ``elasticsearch.aws.region``                     AWS region or the Elasticsearch endpoint. This option is required.
 ``elasticsearch.aws.access-key``                 AWS access key to use to connect to the Elasticsearch domain.
 ``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
-``elasticsearch.aws.use-instance-credentials``   Use the EC2 metadata service to retrieve API credentials.
 ================================================ ==================================================================
 

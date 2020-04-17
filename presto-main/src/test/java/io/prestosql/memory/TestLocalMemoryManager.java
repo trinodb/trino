@@ -28,12 +28,11 @@ public class TestLocalMemoryManager
     public void testReservedMemoryPoolDisabled()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
-                .setReservedPoolEnabled(false)
-                .setHeapHeadroom(new DataSize(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
+                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
+                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
 
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, new DataSize(60, GIGABYTE).toBytes());
+        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes());
         assertFalse(localMemoryManager.getReservedPool().isPresent());
         assertEquals(localMemoryManager.getPools().size(), 1);
     }
@@ -42,11 +41,12 @@ public class TestLocalMemoryManager
     public void testReservedMemoryPoolEnabled()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
-                .setHeapHeadroom(new DataSize(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
+                .setReservedPoolDisabled(false)
+                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
+                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
 
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, new DataSize(60, GIGABYTE).toBytes());
+        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes());
         assertTrue(localMemoryManager.getReservedPool().isPresent());
         assertEquals(localMemoryManager.getPools().size(), 2);
     }
@@ -55,11 +55,11 @@ public class TestLocalMemoryManager
     public void testMaxQueryMemoryPerNodeBiggerThanQueryTotalMemoryPerNode()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
-                .setHeapHeadroom(new DataSize(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(200, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
+                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
+                .setMaxQueryMemoryPerNode(DataSize.of(200, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
 
-        assertThatThrownBy(() -> new LocalMemoryManager(config, new DataSize(60, GIGABYTE).toBytes()))
+        assertThatThrownBy(() -> new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageStartingWith("Max query memory per node (query.max-memory-per-node) cannot be greater than" +
                         " the max query total memory per node (query.max-total-memory-per-node)");
@@ -69,12 +69,12 @@ public class TestLocalMemoryManager
     public void testNotEnoughAvailableMemory()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
-                .setHeapHeadroom(new DataSize(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
+                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
+                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
 
         // 25 GB heap is not sufficient for 10 GB heap headroom and 20 GB query.max-total-memory-per-node
-        assertThatThrownBy(() -> new LocalMemoryManager(config, new DataSize(25, GIGABYTE).toBytes()))
+        assertThatThrownBy(() -> new LocalMemoryManager(config, DataSize.of(25, GIGABYTE).toBytes()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("Invalid memory configuration\\. The sum of max total query memory per node .* and heap headroom .*" +
                         "cannot be larger than the available heap memory .*");

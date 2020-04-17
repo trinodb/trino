@@ -13,12 +13,15 @@
  */
 package io.prestosql.operator;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.prestosql.spi.Page;
 
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.prestosql.operator.WorkProcessor.ProcessState.blocked;
 import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
 import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
 import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
@@ -31,21 +34,37 @@ import static java.util.Objects.requireNonNull;
  */
 public class PageBuffer
 {
+    private final ListenableFuture<?> initialFuture;
+
     @Nullable
     private Page page;
     private boolean finished;
 
+    public PageBuffer()
+    {
+        this(NOT_BLOCKED);
+    }
+
+    public PageBuffer(ListenableFuture<?> initialFuture)
+    {
+        this.initialFuture = initialFuture;
+    }
+
     public WorkProcessor<Page> pages()
     {
         return WorkProcessor.create(() -> {
+            if (isFinished() && isEmpty()) {
+                return finished();
+            }
+
+            if (!initialFuture.isDone()) {
+                return blocked(initialFuture);
+            }
+
             if (!isEmpty()) {
                 Page result = page;
                 page = null;
                 return ofResult(result);
-            }
-
-            if (isFinished()) {
-                return finished();
             }
 
             return yield();

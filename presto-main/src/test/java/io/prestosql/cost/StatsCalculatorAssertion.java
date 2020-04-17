@@ -15,11 +15,13 @@ package io.prestosql.cost;
 
 import io.prestosql.Session;
 import io.prestosql.cost.ComposableStatsCalculator.Rule;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.transaction.TestingTransactionManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,6 +31,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public class StatsCalculatorAssertion
@@ -42,8 +45,8 @@ public class StatsCalculatorAssertion
 
     public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
     {
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator can not be null");
-        this.session = requireNonNull(session, "sesssion can not be null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator cannot be null");
+        this.session = requireNonNull(session, "sesssion cannot be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
         this.types = requireNonNull(types, "types is null");
 
@@ -79,7 +82,10 @@ public class StatsCalculatorAssertion
 
     public StatsCalculatorAssertion check(Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
-        PlanNodeStatsEstimate statsEstimate = statsCalculator.calculateStats(planNode, this::getSourceStats, noLookup(), session, types);
+        PlanNodeStatsEstimate statsEstimate = transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .execute(session, transactionSession -> {
+                    return statsCalculator.calculateStats(planNode, this::getSourceStats, noLookup(), transactionSession, types);
+                });
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
     }
@@ -92,6 +98,7 @@ public class StatsCalculatorAssertion
         return this;
     }
 
+    @SuppressWarnings("unchecked")
     private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         return rule.calculate((T) node, sourceStats, lookup, session, types);

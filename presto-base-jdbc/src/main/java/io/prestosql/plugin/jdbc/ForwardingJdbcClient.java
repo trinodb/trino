@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -29,182 +30,216 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 public abstract class ForwardingJdbcClient
         implements JdbcClient
 {
-    protected abstract JdbcClient getDelegate();
+    public static JdbcClient of(Supplier<JdbcClient> jdbcClientSupplier)
+    {
+        requireNonNull(jdbcClientSupplier, "jdbcClientSupplier is null");
+        return new ForwardingJdbcClient()
+        {
+            @Override
+            protected JdbcClient delegate()
+            {
+                return requireNonNull(jdbcClientSupplier.get(), "jdbcClientSupplier.get() is null");
+            }
+        };
+    }
+
+    protected abstract JdbcClient delegate();
 
     @Override
     public boolean schemaExists(JdbcIdentity identity, String schema)
     {
-        return getDelegate().schemaExists(identity, schema);
+        return delegate().schemaExists(identity, schema);
     }
 
     @Override
     public Set<String> getSchemaNames(JdbcIdentity identity)
     {
-        return getDelegate().getSchemaNames(identity);
+        return delegate().getSchemaNames(identity);
     }
 
     @Override
     public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
     {
-        return getDelegate().getTableNames(identity, schema);
+        return delegate().getTableNames(identity, schema);
     }
 
     @Override
     public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
     {
-        return getDelegate().getTableHandle(identity, schemaTableName);
+        return delegate().getTableHandle(identity, schemaTableName);
     }
 
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return getDelegate().getColumns(session, tableHandle);
+        return delegate().getColumns(session, tableHandle);
     }
 
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        return getDelegate().toPrestoType(session, connection, typeHandle);
+        return delegate().toPrestoType(session, connection, typeHandle);
     }
 
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        return getDelegate().toWriteMapping(session, type);
+        return delegate().toWriteMapping(session, type);
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle layoutHandle)
     {
-        return getDelegate().getSplits(identity, layoutHandle);
+        return delegate().getSplits(session, layoutHandle);
     }
 
     @Override
     public Connection getConnection(JdbcIdentity identity, JdbcSplit split)
             throws SQLException
     {
-        return getDelegate().getConnection(identity, split);
+        return delegate().getConnection(identity, split);
     }
 
     @Override
     public void abortReadConnection(Connection connection)
             throws SQLException
     {
-        getDelegate().abortReadConnection(connection);
+        delegate().abortReadConnection(connection);
     }
 
     @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
-        return getDelegate().buildSql(session, connection, split, tableHandle, columnHandles);
+        return delegate().buildSql(session, connection, split, tableHandle, columnHandles);
     }
 
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return getDelegate().beginCreateTable(session, tableMetadata);
+        return delegate().beginCreateTable(session, tableMetadata);
     }
 
     @Override
     public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        getDelegate().commitCreateTable(identity, handle);
+        delegate().commitCreateTable(identity, handle);
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        return getDelegate().beginInsertTable(session, tableHandle);
+        return delegate().beginInsertTable(session, tableHandle, columns);
     }
 
     @Override
     public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        getDelegate().finishInsertTable(identity, handle);
+        delegate().finishInsertTable(identity, handle);
     }
 
     @Override
     public void dropTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
     {
-        getDelegate().dropTable(identity, jdbcTableHandle);
+        delegate().dropTable(identity, jdbcTableHandle);
     }
 
     @Override
     public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        getDelegate().rollbackCreateTable(identity, handle);
+        delegate().rollbackCreateTable(identity, handle);
     }
 
     @Override
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
-        return getDelegate().buildInsertSql(handle);
+        return delegate().buildInsertSql(handle);
     }
 
     @Override
     public Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return getDelegate().getConnection(identity, handle);
+        return delegate().getConnection(identity, handle);
     }
 
     @Override
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
-        return getDelegate().getPreparedStatement(connection, sql);
+        return delegate().getPreparedStatement(connection, sql);
     }
 
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return getDelegate().getTableStatistics(session, handle, tupleDomain);
+        return delegate().getTableStatistics(session, handle, tupleDomain);
     }
 
     @Override
     public boolean supportsLimit()
     {
-        return getDelegate().supportsLimit();
+        return delegate().supportsLimit();
     }
 
     @Override
     public boolean isLimitGuaranteed()
     {
-        return getDelegate().isLimitGuaranteed();
+        return delegate().isLimitGuaranteed();
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
-        getDelegate().addColumn(session, handle, column);
+        delegate().addColumn(session, handle, column);
     }
 
     @Override
     public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        getDelegate().dropColumn(identity, handle, column);
+        delegate().dropColumn(identity, handle, column);
     }
 
     @Override
     public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        getDelegate().renameColumn(identity, handle, jdbcColumn, newColumnName);
+        delegate().renameColumn(identity, handle, jdbcColumn, newColumnName);
     }
 
     @Override
     public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        getDelegate().renameTable(identity, handle, newTableName);
+        delegate().renameTable(identity, handle, newTableName);
     }
 
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        getDelegate().createTable(session, tableMetadata);
+        delegate().createTable(session, tableMetadata);
+    }
+
+    @Override
+    public void createSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate().createSchema(identity, schemaName);
+    }
+
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        delegate().dropSchema(identity, schemaName);
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return delegate().getSystemTable(session, tableName);
     }
 }

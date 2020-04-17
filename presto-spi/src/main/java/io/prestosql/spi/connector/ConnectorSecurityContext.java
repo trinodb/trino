@@ -13,11 +13,36 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.ConnectorIdentity;
 
-public interface ConnectorSecurityContext
-{
-    ConnectorTransactionHandle getTransactionHandle();
+import static java.util.Objects.requireNonNull;
 
-    ConnectorIdentity getIdentity();
+public class ConnectorSecurityContext
+{
+    private final ConnectorTransactionHandle transactionHandle;
+    private final ConnectorIdentity identity;
+    private final QueryId queryId;
+
+    public ConnectorSecurityContext(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, QueryId queryId)
+    {
+        this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+        this.identity = requireNonNull(identity, "identity is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
+    }
+
+    public ConnectorTransactionHandle getTransactionHandle()
+    {
+        return transactionHandle;
+    }
+
+    public ConnectorIdentity getIdentity()
+    {
+        return identity;
+    }
+
+    public QueryId getQueryId()
+    {
+        return queryId;
+    }
 }

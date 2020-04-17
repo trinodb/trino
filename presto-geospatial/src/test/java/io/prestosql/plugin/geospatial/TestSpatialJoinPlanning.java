@@ -23,7 +23,6 @@ import io.prestosql.geospatial.Rectangle;
 import io.prestosql.plugin.memory.MemoryConnectorFactory;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -36,6 +35,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.prestosql.geospatial.KdbTree.Node.newLeaf;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -59,14 +59,10 @@ public class TestSpatialJoinPlanning
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
 
-    public TestSpatialJoinPlanning()
+    @Override
+    protected LocalQueryRunner createLocalQueryRunner()
     {
-        super(() -> createQueryRunner());
-    }
-
-    private static LocalQueryRunner createQueryRunner()
-    {
-        LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
                 .setCatalog("memory")
                 .setSchema("default")
                 .build());
@@ -230,7 +226,7 @@ public class TestSpatialJoinPlanning
         LocalQueryRunner queryRunner = getQueryRunner();
         try {
             queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
                 return null;
             });
             fail(format("Expected query to fail: %s", sql));

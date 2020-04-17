@@ -14,7 +14,9 @@
 package io.prestosql.plugin.postgresql;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,6 +25,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.BlockReadFunction;
@@ -40,23 +43,25 @@ import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.ReadFunction;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
-import io.prestosql.plugin.jdbc.StatsCollecting;
+import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 import org.postgresql.util.PGobject;
@@ -72,10 +77,12 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,16 +92,32 @@ import java.util.function.BiFunction;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
+import static io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider.getDecimalDefaultScale;
+import static io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider.getDecimalRounding;
+import static io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider.getDecimalRoundingMode;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUnsupportedTypeHandling;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
+import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
+import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
+import static io.prestosql.plugin.postgresql.PostgreSqlSessionProperties.getArrayMapping;
+import static io.prestosql.plugin.postgresql.TypeUtils.arrayDepth;
 import static io.prestosql.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
 import static io.prestosql.plugin.postgresql.TypeUtils.getJdbcObjectArray;
 import static io.prestosql.plugin.postgresql.TypeUtils.toPgTimestamp;
@@ -103,10 +126,16 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.StandardTypes.JSON;
+import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.DatabaseMetaData.columnNoNulls;
@@ -123,34 +152,25 @@ public class PostgreSqlClient
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
 
+    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().configure(CANONICALIZE_FIELD_NAMES, false).build();
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
-    private final boolean supportArrays;
     private final String[] tableTypes;
 
     @Inject
     public PostgreSqlClient(
             BaseJdbcConfig config,
             PostgreSqlConfig postgreSqlConfig,
-            @StatsCollecting ConnectionFactory connectionFactory,
+            ConnectionFactory connectionFactory,
             TypeManager typeManager)
     {
         super(config, "\"", connectionFactory);
-        this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+        this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
-        this.varcharMapType = (MapType) typeManager.getType(TypeSignature.parseTypeSignature("map(varchar, varchar)"));
-
-        switch (postgreSqlConfig.getArrayMapping()) {
-            case DISABLED:
-                supportArrays = false;
-                break;
-            case AS_ARRAY:
-                supportArrays = true;
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported ArrayMapping: " + postgreSqlConfig.getArrayMapping());
-        }
+        this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         List<String> tableTypes = new ArrayList<>();
         addAll(tableTypes, "TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
@@ -183,13 +203,7 @@ public class PostgreSqlClient
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, schemaName, tableName),
                 quoted(newTable.getTableName()));
-
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        execute(identity, sql);
     }
 
     @Override
@@ -218,7 +232,10 @@ public class PostgreSqlClient
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
-            Map<String, Integer> arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);
+            Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
+            if (getArrayMapping(session) == AS_ARRAY) {
+                arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);
+            }
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
@@ -234,7 +251,18 @@ public class PostgreSqlClient
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
+                        Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
+                        columns.add(JdbcColumnHandle.builder()
+                                .setColumnName(columnName)
+                                .setJdbcTypeHandle(typeHandle)
+                                .setColumnType(columnMapping.get().getType())
+                                .setNullable(nullable)
+                                .setComment(comment)
+                                .build());
+                    }
+                    if (!columnMapping.isPresent()) {
+                        UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                        verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
                     }
                 }
                 if (columns.isEmpty()) {
@@ -249,12 +277,9 @@ public class PostgreSqlClient
         }
     }
 
-    private Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
+    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        if (!supportArrays) {
-            return ImmutableMap.of();
-        }
         String sql = "" +
                 "SELECT att.attname, greatest(att.attndims, 1) AS attndims " +
                 "FROM pg_attribute att " +
@@ -289,6 +314,8 @@ public class PostgreSqlClient
             return mapping;
         }
         switch (jdbcTypeName) {
+            case "money":
+                return Optional.of(moneyColumnMapping());
             case "uuid":
                 return Optional.of(uuidColumnMapping());
             case "jsonb":
@@ -298,11 +325,14 @@ public class PostgreSqlClient
                 // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
                 return Optional.of(timestampWithTimeZoneColumnMapping());
             case "hstore":
-                return Optional.of(hstoreColumnMapping());
+                return Optional.of(hstoreColumnMapping(session));
         }
         if (typeHandle.getJdbcType() == Types.VARCHAR && !jdbcTypeName.equals("varchar")) {
             // This can be e.g. an ENUM
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
+        }
+        if (typeHandle.getJdbcType() == Types.TIME) {
+            return Optional.of(timeColumnMapping(session));
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             return Optional.of(ColumnMapping.longMapping(
@@ -310,30 +340,56 @@ public class PostgreSqlClient
                     timestampReadFunction(session),
                     timestampWriteFunction(session)));
         }
-        if (typeHandle.getJdbcType() == Types.ARRAY && supportArrays) {
-            if (!typeHandle.getArrayDimensions().isPresent()) {
+        if (typeHandle.getJdbcType() == Types.NUMERIC && getDecimalRounding(session) == ALLOW_OVERFLOW) {
+            if (typeHandle.getColumnSize() == 131089) {
+                // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
+                // 131089 = SELECT LENGTH(pow(10::numeric,131071)::varchar); 131071 = 2^17-1  (org.postgresql.jdbc.TypeInfoCache#getDisplaySize)
+                return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
+            }
+            int precision = typeHandle.getColumnSize();
+            if (precision > Decimals.MAX_PRECISION) {
+                int scale = min(typeHandle.getDecimalDigits(), getDecimalDefaultScale(session));
+                return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+            }
+        }
+        if (typeHandle.getJdbcType() == Types.ARRAY) {
+            ArrayMapping arrayMapping = getArrayMapping(session);
+            if (arrayMapping == DISABLED) {
                 return Optional.empty();
             }
-            JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
-            String elementTypeName = typeHandle.getJdbcTypeName()
-                    .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + elementTypeHandle));
-            if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
+            // resolve and map base array element type
+            JdbcTypeHandle baseElementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
+            String baseElementTypeName = baseElementTypeHandle.getJdbcTypeName()
+                    .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
+            if (baseElementTypeHandle.getJdbcType() == Types.VARBINARY) {
                 // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
                 // https://github.com/pgjdbc/pgjdbc/pull/1184
                 return Optional.empty();
             }
-            return toPrestoType(session, connection, elementTypeHandle)
-                    .map(elementMapping -> {
-                        ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
-                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, elementTypeName);
+            Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
 
-                        int arrayDimensions = typeHandle.getArrayDimensions().get();
-                        for (int i = 1; i < arrayDimensions; i++) {
-                            prestoArrayType = new ArrayType(prestoArrayType);
-                            arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, elementTypeName);
-                        }
-                        return arrayColumnMapping;
-                    });
+            if (arrayMapping == AS_ARRAY) {
+                if (!typeHandle.getArrayDimensions().isPresent()) {
+                    return Optional.empty();
+                }
+                return baseElementMapping
+                        .map(elementMapping -> {
+                            ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
+                            ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, baseElementTypeName);
+
+                            int arrayDimensions = typeHandle.getArrayDimensions().get();
+                            for (int i = 1; i < arrayDimensions; i++) {
+                                prestoArrayType = new ArrayType(prestoArrayType);
+                                arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, baseElementTypeName);
+                            }
+                            return arrayColumnMapping;
+                        });
+            }
+            if (arrayMapping == AS_JSON) {
+                return baseElementMapping
+                        .map(elementMapping -> arrayAsJsonColumnMapping(session, elementMapping));
+            }
+            throw new IllegalStateException("Unsupported array mapping type: " + arrayMapping);
         }
         // TODO support PostgreSQL's TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
         return super.toPrestoType(session, connection, typeHandle);
@@ -345,6 +401,9 @@ public class PostgreSqlClient
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
+        if (TIME.equals(type)) {
+            return WriteMapping.longMapping("time", timeWriteFunction(session));
+        }
         if (TIMESTAMP.equals(type)) {
             return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
         }
@@ -354,13 +413,13 @@ public class PostgreSqlClient
         if (TinyintType.TINYINT.equals(type)) {
             return WriteMapping.longMapping("smallint", tinyintWriteFunction());
         }
-        if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
+        if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
         }
-        if (type.getTypeSignature().getBase().equals(StandardTypes.UUID)) {
+        if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
         }
-        if (type instanceof ArrayType && supportArrays) {
+        if (type instanceof ArrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = ((ArrayType) type).getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
             return WriteMapping.blockMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
@@ -412,16 +471,16 @@ public class PostgreSqlClient
         return (statement, index, value) -> {
             // PostgreSQL does not store zone information in "timestamp with time zone" data type
             long millisUtc = unpackMillisUtc(value);
-            statement.setTimestamp(index, new java.sql.Timestamp(millisUtc));
+            statement.setTimestamp(index, new Timestamp(millisUtc));
         };
     }
 
-    private ColumnMapping hstoreColumnMapping()
+    private ColumnMapping hstoreColumnMapping(ConnectorSession session)
     {
         return ColumnMapping.blockMapping(
                 varcharMapType,
                 varcharMapReadFunction(),
-                (statement, index, block) -> { throw new PrestoException(NOT_SUPPORTED, "PosgtreSQL hstore write is not supported"); },
+                hstoreWriteFunction(session),
                 DISABLE_PUSHDOWN);
     }
 
@@ -449,6 +508,18 @@ public class PostgreSqlClient
         };
     }
 
+    private BlockWriteFunction hstoreWriteFunction(ConnectorSession session)
+    {
+        return (statement, index, block) -> {
+            checkArgument(block instanceof SingleMapBlock, "wrong block type: %s. expected SingleMapBlock", block.getClass().getSimpleName());
+            Map<Object, Object> map = new HashMap<>();
+            for (int i = 0; i < block.getPositionCount(); i += 2) {
+                map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));
+            }
+            statement.setObject(index, Collections.unmodifiableMap(map));
+        };
+    }
+
     private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, ColumnMapping arrayElementMapping, String baseElementJdbcTypeName)
     {
         return ColumnMapping.blockMapping(
@@ -464,8 +535,7 @@ public class PostgreSqlClient
             BlockBuilder builder = elementType.createBlockBuilder(null, 10);
             try (ResultSet arrayAsResultSet = array.getResultSet()) {
                 while (arrayAsResultSet.next()) {
-                    arrayAsResultSet.getObject(ARRAY_RESULT_SET_VALUE_COLUMN);
-                    if (arrayAsResultSet.wasNull()) {
+                    if (elementReadFunction.isNull(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN)) {
                         builder.appendNull();
                     }
                     else if (elementType.getJavaType() == boolean.class) {
@@ -493,15 +563,55 @@ public class PostgreSqlClient
         };
     }
 
-    private static BlockWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
+    private static BlockWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
     {
         return (statement, index, block) -> {
-            Array jdbcArray = statement.getConnection().createArrayOf(elementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
+            Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
             statement.setArray(index, jdbcArray);
         };
     }
 
-    private JdbcTypeHandle getArrayElementTypeHandle(Connection connection, JdbcTypeHandle arrayTypeHandle)
+    private ColumnMapping arrayAsJsonColumnMapping(ConnectorSession session, ColumnMapping baseElementMapping)
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                arrayAsJsonReadFunction(session, baseElementMapping),
+                (statement, index, block) -> { throw new UnsupportedOperationException(); },
+                DISABLE_PUSHDOWN);
+    }
+
+    private static SliceReadFunction arrayAsJsonReadFunction(ConnectorSession session, ColumnMapping baseElementMapping)
+    {
+        return (resultSet, columnIndex) -> {
+            // resolve array type
+            Object jdbcArray = resultSet.getArray(columnIndex).getArray();
+            int arrayDimensions = arrayDepth(jdbcArray);
+
+            ReadFunction readFunction = baseElementMapping.getReadFunction();
+            Type type = baseElementMapping.getType();
+            for (int i = 0; i < arrayDimensions; i++) {
+                readFunction = arrayReadFunction(type, readFunction);
+                type = new ArrayType(type);
+            }
+
+            // read array into a block
+            Block block = ((BlockReadFunction) readFunction).readBlock(resultSet, columnIndex);
+
+            // convert block to JSON slice
+            BlockBuilder builder = type.createBlockBuilder(null, 1);
+            type.writeObject(builder, block);
+            Object value = type.getObjectValue(session, builder.build(), 0);
+
+            try {
+                return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
+            }
+            catch (JsonProcessingException e) {
+                throw new PrestoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
+            }
+        };
+    }
+
+    private static JdbcTypeHandle getArrayElementTypeHandle(Connection connection, JdbcTypeHandle arrayTypeHandle)
     {
         String jdbcTypeName = arrayTypeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
@@ -529,10 +639,10 @@ public class PostgreSqlClient
                 DISABLE_PUSHDOWN);
     }
 
-    private ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
+    private static ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
     {
         return ColumnMapping.sliceMapping(
-                VarcharType.VARCHAR,
+                VARCHAR,
                 (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
                 typedVarcharWriteFunction(jdbcTypeName));
     }
@@ -545,6 +655,43 @@ public class PostgreSqlClient
             pgObject.setValue(value.toStringUtf8());
             statement.setObject(index, pgObject);
         };
+    }
+
+    private static ColumnMapping moneyColumnMapping()
+    {
+        /*
+         * PostgreSQL JDBC maps "money" to Types.DOUBLE, but fails to retrieve double value for amounts
+         * greater than or equal to 1000. Upon `ResultSet#getString`, the driver returns e.g. "$10.00" or "$10,000.00"
+         * (currency symbol depends on the server side configuration).
+         *
+         * The following mapping maps PostgreSQL "money" to Presto "varchar".
+         * Writing is disabled for simplicity.
+         *
+         * Money mapping can be improved when PostgreSQL JDBC gains explicit money type support.
+         * See https://github.com/pgjdbc/pgjdbc/issues/425 for more information.
+         */
+        return ColumnMapping.sliceMapping(
+                VARCHAR,
+                new SliceReadFunction()
+                {
+                    @Override
+                    public boolean isNull(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        // super calls ResultSet#getObject(), which for money type calls .getDouble and the call may fail to parse the money value.
+                        resultSet.getString(columnIndex);
+                        return resultSet.wasNull();
+                    }
+
+                    @Override
+                    public Slice readSlice(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        return utf8Slice(resultSet.getString(columnIndex));
+                    }
+                },
+                (statement, index, value) -> { throw new PrestoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
+                DISABLE_PUSHDOWN);
     }
 
     private static SliceWriteFunction uuidWriteFunction()
@@ -567,11 +714,6 @@ public class PostgreSqlClient
                 (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
     }
-
-    private static final JsonFactory JSON_FACTORY = new JsonFactory()
-            .disable(CANONICALIZE_FIELD_NAMES);
-
-    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private static Slice jsonParse(Slice slice)
     {

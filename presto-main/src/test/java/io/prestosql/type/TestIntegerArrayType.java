@@ -22,7 +22,7 @@ import java.util.List;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestIntegerArrayType
@@ -35,7 +35,7 @@ public class TestIntegerArrayType
 
     private TestIntegerArrayType(Metadata metadata)
     {
-        super(metadata.getType(parseTypeSignature("array(integer)")), List.class, createTestBlock(metadata.getType(parseTypeSignature("array(integer)"))));
+        super(metadata.getType(arrayType(INTEGER.getTypeSignature())), List.class, createTestBlock(metadata.getType(arrayType(INTEGER.getTypeSignature()))));
     }
 
     public static Block createTestBlock(Type arrayType)

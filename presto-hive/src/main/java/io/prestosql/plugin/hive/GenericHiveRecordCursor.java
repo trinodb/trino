@@ -22,7 +22,6 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -121,8 +120,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             long totalBytes,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            DateTimeZone hiveStorageTimeZone)
     {
         requireNonNull(path, "path is null");
         requireNonNull(recordReader, "recordReader is null");
@@ -162,7 +160,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             HiveColumnHandle column = columns.get(i);
             checkState(column.getColumnType() == REGULAR, "column type must be regular");
 
-            types[i] = typeManager.getType(column.getTypeSignature());
+            types[i] = column.getType();
             hiveTypes[i] = column.getHiveType();
 
             StructField field = rowInspector.getStructFieldRef(column.getName());

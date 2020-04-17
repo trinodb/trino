@@ -13,7 +13,6 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
@@ -28,7 +27,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
@@ -49,6 +47,7 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
@@ -61,6 +60,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+
+import static io.prestosql.spi.function.OperatorType.CAST;
 
 public interface Metadata
 {
@@ -120,7 +121,7 @@ public interface Metadata
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
-     * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
+     * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid
      */
@@ -140,8 +141,9 @@ public interface Metadata
 
     /**
      * Creates a schema.
+     * @param principal TODO
      */
-    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties);
+    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal);
 
     /**
      * Drops the specified schema.
@@ -152,6 +154,11 @@ public interface Metadata
      * Renames the specified schema.
      */
     void renameSchema(Session session, CatalogSchemaName source, String target);
+
+    /**
+     * Set the specified schema's user/role.
+     */
+    void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal);
 
     /**
      * Creates a table using the specified table metadata.
@@ -188,7 +195,7 @@ public interface Metadata
     /**
      * Drops the specified table
      *
-     * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
+     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
      */
     void dropTable(Session session, TableHandle tableHandle);
 
@@ -227,11 +234,6 @@ public interface Metadata
     void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
 
     /**
-     * Start a SELECT/UPDATE/INSERT/DELETE query
-     */
-    void beginQuery(Session session, Multimap<CatalogName, ConnectorTableHandle> connectors);
-
-    /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
      * An exception thrown in this method will not affect the result of the query.
      */
@@ -240,7 +242,12 @@ public interface Metadata
     /**
      * Begin insert query
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns);
+
+    /**
+     * @return whether connector handles missing columns during insert
+     */
+    boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle);
 
     /**
      * Finish insert query
@@ -310,6 +317,11 @@ public interface Metadata
     void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace);
 
     /**
+     * Rename the specified view.
+     */
+    void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
+
+    /**
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);
@@ -329,6 +341,8 @@ public interface Metadata
     Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
 
     Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
+
+    default void validateScan(Session session, TableHandle table) {}
 
     //
     // Roles and Grants
@@ -361,14 +375,14 @@ public interface Metadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog);
+    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
 
     /**
      * Revokes the specified roles from the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog);
+    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
 
     /**
      * List applicable roles, including the transitive grants, for the specified principal
@@ -401,6 +415,10 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
+    Type fromSqlType(String sqlType);
+
+    Type getType(TypeId id);
+
     default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
         return getType(new TypeSignature(baseTypeName, typeParameters));
@@ -418,16 +436,23 @@ public interface Metadata
 
     void addFunctions(List<? extends SqlFunction> functions);
 
-    List<SqlFunction> listFunctions();
+    List<FunctionMetadata> listFunctions();
 
     FunctionInvokerProvider getFunctionInvokerProvider();
 
-    Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
+    ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
-    Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    Signature getCoercion(Type fromType, Type toType);
+    default ResolvedFunction getCoercion(Type fromType, Type toType)
+    {
+        return getCoercion(CAST, fromType, toType);
+    }
+
+    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
+
+    ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType);
 
     /**
      * Is the named function an aggregation function?  This does not need type parameters
@@ -435,11 +460,15 @@ public interface Metadata
      */
     boolean isAggregationFunction(QualifiedName name);
 
-    WindowFunctionSupplier getWindowFunctionImplementation(Signature signature);
+    FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
 
-    InternalAggregationFunction getAggregateFunctionImplementation(Signature signature);
+    AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction);
 
-    ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature);
+    WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
+
+    InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
+
+    ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction);
 
     ProcedureRegistry getProcedureRegistry();
 

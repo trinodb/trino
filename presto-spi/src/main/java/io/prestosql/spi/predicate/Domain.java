@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -83,7 +84,7 @@ public final class Domain
         return new Domain(ValueSet.of(type, value), false);
     }
 
-    public static Domain multipleValues(Type type, List<Object> values)
+    public static Domain multipleValues(Type type, List<?> values)
     {
         if (values.isEmpty()) {
             throw new IllegalArgumentException("values cannot be empty");
@@ -166,6 +167,22 @@ public final class Domain
     public boolean includesNullableValue(Object value)
     {
         return value == null ? nullAllowed : values.containsValue(value);
+    }
+
+    boolean isNullableDiscreteSet()
+    {
+        return values.isNone() ? nullAllowed : values.isDiscreteSet();
+    }
+
+    DiscreteSet getNullableDiscreteSet()
+    {
+        if (!isNullableDiscreteSet()) {
+            throw new IllegalStateException("Domain is not a nullable discrete set");
+        }
+
+        return new DiscreteSet(
+                values.isNone() ? unmodifiableList(new ArrayList<>()) : values.getDiscreteSet(),
+                nullAllowed);
     }
 
     public boolean overlaps(Domain other)
@@ -259,15 +276,20 @@ public final class Domain
      */
     public Domain simplify()
     {
+        return simplify(32);
+    }
+
+    public Domain simplify(int threshold)
+    {
         ValueSet simplifiedValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
                 ranges -> {
-                    if (ranges.getOrderedRanges().size() <= 32) {
+                    if (ranges.getRangeCount() <= threshold) {
                         return Optional.empty();
                     }
                     return Optional.of(ValueSet.ofRanges(ranges.getSpan()));
                 },
                 discreteValues -> {
-                    if (discreteValues.getValues().size() <= 32) {
+                    if (discreteValues.getValuesCount() <= threshold) {
                         return Optional.empty();
                     }
                     return Optional.of(ValueSet.all(values.getType()));
@@ -280,5 +302,30 @@ public final class Domain
     public String toString(ConnectorSession session)
     {
         return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
+    }
+
+    static class DiscreteSet
+    {
+        private final List<Object> nonNullValues;
+        private final boolean containsNull;
+
+        DiscreteSet(List<Object> values, boolean containsNull)
+        {
+            this.nonNullValues = requireNonNull(values, "values is null");
+            this.containsNull = containsNull;
+            if (!containsNull && values.isEmpty()) {
+                throw new IllegalArgumentException("Discrete set cannot be empty");
+            }
+        }
+
+        List<Object> getNonNullValues()
+        {
+            return nonNullValues;
+        }
+
+        boolean containsNull()
+        {
+            return containsNull;
+        }
     }
 }

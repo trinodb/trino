@@ -16,8 +16,6 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 /**
  * A timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC and is to be interpreted as date-time in UTC.
  * In legacy timestamp semantics, timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC and is to be
@@ -30,7 +28,7 @@ public final class TimestampType
 
     private TimestampType()
     {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP));
+        super(new TypeSignature(StandardTypes.TIMESTAMP));
     }
 
     @Override

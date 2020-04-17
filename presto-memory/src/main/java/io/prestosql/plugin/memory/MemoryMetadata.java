@@ -40,6 +40,7 @@ import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.ViewNotFoundException;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -65,7 +66,6 @@ import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 @ThreadSafe
@@ -95,7 +95,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
@@ -141,10 +141,18 @@ public class MemoryMetadata
     @Override
     public synchronized List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return tables.values().stream()
-                .filter(table -> schemaName.map(table.getSchemaName()::equals).orElse(true))
+        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+
+        views.keySet().stream()
+                .filter(table -> schemaName.map(table.getSchemaName()::contentEquals).orElse(true))
+                .forEach(builder::add);
+
+        tables.values().stream()
+                .filter(table -> schemaName.map(table.getSchemaName()::contentEquals).orElse(true))
                 .map(TableInfo::getSchemaTableName)
-                .collect(toList());
+                .forEach(builder::add);
+
+        return builder.build();
     }
 
     @Override
@@ -211,11 +219,9 @@ public class MemoryMetadata
     {
         checkSchemaExists(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
-        long nextId = nextTableId.getAndIncrement();
+        long tableId = nextTableId.getAndIncrement();
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No Memory nodes available");
-
-        long tableId = nextId;
 
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
@@ -262,7 +268,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()));
@@ -292,6 +298,21 @@ public class MemoryMetadata
         else if (views.putIfAbsent(viewName, definition) != null) {
             throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
+    }
+
+    @Override
+    public synchronized void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        checkSchemaExists(newViewName.getSchemaName());
+        if (tableIds.containsKey(newViewName)) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + newViewName);
+        }
+
+        if (views.containsKey(newViewName)) {
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + newViewName);
+        }
+
+        views.put(newViewName, views.remove(viewName));
     }
 
     @Override

@@ -60,10 +60,10 @@ import static io.prestosql.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class CreateTableTask
@@ -114,7 +114,7 @@ public class CreateTableTask
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type;
                 try {
-                    type = metadata.getType(parseTypeSignature(column.getType()));
+                    type = metadata.getType(toTypeSignature(column.getType()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
@@ -136,15 +136,16 @@ public class CreateTableTask
                         sqlProperties,
                         session,
                         metadata,
+                        accessControl,
                         parameterLookup);
 
-                columns.put(name, new ColumnMetadata(
-                        name,
-                        type,
-                        column.isNullable(), column.getComment().orElse(null),
-                        null,
-                        false,
-                        columnProperties));
+                columns.put(name, ColumnMetadata.builder()
+                        .setName(name)
+                        .setType(type)
+                        .setNullable(column.isNullable())
+                        .setComment(column.getComment())
+                        .setProperties(columnProperties)
+                        .build());
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
@@ -161,7 +162,7 @@ public class CreateTableTask
                 TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
 
                 Optional<LikeClause.PropertiesOption> propertiesOption = likeClause.getPropertiesOption();
-                if (propertiesOption.isPresent() && propertiesOption.get().equals(LikeClause.PropertiesOption.INCLUDING)) {
+                if (propertiesOption.isPresent() && propertiesOption.get() == LikeClause.PropertiesOption.INCLUDING) {
                     if (includingProperties) {
                         throw semanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
@@ -192,6 +193,7 @@ public class CreateTableTask
                 sqlProperties,
                 session,
                 metadata,
+                accessControl,
                 parameterLookup);
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);

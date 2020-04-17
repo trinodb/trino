@@ -14,7 +14,7 @@
 package io.prestosql.elasticsearch;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -27,8 +27,10 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -39,37 +41,42 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
+import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
-public class ElasticsearchQueryBuilder
+public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    public static QueryBuilder buildSearchQuery(TupleDomain<ColumnHandle> constraint, List<ElasticsearchColumnHandle> columns, Optional<String> query)
+    public static QueryBuilder buildSearchQuery(ConnectorSession session, TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
     {
-        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-        for (ElasticsearchColumnHandle column : columns) {
-            BoolQueryBuilder columnQueryBuilder = new BoolQueryBuilder();
-            Type type = column.getType();
-            if (constraint.getDomains().isPresent()) {
-                Domain domain = constraint.getDomains().get().get(column);
-                if (domain != null) {
-                    columnQueryBuilder.should(buildPredicate(column.getName(), domain, type));
+        BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        if (constraint.getDomains().isPresent()) {
+            for (Map.Entry<ElasticsearchColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+                ElasticsearchColumnHandle column = entry.getKey();
+                Domain domain = entry.getValue();
+
+                checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
+                if (!domain.isAll()) {
+                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(session, column.getName(), domain, column.getType())));
                 }
             }
-            boolQueryBuilder.must(columnQueryBuilder);
         }
-
         query.map(QueryStringQueryBuilder::new)
-                .ifPresent(boolQueryBuilder::must);
+                .ifPresent(queryBuilder::must);
 
-        if (boolQueryBuilder.hasClauses()) {
-            return boolQueryBuilder;
+        if (queryBuilder.hasClauses()) {
+            return queryBuilder;
         }
         return new MatchAllQueryBuilder();
     }
 
-    private static QueryBuilder buildPredicate(String columnName, Domain domain, Type type)
+    private static QueryBuilder buildPredicate(ConnectorSession session, String columnName, Domain domain, Type type)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
@@ -84,10 +91,10 @@ public class ElasticsearchQueryBuilder
             return boolQueryBuilder;
         }
 
-        return buildTermQuery(boolQueryBuilder, columnName, domain, type);
+        return buildTermQuery(boolQueryBuilder, session, columnName, domain, type);
     }
 
-    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, String columnName, Domain domain, Type type)
+    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, ConnectorSession session, String columnName, Domain domain, Type type)
     {
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             BoolQueryBuilder rangeQueryBuilder = new BoolQueryBuilder();
@@ -100,10 +107,10 @@ public class ElasticsearchQueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).gt(getValue(type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, type, range.getLow().getValue())));
                             break;
                         case EXACTLY:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).gte(getValue(type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, type, range.getLow().getValue())));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -114,10 +121,10 @@ public class ElasticsearchQueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case EXACTLY:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).lte(getValue(type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case BELOW:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).lt(getValue(type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
@@ -128,20 +135,36 @@ public class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.must(new TermQueryBuilder(columnName, getValue(type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }
         return queryBuilder;
     }
 
-    private static Object getValue(Type type, Object value)
+    private static Object getValue(ConnectorSession session, Type type, Object value)
     {
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DOUBLE) || type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN) ||
+                type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(BIGINT) ||
+                type.equals(DOUBLE)) {
             return value;
+        }
+        if (type.equals(REAL)) {
+            return Float.intBitsToFloat(toIntExact(((Long) value)));
         }
         if (type.equals(VARCHAR)) {
             return ((Slice) value).toStringUtf8();
+        }
+        if (type.equals(TIMESTAMP)) {
+            checkState(session.isLegacyTimestamp(), "New timestamp semantics not yet supported");
+
+            return Instant.ofEpochMilli((Long) value)
+                    .atZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                    .toLocalDateTime()
+                    .format(ISO_DATE_TIME);
         }
         throw new IllegalArgumentException("Unhandled type: " + type);
     }

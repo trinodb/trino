@@ -43,42 +43,12 @@ import static java.util.Objects.requireNonNull;
 class PolymorphicScalarFunction
         extends SqlScalarFunction
 {
-    private final String description;
-    private final boolean hidden;
-    private final boolean deterministic;
     private final List<PolymorphicScalarFunctionChoice> choices;
 
-    PolymorphicScalarFunction(
-            Signature signature,
-            String description,
-            boolean hidden,
-            boolean deterministic,
-            List<PolymorphicScalarFunctionChoice> choices)
+    PolymorphicScalarFunction(FunctionMetadata functionMetadata, List<PolymorphicScalarFunctionChoice> choices)
     {
-        super(signature);
-
-        this.description = description;
-        this.hidden = hidden;
-        this.deterministic = deterministic;
+        super(functionMetadata);
         this.choices = requireNonNull(choices, "choices is null");
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return hidden;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return deterministic;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return description;
     }
 
     @Override
@@ -90,7 +60,7 @@ class PolymorphicScalarFunction
             implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, metadata, choice));
         }
 
-        return new ScalarFunctionImplementation(implementationChoices.build(), deterministic);
+        return new ScalarFunctionImplementation(implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(
@@ -98,11 +68,12 @@ class PolymorphicScalarFunction
             Metadata metadata,
             PolymorphicScalarFunctionChoice choice)
     {
-        List<TypeSignature> resolvedParameterTypeSignatures = applyBoundVariables(getSignature().getArgumentTypes(), boundVariables);
+        Signature signature = getFunctionMetadata().getSignature();
+        List<TypeSignature> resolvedParameterTypeSignatures = applyBoundVariables(signature.getArgumentTypes(), boundVariables);
         List<Type> resolvedParameterTypes = resolvedParameterTypeSignatures.stream()
                 .map(metadata::getType)
                 .collect(toImmutableList());
-        TypeSignature resolvedReturnTypeSignature = applyBoundVariables(getSignature().getReturnType(), boundVariables);
+        TypeSignature resolvedReturnTypeSignature = applyBoundVariables(signature.getReturnType(), boundVariables);
         Type resolvedReturnType = metadata.getType(resolvedReturnTypeSignature);
         SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType);
         Optional<MethodAndNativeContainerTypes> matchingMethod = Optional.empty();
@@ -192,7 +163,7 @@ class PolymorphicScalarFunction
 
     private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters, List<ArgumentProperty> argumentProperties)
     {
-        Signature signature = getSignature();
+        Signature signature = getFunctionMetadata().getSignature();
         int expectedArgumentsCount = signature.getArgumentTypes().size() + getNullFlagsCount(argumentProperties) + getBlockPositionCount(argumentProperties) + extraParameters.size();
         int matchingMethodArgumentCount = matchingMethod.getParameterCount();
         checkState(matchingMethodArgumentCount == expectedArgumentsCount,

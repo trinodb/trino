@@ -21,7 +21,6 @@ import io.prestosql.sql.tree.QualifiedName;
 
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static java.lang.String.format;
 
@@ -46,11 +45,6 @@ public final class SemanticExceptions
     public static PrestoException ambiguousAttributeException(Expression node, QualifiedName name)
     {
         throw semanticException(AMBIGUOUS_NAME, node, "Column '%s' is ambiguous", name);
-    }
-
-    public static PrestoException notSupportedException(Node node, String notSupportedFeatureDescription)
-    {
-        throw semanticException(NOT_SUPPORTED, node, notSupportedFeatureDescription + " is not supported");
     }
 
     public static PrestoException semanticException(ErrorCodeSupplier code, Node node, String format, Object... args)

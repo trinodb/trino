@@ -20,6 +20,8 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -36,8 +38,6 @@ import static io.prestosql.spi.procedure.Procedure.Argument;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -93,7 +93,7 @@ public class ProcedureRegistry
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
             Argument argument = procedure.getArguments().get(i);
-            Type type = metadata.getType(argument.getType());
+            Type type = argument.getType();
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));
             Class<?> expectedType = getObjectType(type);
@@ -119,11 +119,11 @@ public class ProcedureRegistry
         if (type.equals(VARCHAR)) {
             return String.class;
         }
-        if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type instanceof ArrayType) {
             getObjectType(type.getTypeParameters().get(0));
             return List.class;
         }
-        if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type instanceof MapType) {
             getObjectType(type.getTypeParameters().get(0));
             getObjectType(type.getTypeParameters().get(1));
             return Map.class;

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.security.AllowAllAccessControl;
@@ -30,7 +31,7 @@ import io.prestosql.sql.SqlPathElement;
 import io.prestosql.sql.tree.Identifier;
 import org.testng.annotations.Test;
 
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.List;
 import java.util.Locale;
@@ -60,27 +61,25 @@ import static org.testng.Assert.assertFalse;
 
 public class TestQuerySessionSupplier
 {
-    private static final HttpServletRequest TEST_REQUEST = new MockHttpServletRequest(
-            ImmutableListMultimap.<String, String>builder()
-                    .put(PRESTO_USER, "testUser")
-                    .put(PRESTO_SOURCE, "testSource")
-                    .put(PRESTO_CATALOG, "testCatalog")
-                    .put(PRESTO_SCHEMA, "testSchema")
-                    .put(PRESTO_PATH, "testPath")
-                    .put(PRESTO_LANGUAGE, "zh-TW")
-                    .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-                    .put(PRESTO_CLIENT_INFO, "client-info")
-                    .put(PRESTO_CLIENT_TAGS, "tag1,tag2 ,tag3, tag2")
-                    .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
-                    .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
-                    .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
-                    .build(),
-            "testRemote");
+    private static final MultivaluedMap<String, String> TEST_HEADERS = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+            .put(PRESTO_USER, "testUser")
+            .put(PRESTO_SOURCE, "testSource")
+            .put(PRESTO_CATALOG, "testCatalog")
+            .put(PRESTO_SCHEMA, "testSchema")
+            .put(PRESTO_PATH, "testPath")
+            .put(PRESTO_LANGUAGE, "zh-TW")
+            .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+            .put(PRESTO_CLIENT_INFO, "client-info")
+            .put(PRESTO_CLIENT_TAGS, "tag1,tag2 ,tag3, tag2")
+            .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
+            .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+            .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
+            .build());
 
     @Test
     public void testCreateSession()
     {
-        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, TEST_REQUEST);
+        SessionContext context = new HttpRequestSessionContext(WARN, TEST_HEADERS, "testRemote", Optional.empty(), user -> ImmutableSet.of());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
 
@@ -109,55 +108,45 @@ public class TestQuerySessionSupplier
     @Test
     public void testEmptyClientTags()
     {
-        HttpServletRequest request1 = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .build(),
-                "remoteAddress");
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(WARN, request1);
+        MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .build());
+        SessionContext context1 = new HttpRequestSessionContext(WARN, headers1, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
-        HttpServletRequest request2 = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_CLIENT_TAGS, "")
-                        .build(),
-                "remoteAddress");
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(WARN, request2);
+        MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .put(PRESTO_CLIENT_TAGS, "")
+                .build());
+        SessionContext context2 = new HttpRequestSessionContext(WARN, headers2, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
     @Test
     public void testClientCapabilities()
     {
-        HttpServletRequest request1 = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_CLIENT_CAPABILITIES, "foo, bar")
-                        .build(),
-                "remoteAddress");
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(WARN, request1);
+        MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .put(PRESTO_CLIENT_CAPABILITIES, "foo, bar")
+                .build());
+        SessionContext context1 = new HttpRequestSessionContext(WARN, headers1, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
-        HttpServletRequest request2 = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .build(),
-                "remoteAddress");
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(WARN, request2);
+        MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .build());
+        SessionContext context2 = new HttpRequestSessionContext(WARN, headers2, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testInvalidTimeZone()
     {
-        HttpServletRequest request = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_TIME_ZONE, "unknown_timezone")
-                        .build(),
-                "testRemote");
-        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, request);
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .put(PRESTO_TIME_ZONE, "unknown_timezone")
+                .build());
+        SessionContext context = new HttpRequestSessionContext(WARN, headers, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }
@@ -245,12 +234,10 @@ public class TestQuerySessionSupplier
         assertEquals(session.getSchema(), Optional.of("schema"));
     }
 
-    private Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
+    private static Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
     {
-        HttpRequestSessionContext context = new HttpRequestSessionContext(
-                WARN,
-                new MockHttpServletRequest(headers, "testRemote"));
-
+        MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
+        SessionContext context = new HttpRequestSessionContext(WARN, headerMap, "testRemote", Optional.empty(), user -> ImmutableSet.of());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(config);
         return sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }

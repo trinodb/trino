@@ -34,7 +34,6 @@ import java.io.File;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Runtime.getRuntime;
@@ -43,7 +42,7 @@ import static java.lang.Runtime.getRuntime;
 public class StorageManagerConfig
 {
     private File dataDirectory;
-    private DataSize minAvailableSpace = new DataSize(0, BYTE);
+    private DataSize minAvailableSpace = DataSize.ofBytes(0);
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private boolean compactionEnabled = true;
@@ -58,8 +57,8 @@ public class StorageManagerConfig
     private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
     private long maxShardRows = 1_000_000;
-    private DataSize maxShardSize = new DataSize(256, MEGABYTE);
-    private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
+    private DataSize maxShardSize = DataSize.of(256, MEGABYTE);
+    private DataSize maxBufferSize = DataSize.of(256, MEGABYTE);
     private int oneSplitPerBucketThreshold;
     private String shardDayBoundaryTimeZone = TimeZoneKey.UTC_KEY.getId();
 
@@ -160,6 +159,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
     {
         options = options.withLazyReadSmallRanges(orcLazyReadSmallRanges);
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcNestedLazy()
+    {
+        return options.isNestedLazy();
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("storage.orc.nested-lazy")
+    public StorageManagerConfig setOrcNestedLazy(boolean nestedLazy)
+    {
+        options = options.withNestedLazy(nestedLazy);
         return this;
     }
 

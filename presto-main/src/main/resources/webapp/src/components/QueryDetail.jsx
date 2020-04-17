@@ -32,6 +32,7 @@ import {
     getTaskIdSuffix,
     getTaskNumber,
     GLYPHICON_HIGHLIGHT,
+    parseAndFormatDataSize,
     parseDataSize,
     parseDuration,
     precisionRound
@@ -117,7 +118,7 @@ class TaskList extends React.Component {
             return (
                 <Tr key={task.taskStatus.taskId}>
                     <Td column="id" value={task.taskStatus.taskId}>
-                        <a href={task.taskStatus.self + "?pretty"}>
+                        <a href={"/ui/api/worker/" + task.taskStatus.nodeId + "/task/" + task.taskStatus.taskId + "?pretty"}>
                             {getTaskIdSuffix(task.taskStatus.taskId)}
                         </a>
                     </Td>
@@ -420,7 +421,7 @@ class StageSummary extends React.Component {
                                             Current
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.userMemoryReservation}
+                                            {parseAndFormatDataSize(stage.stageStats.userMemoryReservation)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -436,7 +437,7 @@ class StageSummary extends React.Component {
                                             Peak
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.peakUserMemoryReservation}
+                                            {parseAndFormatDataSize(stage.stageStats.peakUserMemoryReservation)}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -638,11 +639,14 @@ export class QueryDetail extends React.Component {
             lastCpuTime: 0,
             lastRowInput: 0,
             lastByteInput: 0,
+            lastPhysicalInput: 0,
+            lastPhysicalTime: 0,
 
             scheduledTimeRate: [],
             cpuTimeRate: [],
             rowInputRate: [],
             byteInputRate: [],
+            physicalInputRate: [],
 
             reservedMemory: [],
 
@@ -721,7 +725,7 @@ export class QueryDetail extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryId = getFirstParameter(window.location.search);
-        $.get('/v1/query/' + queryId, function (query) {
+        $.get('/ui/api/query/' + queryId, function (query) {
             let lastSnapshotStages = this.state.lastSnapshotStage;
             if (this.state.stageRefresh) {
                 lastSnapshotStages = query.outputStage;
@@ -736,6 +740,8 @@ export class QueryDetail extends React.Component {
             const lastCpuTime = this.state.lastCpuTime;
             const lastRowInput = this.state.lastRowInput;
             const lastByteInput = this.state.lastByteInput;
+            const lastPhysicalInput = this.state.lastPhysicalInput;
+            const lastPhysicalTime = this.state.lastPhysicalTime;
             const alreadyEnded = this.state.queryEnded;
             const nowMillis = Date.now();
 
@@ -744,10 +750,12 @@ export class QueryDetail extends React.Component {
                 lastSnapshotStage: lastSnapshotStages,
                 lastSnapshotTasks: lastSnapshotTasks,
 
+                lastPhysicalTime: parseDuration(query.queryStats.physicalInputReadTime),
                 lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
                 lastRowInput: query.queryStats.processedInputPositions,
                 lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
+                lastPhysicalInput: parseDataSize(query.queryStats.physicalInputDataSize),
 
                 initialized: true,
                 queryEnded: !!query.finalQueryInfo,
@@ -769,14 +777,18 @@ export class QueryDetail extends React.Component {
             if (elapsedSecsSinceLastRefresh >= 0) {
                 const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
+                const currentPhysicalReadTime = (parseDuration(query.queryStats.physicalInputReadTime) - lastPhysicalTime) / 1000;
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
                 const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                const currentPhysicalInputRate = currentPhysicalReadTime > 0 ? (parseDataSize(query.queryStats.physicalInputDataSize) - lastPhysicalInput) / currentPhysicalReadTime : 0;
+
                 this.setState({
                     scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
                     cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
                     rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
                     byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
                     reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
+                    physicalInputRate: addToHistory(currentPhysicalInputRate, this.state.physicalInputRate),
                 });
             }
             this.resetTimer();
@@ -872,9 +884,14 @@ export class QueryDetail extends React.Component {
             $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
             $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
             $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
+            $('#physical-input-rate-sparkline').sparkline(this.state.physicalInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
 
             if (this.state.lastRender === null) {
                 $('#query').each((i, block) => {
+                    hljs.highlightBlock(block);
+                });
+
+                $('#prepared-query').each((i, block) => {
                     hljs.highlightBlock(block);
                 });
             }
@@ -886,7 +903,7 @@ export class QueryDetail extends React.Component {
         }
 
         $('[data-toggle="tooltip"]').tooltip();
-        new Clipboard('.copy-button');
+        new window.ClipboardJS('.copy-button');
     }
 
     renderTasks() {
@@ -964,6 +981,29 @@ export class QueryDetail extends React.Component {
                         <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
                     </div>
                 </div>
+            </div>
+        );
+    }
+
+    renderPreparedQuery() {
+        const query = this.state.query;
+        if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
+            return;
+        }
+
+        return (
+            <div className="col-xs-12">
+                <h3>
+                    Prepared Query
+                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                        </a>
+                </h3>
+                <pre id="prepared-query">
+                    <code className="lang-sql" id="prepared-query-text">
+                        {query.preparedQuery}
+                    </code>
+                </pre>
             </div>
         );
     }
@@ -1317,7 +1357,7 @@ export class QueryDetail extends React.Component {
                                             Input Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.processedInputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1333,7 +1373,15 @@ export class QueryDetail extends React.Component {
                                             Physical Input Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.physicalInputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Physical Input Read Time
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.physicalInputReadTime)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1349,7 +1397,7 @@ export class QueryDetail extends React.Component {
                                             Internal Network Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.internalNetworkInputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1357,7 +1405,7 @@ export class QueryDetail extends React.Component {
                                             Peak User Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakUserMemoryReservation}
+                                            {parseAndFormatDataSize(query.queryStats.peakUserMemoryReservation)}
                                         </td>
                                     </tr>
                                     {parseDataSize(query.queryStats.peakRevocableMemoryReservation) > 0 &&
@@ -1366,7 +1414,7 @@ export class QueryDetail extends React.Component {
                                             Peak Revocable Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakRevocableMemoryReservation}
+                                            {parseAndFormatDataSize(query.queryStats.peakRevocableMemoryReservation)}
                                         </td>
                                     </tr>
                                     }
@@ -1375,7 +1423,7 @@ export class QueryDetail extends React.Component {
                                             Peak Total Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakTotalMemoryReservation}
+                                            {parseAndFormatDataSize(query.queryStats.peakTotalMemoryReservation)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1407,7 +1455,7 @@ export class QueryDetail extends React.Component {
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.outputDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.outputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1423,7 +1471,7 @@ export class QueryDetail extends React.Component {
                                             Logical Written Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.logicalWrittenDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.logicalWrittenDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1431,7 +1479,7 @@ export class QueryDetail extends React.Component {
                                             Physical Written Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.physicalWrittenDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
                                         </td>
                                     </tr>
                                     {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
@@ -1440,7 +1488,7 @@ export class QueryDetail extends React.Component {
                                             Spilled Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.spilledDataSize}
+                                            {parseAndFormatDataSize(query.queryStats.spilledDataSize)}
                                         </td>
                                     </tr>
                                     }
@@ -1514,6 +1562,21 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
+                                            Physical Input Bytes/s
+                                        </td>
+                                        <td rowSpan="2">
+                                            <div className="query-stats-sparkline-container">
+                                                <span className="sparkline" id="physical-input-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="tr-noborder">
+                                        <td className="info-sparkline-text">
+                                            {formatDataSize(this.state.physicalInputRate[this.state.physicalInputRate.length - 1])}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
                                             Memory Utilization
                                         </td>
                                         <td rowSpan="2">
@@ -1549,6 +1612,7 @@ export class QueryDetail extends React.Component {
                             </code>
                         </pre>
                     </div>
+                    {this.renderPreparedQuery()}
                 </div>
                 {this.renderStages()}
                 {this.renderTasks()}

@@ -14,7 +14,6 @@
 package io.prestosql.operator.index;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -27,10 +26,8 @@ import io.prestosql.operator.StaticLookupSourceProvider;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.sql.planner.Symbol;
 
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -44,7 +41,6 @@ public class IndexLookupSourceFactory
         implements LookupSourceFactory
 {
     private final List<Type> outputTypes;
-    private final Map<Symbol, Integer> layout;
     private final Supplier<IndexLoader> indexLoaderSupplier;
     private TaskContext taskContext;
     private final SettableFuture<?> whenTaskContextSet = SettableFuture.create();
@@ -54,7 +50,6 @@ public class IndexLookupSourceFactory
             List<Integer> keyOutputChannels,
             OptionalInt keyOutputHashChannel,
             List<Type> outputTypes,
-            Map<Symbol, Integer> layout,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats,
@@ -63,7 +58,6 @@ public class IndexLookupSourceFactory
             JoinCompiler joinCompiler)
     {
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
-        this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
 
         if (shareIndexLoading) {
             IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler);
@@ -84,12 +78,6 @@ public class IndexLookupSourceFactory
     public List<Type> getOutputTypes()
     {
         return outputTypes;
-    }
-
-    @Override
-    public Map<Symbol, Integer> getLayout()
-    {
-        return layout;
     }
 
     @Override

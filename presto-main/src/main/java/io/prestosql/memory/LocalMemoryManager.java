@@ -30,7 +30,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
 import static io.prestosql.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
 import static java.lang.String.format;
@@ -61,7 +60,7 @@ public final class LocalMemoryManager
     private void configureMemoryPools(NodeMemoryConfig config, long availableMemory)
     {
         validateHeapHeadroom(config, availableMemory);
-        maxMemory = new DataSize(availableMemory - config.getHeapHeadroom().toBytes(), BYTE);
+        maxMemory = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
         checkArgument(
                 config.getMaxQueryMemoryPerNode().toBytes() <= config.getMaxQueryTotalMemoryPerNode().toBytes(),
                 "Max query memory per node (%s) cannot be greater than the max query total memory per node (%s).",
@@ -69,12 +68,12 @@ public final class LocalMemoryManager
                 QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG);
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         long generalPoolSize = maxMemory.toBytes();
-        if (config.isReservedPoolEnabled()) {
+        if (!config.isReservedPoolDisabled()) {
             builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryTotalMemoryPerNode()));
             generalPoolSize -= config.getMaxQueryTotalMemoryPerNode().toBytes();
         }
         verify(generalPoolSize > 0, "general memory pool size is 0");
-        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, new DataSize(generalPoolSize, BYTE)));
+        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, DataSize.ofBytes(generalPoolSize)));
         this.pools = builder.build();
     }
 

@@ -14,11 +14,13 @@
 package io.prestosql.plugin.hive.metastore.glue.converter;
 
 import com.amazonaws.services.glue.model.DatabaseInput;
+import com.amazonaws.services.glue.model.Order;
 import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -26,13 +28,13 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
+import io.prestosql.plugin.hive.metastore.glue.GlueColumnStatisticsProvider;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.util.stream.Collectors.toList;
 
 public final class GlueInputConverter
 {
@@ -55,20 +57,18 @@ public final class GlueInputConverter
         input.setOwner(table.getOwner());
         input.setTableType(table.getTableType());
         input.setStorageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()));
-        input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toList()));
+        input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()));
         input.setParameters(table.getParameters());
         table.getViewOriginalText().ifPresent(input::setViewOriginalText);
         table.getViewExpandedText().ifPresent(input::setViewExpandedText);
         return input;
     }
 
-    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
+    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics, GlueColumnStatisticsProvider columnStatisticsProvider)
     {
         PartitionInput input = convertPartition(partitionWithStatistics.getPartition());
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
-        if (!statistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
+        columnStatisticsProvider.updatePartitionStatistics(input, statistics.getColumnStatistics());
         input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.getBasicStatistics()));
         return input;
     }
@@ -93,15 +93,21 @@ public final class GlueInputConverter
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(storage.getLocation());
-        sd.setColumns(columns.stream().map(GlueInputConverter::convertColumn).collect(toList()));
+        sd.setColumns(columns.stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()));
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
         sd.setParameters(ImmutableMap.of());
 
-        if (storage.getBucketProperty().isPresent()) {
-            sd.setNumberOfBuckets(storage.getBucketProperty().get().getBucketCount());
-            sd.setBucketColumns(storage.getBucketProperty().get().getBucketedBy());
+        Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
+        if (bucketProperty.isPresent()) {
+            sd.setNumberOfBuckets(bucketProperty.get().getBucketCount());
+            sd.setBucketColumns(bucketProperty.get().getBucketedBy());
+            if (!bucketProperty.get().getSortedBy().isEmpty()) {
+                sd.setSortColumns(bucketProperty.get().getSortedBy().stream()
+                        .map(column -> new Order().withColumn(column.getColumnName()).withSortOrder(column.getOrder().getHiveOrder()))
+                        .collect(toImmutableList()));
+            }
         }
 
         return sd;

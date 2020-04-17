@@ -46,6 +46,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import static java.lang.Integer.parseInt;
+
 /**
  * Mock kinesis client for testing that is primarily used for reading from the
  * stream as we do here in Presto.
@@ -58,21 +60,19 @@ import java.util.List;
 public class MockKinesisClient
         extends AmazonKinesisClient
 {
-    private List<InternalStream> streams = new ArrayList();
+    private List<InternalStream> streams = new ArrayList<>();
 
     public static class InternalShard
             extends Shard
     {
         private List<Record> recs = new ArrayList<>();
-        private String streamName = "";
         private int index;
 
         public InternalShard(String streamName, int index)
         {
             super();
-            this.streamName = streamName;
             this.index = index;
-            this.setShardId(this.streamName + "_" + this.index);
+            this.setShardId(streamName + "_" + this.index);
         }
 
         public List<Record> getRecords()
@@ -82,20 +82,15 @@ public class MockKinesisClient
 
         public List<Record> getRecordsFrom(ShardIterator iterator)
         {
-            List<Record> returnRecords = new ArrayList();
+            List<Record> returnRecords = new ArrayList<>();
 
             for (Record record : this.recs) {
-                if (Integer.valueOf(record.getSequenceNumber()) >= iterator.recordIndex) {
+                if (parseInt(record.getSequenceNumber()) >= iterator.recordIndex) {
                     returnRecords.add(record);
                 }
             }
 
             return returnRecords;
-        }
-
-        public String getStreamName()
-        {
-            return streamName;
         }
 
         public int getIndex()
@@ -119,8 +114,7 @@ public class MockKinesisClient
         private String streamName = "";
         private String streamAmazonResourceName = "";
         private String streamStatus = "CREATING";
-        private int retentionPeriodHours = 24;
-        private List<InternalShard> shards = new ArrayList();
+        private List<InternalShard> shards = new ArrayList<>();
         private int sequenceNo = 100;
         private int nextShard;
 
@@ -163,8 +157,8 @@ public class MockKinesisClient
         {
             String[] comps = afterShardId.split("_");
             if (comps.length == 2) {
-                List<InternalShard> returnArray = new ArrayList();
-                int afterIndex = Integer.parseInt(comps[1]);
+                List<InternalShard> returnArray = new ArrayList<>();
+                int afterIndex = parseInt(comps[1]);
                 if (shards.size() > afterIndex + 1) {
                     for (InternalShard shard : shards) {
                         if (shard.getIndex() > afterIndex) {
@@ -176,7 +170,7 @@ public class MockKinesisClient
                 return returnArray;
             }
             else {
-                return new ArrayList();
+                return new ArrayList<>();
             }
         }
 
@@ -241,7 +235,7 @@ public class MockKinesisClient
             ShardIterator newInst = null;
             String[] comps = shardId.split("_");
             if (streamName.equals(comps[0]) && comps[1].matches("[0-9]+")) {
-                newInst = new ShardIterator(comps[0], Integer.parseInt(comps[1]), 0);
+                newInst = new ShardIterator(comps[0], parseInt(comps[1]), 0);
             }
 
             return newInst;
@@ -253,7 +247,7 @@ public class MockKinesisClient
             String[] comps = input.split("_");
             if (comps.length == 3) {
                 if (comps[1].matches("[0-9]+") && comps[2].matches("[0-9]+")) {
-                    newInst = new ShardIterator(comps[0], Integer.parseInt(comps[1]), Integer.parseInt(comps[2]));
+                    newInst = new ShardIterator(comps[0], parseInt(comps[1]), parseInt(comps[2]));
                 }
             }
 
@@ -280,7 +274,7 @@ public class MockKinesisClient
 
     protected List<Shard> getShards(InternalStream theStream)
     {
-        List<Shard> externalList = new ArrayList();
+        List<Shard> externalList = new ArrayList<>();
         for (InternalShard intshard : theStream.getShards()) {
             externalList.add(intshard);
         }
@@ -290,7 +284,7 @@ public class MockKinesisClient
 
     protected List<Shard> getShards(InternalStream theStream, String fromShardId)
     {
-        List<Shard> externalList = new ArrayList();
+        List<Shard> externalList = new ArrayList<>();
         for (InternalShard intshard : theStream.getShardsFrom(fromShardId)) {
             externalList.add(intshard);
         }
@@ -337,7 +331,7 @@ public class MockKinesisClient
         InternalStream theStream = this.getStream(putRecordsRequest.getStreamName());
         if (theStream != null) {
             PutRecordsResult result = new PutRecordsResult();
-            List<PutRecordsResultEntry> resultList = new ArrayList();
+            List<PutRecordsResultEntry> resultList = new ArrayList<>();
             for (PutRecordsRequestEntry entry : putRecordsRequest.getRecords()) {
                 PutRecordResult putResult = theStream.putRecord(entry.getData(), entry.getPartitionKey());
                 resultList.add((new PutRecordsResultEntry()).withShardId(putResult.getShardId()).withSequenceNumber(putResult.getSequenceNumber()));
@@ -356,28 +350,27 @@ public class MockKinesisClient
             throws AmazonClientException
     {
         InternalStream theStream = this.getStream(describeStreamRequest.getStreamName());
-        if (theStream != null) {
-            StreamDescription desc = new StreamDescription();
-            desc = desc.withStreamName(theStream.getStreamName()).withStreamStatus(theStream.getStreamStatus()).withStreamARN(theStream.getStreamAmazonResourceName());
-
-            if (describeStreamRequest.getExclusiveStartShardId() == null || describeStreamRequest.getExclusiveStartShardId().isEmpty()) {
-                desc.setShards(this.getShards(theStream));
-                desc.setHasMoreShards(false);
-            }
-            else {
-                // Filter from given shard Id, or may not have any more
-                String startId = describeStreamRequest.getExclusiveStartShardId();
-                desc.setShards(this.getShards(theStream, startId));
-                desc.setHasMoreShards(false);
-            }
-
-            DescribeStreamResult result = new DescribeStreamResult();
-            result = result.withStreamDescription(desc);
-            return result;
-        }
-        else {
+        if (theStream == null) {
             throw new AmazonClientException("This stream does not exist!");
         }
+
+        StreamDescription desc = new StreamDescription();
+        desc = desc.withStreamName(theStream.getStreamName()).withStreamStatus(theStream.getStreamStatus()).withStreamARN(theStream.getStreamAmazonResourceName());
+
+        if (describeStreamRequest.getExclusiveStartShardId() == null || describeStreamRequest.getExclusiveStartShardId().isEmpty()) {
+            desc.setShards(this.getShards(theStream));
+            desc.setHasMoreShards(false);
+        }
+        else {
+            // Filter from given shard Id, or may not have any more
+            String startId = describeStreamRequest.getExclusiveStartShardId();
+            desc.setShards(this.getShards(theStream, startId));
+            desc.setHasMoreShards(false);
+        }
+
+        DescribeStreamResult result = new DescribeStreamResult();
+        result = result.withStreamDescription(desc);
+        return result;
     }
 
     @Override
@@ -385,28 +378,26 @@ public class MockKinesisClient
             throws AmazonClientException
     {
         ShardIterator iter = ShardIterator.fromStreamAndShard(getShardIteratorRequest.getStreamName(), getShardIteratorRequest.getShardId());
-        if (iter != null) {
-            InternalStream theStream = this.getStream(iter.streamId);
-            if (theStream != null) {
-                String seqAsString = getShardIteratorRequest.getStartingSequenceNumber();
-                if (seqAsString != null && !seqAsString.isEmpty() && getShardIteratorRequest.getShardIteratorType().equals("AFTER_SEQUENCE_NUMBER")) {
-                    int sequence = Integer.parseInt(seqAsString);
-                    iter.recordIndex = sequence + 1;
-                }
-                else {
-                    iter.recordIndex = 100;
-                }
-
-                GetShardIteratorResult result = new GetShardIteratorResult();
-                return result.withShardIterator(iter.makeString());
-            }
-            else {
-                throw new AmazonClientException("Unknown stream or bad shard iterator!");
-            }
-        }
-        else {
+        if (iter == null) {
             throw new AmazonClientException("Bad stream or shard iterator!");
         }
+
+        InternalStream theStream = this.getStream(iter.streamId);
+        if (theStream == null) {
+            throw new AmazonClientException("Unknown stream or bad shard iterator!");
+        }
+
+        String seqAsString = getShardIteratorRequest.getStartingSequenceNumber();
+        if (seqAsString != null && !seqAsString.isEmpty() && getShardIteratorRequest.getShardIteratorType().equals("AFTER_SEQUENCE_NUMBER")) {
+            int sequence = parseInt(seqAsString);
+            iter.recordIndex = sequence + 1;
+        }
+        else {
+            iter.recordIndex = 100;
+        }
+
+        GetShardIteratorResult result = new GetShardIteratorResult();
+        return result.withShardIterator(iter.makeString());
     }
 
     @Override
@@ -421,26 +412,25 @@ public class MockKinesisClient
         // TODO: incorporate maximum batch size (getRecordsRequest.getLimit)
         GetRecordsResult result = null;
         InternalStream stream = this.getStream(iterator.streamId);
-        if (stream != null) {
-            InternalShard shard = stream.getShards().get(iterator.shardIndex);
+        if (stream == null) {
+            throw new AmazonClientException("Unknown stream or bad shard iterator.");
+        }
 
-            if (iterator.recordIndex == 100) {
-                result = new GetRecordsResult();
-                List<Record> recs = shard.getRecords();
-                result.setRecords(recs); // NOTE: getting all for now
-                result.setNextShardIterator(getNextShardIterator(iterator, recs).makeString());
-                result.setMillisBehindLatest(100L);
-            }
-            else {
-                result = new GetRecordsResult();
-                List<Record> recs = shard.getRecordsFrom(iterator);
-                result.setRecords(recs); // may be empty
-                result.setNextShardIterator(getNextShardIterator(iterator, recs).makeString());
-                result.setMillisBehindLatest(100L);
-            }
+        InternalShard shard = stream.getShards().get(iterator.shardIndex);
+
+        if (iterator.recordIndex == 100) {
+            result = new GetRecordsResult();
+            List<Record> recs = shard.getRecords();
+            result.setRecords(recs); // NOTE: getting all for now
+            result.setNextShardIterator(getNextShardIterator(iterator, recs).makeString());
+            result.setMillisBehindLatest(100L);
         }
         else {
-            throw new AmazonClientException("Unknown stream or bad shard iterator.");
+            result = new GetRecordsResult();
+            List<Record> recs = shard.getRecordsFrom(iterator);
+            result.setRecords(recs); // may be empty
+            result.setNextShardIterator(getNextShardIterator(iterator, recs).makeString());
+            result.setMillisBehindLatest(100L);
         }
 
         return result;
@@ -448,17 +438,13 @@ public class MockKinesisClient
 
     protected ShardIterator getNextShardIterator(ShardIterator previousIter, List<Record> records)
     {
-        ShardIterator newIter = null;
         if (records.size() == 0) {
-            newIter = previousIter;
-        }
-        else {
-            Record rec = records.get(records.size() - 1);
-            int lastSeq = Integer.valueOf(rec.getSequenceNumber());
-            newIter = new ShardIterator(previousIter.streamId, previousIter.shardIndex, lastSeq + 1);
+            return previousIter;
         }
 
-        return newIter;
+        Record rec = records.get(records.size() - 1);
+        int lastSeq = Integer.valueOf(rec.getSequenceNumber());
+        return new ShardIterator(previousIter.streamId, previousIter.shardIndex, lastSeq + 1);
     }
 
     //// Unsupported methods

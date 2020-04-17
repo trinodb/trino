@@ -13,6 +13,8 @@
  */
 package io.prestosql.metadata;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.Type;
 
@@ -29,8 +31,10 @@ public class BoundVariables
     private final Map<String, Type> typeVariables;
     private final Map<String, Long> longVariables;
 
-    public BoundVariables(Map<String, Type> typeVariables,
-            Map<String, Long> longVariables)
+    @JsonCreator
+    public BoundVariables(
+            @JsonProperty("typeVariables") Map<String, Type> typeVariables,
+            @JsonProperty("longVariables") Map<String, Long> longVariables)
     {
         requireNonNull(typeVariables, "typeVariableBindings is null");
         requireNonNull(longVariables, "longVariableBindings is null");
@@ -48,6 +52,7 @@ public class BoundVariables
         return containsValue(typeVariables, variableName);
     }
 
+    @JsonProperty
     public Map<String, Type> getTypeVariables()
     {
         return typeVariables;
@@ -63,6 +68,7 @@ public class BoundVariables
         return containsValue(longVariables, variableName);
     }
 
+    @JsonProperty
     public Map<String, Long> getLongVariables()
     {
         return longVariables;

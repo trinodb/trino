@@ -38,6 +38,7 @@ public final class PlanSanityChecker
                         Stage.INTERMEDIATE,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
+                        new AllFunctionsResolved(),
                         new TypeValidator(),
                         new NoSubqueryExpressionLeftChecker(),
                         new NoIdentifierLeftChecker(),
@@ -47,6 +48,7 @@ public final class PlanSanityChecker
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new SugarFreeChecker(),
+                        new AllFunctionsResolved(),
                         new TypeValidator(),
                         new NoSubqueryExpressionLeftChecker(),
                         new NoIdentifierLeftChecker(),
@@ -54,7 +56,8 @@ public final class PlanSanityChecker
                         new VerifyNoFilteredAggregations(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
-                        new DynamicFiltersChecker())
+                        new DynamicFiltersChecker(),
+                        new TableScanValidator())
                 .build();
     }
 

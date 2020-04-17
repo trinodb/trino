@@ -24,6 +24,8 @@ import io.prestosql.sql.tree.NodeRef;
 import java.util.Map;
 import java.util.Set;
 
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+
 public final class Coercer
 {
     private Coercer() {}
@@ -51,7 +53,7 @@ public final class Coercer
         }
 
         @Override
-        public Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        protected Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             Type target = coercions.get(NodeRef.of(expression));
 
@@ -59,7 +61,7 @@ public final class Coercer
             if (target != null) {
                 rewritten = new Cast(
                         rewritten,
-                        target.getTypeSignature().toString(),
+                        toSqlType(target),
                         false,
                         typeOnlyCoercions.contains(NodeRef.of(expression)));
             }

@@ -169,11 +169,9 @@ public final class OrcInputStream
             current.setPosition(decompressedOffset - currentDecompressedBufferOffset);
             return;
         }
-        else {
-            // otherwise, drop the current buffer and seek the underlying data loader
-            current = EMPTY_SLICE.getInput();
-            chunkLoader.seekToCheckpoint(checkpoint);
-        }
+        // otherwise, drop the current buffer and seek the underlying data loader
+        current = EMPTY_SLICE.getInput();
+        chunkLoader.seekToCheckpoint(checkpoint);
         lastCheckpoint = checkpoint;
     }
 

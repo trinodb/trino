@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.Type;
@@ -61,21 +62,21 @@ public class SetSessionTask
         if (parts.size() == 1) {
             accessControl.checkCanSetSystemSessionProperty(session.getIdentity(), parts.get(0));
             propertyMetadata = metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0))
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
+                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
         }
         else {
             CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
-                    .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, statement, "Catalog %s does not exist", parts.get(0)));
-            accessControl.checkCanSetCatalogSessionProperty(session.getRequiredTransactionId(), session.getIdentity(), parts.get(0), parts.get(1));
+                    .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, statement, "Catalog '%s' does not exist", parts.get(0)));
+            accessControl.checkCanSetCatalogSessionProperty(SecurityContext.of(session), parts.get(0), parts.get(1));
             propertyMetadata = metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
+                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
         }
 
         Type type = propertyMetadata.getSqlType();
         Object objectValue;
 
         try {
-            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameterExtractor(statement, parameters));
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, accessControl, parameterExtractor(statement, parameters));
         }
         catch (PrestoException e) {
             throw new PrestoException(

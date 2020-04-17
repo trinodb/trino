@@ -15,11 +15,13 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
@@ -32,6 +34,7 @@ import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.lang.invoke.MethodHandle;
@@ -43,6 +46,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -51,7 +55,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.type.Decimals.writeBigDecimal;
 import static io.prestosql.spi.type.Decimals.writeShortDecimal;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -74,23 +78,26 @@ public class DecimalAverageAggregation
 
     public DecimalAverageAggregation()
     {
-        super(NAME,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s")),
-                ImmutableList.of(parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"))));
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Calculates the average value";
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                new TypeSignature("decimal", typeVariable("p"), typeVariable("s")),
+                                ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Calculates the average value",
+                        AGGREGATE),
+                true,
+                false);
     }
 
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        Type type = metadata.getType(getOnlyElement(applyBoundVariables(getSignature().getArgumentTypes(), boundVariables)));
+        Type type = metadata.getType(getOnlyElement(applyBoundVariables(getFunctionMetadata().getSignature().getArgumentTypes(), boundVariables)));
         return generateAggregation(type);
     }
 

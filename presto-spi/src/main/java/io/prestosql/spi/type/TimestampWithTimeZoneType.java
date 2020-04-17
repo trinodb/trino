@@ -17,7 +17,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class TimestampWithTimeZoneType
         extends AbstractLongType
@@ -26,7 +25,7 @@ public final class TimestampWithTimeZoneType
 
     private TimestampWithTimeZoneType()
     {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
+        super(new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
     }
 
     @Override

@@ -84,6 +84,7 @@ class FunctionCallProvider
                 frame.isPresent() ? frame.get().toString() : "");
     }
 
+    @Override
     public FunctionCall getExpectedValue(SymbolAliases aliases)
     {
         List<Expression> symbolReferences = toSymbolReferences(args, aliases);

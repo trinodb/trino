@@ -42,9 +42,8 @@ public class TestPruneTableScanColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneTableScanColumns())
-                .on(p ->
-                {
+        tester().assertThat(new PruneTableScanColumns(tester().getMetadata(), tester().getTypeAnalyzer()))
+                .on(p -> {
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     return p.project(
@@ -69,7 +68,7 @@ public class TestPruneTableScanColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneTableScanColumns())
+        tester().assertThat(new PruneTableScanColumns(tester().getMetadata(), tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("y"), expression("x")),

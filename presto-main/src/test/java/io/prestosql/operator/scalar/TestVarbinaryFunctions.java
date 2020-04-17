@@ -16,7 +16,6 @@ package io.prestosql.operator.scalar;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.type.VarbinaryOperators;
 import org.testng.annotations.Test;
 
@@ -32,6 +31,8 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -51,7 +52,7 @@ public class TestVarbinaryFunctions
     @Test
     public void testBinaryLiteral()
     {
-        assertFunction("X'58F7'", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("X'58F7'", VARBINARY, sqlVarbinaryFromHex("58F7"));
     }
 
     @Test
@@ -72,29 +73,29 @@ public class TestVarbinaryFunctions
         assertFunction("CAST(' foo ' AS VARBINARY) || CAST ('  bar  ' AS VARBINARY) || CAST ('   baz   ' AS VARBINARY)", VARBINARY, sqlVarbinary(" foo " + "  bar  " + "   baz   "));
         assertFunction("CAST('foo' AS VARBINARY) || CAST ('bar' AS VARBINARY) || CAST ('bazbaz' AS VARBINARY)", VARBINARY, sqlVarbinary("foo" + "bar" + "bazbaz"));
 
-        assertFunction("X'000102' || X'AAABAC' || X'FDFEFF'", VARBINARY, sqlVarbinaryHex("000102" + "AAABAC" + "FDFEFF"));
-        assertFunction("X'CAFFEE' || X'F7' || X'DE58'", VARBINARY, sqlVarbinaryHex("CAFFEE" + "F7" + "DE58"));
+        assertFunction("X'000102' || X'AAABAC' || X'FDFEFF'", VARBINARY, sqlVarbinaryFromHex("000102" + "AAABAC" + "FDFEFF"));
+        assertFunction("X'CAFFEE' || X'F7' || X'DE58'", VARBINARY, sqlVarbinaryFromHex("CAFFEE" + "F7" + "DE58"));
 
-        assertFunction("X'58' || X'F7'", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("X'' || X'58' || X'F7'", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("X'58' || X'' || X'F7'", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("X'58' || X'F7' || X''", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("X'' || X'58' || X'' || X'F7' || X''", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("X'' || X'' || X'' || X'' || X'' || X''", VARBINARY, sqlVarbinaryHex(""));
+        assertFunction("X'58' || X'F7'", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("X'' || X'58' || X'F7'", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("X'58' || X'' || X'F7'", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("X'58' || X'F7' || X''", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("X'' || X'58' || X'' || X'F7' || X''", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("X'' || X'' || X'' || X'' || X'' || X''", VARBINARY, sqlVarbinaryFromHex(""));
 
         assertFunction("CONCAT(CAST('foo' AS VARBINARY), CAST ('bar' AS VARBINARY))", VARBINARY, sqlVarbinary("foo" + "bar"));
         assertFunction("CONCAT(CAST('foo' AS VARBINARY), CAST ('bar' AS VARBINARY), CAST ('baz' AS VARBINARY))", VARBINARY, sqlVarbinary("foo" + "bar" + "baz"));
         assertFunction("CONCAT(CAST('foo' AS VARBINARY), CAST ('bar' AS VARBINARY), CAST ('bazbaz' AS VARBINARY))", VARBINARY, sqlVarbinary("foo" + "bar" + "bazbaz"));
 
-        assertFunction("CONCAT(X'000102', X'AAABAC', X'FDFEFF')", VARBINARY, sqlVarbinaryHex("000102" + "AAABAC" + "FDFEFF"));
-        assertFunction("CONCAT(X'CAFFEE', X'F7', X'DE58')", VARBINARY, sqlVarbinaryHex("CAFFEE" + "F7" + "DE58"));
+        assertFunction("CONCAT(X'000102', X'AAABAC', X'FDFEFF')", VARBINARY, sqlVarbinaryFromHex("000102" + "AAABAC" + "FDFEFF"));
+        assertFunction("CONCAT(X'CAFFEE', X'F7', X'DE58')", VARBINARY, sqlVarbinaryFromHex("CAFFEE" + "F7" + "DE58"));
 
-        assertFunction("CONCAT(X'58', X'F7')", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("CONCAT(X'', X'58', X'F7')", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("CONCAT(X'58', X'', X'F7')", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("CONCAT(X'58', X'F7', X'')", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("CONCAT(X'', X'58', X'', X'F7', X'')", VARBINARY, sqlVarbinaryHex("58F7"));
-        assertFunction("CONCAT(X'', X'', X'', X'', X'', X'')", VARBINARY, sqlVarbinaryHex(""));
+        assertFunction("CONCAT(X'58', X'F7')", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("CONCAT(X'', X'58', X'F7')", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("CONCAT(X'58', X'', X'F7')", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("CONCAT(X'58', X'F7', X'')", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("CONCAT(X'', X'58', X'', X'F7', X'')", VARBINARY, sqlVarbinaryFromHex("58F7"));
+        assertFunction("CONCAT(X'', X'', X'', X'', X'', X'')", VARBINARY, sqlVarbinaryFromHex(""));
     }
 
     @Test
@@ -171,10 +172,10 @@ public class TestVarbinaryFunctions
     @Test
     public void testToBigEndian64()
     {
-        assertFunction("to_big_endian_64(0)", VARBINARY, sqlVarbinaryHex("0000000000000000"));
-        assertFunction("to_big_endian_64(1)", VARBINARY, sqlVarbinaryHex("0000000000000001"));
-        assertFunction("to_big_endian_64(9223372036854775807)", VARBINARY, sqlVarbinaryHex("7FFFFFFFFFFFFFFF"));
-        assertFunction("to_big_endian_64(-9223372036854775807)", VARBINARY, sqlVarbinaryHex("8000000000000001"));
+        assertFunction("to_big_endian_64(0)", VARBINARY, sqlVarbinaryFromHex("0000000000000000"));
+        assertFunction("to_big_endian_64(1)", VARBINARY, sqlVarbinaryFromHex("0000000000000001"));
+        assertFunction("to_big_endian_64(9223372036854775807)", VARBINARY, sqlVarbinaryFromHex("7FFFFFFFFFFFFFFF"));
+        assertFunction("to_big_endian_64(-9223372036854775807)", VARBINARY, sqlVarbinaryFromHex("8000000000000001"));
     }
 
     @Test
@@ -192,10 +193,10 @@ public class TestVarbinaryFunctions
     @Test
     public void testToBigEndian32()
     {
-        assertFunction("to_big_endian_32(0)", VARBINARY, sqlVarbinaryHex("00000000"));
-        assertFunction("to_big_endian_32(1)", VARBINARY, sqlVarbinaryHex("00000001"));
-        assertFunction("to_big_endian_32(2147483647)", VARBINARY, sqlVarbinaryHex("7FFFFFFF"));
-        assertFunction("to_big_endian_32(-2147483647)", VARBINARY, sqlVarbinaryHex("80000001"));
+        assertFunction("to_big_endian_32(0)", VARBINARY, sqlVarbinaryFromHex("00000000"));
+        assertFunction("to_big_endian_32(1)", VARBINARY, sqlVarbinaryFromHex("00000001"));
+        assertFunction("to_big_endian_32(2147483647)", VARBINARY, sqlVarbinaryFromHex("7FFFFFFF"));
+        assertFunction("to_big_endian_32(-2147483647)", VARBINARY, sqlVarbinaryFromHex("80000001"));
     }
 
     @Test
@@ -213,16 +214,16 @@ public class TestVarbinaryFunctions
     @Test
     public void testToIEEE754Binary32()
     {
-        assertFunction("to_ieee754_32(CAST(0.0 AS REAL))", VARBINARY, sqlVarbinaryHex("00000000"));
-        assertFunction("to_ieee754_32(CAST(1.0 AS REAL))", VARBINARY, sqlVarbinaryHex("3F800000"));
-        assertFunction("to_ieee754_32(CAST(3.14 AS REAL))", VARBINARY, sqlVarbinaryHex("4048F5C3"));
-        assertFunction("to_ieee754_32(CAST(NAN() AS REAL))", VARBINARY, sqlVarbinaryHex("7FC00000"));
-        assertFunction("to_ieee754_32(CAST(INFINITY() AS REAL))", VARBINARY, sqlVarbinaryHex("7F800000"));
-        assertFunction("to_ieee754_32(CAST(-INFINITY() AS REAL))", VARBINARY, sqlVarbinaryHex("FF800000"));
-        assertFunction("to_ieee754_32(CAST(3.4028235E38 AS REAL))", VARBINARY, sqlVarbinaryHex("7F7FFFFF"));
-        assertFunction("to_ieee754_32(CAST(-3.4028235E38 AS REAL))", VARBINARY, sqlVarbinaryHex("FF7FFFFF"));
-        assertFunction("to_ieee754_32(CAST(1.4E-45 AS REAL))", VARBINARY, sqlVarbinaryHex("00000001"));
-        assertFunction("to_ieee754_32(CAST(-1.4E-45 AS REAL))", VARBINARY, sqlVarbinaryHex("80000001"));
+        assertFunction("to_ieee754_32(CAST(0.0 AS REAL))", VARBINARY, sqlVarbinaryFromHex("00000000"));
+        assertFunction("to_ieee754_32(CAST(1.0 AS REAL))", VARBINARY, sqlVarbinaryFromHex("3F800000"));
+        assertFunction("to_ieee754_32(CAST(3.14 AS REAL))", VARBINARY, sqlVarbinaryFromHex("4048F5C3"));
+        assertFunction("to_ieee754_32(CAST(NAN() AS REAL))", VARBINARY, sqlVarbinaryFromHex("7FC00000"));
+        assertFunction("to_ieee754_32(CAST(INFINITY() AS REAL))", VARBINARY, sqlVarbinaryFromHex("7F800000"));
+        assertFunction("to_ieee754_32(CAST(-INFINITY() AS REAL))", VARBINARY, sqlVarbinaryFromHex("FF800000"));
+        assertFunction("to_ieee754_32(CAST(3.4028235E38 AS REAL))", VARBINARY, sqlVarbinaryFromHex("7F7FFFFF"));
+        assertFunction("to_ieee754_32(CAST(-3.4028235E38 AS REAL))", VARBINARY, sqlVarbinaryFromHex("FF7FFFFF"));
+        assertFunction("to_ieee754_32(CAST(1.4E-45 AS REAL))", VARBINARY, sqlVarbinaryFromHex("00000001"));
+        assertFunction("to_ieee754_32(CAST(-1.4E-45 AS REAL))", VARBINARY, sqlVarbinaryFromHex("80000001"));
     }
 
     @Test
@@ -245,16 +246,16 @@ public class TestVarbinaryFunctions
     @Test
     public void testToIEEE754Binary64()
     {
-        assertFunction("to_ieee754_64(0.0)", VARBINARY, sqlVarbinaryHex("0000000000000000"));
-        assertFunction("to_ieee754_64(1.0)", VARBINARY, sqlVarbinaryHex("3FF0000000000000"));
-        assertFunction("to_ieee754_64(3.1415926)", VARBINARY, sqlVarbinaryHex("400921FB4D12D84A"));
-        assertFunction("to_ieee754_64(NAN())", VARBINARY, sqlVarbinaryHex("7FF8000000000000"));
-        assertFunction("to_ieee754_64(INFINITY())", VARBINARY, sqlVarbinaryHex("7FF0000000000000"));
-        assertFunction("to_ieee754_64(-INFINITY())", VARBINARY, sqlVarbinaryHex("FFF0000000000000"));
-        assertFunction("to_ieee754_64(1.7976931348623157E308)", VARBINARY, sqlVarbinaryHex("7FEFFFFFFFFFFFFF"));
-        assertFunction("to_ieee754_64(-1.7976931348623157E308)", VARBINARY, sqlVarbinaryHex("FFEFFFFFFFFFFFFF"));
-        assertFunction("to_ieee754_64(4.9E-324)", VARBINARY, sqlVarbinaryHex("0000000000000001"));
-        assertFunction("to_ieee754_64(-4.9E-324)", VARBINARY, sqlVarbinaryHex("8000000000000001"));
+        assertFunction("to_ieee754_64(0.0)", VARBINARY, sqlVarbinaryFromHex("0000000000000000"));
+        assertFunction("to_ieee754_64(1.0)", VARBINARY, sqlVarbinaryFromHex("3FF0000000000000"));
+        assertFunction("to_ieee754_64(3.1415926)", VARBINARY, sqlVarbinaryFromHex("400921FB4D12D84A"));
+        assertFunction("to_ieee754_64(NAN())", VARBINARY, sqlVarbinaryFromHex("7FF8000000000000"));
+        assertFunction("to_ieee754_64(INFINITY())", VARBINARY, sqlVarbinaryFromHex("7FF0000000000000"));
+        assertFunction("to_ieee754_64(-INFINITY())", VARBINARY, sqlVarbinaryFromHex("FFF0000000000000"));
+        assertFunction("to_ieee754_64(1.7976931348623157E308)", VARBINARY, sqlVarbinaryFromHex("7FEFFFFFFFFFFFFF"));
+        assertFunction("to_ieee754_64(-1.7976931348623157E308)", VARBINARY, sqlVarbinaryFromHex("FFEFFFFFFFFFFFFF"));
+        assertFunction("to_ieee754_64(4.9E-324)", VARBINARY, sqlVarbinaryFromHex("0000000000000001"));
+        assertFunction("to_ieee754_64(-4.9E-324)", VARBINARY, sqlVarbinaryFromHex("8000000000000001"));
     }
 
     @Test
@@ -276,11 +277,11 @@ public class TestVarbinaryFunctions
     @Test
     public void testLpad()
     {
-        assertFunction("lpad(x'1234',7,x'45')", VARBINARY, sqlVarbinaryHex("45454545451234"));
-        assertFunction("lpad(x'1234',7,x'4524')", VARBINARY, sqlVarbinaryHex("45244524451234"));
-        assertFunction("lpad(x'1234',3,x'4524')", VARBINARY, sqlVarbinaryHex("451234"));
-        assertFunction("lpad(x'1234',0,x'4524')", VARBINARY, sqlVarbinaryHex(""));
-        assertFunction("lpad(x'1234',1,x'4524')", VARBINARY, sqlVarbinaryHex("12"));
+        assertFunction("lpad(x'1234',7,x'45')", VARBINARY, sqlVarbinaryFromHex("45454545451234"));
+        assertFunction("lpad(x'1234',7,x'4524')", VARBINARY, sqlVarbinaryFromHex("45244524451234"));
+        assertFunction("lpad(x'1234',3,x'4524')", VARBINARY, sqlVarbinaryFromHex("451234"));
+        assertFunction("lpad(x'1234',0,x'4524')", VARBINARY, sqlVarbinaryFromHex(""));
+        assertFunction("lpad(x'1234',1,x'4524')", VARBINARY, sqlVarbinaryFromHex("12"));
         assertInvalidFunction("lpad(x'2312',-1,x'4524')", "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
         assertInvalidFunction("lpad(x'2312',1,x'')", "Padding bytes must not be empty");
     }
@@ -288,11 +289,11 @@ public class TestVarbinaryFunctions
     @Test
     public void testRpad()
     {
-        assertFunction("rpad(x'1234',7,x'45')", VARBINARY, sqlVarbinaryHex("12344545454545"));
-        assertFunction("rpad(x'1234',7,x'4524')", VARBINARY, sqlVarbinaryHex("12344524452445"));
-        assertFunction("rpad(x'1234',3,x'4524')", VARBINARY, sqlVarbinaryHex("123445"));
-        assertFunction("rpad(x'23',0,x'4524')", VARBINARY, sqlVarbinaryHex(""));
-        assertFunction("rpad(x'1234',1,x'4524')", VARBINARY, sqlVarbinaryHex("12"));
+        assertFunction("rpad(x'1234',7,x'45')", VARBINARY, sqlVarbinaryFromHex("12344545454545"));
+        assertFunction("rpad(x'1234',7,x'4524')", VARBINARY, sqlVarbinaryFromHex("12344524452445"));
+        assertFunction("rpad(x'1234',3,x'4524')", VARBINARY, sqlVarbinaryFromHex("123445"));
+        assertFunction("rpad(x'23',0,x'4524')", VARBINARY, sqlVarbinaryFromHex(""));
+        assertFunction("rpad(x'1234',1,x'4524')", VARBINARY, sqlVarbinaryFromHex("12"));
         assertInvalidFunction("rpad(x'1234',-1,x'4524')", "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
         assertInvalidFunction("rpad(x'1234',1,x'')", "Padding bytes must not be empty");
     }
@@ -300,45 +301,45 @@ public class TestVarbinaryFunctions
     @Test
     public void testMd5()
     {
-        assertFunction("md5(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("D41D8CD98F00B204E9800998ECF8427E"));
-        assertFunction("md5(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("533F6357E0210E67D91F651BC49E1278"));
+        assertFunction("md5(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("D41D8CD98F00B204E9800998ECF8427E"));
+        assertFunction("md5(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("533F6357E0210E67D91F651BC49E1278"));
     }
 
     @Test
     public void testSha1()
     {
-        assertFunction("sha1(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"));
-        assertFunction("sha1(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("FB78992E561929A6967D5328F49413FA99048D06"));
+        assertFunction("sha1(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"));
+        assertFunction("sha1(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("FB78992E561929A6967D5328F49413FA99048D06"));
     }
 
     @Test
     public void testSha256()
     {
-        assertFunction("sha256(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"));
-        assertFunction("sha256(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("02208B9403A87DF9F4ED6B2EE2657EFAA589026B4CCE9ACCC8E8A5BF3D693C86"));
+        assertFunction("sha256(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"));
+        assertFunction("sha256(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("02208B9403A87DF9F4ED6B2EE2657EFAA589026B4CCE9ACCC8E8A5BF3D693C86"));
     }
 
     @Test
     public void testSha512()
     {
-        assertFunction("sha512(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E"));
-        assertFunction("sha512(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("8A4B59FB9188D09B989FF596AC9CEFBF2ED91DED8DCD9498E8BF2236814A92B23BE6867E7FC340880E514F8FDF97E1F147EA4B0FD6C2DA3557D0CF1C0B58A204"));
+        assertFunction("sha512(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E"));
+        assertFunction("sha512(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("8A4B59FB9188D09B989FF596AC9CEFBF2ED91DED8DCD9498E8BF2236814A92B23BE6867E7FC340880E514F8FDF97E1F147EA4B0FD6C2DA3557D0CF1C0B58A204"));
     }
 
     @Test
     public void testXxhash64()
     {
-        assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
-        assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
+        assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("EF46DB3751D8E999"));
+        assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("F9D96E0E1165E892"));
     }
 
     @Test
     public void testSpookyHash()
     {
-        assertFunction("spooky_hash_v2_32(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("6BF50919"));
-        assertFunction("spooky_hash_v2_32(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("D382E6CA"));
-        assertFunction("spooky_hash_v2_64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("232706FC6BF50919"));
-        assertFunction("spooky_hash_v2_64(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("3768826AD382E6CA"));
+        assertFunction("spooky_hash_v2_32(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("6BF50919"));
+        assertFunction("spooky_hash_v2_32(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("D382E6CA"));
+        assertFunction("spooky_hash_v2_64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("232706FC6BF50919"));
+        assertFunction("spooky_hash_v2_64(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("3768826AD382E6CA"));
     }
 
     @Test
@@ -367,69 +368,69 @@ public class TestVarbinaryFunctions
     @Test
     public void testVarbinarySubstring()
     {
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5)", VARBINARY, varbinary("ratically"));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 50)", VARBINARY, varbinary(""));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5)", VARBINARY, varbinary("cally"));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', -50)", VARBINARY, varbinary(""));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 0)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5)", VARBINARY, sqlVarbinary("ratically"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 50)", VARBINARY, sqlVarbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5)", VARBINARY, sqlVarbinary("cally"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -50)", VARBINARY, sqlVarbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 0)", VARBINARY, sqlVarbinary(""));
 
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 6)", VARBINARY, varbinary("ratica"));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 10)", VARBINARY, varbinary("ratically"));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 50)", VARBINARY, varbinary("ratically"));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 50, 10)", VARBINARY, varbinary(""));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5, 4)", VARBINARY, varbinary("call"));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5, 40)", VARBINARY, varbinary("cally"));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', -50, 4)", VARBINARY, varbinary(""));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 0, 4)", VARBINARY, varbinary(""));
-        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 0)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 6)", VARBINARY, sqlVarbinary("ratica"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 10)", VARBINARY, sqlVarbinary("ratically"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 50)", VARBINARY, sqlVarbinary("ratically"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 50, 10)", VARBINARY, sqlVarbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5, 4)", VARBINARY, sqlVarbinary("call"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5, 40)", VARBINARY, sqlVarbinary("cally"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -50, 4)", VARBINARY, sqlVarbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 0, 4)", VARBINARY, sqlVarbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 0)", VARBINARY, sqlVarbinary(""));
 
-        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5)", VARBINARY, varbinary("ratically"));
-        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 50)", VARBINARY, varbinary(""));
-        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM -5)", VARBINARY, varbinary("cally"));
-        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM -50)", VARBINARY, varbinary(""));
-        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 0)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5)", VARBINARY, sqlVarbinary("ratically"));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 50)", VARBINARY, sqlVarbinary(""));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM -5)", VARBINARY, sqlVarbinary("cally"));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM -50)", VARBINARY, sqlVarbinary(""));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 0)", VARBINARY, sqlVarbinary(""));
 
-        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5 FOR 6)", VARBINARY, varbinary("ratica"));
-        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5 FOR 50)", VARBINARY, varbinary("ratically"));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5 FOR 6)", VARBINARY, sqlVarbinary("ratica"));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5 FOR 50)", VARBINARY, sqlVarbinary("ratically"));
 
         // Test SUBSTRING for non-ASCII
-        assertFunction("SUBSTRING(X'4FE15FF5' FROM 1 FOR 1)", VARBINARY, varbinary(0x4F));
-        assertFunction("SUBSTRING(X'4FE15FF5' FROM 2 FOR 2)", VARBINARY, varbinary(0xE1, 0x5F));
-        assertFunction("SUBSTRING(X'4FE15FF5' FROM 3)", VARBINARY, varbinary(0x5F, 0xF5));
-        assertFunction("SUBSTRING(X'4FE15FF5' FROM -2)", VARBINARY, varbinary(0x5F, 0xF5));
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM 1 FOR 1)", VARBINARY, sqlVarbinary(0x4F));
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM 2 FOR 2)", VARBINARY, sqlVarbinary(0xE1, 0x5F));
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM 3)", VARBINARY, sqlVarbinary(0x5F, 0xF5));
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM -2)", VARBINARY, sqlVarbinary(0x5F, 0xF5));
     }
 
     @Test
     public void testHmacMd5()
     {
-        assertFunction("hmac_md5(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("63530468A04E386459855DA0063B6596"));
-        assertFunction("hmac_md5(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("0A26EBEB0E7B65F528D96F7BC631BC8F"));
+        assertFunction("hmac_md5(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("63530468A04E386459855DA0063B6596"));
+        assertFunction("hmac_md5(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("0A26EBEB0E7B65F528D96F7BC631BC8F"));
     }
 
     @Test
     public void testHmacSHA1()
     {
-        assertFunction("hmac_sha1(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F42BB0EEB018EBBD4597AE7213711EC60760843F"));
-        assertFunction("hmac_sha1(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("2E7C4C6AEFA7E69F106EEE3CE21944D0046D2F3D"));
+        assertFunction("hmac_sha1(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("F42BB0EEB018EBBD4597AE7213711EC60760843F"));
+        assertFunction("hmac_sha1(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("2E7C4C6AEFA7E69F106EEE3CE21944D0046D2F3D"));
     }
 
     @Test
     public void testHmacSHA256()
     {
         assertFunction("hmac_sha256(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))",
-                VARBINARY, sqlVarbinaryHex("5D5D139563C95B5967B9BD9A8C9B233A9DEDB45072794CD232DC1B74832607D0"));
+                VARBINARY, sqlVarbinaryFromHex("5D5D139563C95B5967B9BD9A8C9B233A9DEDB45072794CD232DC1B74832607D0"));
         assertFunction("hmac_sha256(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))",
-                VARBINARY, sqlVarbinaryHex("D3D72F9FACDE059DA3A4EB43A9ABDD4B35118E0FEF00E6D16FB04BB332AF0484"));
+                VARBINARY, sqlVarbinaryFromHex("D3D72F9FACDE059DA3A4EB43A9ABDD4B35118E0FEF00E6D16FB04BB332AF0484"));
     }
 
     @Test
     public void testHmacSHA512()
     {
         assertFunction("hmac_sha512(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))",
-                VARBINARY, sqlVarbinaryHex("84FA5AA0279BBC473267D05A53EA03310A987CECC4C1535FF29B6D76B8F1444A" +
+                VARBINARY, sqlVarbinaryFromHex("84FA5AA0279BBC473267D05A53EA03310A987CECC4C1535FF29B6D76B8F1444A" +
                         "728DF3AADB89D4A9A6709E1998F373566E8F824A8CA93B1821F0B69BC2A2F65E"));
         assertFunction("hmac_sha512(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))",
-                VARBINARY, sqlVarbinaryHex("FEFA712B67DED871E1ED987F8B20D6A69EB9FCC87974218B9A1A6D5202B54C18" +
+                VARBINARY, sqlVarbinaryFromHex("FEFA712B67DED871E1ED987F8B20D6A69EB9FCC87974218B9A1A6D5202B54C18" +
                         "ECDA4839A979DED22F07E0881CF40B762691992D120408F49D6212E112509D72"));
     }
 
@@ -463,29 +464,5 @@ public class TestVarbinaryFunctions
     private static String encodeHex(String value)
     {
         return base16().encode(value.getBytes(UTF_8));
-    }
-
-    private static SqlVarbinary sqlVarbinary(String value)
-    {
-        return new SqlVarbinary(value.getBytes(UTF_8));
-    }
-
-    private static SqlVarbinary sqlVarbinaryHex(String value)
-    {
-        return new SqlVarbinary(base16().decode(value));
-    }
-
-    private static SqlVarbinary varbinary(String string)
-    {
-        return new SqlVarbinary(string.getBytes());
-    }
-
-    private static SqlVarbinary varbinary(int... bytesAsInts)
-    {
-        byte[] bytes = new byte[bytesAsInts.length];
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) bytesAsInts[i];
-        }
-        return new SqlVarbinary(bytes);
     }
 }

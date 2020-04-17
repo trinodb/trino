@@ -24,26 +24,24 @@ import org.h2.Driver;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.String.format;
 
 class TestingH2JdbcModule
         implements Module
 {
     @Override
-    public void configure(Binder binder)
-    {
-        configBinder(binder).bindConfig(BaseJdbcConfig.class);
-    }
+    public void configure(Binder binder) {}
 
     @Provides
-    public JdbcClient provideJdbcClient(BaseJdbcConfig config, @StatsCollecting ConnectionFactory connectionFactory)
+    @ForBaseJdbc
+    public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
         return new BaseJdbcClient(config, "\"", connectionFactory);
     }
 
     @Provides
     @Singleton
+    @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         return new DriverConnectionFactory(new Driver(), config, credentialProvider);

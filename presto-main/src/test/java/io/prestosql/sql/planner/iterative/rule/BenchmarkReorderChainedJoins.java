@@ -79,7 +79,7 @@ public class BenchmarkReorderChainedJoins
                     .setCatalog("tpch")
                     .setSchema("tiny")
                     .build();
-            queryRunner = new LocalQueryRunner(session);
+            queryRunner = LocalQueryRunner.create(session);
             queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         }
 

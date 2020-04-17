@@ -33,7 +33,6 @@ import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeCompressed
 import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class CompressedOrcChunkLoader
         implements OrcChunkLoader
@@ -127,8 +126,8 @@ public final class CompressedOrcChunkLoader
 
         if (!isUncompressed) {
             int uncompressedSize = decompressor.decompress(
-                    (byte[]) chunk.getBase(),
-                    (int) (chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET),
+                    chunk.byteArray(),
+                    chunk.byteArrayOffset(),
                     chunk.length(),
                     createOutputBuffer());
             chunk = Slices.wrappedBuffer(decompressorOutputBuffer, 0, uncompressedSize);

@@ -61,7 +61,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
@@ -82,15 +82,15 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
-@Path("/")
+@Path("/v1/statement/executing")
 public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
-    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
-    private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
+    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
+    private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -145,7 +145,7 @@ public class ExecutingStatementResource
     }
 
     @GET
-    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getQueryResults(
             @PathParam("queryId") QueryId queryId,
@@ -271,7 +271,7 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response cancelQuery(
             @PathParam("queryId") QueryId queryId,
@@ -301,7 +301,7 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/partialCancel/{queryId}/{stage}/{slug}/{token}")
+    @Path("partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(
             @PathParam("queryId") QueryId queryId,
             @PathParam("stage") int stage,

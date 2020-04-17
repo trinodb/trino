@@ -23,6 +23,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestThriftMetastoreConfig
@@ -38,7 +39,9 @@ public class TestThriftMetastoreConfig
                 .setMinBackoffDelay(new Duration(1, SECONDS))
                 .setMaxBackoffDelay(new Duration(1, SECONDS))
                 .setMaxRetryTime(new Duration(30, SECONDS))
-                .setImpersonationEnabled(false));
+                .setImpersonationEnabled(false)
+                .setDeleteFilesOnDrop(false)
+                .setMaxWaitForTransactionLock(new Duration(10, MINUTES)));
     }
 
     @Test
@@ -53,6 +56,8 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.client.max-backoff-delay", "4s")
                 .put("hive.metastore.thrift.client.max-retry-time", "60s")
                 .put("hive.metastore.thrift.impersonation.enabled", "true")
+                .put("hive.metastore.thrift.delete-files-on-drop", "true")
+                .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
                 .build();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
@@ -63,7 +68,9 @@ public class TestThriftMetastoreConfig
                 .setMinBackoffDelay(new Duration(2, SECONDS))
                 .setMaxBackoffDelay(new Duration(4, SECONDS))
                 .setMaxRetryTime(new Duration(60, SECONDS))
-                .setImpersonationEnabled(true);
+                .setImpersonationEnabled(true)
+                .setDeleteFilesOnDrop(true)
+                .setMaxWaitForTransactionLock(new Duration(5, MINUTES));
 
         assertFullMapping(properties, expected);
     }

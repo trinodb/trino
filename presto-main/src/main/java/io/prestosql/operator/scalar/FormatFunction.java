@@ -17,15 +17,21 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
@@ -44,7 +50,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.internalScalarFunction;
 import static io.prestosql.metadata.Signature.withVariadicBound;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -53,6 +58,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -67,9 +73,9 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.Failures.internalError;
@@ -89,13 +95,19 @@ public final class FormatFunction
 
     private FormatFunction()
     {
-        super(Signature.builder()
-                .kind(SCALAR)
-                .name(NAME)
-                .typeVariableConstraints(withVariadicBound("T", "row"))
-                .argumentTypes(VARCHAR.getTypeSignature(), parseTypeSignature("T"))
-                .returnType(VARCHAR.getTypeSignature())
-                .build());
+        super(new FunctionMetadata(
+                Signature.builder()
+                        .name(NAME)
+                        .typeVariableConstraints(withVariadicBound("T", "row"))
+                        .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
+                        .returnType(VARCHAR.getTypeSignature())
+                        .build(),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(false)),
+                true,
+                true,
+                "formats the input arguments using a format string",
+                SCALAR));
     }
 
     @Override
@@ -113,26 +125,7 @@ public final class FormatFunction
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(converters),
-                true);
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "formats the input arguments using a format string";
+                METHOD_HANDLE.bindTo(converters));
     }
 
     public static void validateType(Metadata metadata, Type type)
@@ -197,10 +190,10 @@ public final class FormatFunction
         if (type.equals(TIME)) {
             return (session, block) -> toLocalTime(session, type.getLong(block, position));
         }
-        // TODO: support TIME WITH TIME ZONE by making SqlTimeWithTimeZone implement TemporalAccessor
+        // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
-            Signature signature = internalScalarFunction("json_format", VARCHAR.getTypeSignature(), JSON.getTypeSignature());
-            MethodHandle handle = metadata.getScalarFunctionImplementation(signature).getMethodHandle();
+            ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("json_format"), fromTypes(JSON));
+            MethodHandle handle = metadata.getScalarFunctionImplementation(function).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
         if (isShortDecimal(type)) {
@@ -211,8 +204,12 @@ public final class FormatFunction
             int scale = ((DecimalType) type).getScale();
             return (session, block) -> new BigDecimal(decodeUnscaledValue(type.getSlice(block, position)), scale);
         }
-        if (isVarcharType(type) || isCharType(type)) {
+        if (isVarcharType(type)) {
             return (session, block) -> type.getSlice(block, position).toStringUtf8();
+        }
+        if (isCharType(type)) {
+            CharType charType = (CharType) type;
+            return (session, block) -> padSpaces(type.getSlice(block, position), charType).toStringUtf8();
         }
 
         BiFunction<ConnectorSession, Block, Object> function;
@@ -243,7 +240,7 @@ public final class FormatFunction
     private static MethodHandle castToVarchar(Metadata metadata, Type type)
     {
         try {
-            Signature cast = metadata.getCoercion(type, VARCHAR);
+            ResolvedFunction cast = metadata.getCoercion(type, VARCHAR);
             return metadata.getScalarFunctionImplementation(cast).getMethodHandle();
         }
         catch (OperatorNotFoundException e) {

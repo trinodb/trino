@@ -15,14 +15,12 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.prestosql.operator.SetBuilderOperator.SetSupplier;
 import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -38,6 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.prestosql.operator.WorkProcessor.TransformationState.blocked;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
 import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
@@ -46,10 +45,21 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class HashSemiJoinOperator
-        implements AdapterWorkProcessorOperator
+        implements WorkProcessorOperator
 {
-    public static class HashSemiJoinOperatorFactory
-            implements OperatorFactory, AdapterWorkProcessorOperatorFactory
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            SetSupplier setSupplier,
+            List<? extends Type> probeTypes,
+            int probeJoinChannel,
+            Optional<Integer> probeJoinHashChannel)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel));
+    }
+
+    private static class Factory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -59,7 +69,7 @@ public class HashSemiJoinOperator
         private final Optional<Integer> probeJoinHashChannel;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeJoinHashChannel)
+        private Factory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeJoinHashChannel)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -71,29 +81,10 @@ public class HashSemiJoinOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashSemiJoinOperator.class.getSimpleName());
-            return new WorkProcessorOperatorAdapter(operatorContext, this);
-        }
-
-        @Override
-        public void noMoreOperators()
-        {
-            closed = true;
-        }
-
-        @Override
-        public OperatorFactory duplicate()
-        {
-            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel);
-        }
-
-        @Override
-        public AdapterWorkProcessorOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal)
-        {
-            return new HashSemiJoinOperator(Optional.empty(), setSupplier, probeJoinChannel, probeJoinHashChannel, memoryTrackingContext);
+            return new HashSemiJoinOperator(sourcePages, setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
         }
 
         @Override
@@ -115,23 +106,28 @@ public class HashSemiJoinOperator
         }
 
         @Override
-        public WorkProcessorOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Page> sourcePages)
+        public void close()
         {
-            return new HashSemiJoinOperator(Optional.of(sourcePages), setSupplier, probeJoinChannel, probeJoinHashChannel, memoryTrackingContext);
+            closed = true;
+        }
+
+        @Override
+        public Factory duplicate()
+        {
+            return new Factory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel);
         }
     }
 
     private final WorkProcessor<Page> pages;
-    private final PageBuffer pageBuffer = new PageBuffer();
 
-    public HashSemiJoinOperator(
-            Optional<WorkProcessor<Page>> sourcePages,
+    private HashSemiJoinOperator(
+            WorkProcessor<Page> sourcePages,
             SetSupplier channelSetFuture,
             int probeJoinChannel,
             Optional<Integer> probeHashChannel,
             MemoryTrackingContext memoryTrackingContext)
     {
-        pages = sourcePages.orElse(pageBuffer.pages())
+        pages = sourcePages
                 .transform(new SemiJoinPages(
                         channelSetFuture,
                         probeJoinChannel,
@@ -140,36 +136,12 @@ public class HashSemiJoinOperator
     }
 
     @Override
-    public void finish()
-    {
-        pageBuffer.finish();
-    }
-
-    @Override
-    public boolean needsInput()
-    {
-        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
-    }
-
-    @Override
-    public void addInput(Page page)
-    {
-        pageBuffer.add(page);
-    }
-
-    @Override
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
     }
 
-    @Override
-    public void close()
-            throws Exception
-    {
-    }
-
-    private class SemiJoinPages
+    private static class SemiJoinPages
             implements WorkProcessor.Transformation<Page, Page>
     {
         private final int probeJoinChannel;

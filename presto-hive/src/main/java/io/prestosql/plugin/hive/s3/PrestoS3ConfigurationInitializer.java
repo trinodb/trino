@@ -27,6 +27,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACL_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_EXTERNAL_ID;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_IAM_ROLE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
@@ -49,8 +50,8 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_KMS_KEY_ID;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSL_ENABLED;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STORAGE_CLASS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 
 public class PrestoS3ConfigurationInitializer
         implements ConfigurationInitializer
@@ -58,10 +59,11 @@ public class PrestoS3ConfigurationInitializer
     private final String awsAccessKey;
     private final String awsSecretKey;
     private final String endpoint;
+    private final PrestoS3StorageClass s3StorageClass;
     private final PrestoS3SignerType signerType;
     private final boolean pathStyleAccess;
-    private final boolean useInstanceCredentials;
     private final String iamRole;
+    private final String externalId;
     private final boolean sslEnabled;
     private final boolean sseEnabled;
     private final PrestoS3SseType sseType;
@@ -91,11 +93,12 @@ public class PrestoS3ConfigurationInitializer
         this.awsAccessKey = config.getS3AwsAccessKey();
         this.awsSecretKey = config.getS3AwsSecretKey();
         this.endpoint = config.getS3Endpoint();
+        this.s3StorageClass = config.getS3StorageClass();
         this.signerType = config.getS3SignerType();
         this.signerClass = config.getS3SignerClass();
         this.pathStyleAccess = config.isS3PathStyleAccess();
-        this.useInstanceCredentials = config.isS3UseInstanceCredentials();
         this.iamRole = config.getS3IamRole();
+        this.externalId = config.getS3ExternalId();
         this.sslEnabled = config.isS3SslEnabled();
         this.sseEnabled = config.isS3SseEnabled();
         this.sseType = config.getS3SseType();
@@ -136,6 +139,7 @@ public class PrestoS3ConfigurationInitializer
         if (endpoint != null) {
             config.set(S3_ENDPOINT, endpoint);
         }
+        config.set(S3_STORAGE_CLASS, s3StorageClass.name());
         if (signerType != null) {
             config.set(S3_SIGNER_TYPE, signerType.name());
         }
@@ -143,9 +147,11 @@ public class PrestoS3ConfigurationInitializer
             config.set(S3_SIGNER_CLASS, signerClass);
         }
         config.setBoolean(S3_PATH_STYLE_ACCESS, pathStyleAccess);
-        config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
         if (iamRole != null) {
             config.set(S3_IAM_ROLE, iamRole);
+        }
+        if (externalId != null) {
+            config.set(S3_EXTERNAL_ID, externalId);
         }
         config.setBoolean(S3_SSL_ENABLED, sslEnabled);
         config.setBoolean(S3_SSE_ENABLED, sseEnabled);
@@ -165,7 +171,7 @@ public class PrestoS3ConfigurationInitializer
         config.set(S3_MAX_RETRY_TIME, maxRetryTime.toString());
         config.set(S3_CONNECT_TIMEOUT, connectTimeout.toString());
         config.set(S3_SOCKET_TIMEOUT, socketTimeout.toString());
-        config.set(S3_STAGING_DIRECTORY, stagingDirectory.toString());
+        config.set(S3_STAGING_DIRECTORY, stagingDirectory.getPath());
         config.setInt(S3_MAX_CONNECTIONS, maxConnections);
         config.setLong(S3_MULTIPART_MIN_FILE_SIZE, multipartMinFileSize.toBytes());
         config.setLong(S3_MULTIPART_MIN_PART_SIZE, multipartMinPartSize.toBytes());

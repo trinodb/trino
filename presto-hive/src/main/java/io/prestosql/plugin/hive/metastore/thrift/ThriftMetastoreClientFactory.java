@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
+import io.prestosql.spi.NodeManager;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;
@@ -32,28 +33,31 @@ public class ThriftMetastoreClientFactory
     private final Optional<HostAndPort> socksProxy;
     private final int timeoutMillis;
     private final HiveMetastoreAuthentication metastoreAuthentication;
+    private final String hostname;
 
     public ThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
             Duration timeout,
-            HiveMetastoreAuthentication metastoreAuthentication)
+            HiveMetastoreAuthentication metastoreAuthentication,
+            String hostname)
     {
         this.sslContext = requireNonNull(sslContext, "sslContext is null");
         this.socksProxy = requireNonNull(socksProxy, "socksProxy is null");
         this.timeoutMillis = toIntExact(timeout.toMillis());
         this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
+        this.hostname = requireNonNull(hostname, "hostname is null");
     }
 
     @Inject
-    public ThriftMetastoreClientFactory(ThriftMetastoreConfig config, HiveMetastoreAuthentication metastoreAuthentication)
+    public ThriftMetastoreClientFactory(ThriftMetastoreConfig config, HiveMetastoreAuthentication metastoreAuthentication, NodeManager nodeManager)
     {
-        this(Optional.empty(), Optional.ofNullable(config.getSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication);
+        this(Optional.empty(), Optional.ofNullable(config.getSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication, nodeManager.getCurrentNode().getHost());
     }
 
     public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
             throws TTransportException
     {
-        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, delegationToken));
+        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, delegationToken), hostname);
     }
 }

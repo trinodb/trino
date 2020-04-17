@@ -20,8 +20,8 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -29,7 +29,7 @@ import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class RowHashCodeOperator
@@ -43,8 +43,9 @@ public class RowHashCodeOperator
         super(HASH_CODE,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BIGINT),
-                ImmutableList.of(parseTypeSignature("T")));
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(new TypeSignature("T")),
+                false);
     }
 
     @Override
@@ -54,8 +55,7 @@ public class RowHashCodeOperator
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(type),
-                isDeterministic());
+                METHOD_HANDLE.bindTo(type));
     }
 
     @UsedByGeneratedCode

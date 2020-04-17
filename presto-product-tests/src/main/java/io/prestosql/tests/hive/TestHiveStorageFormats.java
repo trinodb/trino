@@ -14,12 +14,15 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
 import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.utils.JdbcDriverUtils;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import javax.inject.Named;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -39,6 +42,7 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +50,10 @@ public class TestHiveStorageFormats
         extends ProductTest
 {
     private static final String TPCH_SCHEMA = "tiny";
+
+    @Inject(optional = true)
+    @Named("databases.presto.admin_role_enabled")
+    private boolean adminRoleEnabled;
 
     @DataProvider(name = "storage_formats")
     public static Object[][] storageFormats()
@@ -62,11 +70,11 @@ public class TestHiveStorageFormats
         };
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -105,11 +113,11 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testCreateTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -131,11 +139,11 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -174,11 +182,11 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -200,7 +208,21 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
+    public void testOrcTableCreatedInPresto()
+    {
+        onPresto().executeQuery("CREATE TABLE orc_table_created_in_presto WITH (format='ORC') AS SELECT 42 a");
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto"))
+                .containsOnly(row(42));
+        // Hive 3.1 validates (`org.apache.orc.impl.ReaderImpl#ensureOrcFooter`) ORC footer only when loading it from the cache, so when querying *second* time.
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto"))
+                .containsOnly(row(42));
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto WHERE a < 43"))
+                .containsOnly(row(42));
+        onPresto().executeQuery("DROP TABLE orc_table_created_in_presto");
+    }
+
+    @Test(groups = STORAGE_FORMATS)
     public void testSnappyCompressedParquetTableCreatedInHive()
     {
         String tableName = "table_created_in_hive_parquet";
@@ -234,11 +256,15 @@ public class TestHiveStorageFormats
                 .containsExactly(expectedRows);
     }
 
-    private static void setRole(String role)
+    private void setAdminRole()
     {
+        if (adminRoleEnabled) {
+            return;
+        }
+
         Connection connection = defaultQueryExecutor().getConnection();
         try {
-            JdbcDriverUtils.setRole(connection, role);
+            JdbcDriverUtils.setRole(connection, "admin");
         }
         catch (SQLException e) {
             throw new RuntimeException(e);

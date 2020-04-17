@@ -13,15 +13,19 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries
 {
-    public TestDistributedQueriesNoHashGeneration()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunnerBuilder.builder()
                 .setSingleCoordinatorProperty("optimizer.optimize-hash-generation", "false")
-                .build());
+                .build();
     }
 }

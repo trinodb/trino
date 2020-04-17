@@ -44,6 +44,9 @@ import java.util.function.Supplier;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isRcfileOptimizedWriterValidate;
 import static io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
@@ -85,7 +88,7 @@ public class RcFileFileWriterFactory
     }
 
     @Override
-    public Optional<HiveFileWriter> createFileWriter(
+    public Optional<FileWriter> createFileWriter(
             Path path,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
@@ -126,7 +129,7 @@ public class RcFileFileWriterFactory
             OutputStream outputStream = fileSystem.create(path);
 
             Optional<Supplier<RcFileDataSource>> validationInputFactory = Optional.empty();
-            if (HiveSessionProperties.isRcfileOptimizedWriterValidate(session)) {
+            if (isRcfileOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
                         return new HdfsRcFileDataSource(
@@ -154,8 +157,8 @@ public class RcFileFileWriterFactory
                     codecName,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
-                            .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
-                            .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .put(PRESTO_VERSION_NAME, nodeVersion.toString())
+                            .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
                     validationInputFactory));
         }

@@ -44,9 +44,11 @@ import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.CharMatcher.whitespace;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -100,7 +102,16 @@ public class SpnegoHandler
         this.keytab = requireNonNull(keytab, "keytab is null");
         this.credentialCache = requireNonNull(credentialCache, "credentialCache is null");
 
-        kerberosConfig.ifPresent(file -> System.setProperty("java.security.krb5.conf", file.getAbsolutePath()));
+        kerberosConfig.ifPresent(file -> {
+            String newValue = file.getAbsolutePath();
+            String currentValue = System.getProperty("java.security.krb5.conf");
+            checkState(
+                    currentValue == null || Objects.equals(currentValue, newValue),
+                    "Refusing to set system property 'java.security.krb5.conf' to '%s', it is already set to '%s'",
+                    newValue,
+                    currentValue);
+            System.setProperty("java.security.krb5.conf", newValue);
+        });
     }
 
     @Override
@@ -160,7 +171,7 @@ public class SpnegoHandler
                 result.requestMutualAuth(true);
                 result.requestConf(true);
                 result.requestInteg(true);
-                result.requestCredDeleg(false);
+                result.requestCredDeleg(true);
                 return result;
             });
 

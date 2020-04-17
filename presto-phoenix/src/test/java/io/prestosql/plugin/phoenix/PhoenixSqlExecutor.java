@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.phoenix;
 
-import io.prestosql.tests.sql.SqlExecutor;
+import io.prestosql.testing.sql.SqlExecutor;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

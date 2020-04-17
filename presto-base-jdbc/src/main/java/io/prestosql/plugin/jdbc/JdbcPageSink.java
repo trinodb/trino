@@ -29,14 +29,14 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -48,7 +48,6 @@ public class JdbcPageSink
 
     private final List<Type> columnTypes;
     private final List<WriteFunction> columnWriters;
-    private final List<WriteNullFunction> nullWriters;
     private int batchSize;
 
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
@@ -72,7 +71,7 @@ public class JdbcPageSink
         columnTypes = handle.getColumnTypes();
 
         if (!handle.getJdbcColumnTypes().isPresent()) {
-            List<WriteMapping> writeMappings = columnTypes.stream()
+            columnWriters = columnTypes.stream()
                     .map(type -> {
                         WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
                         WriteFunction writeFunction = writeMapping.getWriteFunction();
@@ -84,31 +83,14 @@ public class JdbcPageSink
                                 writeFunction.getJavaType());
                         return writeMapping;
                     })
-                    .collect(toImmutableList());
-
-            columnWriters = writeMappings.stream()
                     .map(WriteMapping::getWriteFunction)
-                    .collect(toImmutableList());
-
-            nullWriters = writeMappings.stream()
-                    .map(WriteMapping::getWriteNullFunction)
                     .collect(toImmutableList());
         }
         else {
-            List<ColumnMapping> columnMappings = handle.getJdbcColumnTypes().get().stream()
-                    .map(typeHandle -> {
-                        Optional<ColumnMapping> columnMapping = jdbcClient.toPrestoType(session, connection, typeHandle);
-                        checkState(columnMapping.isPresent(), "missing column mapping");
-                        return columnMapping.get();
-                    })
-                    .collect(toImmutableList());
-
-            columnWriters = columnMappings.stream()
+            columnWriters = handle.getJdbcColumnTypes().get().stream()
+                    .map(typeHandle -> jdbcClient.toPrestoType(session, connection, typeHandle)
+                            .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
                     .map(ColumnMapping::getWriteFunction)
-                    .collect(toImmutableList());
-
-            nullWriters = columnMappings.stream()
-                    .map(ColumnMapping::getWriteNullFunction)
                     .collect(toImmutableList());
         }
     }
@@ -145,14 +127,14 @@ public class JdbcPageSink
         Block block = page.getBlock(channel);
         int parameterIndex = channel + 1;
 
+        WriteFunction writeFunction = columnWriters.get(channel);
         if (block.isNull(position)) {
-            nullWriters.get(channel).setNull(statement, parameterIndex);
+            writeFunction.setNull(statement, parameterIndex);
             return;
         }
 
         Type type = columnTypes.get(channel);
         Class<?> javaType = type.getJavaType();
-        WriteFunction writeFunction = columnWriters.get(channel);
         if (javaType == boolean.class) {
             ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, type.getBoolean(block, position));
         }
@@ -188,7 +170,7 @@ public class JdbcPageSink
             throw new PrestoException(JDBC_NON_TRANSIENT_ERROR, e);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new PrestoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
         }
         // the committer does not need any additional info
         return completedFuture(ImmutableList.of());

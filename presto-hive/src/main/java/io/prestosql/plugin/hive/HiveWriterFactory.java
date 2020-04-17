@@ -82,13 +82,11 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.prestosql.plugin.hive.orc.OrcFileWriterFactory.createOrcDataSink;
 import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.createPartitionValues;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -142,8 +140,6 @@ public class HiveWriterFactory
 
     private final HiveWriterStats hiveWriterStats;
 
-    private final OrcFileWriterFactory orcFileWriterFactory;
-
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -169,8 +165,7 @@ public class HiveWriterFactory
             NodeManager nodeManager,
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
-            HiveWriterStats hiveWriterStats,
-            OrcFileWriterFactory orcFileWriterFactory)
+            HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -206,7 +201,7 @@ public class HiveWriterFactory
             HiveType hiveType = column.getHiveType();
             if (column.isPartitionKey()) {
                 partitionColumnNames.add(column.getName());
-                partitionColumnTypes.add(typeManager.getType(column.getTypeSignature()));
+                partitionColumnTypes.add(column.getType());
             }
             else {
                 dataColumns.add(new DataColumn(column.getName(), hiveType));
@@ -226,7 +221,7 @@ public class HiveWriterFactory
         else {
             Optional<Table> table = pageSinkMetadataProvider.getTable();
             if (!table.isPresent()) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Table %s.%s was dropped during insert", schemaName, tableName));
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName));
             }
             this.table = table.get();
             writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
@@ -261,8 +256,6 @@ public class HiveWriterFactory
         }
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
-
-        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -443,9 +436,9 @@ public class HiveWriterFactory
 
         Path path = new Path(writeInfo.getWritePath(), fileNameWithExtension);
 
-        HiveFileWriter hiveFileWriter = null;
+        FileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
-            Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+            Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                     path,
                     dataColumns.stream()
                             .map(DataColumn::getName)
@@ -479,9 +472,9 @@ public class HiveWriterFactory
         Consumer<HiveWriter> onCommit = hiveWriter -> {
             Optional<Long> size;
             try {
-                size = Optional.of(hdfsEnvironment.getFileSystem(session.getUser(), path, conf).getFileStatus(path).getLen());
+                size = Optional.of(hiveWriter.getWrittenBytes());
             }
-            catch (IOException | RuntimeException e) {
+            catch (RuntimeException e) {
                 // Do not fail the query if file system is not available
                 size = Optional.empty();
             }
@@ -542,7 +535,7 @@ public class HiveWriterFactory
                     sortFields,
                     sortOrders,
                     pageSorter,
-                    (fs, p) -> createOrcDataSink(session, fs, p));
+                    OrcFileWriterFactory::createOrcDataSink);
         }
 
         return new HiveWriter(
@@ -567,12 +560,12 @@ public class HiveWriterFactory
                 .collect(toMap(DataColumn::getName, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
-            throw new PrestoException(NOT_FOUND, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
+            throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
         }
         if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
             throw new PrestoException(HIVE_INVALID_METADATA, format(
                     "Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
-                    partitionName,
+                    partitionName.orElse(""), // TODO: this should exist
                     schemaName,
                     tableName));
         }
@@ -595,7 +588,7 @@ public class HiveWriterFactory
                         schemaName,
                         tableName,
                         inputHiveType,
-                        partitionName,
+                        partitionName.orElse(""), // TODO: this should exist
                         columnName,
                         fileColumnHiveType));
             }

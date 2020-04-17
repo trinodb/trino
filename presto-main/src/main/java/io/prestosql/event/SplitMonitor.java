@@ -58,14 +58,16 @@ public class SplitMonitor
 
     private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
     {
-        Optional<Duration> timeToStart = Optional.empty();
+        Duration queuedTime = ofMillis(driverStats.getQueuedTime().toMillis());
+        Optional<Duration> queuedTimeIfSplitRan = Optional.empty();
         if (driverStats.getStartTime() != null) {
-            timeToStart = Optional.of(ofMillis(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis()));
+            queuedTimeIfSplitRan = Optional.of(queuedTime);
         }
 
-        Optional<Duration> timeToEnd = Optional.empty();
+        Duration elapsedTime = ofMillis(driverStats.getElapsedTime().toMillis());
+        Optional<Duration> elapsedTimeIfSplitRan = Optional.empty();
         if (driverStats.getEndTime() != null) {
-            timeToEnd = Optional.of(ofMillis(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis()));
+            elapsedTimeIfSplitRan = Optional.of(elapsedTime);
         }
 
         Optional<SplitFailureInfo> splitFailureMetadata = Optional.empty();
@@ -84,13 +86,13 @@ public class SplitMonitor
                             Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
                             new SplitStatistics(
                                     ofMillis(driverStats.getTotalCpuTime().toMillis()),
-                                    ofMillis(driverStats.getElapsedTime().toMillis()),
-                                    ofMillis(driverStats.getQueuedTime().toMillis()),
+                                    elapsedTime,
+                                    queuedTime,
                                     ofMillis(driverStats.getRawInputReadTime().toMillis()),
                                     driverStats.getRawInputPositions(),
                                     driverStats.getRawInputDataSize().toBytes(),
-                                    timeToStart,
-                                    timeToEnd),
+                                    queuedTimeIfSplitRan,
+                                    elapsedTimeIfSplitRan),
                             splitFailureMetadata,
                             objectMapper.writeValueAsString(driverStats)));
         }

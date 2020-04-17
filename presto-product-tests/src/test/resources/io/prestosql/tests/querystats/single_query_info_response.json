@@ -73,7 +73,6 @@
   "outputStage": {
     "stageId": "20150505_160116_00005_sdzex.0",
     "state": "FINISHED",
-    "self": "http://172.16.2.11:8080/v1/stage/20150505_160116_00005_sdzex.0",
     "plan": {
       "id": "1",
       "root": {
@@ -242,7 +241,6 @@
       {
         "stageId": "20150505_160116_00005_sdzex.1",
         "state": "FINISHED",
-        "self": "http://172.16.2.11:8080/v1/stage/20150505_160116_00005_sdzex.1",
         "plan": {
           "id": "0",
           "root": {

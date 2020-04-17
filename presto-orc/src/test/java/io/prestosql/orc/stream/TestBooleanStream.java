@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDecompressor;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
@@ -90,11 +91,11 @@ public class TestBooleanStream
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(new OrcColumnId(33));
             streamDataOutput.writeData(sliceOutput);
             Stream stream = streamDataOutput.getStream();
             assertEquals(stream.getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.getColumn(), 33);
+            assertEquals(stream.getColumnId(), new OrcColumnId(33));
             assertEquals(stream.getLength(), sliceOutput.size());
 
             BooleanInputStream valueStream = createValueStream(sliceOutput.slice());

@@ -15,9 +15,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -29,6 +27,7 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -58,6 +57,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 
@@ -119,12 +119,13 @@ public class BenchmarkArrayIntersect
                     throw new UnsupportedOperationException();
             }
 
-            ArrayType arrayType = new ArrayType(elementType);
-            Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
-            ImmutableList<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
-
             Metadata metadata = createTestMetadataManager();
+            ArrayType arrayType = new ArrayType(elementType);
+            ImmutableList<RowExpression> projections = ImmutableList.of(new CallExpression(
+                    metadata.resolveFunction(QualifiedName.of(name), fromTypes(arrayType, arrayType)),
+                    arrayType,
+                    ImmutableList.of(field(0, arrayType), field(1, arrayType))));
+
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
 

@@ -49,10 +49,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
@@ -65,9 +63,9 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestMemoryPools
 {
-    private static final DataSize TEN_MEGABYTES = new DataSize(10, MEGABYTE);
-    private static final DataSize TEN_MEGABYTES_WITHOUT_TWO_BYTES = new DataSize(TEN_MEGABYTES.toBytes() - 2, BYTE);
-    private static final DataSize ONE_BYTE = new DataSize(1, BYTE);
+    private static final DataSize TEN_MEGABYTES = DataSize.of(10, MEGABYTE);
+    private static final DataSize TEN_MEGABYTES_WITHOUT_TWO_BYTES = DataSize.ofBytes(TEN_MEGABYTES.toBytes() - 2);
+    private static final DataSize ONE_BYTE = DataSize.ofBytes(1);
 
     private QueryId fakeQueryId;
     private LocalQueryRunner localQueryRunner;
@@ -85,24 +83,26 @@ public class TestMemoryPools
                 .setSystemProperty("task_default_concurrency", "1")
                 .build();
 
-        localQueryRunner = queryRunnerWithInitialTransaction(session);
+        localQueryRunner = LocalQueryRunner.builder(session)
+                .withInitialTransaction()
+                .build();
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         userPool = new MemoryPool(new MemoryPoolId("test"), TEN_MEGABYTES);
         fakeQueryId = new QueryId("fake");
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
-                new DataSize(20, MEGABYTE),
+                DataSize.of(20, MEGABYTE),
                 userPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 TEN_MEGABYTES,
                 spillSpaceTracker);
-        taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session);
+        taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), localQueryRunner.getDefaultSession());
         drivers = driversSupplier.get();
     }
 
@@ -233,7 +233,7 @@ public class TestMemoryPools
     public void testTaggedAllocations()
     {
         QueryId testQuery = new QueryId("test_query");
-        MemoryPool testPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        MemoryPool testPool = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
 
         testPool.reserve(testQuery, "test_tag", 10);
 
@@ -260,8 +260,8 @@ public class TestMemoryPools
     public void testMoveQuery()
     {
         QueryId testQuery = new QueryId("test_query");
-        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
-        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
         pool1.reserve(testQuery, "test_tag", 10);
 
         Map<String, Long> allocations = pool1.getTaggedMemoryAllocations().get(testQuery);
@@ -283,8 +283,8 @@ public class TestMemoryPools
     public void testMoveUnknownQuery()
     {
         QueryId testQuery = new QueryId("test_query");
-        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
-        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
 
         assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
 

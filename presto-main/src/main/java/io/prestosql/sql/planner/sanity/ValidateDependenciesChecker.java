@@ -128,9 +128,6 @@ public final class ValidateDependenciesChecker
             for (Aggregation aggregation : node.getAggregations().values()) {
                 Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation);
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
-                aggregation.getMask().ifPresent(mask -> {
-                    checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputSymbols());
-                });
             }
 
             return null;
@@ -363,7 +360,14 @@ public final class ValidateDependenciesChecker
                         allInputs);
             });
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
+            if (node.isCrossJoin()) {
+                Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
+                        .addAll(node.getLeft().getOutputSymbols())
+                        .addAll(node.getRight().getOutputSymbols())
+                        .build();
+                checkDependencies(node.getOutputSymbols(), inputs, "Cross join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), inputs);
+            }
+
             return null;
         }
 

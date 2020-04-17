@@ -22,6 +22,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.prestosql.decoder.DecoderModule;
 import io.prestosql.plugin.kinesis.s3config.S3TableConfigClient;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -30,7 +31,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public class KinesisModule
@@ -81,7 +81,7 @@ public class KinesisModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = typeManager.getType(parseTypeSignature(value));
+            Type type = typeManager.getType(TypeId.of(value));
             checkArgument(type != null, "Unknown type %s", value);
             return type;
         }

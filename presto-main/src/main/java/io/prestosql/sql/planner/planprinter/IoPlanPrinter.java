@@ -31,8 +31,9 @@ import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
@@ -270,17 +271,17 @@ public class IoPlanPrinter
     public static class ColumnConstraint
     {
         private final String columnName;
-        private final TypeSignature typeSignature;
+        private final Type type;
         private final FormattedDomain domain;
 
         @JsonCreator
         public ColumnConstraint(
                 @JsonProperty("columnName") String columnName,
-                @JsonProperty("typeSignature") TypeSignature typeSignature,
+                @JsonProperty("type") Type type,
                 @JsonProperty("domain") FormattedDomain domain)
         {
             this.columnName = requireNonNull(columnName, "columnName is null");
-            this.typeSignature = requireNonNull(typeSignature, "type is null");
+            this.type = requireNonNull(type, "type is null");
             this.domain = requireNonNull(domain, "domain is null");
         }
 
@@ -291,9 +292,9 @@ public class IoPlanPrinter
         }
 
         @JsonProperty
-        public TypeSignature getTypeSignature()
+        public Type getType()
         {
-            return typeSignature;
+            return type;
         }
 
         @JsonProperty
@@ -313,14 +314,14 @@ public class IoPlanPrinter
             }
             ColumnConstraint o = (ColumnConstraint) obj;
             return Objects.equals(columnName, o.columnName) &&
-                    Objects.equals(typeSignature, o.typeSignature) &&
+                    Objects.equals(type, o.type) &&
                     Objects.equals(domain, o.domain);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(columnName, typeSignature, domain);
+            return Objects.hash(columnName, type, domain);
         }
 
         @Override
@@ -328,7 +329,7 @@ public class IoPlanPrinter
         {
             return toStringHelper(this)
                     .add("columnName", columnName)
-                    .add("typeSignature", typeSignature)
+                    .add("typeSignature", type)
                     .add("domain", domain)
                     .toString();
         }
@@ -572,7 +573,7 @@ public class IoPlanPrinter
             }
             FormattedMarker o = (FormattedMarker) obj;
             return Objects.equals(value, o.value) &&
-                    Objects.equals(bound, o.bound);
+                    bound == o.bound;
         }
 
         @Override
@@ -601,19 +602,29 @@ public class IoPlanPrinter
         }
 
         @Override
+        public Void visitFilter(FilterNode node, IoPlanBuilder context)
+        {
+            PlanNode source = node.getSource();
+            if (source instanceof TableScanNode) {
+                TableScanNode tableScanNode = (TableScanNode) source;
+                DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+                        metadata,
+                        session,
+                        node.getPredicate(),
+                        plan.getTypes());
+                TupleDomain<ColumnHandle> filterDomain = decomposedPredicate.getTupleDomain()
+                        .transform(tableScanNode.getAssignments()::get);
+                addInputTableConstraints(filterDomain, tableScanNode, context);
+                return null;
+            }
+
+            return processChildren(node, context);
+        }
+
+        @Override
         public Void visitTableScan(TableScanNode node, IoPlanBuilder context)
         {
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
-            TupleDomain<ColumnHandle> predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
-            EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(node);
-            context.addInputTableColumnInfo(
-                    new IoPlan.TableColumnInfo(
-                        new CatalogSchemaTableName(
-                                tableMetadata.getCatalogName().getCatalogName(),
-                                tableMetadata.getTable().getSchemaName(),
-                                tableMetadata.getTable().getTableName()),
-                        parseConstraints(node.getTable(), predicate),
-                        estimatedStatsAndCost));
+            addInputTableConstraints(TupleDomain.all(), node, context);
             return null;
         }
 
@@ -651,6 +662,22 @@ public class IoPlanPrinter
             return processChildren(node, context);
         }
 
+        private void addInputTableConstraints(TupleDomain<ColumnHandle> filterDomain, TableScanNode tableScan, IoPlanBuilder context)
+        {
+            TableHandle table = tableScan.getTable();
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, table);
+            TupleDomain<ColumnHandle> predicateDomain = metadata.getTableProperties(session, table).getPredicate();
+            EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(tableScan);
+            context.addInputTableColumnInfo(
+                    new IoPlan.TableColumnInfo(
+                            new CatalogSchemaTableName(
+                                    tableMetadata.getCatalogName().getCatalogName(),
+                                    tableMetadata.getTable().getSchemaName(),
+                                    tableMetadata.getTable().getTableName()),
+                            parseConstraints(table, predicateDomain.intersect(filterDomain)),
+                            estimatedStatsAndCost));
+        }
+
         private EstimatedStatsAndCost getEstimatedStatsAndCost(TableScanNode node)
         {
             StatsAndCosts statsAndCosts = plan.getStatsAndCosts();
@@ -674,7 +701,7 @@ public class IoPlanPrinter
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, entry.getKey());
                 columnConstraints.add(new ColumnConstraint(
                         columnMetadata.getName(),
-                        columnMetadata.getType().getTypeSignature(),
+                        columnMetadata.getType(),
                         parseDomain(entry.getValue().simplify())));
             }
             return columnConstraints.build();

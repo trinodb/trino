@@ -133,12 +133,12 @@ public class ShardMetadataRecordCursor
         return ImmutableList.<String>builder()
                 .add("tables.schema_name")
                 .add("tables.table_name")
-                .add("shards" + "." + COLUMNS.get(2).getName())
-                .add("shards" + "." + COLUMNS.get(3).getName())
-                .add("shards" + "." + COLUMNS.get(4).getName())
-                .add("shards" + "." + COLUMNS.get(5).getName())
-                .add("shards" + "." + COLUMNS.get(6).getName())
-                .add("shards" + "." + COLUMNS.get(7).getName())
+                .add("shards." + COLUMNS.get(2).getName())
+                .add("shards." + COLUMNS.get(3).getName())
+                .add("shards." + COLUMNS.get(4).getName())
+                .add("shards." + COLUMNS.get(5).getName())
+                .add("shards." + COLUMNS.get(6).getName())
+                .add("shards." + COLUMNS.get(7).getName())
                 .add(MIN_TIMESTAMP)
                 .add(MAX_TIMESTAMP)
                 .add(MIN_DATE)
@@ -377,7 +377,7 @@ public class ShardMetadataRecordCursor
                 return i;
             }
         }
-        throw new IllegalArgumentException(format("Column %s not found", columnName));
+        throw new IllegalArgumentException(format("Column '%s' not found", columnName));
     }
 
     private void checkFieldType(int field, Class<?> clazz)

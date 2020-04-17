@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +46,8 @@ public class HiveTableHandle
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
+    private final Optional<Set<String>> analyzeColumnNames;
+    private final Optional<Set<ColumnHandle>> constraintColumns;
 
     @JsonCreator
     public HiveTableHandle(
@@ -54,7 +58,8 @@ public class HiveTableHandle
             @JsonProperty("enforcedConstraint") TupleDomain<ColumnHandle> enforcedConstraint,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
-            @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues)
+            @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
+            @JsonProperty("analyzeColumnNames") Optional<Set<String>> analyzeColumnNames)
     {
         this(
                 schemaName,
@@ -66,7 +71,9 @@ public class HiveTableHandle
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
-                analyzePartitionValues);
+                analyzePartitionValues,
+                analyzeColumnNames,
+                Optional.empty());
     }
 
     public HiveTableHandle(
@@ -86,6 +93,8 @@ public class HiveTableHandle
                 TupleDomain.all(),
                 bucketHandle,
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -99,7 +108,9 @@ public class HiveTableHandle
             TupleDomain<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
-            Optional<List<List<String>>> analyzePartitionValues)
+            Optional<List<List<String>>> analyzePartitionValues,
+            Optional<Set<String>> analyzeColumnNames,
+            Optional<Set<ColumnHandle>> constraintColumns)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -111,9 +122,11 @@ public class HiveTableHandle
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
+        this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
+        this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null");
     }
 
-    public HiveTableHandle withAnalyzePartitionValues(Optional<List<List<String>>> analyzePartitionValues)
+    public HiveTableHandle withAnalyzePartitionValues(List<List<String>> analyzePartitionValues)
     {
         return new HiveTableHandle(
                 schemaName,
@@ -125,7 +138,26 @@ public class HiveTableHandle
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
-                analyzePartitionValues);
+                Optional.of(analyzePartitionValues),
+                analyzeColumnNames,
+                constraintColumns);
+    }
+
+    public HiveTableHandle withAnalyzeColumnNames(Set<String> analyzeColumnNames)
+    {
+        return new HiveTableHandle(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                Optional.of(analyzeColumnNames),
+                constraintColumns);
     }
 
     @JsonProperty
@@ -190,6 +222,19 @@ public class HiveTableHandle
         return analyzePartitionValues;
     }
 
+    @JsonProperty
+    public Optional<Set<String>> getAnalyzeColumnNames()
+    {
+        return analyzeColumnNames;
+    }
+
+    // do not serialize constraint columns as they are not needed on workers
+    @JsonIgnore
+    public Optional<Set<ColumnHandle>> getConstraintColumns()
+    {
+        return constraintColumns;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -206,13 +251,31 @@ public class HiveTableHandle
         }
         HiveTableHandle that = (HiveTableHandle) o;
         return Objects.equals(schemaName, that.schemaName) &&
-                Objects.equals(tableName, that.tableName);
+                Objects.equals(tableName, that.tableName) &&
+                Objects.equals(tableParameters, that.tableParameters) &&
+                Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(partitions, that.partitions) &&
+                Objects.equals(compactEffectivePredicate, that.compactEffectivePredicate) &&
+                Objects.equals(enforcedConstraint, that.enforcedConstraint) &&
+                Objects.equals(bucketHandle, that.bucketHandle) &&
+                Objects.equals(bucketFilter, that.bucketFilter) &&
+                Objects.equals(analyzePartitionValues, that.analyzePartitionValues);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues);
     }
 
     @Override

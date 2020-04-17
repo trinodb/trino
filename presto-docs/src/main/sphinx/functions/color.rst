@@ -13,8 +13,8 @@ Color Functions
 .. function:: bar(x, width, low_color, high_color) -> varchar
 
     Renders a single line in an ANSI bar chart of the specified
-    ``width``. The parameter ``x`` is a double value between [0,1].
-    Values of ``x`` that fall outside the range [0,1] will be
+    ``width``. The parameter ``x`` is a double value between 0 and 1.
+    Values of ``x`` that fall outside the range [0, 1] will be
     truncated to either a 0 or a 1 value. The ``low_color`` and
     ``high_color`` capture the color to use for either end of
     the horizontal bar chart.  For example, if ``x`` is 0.5, ``width``
@@ -47,8 +47,8 @@ Color Functions
 
     Returns a color interpolated between ``low_color`` and
     ``high_color`` according to the double argument ``x`` between 0
-    and 1.0.  The parameter ``x`` is a double value between [0,1].
-    Values of ``x`` that fall outside the range [0,1] will be
+    and 1.  The parameter ``x`` is a double value between 0 and 1.
+    Values of ``x`` that fall outside the range [0, 1] will be
     truncated to either a 0 or a 1 value.
 
 .. function:: render(x, color) -> varchar

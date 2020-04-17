@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-cleanup_docker_containers
-start_docker_containers
+cleanup_hadoop_docker_containers
+start_hadoop_docker_containers
 
 HADOOP_MASTER_IP=$(hadoop_master_ip)
 

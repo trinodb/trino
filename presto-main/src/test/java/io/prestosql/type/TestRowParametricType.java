@@ -27,8 +27,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 
@@ -40,8 +40,8 @@ public class TestRowParametricType
         TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
-                TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col1", false)), new TypeSignature(BIGINT))),
-                TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col2", true)), new TypeSignature(DOUBLE))));
+                TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col1")), BIGINT.getTypeSignature())),
+                TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col2")), DOUBLE.getTypeSignature())));
         List<TypeParameter> parameters = typeSignature.getParameters().stream()
                 .map(parameter -> TypeParameter.of(parameter, typeManager))
                 .collect(Collectors.toList());

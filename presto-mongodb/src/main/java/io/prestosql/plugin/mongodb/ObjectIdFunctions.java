@@ -41,26 +41,37 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class ObjectIdFunctions
 {
     private ObjectIdFunctions() {}
 
-    @Description("mongodb ObjectId")
-    @ScalarFunction("objectid")
+    @Description("Mongodb ObjectId")
+    @ScalarFunction
     @SqlType("ObjectId")
-    public static Slice ObjectId()
+    public static Slice objectid()
     {
         return Slices.wrappedBuffer(new ObjectId().toByteArray());
     }
 
-    @Description("mongodb ObjectId from the given string")
-    @ScalarFunction("objectid")
+    @Description("Mongodb ObjectId from the given string")
+    @ScalarFunction
     @SqlType("ObjectId")
-    public static Slice ObjectId(@SqlType(StandardTypes.VARCHAR) Slice value)
+    public static Slice objectid(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         return Slices.wrappedBuffer(new ObjectId(CharMatcher.is(' ').removeFrom(value.toStringUtf8())).toByteArray());
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) // ObjectId's timestamp is a point in time
+    public static long objectidTimestamp(@SqlType("ObjectId") Slice value)
+    {
+        int epochSeconds = new ObjectId(value.getBytes()).getTimestamp();
+        return packDateTimeWithZone(SECONDS.toMillis(epochSeconds), UTC_KEY);
     }
 
     @ScalarOperator(CAST)

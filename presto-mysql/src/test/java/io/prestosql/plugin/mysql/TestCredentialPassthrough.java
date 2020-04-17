@@ -14,74 +14,69 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 
 public class TestCredentialPassthrough
 {
-    private static final String TEST_SCHEMA = "test_database";
-    private final TestingMySqlServer mysqlServer;
-    private final QueryRunner mySqlQueryRunner;
-
-    public TestCredentialPassthrough()
-            throws Exception
-    {
-        mysqlServer = new TestingMySqlServer("testuser", "testpass", TEST_SCHEMA);
-        mySqlQueryRunner = createQueryRunner(mysqlServer);
-    }
+    private TestingMySqlServer mysqlServer;
+    private QueryRunner queryRunner;
 
     @Test
     public void testCredentialPassthrough()
     {
-        mySqlQueryRunner.execute(getSession(mysqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
+        queryRunner.execute(getSession(mysqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
     }
 
-    public static QueryRunner createQueryRunner(TestingMySqlServer mySqlServer)
+    @BeforeClass
+    public void createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        mysqlServer = new TestingMySqlServer();
         try {
             queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
             queryRunner.installPlugin(new MySqlPlugin());
             Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", getConnectionUrl(mySqlServer))
+                    .put("connection-url", mysqlServer.getJdbcUrl())
                     .put("user-credential-name", "mysql.user")
                     .put("password-credential-name", "mysql.password")
                     .build();
             queryRunner.createCatalog("mysql", "mysql", properties);
-
-            return queryRunner;
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner, mySqlServer);
+            closeAllSuppress(e, queryRunner, mysqlServer::close);
             throw e;
         }
     }
 
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        queryRunner.close();
+        queryRunner = null;
+        mysqlServer.close();
+        mysqlServer = null;
+    }
+
     private static Session getSession(TestingMySqlServer mySqlServer)
     {
-        Map<String, String> extraCredentials = ImmutableMap.of("mysql.user", mySqlServer.getUser(), "mysql.password", mySqlServer.getPassword());
+        Map<String, String> extraCredentials = ImmutableMap.of("mysql.user", mySqlServer.getUsername(), "mysql.password", mySqlServer.getPassword());
         return testSessionBuilder()
                 .setCatalog("mysql")
-                .setSchema(TEST_SCHEMA)
-                .setIdentity(Identity.forUser(mySqlServer.getUser())
+                .setSchema(mySqlServer.getDatabaseName())
+                .setIdentity(Identity.forUser(mySqlServer.getUsername())
                         .withExtraCredentials(extraCredentials)
                         .build())
                 .build();
-    }
-
-    private static String getConnectionUrl(TestingMySqlServer mySqlServer)
-    {
-        return format("jdbc:mysql://localhost:%s?useSSL=false&allowPublicKeyRetrieval=true", mySqlServer.getPort());
     }
 }

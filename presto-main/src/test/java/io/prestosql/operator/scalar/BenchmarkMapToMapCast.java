@@ -14,9 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -91,12 +89,13 @@ public class BenchmarkMapToMapCast
         @Setup
         public void setup()
         {
-            Signature signature = new Signature("$operator$CAST", FunctionKind.SCALAR, mapType(BIGINT, DOUBLE).getTypeSignature(), mapType(DOUBLE, BIGINT).getTypeSignature());
-
-            List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
-
             Metadata metadata = createTestMetadataManager();
+
+            List<RowExpression> projections = ImmutableList.of(new CallExpression(
+                    metadata.getCoercion(mapType(DOUBLE, BIGINT), mapType(BIGINT, DOUBLE)),
+                    mapType(BIGINT, DOUBLE),
+                    ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
+
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();

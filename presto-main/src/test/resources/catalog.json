@@ -29,6 +29,11 @@
       "allow": false
     },
     {
+      "group": "staff|some_second_group",
+      "catalog": "staff-catalog",
+      "allow": true
+    },
+    {
       "user": "\u0194\u0194\u0194",
       "catalog": "\u0200\u0200\u0200",
       "allow": true
