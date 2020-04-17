@@ -568,7 +568,19 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern groupId(List<List<String>> groupingSets, String groupIdSymbol, PlanMatchPattern source)
     {
-        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groupingSets, ImmutableList.of(), groupIdSymbol));
+        return groupId(groupingSets, ImmutableList.of(), groupIdSymbol, source);
+    }
+
+    public static PlanMatchPattern groupId(
+            List<List<String>> groupingSets,
+            List<String> aggregationArguments,
+            String groupIdSymbol,
+            PlanMatchPattern source)
+    {
+        return node(GroupIdNode.class, source).with(new GroupIdMatcher(
+                groupingSets,
+                aggregationArguments,
+                groupIdSymbol));
     }
 
     private static PlanMatchPattern values(
