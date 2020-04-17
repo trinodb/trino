@@ -276,7 +276,6 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                checkState(buildConfigObject(SnowflakeConfig.class).getRole().isPresent(), "No Snowflake role has been provided");
             }
 
             @Provides
