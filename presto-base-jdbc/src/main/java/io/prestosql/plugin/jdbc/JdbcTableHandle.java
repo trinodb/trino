@@ -123,13 +123,16 @@ public final class JdbcTableHandle
             return false;
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
-        return Objects.equals(this.schemaTableName, o.schemaTableName);
+        return Objects.equals(this.schemaTableName, o.schemaTableName) &&
+                Objects.equals(this.columns, o.columns) &&
+                Objects.equals(this.constraint, o.constraint) &&
+                Objects.equals(this.limit, o.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName);
+        return Objects.hash(schemaTableName, columns, constraint, limit);
     }
 
     @Override

@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -75,5 +76,27 @@ public final class TableHandle
     public String toString()
     {
         return catalogName + ":" + connectorHandle;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TableHandle other = (TableHandle) o;
+        return Objects.equals(catalogName, other.catalogName) &&
+                Objects.equals(connectorHandle, other.connectorHandle) &&
+                Objects.equals(transaction, other.transaction) &&
+                Objects.equals(layout, other.layout);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(catalogName, connectorHandle, transaction, layout);
     }
 }

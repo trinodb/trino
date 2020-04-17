@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -353,6 +354,25 @@ public final class HiveBucketing
         public Set<Integer> getBucketsToKeep()
         {
             return bucketsToKeep;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            HiveBucketFilter other = (HiveBucketFilter) obj;
+            return Objects.equals(this.bucketsToKeep, other.bucketsToKeep);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(bucketsToKeep);
         }
     }
 }

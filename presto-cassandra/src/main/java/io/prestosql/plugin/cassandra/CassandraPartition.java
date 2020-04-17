@@ -17,6 +17,8 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Objects;
 
 public class CassandraPartition
 {
@@ -78,5 +80,27 @@ public class CassandraPartition
     public byte[] getKey()
     {
         return key;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        CassandraPartition other = (CassandraPartition) obj;
+        return Objects.equals(this.partitionId, other.partitionId) &&
+                Arrays.equals(this.key, other.key) &&
+                Objects.equals(this.tupleDomain, other.tupleDomain) &&
+                Objects.equals(this.indexedColumnPredicatePushdown, other.indexedColumnPredicatePushdown);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(partitionId, Arrays.hashCode(key), tupleDomain, indexedColumnPredicatePushdown);
     }
 }

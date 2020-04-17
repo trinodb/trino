@@ -88,13 +88,14 @@ public class LocalFileTableHandle
         LocalFileTableHandle that = (LocalFileTableHandle) o;
         return Objects.equals(schemaTableName, that.schemaTableName) &&
                 Objects.equals(timestampColumn, that.timestampColumn) &&
-                Objects.equals(serverAddressColumn, that.serverAddressColumn);
+                Objects.equals(serverAddressColumn, that.serverAddressColumn) &&
+                Objects.equals(constraint, that.constraint);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, timestampColumn, serverAddressColumn);
+        return Objects.hash(schemaTableName, timestampColumn, serverAddressColumn, constraint);
     }
 
     @Override
