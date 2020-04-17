@@ -98,9 +98,10 @@ class SnowflakePageSourceProvider
                     if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {
                         return new HiveColumnHandle(
                                 column.getName(),
+                                column.getBaseHiveColumnIndex(),
                                 column.getHiveType(),
                                 createDecimalType(19),
-                                column.getHiveColumnIndex(),
+                                column.getHiveColumnProjectionInfo(),
                                 column.getColumnType(),
                                 column.getComment());
                     }

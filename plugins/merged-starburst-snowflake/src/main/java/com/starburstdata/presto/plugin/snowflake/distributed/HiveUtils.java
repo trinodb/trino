@@ -48,9 +48,10 @@ final class HiveUtils
     {
         return new HiveColumnHandle(
                 jdbcColumnHandle.getColumnName(),
+                columnIndex,
                 toHiveType(typeTranslator, jdbcColumnHandle.getColumnType()),
                 jdbcColumnHandle.getColumnType(),
-                columnIndex,
+                Optional.empty(),
                 REGULAR,
                 Optional.empty());
     }
