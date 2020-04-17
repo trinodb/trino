@@ -26,7 +26,6 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -57,7 +56,7 @@ class SnowflakePageSourceProvider
     private final ParquetReaderConfig parquetReaderConfig;
 
     @Inject
-    public SnowflakePageSourceProvider(TypeManager typeManager, FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
+    public SnowflakePageSourceProvider(FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.parquetReaderConfig = new ParquetReaderConfig().setMaxReadBlockSize(config.getParquetMaxReadBlockSize());
