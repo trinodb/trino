@@ -82,7 +82,7 @@ public class SystemTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(schemaName, tableName, constraint);
     }
 
     @Override
@@ -96,6 +96,7 @@ public class SystemTableHandle
         }
         final SystemTableHandle other = (SystemTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.constraint, other.constraint);
     }
 }

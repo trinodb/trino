@@ -158,7 +158,7 @@ public final class RaptorTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableId);
+        return Objects.hash(schemaName, tableName, tableId, distributionId, distributionName, bucketCount, organized, transactionId, constraint, bucketAssignments, delete);
     }
 
     @Override
@@ -173,7 +173,15 @@ public final class RaptorTableHandle
         RaptorTableHandle other = (RaptorTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.tableId, other.tableId);
+                Objects.equals(this.tableId, other.tableId) &&
+                Objects.equals(this.distributionId, other.distributionId) &&
+                Objects.equals(this.distributionName, other.distributionName) &&
+                Objects.equals(this.bucketCount, other.bucketCount) &&
+                this.organized == other.organized &&
+                Objects.equals(this.transactionId, other.transactionId) &&
+                Objects.equals(this.constraint, other.constraint) &&
+                Objects.equals(this.bucketAssignments, other.bucketAssignments) &&
+                this.delete == other.delete;
     }
 
     @JsonIgnore

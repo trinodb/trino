@@ -95,7 +95,7 @@ public class KuduTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName);
+        return Objects.hash(schemaTableName, constraint, desiredColumns, isDeleteHandle);
     }
 
     @Override
