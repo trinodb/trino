@@ -23,6 +23,9 @@ public class ThreadContextClassLoader
     public ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
     {
         this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
+        if (newThreadContextClassLoader == ThreadContextClassLoader.class.getClassLoader()) {
+            throw new IllegalArgumentException("ThreadContextClassLoader should be used with a different class loader");
+        }
         Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
     }
 
