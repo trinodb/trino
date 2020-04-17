@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
@@ -89,6 +90,7 @@ import io.prestosql.testing.TestingTransactionHandle;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,6 +110,7 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.util.MoreLists.nElements;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.function.Function.identity;
 
 public class PlanBuilder
 {
@@ -290,6 +293,22 @@ public class PlanBuilder
         AggregationBuilder aggregationBuilder = new AggregationBuilder();
         aggregationBuilderConsumer.accept(aggregationBuilder);
         return aggregationBuilder.build();
+    }
+
+    public GroupIdNode groupId(List<List<Symbol>> groupingSets, List<Symbol> aggregationArguments, Symbol groupIdSymbol, PlanNode source)
+    {
+        Map<Symbol, Symbol> groupingColumns = groupingSets.stream()
+                .flatMap(Collection::stream)
+                .distinct()
+                .collect(ImmutableMap.toImmutableMap(identity(), identity()));
+
+        return new GroupIdNode(
+                idAllocator.getNextId(),
+                source,
+                groupingSets,
+                groupingColumns,
+                aggregationArguments,
+                groupIdSymbol);
     }
 
     public DistinctLimitNode distinctLimit(long count, List<Symbol> distinctSymbols, PlanNode source)
