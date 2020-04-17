@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.assertions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.prestosql.Session;
@@ -567,9 +566,9 @@ public final class PlanMatchPattern
                 .with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
-    public static PlanMatchPattern groupingSet(List<List<String>> groups, String groupIdAlias, PlanMatchPattern source)
+    public static PlanMatchPattern groupId(List<List<String>> groupingSets, String groupIdSymbol, PlanMatchPattern source)
     {
-        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of(), groupIdAlias));
+        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groupingSets, ImmutableList.of(), groupIdSymbol));
     }
 
     private static PlanMatchPattern values(
