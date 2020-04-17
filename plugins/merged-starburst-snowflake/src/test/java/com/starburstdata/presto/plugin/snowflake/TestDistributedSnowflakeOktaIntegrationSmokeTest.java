@@ -33,6 +33,7 @@ public class TestDistributedSnowflakeOktaIntegrationSmokeTest
         return distributedBuilder()
                 .withServer(server)
                 .withAdditionalProperties(oktaImpersonationEnabled(false))
+                .withOktaCredentials(true)
                 .withConnectionPooling()
                 .build();
     }
@@ -43,6 +44,7 @@ public class TestDistributedSnowflakeOktaIntegrationSmokeTest
     {
         try (QueryRunner queryRunner = distributedBuilder()
                 .withAdditionalProperties(oktaImpersonationEnabled(false))
+                .withOktaCredentials(true)
                 .build()) {
             Session session = getSession();
             String tableName = "test_insert_" + randomTableSuffix();

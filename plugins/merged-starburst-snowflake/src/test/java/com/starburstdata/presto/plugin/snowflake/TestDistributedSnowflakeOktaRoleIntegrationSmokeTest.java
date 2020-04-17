@@ -31,6 +31,7 @@ public class TestDistributedSnowflakeOktaRoleIntegrationSmokeTest
         return distributedBuilder()
                 .withServer(server)
                 .withAdditionalProperties(oktaImpersonationEnabled(true))
+                .withOktaCredentials(true)
                 .build();
     }
 

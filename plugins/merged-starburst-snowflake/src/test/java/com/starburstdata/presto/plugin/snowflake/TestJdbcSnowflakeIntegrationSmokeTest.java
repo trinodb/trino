@@ -14,6 +14,8 @@ import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
 import static java.lang.String.format;
@@ -44,8 +46,8 @@ public class TestJdbcSnowflakeIntegrationSmokeTest
             throws Exception
     {
         try (QueryRunner queryRunner = jdbcBuilder()
-                .withoutWarehouse()
-                .withoutDatabase()
+                .withWarehouse(Optional.empty())
+                .withDatabase(Optional.empty())
                 .withAdditionalProperties(impersonationDisabled())
                 .build()) {
             Session session = Session.builder(queryRunner.getDefaultSession())

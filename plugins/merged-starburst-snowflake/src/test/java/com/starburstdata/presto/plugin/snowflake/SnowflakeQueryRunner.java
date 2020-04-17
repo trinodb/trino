@@ -34,6 +34,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_PAS
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_URL;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_USER;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.PASSWORD;
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.PUBLIC_DB;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_DATABASE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_WAREHOUSE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
@@ -54,6 +55,8 @@ class SnowflakeQueryRunner
     private static final String SNOWFLAKE_CATALOG = "snowflake";
 
     static final String TEST_SCHEMA = "test_schema";
+
+    public static final String ALICE_USER = "alice";
 
     static Map<String, String> impersonationDisabled()
     {
@@ -102,11 +105,23 @@ class SnowflakeQueryRunner
         return new Builder(SNOWFLAKE_JDBC);
     }
 
-    private static QueryRunner createSnowflakeQueryRunner(SnowflakeServer server, String connectorName, Optional<String> warehouse, Optional<String> database, Map<String, String> additionalProperties, int nodeCount)
+    private static QueryRunner createSnowflakeQueryRunner(
+            SnowflakeServer server,
+            String connectorName,
+            Optional<String> warehouse,
+            Optional<String> database,
+            Map<String, String> additionalProperties,
+            int nodeCount,
+            boolean useOktaCredentials)
             throws Exception
     {
         server.init();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        // Create view used for testing user/role impersonation
+        server.executeOnDatabase(
+                PUBLIC_DB,
+                "CREATE VIEW IF NOT EXISTS public.user_context (user, role) AS SELECT current_user(), current_role();",
+                "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";");
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession(useOktaCredentials))
                 .setNodeCount(nodeCount)
                 .build();
 
@@ -147,16 +162,23 @@ class SnowflakeQueryRunner
         LOG.info("Loading from %s.%s complete in %s", TPCH_CATALOG, TINY_SCHEMA_NAME, nanosSince(startTime).toString(SECONDS));
     }
 
-    private static Session createSession()
+    private static Session createSession(boolean useOktaCredentials)
     {
+        return createSessionForUser(OKTA_USER, useOktaCredentials);
+    }
+
+    public static Session createSessionForUser(String user, boolean useOktaCredentials)
+    {
+        // in tests, we pass credentials via the extra credentials mechanism
+        Map<String, String> extraCredentials = useOktaCredentials ?
+                ImmutableMap.of("okta.user", OKTA_USER, "okta.password", OKTA_PASSWORD) :
+                ImmutableMap.of();
+
         return testSessionBuilder()
                 .setCatalog("snowflake")
                 .setSchema(TEST_SCHEMA)
-                .setIdentity(Identity.forUser(OKTA_USER)
-                        // in tests, we pass credentials via the extra credentials mechanism
-                        .withExtraCredentials(ImmutableMap.of(
-                                "okta.user", OKTA_USER,
-                                "okta.password", OKTA_PASSWORD))
+                .setIdentity(Identity.forUser(user)
+                        .withExtraCredentials(extraCredentials)
                         .build())
                 .build();
     }
@@ -169,6 +191,7 @@ class SnowflakeQueryRunner
         private Optional<String> databaseName = Optional.of(TEST_DATABASE);
         private ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
         private int nodeCount = 3;
+        private boolean useOktaCredentials;
 
         private Builder(String connectorName)
         {
@@ -181,15 +204,15 @@ class SnowflakeQueryRunner
             return this;
         }
 
-        public Builder withoutWarehouse()
+        public Builder withWarehouse(Optional<String> warehouseName)
         {
-            this.warehouseName = Optional.empty();
+            this.warehouseName = warehouseName;
             return this;
         }
 
-        public Builder withoutDatabase()
+        public Builder withDatabase(Optional<String> databaseName)
         {
-            this.databaseName = Optional.empty();
+            this.databaseName = databaseName;
             return this;
         }
 
@@ -212,10 +235,16 @@ class SnowflakeQueryRunner
             return this;
         }
 
+        public Builder withOktaCredentials(boolean useOktaCredentials)
+        {
+            this.useOktaCredentials = useOktaCredentials;
+            return this;
+        }
+
         public QueryRunner build()
                 throws Exception
         {
-            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, additionalPropertiesBuilder.build(), nodeCount);
+            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, additionalPropertiesBuilder.build(), nodeCount, useOktaCredentials);
         }
     }
 

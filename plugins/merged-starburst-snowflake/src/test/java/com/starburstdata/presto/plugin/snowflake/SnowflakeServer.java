@@ -32,7 +32,7 @@ class SnowflakeServer
 {
     private static final Logger LOG = Logger.get(SnowflakeServer.class);
 
-    private static final String ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
+    static final String ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
 
     static final String JDBC_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
     static final String USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
@@ -48,6 +48,7 @@ class SnowflakeServer
 
     static final String TEST_WAREHOUSE = "TEST_WH";
     static final String TEST_DATABASE = "TEST_DB";
+    static final String PUBLIC_DB = "DEMO_DB";
 
     void init()
             throws SQLException
@@ -73,12 +74,20 @@ class SnowflakeServer
     void execute(String... sqls)
             throws SQLException
     {
+        executeOnDatabase(TEST_DATABASE, sqls);
+    }
+
+    void executeOnDatabase(String database, String... sqls)
+            throws SQLException
+    {
+        DriverManager.getConnection(JDBC_URL, USER, PASSWORD);
+
         try (Connection conn = getConnection();
                 Statement stmt = conn.createStatement()) {
-            LOG.info("Using role: %s, warehouse: %s, database: %s", ROLE, TEST_WAREHOUSE, TEST_DATABASE);
+            LOG.info("Using role: %s, warehouse: %s, database: %s", ROLE, TEST_WAREHOUSE, database);
             stmt.execute(format("USE ROLE %s", ROLE));
             stmt.execute(format("USE WAREHOUSE %s", TEST_WAREHOUSE));
-            stmt.execute(format("USE DATABASE %s", TEST_DATABASE));
+            stmt.execute(format("USE DATABASE %s", database));
 
             for (String sql : sqls) {
                 LOG.info("Executing [%s]: %s", USER, sql);
