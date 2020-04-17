@@ -345,7 +345,7 @@ public class ConnectorManager
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getConnectorFactory().getClass().getClassLoader())) {
             return factory.getConnectorFactory().create(catalogName.getCatalogName(), properties, context);
         }
     }
