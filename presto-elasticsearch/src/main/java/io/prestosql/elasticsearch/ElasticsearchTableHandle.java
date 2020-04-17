@@ -102,12 +102,13 @@ public final class ElasticsearchTableHandle
         return schema.equals(that.schema) &&
                 index.equals(that.index) &&
                 constraint.equals(that.constraint) &&
-                query.equals(that.query);
+                query.equals(that.query) &&
+                limit.equals(that.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, index, constraint, query);
+        return Objects.hash(schema, index, constraint, query, limit);
     }
 }
