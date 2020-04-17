@@ -42,6 +42,11 @@ public final class Patterns
         return typeOf(AggregationNode.class);
     }
 
+    public static Pattern<GroupIdNode> groupId()
+    {
+        return typeOf(GroupIdNode.class);
+    }
+
     public static Pattern<ApplyNode> applyNode()
     {
         return typeOf(ApplyNode.class);
