@@ -41,6 +41,7 @@ import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.GroupIdNode;
+import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -180,6 +181,23 @@ public final class PlanMatchPattern
                 .hasTableLayout()
                 .build();
         return result.addColumnReferences(expectedTableName, columnReferences);
+    }
+
+    public static PlanMatchPattern indexJoin(
+            IndexJoinNode.Type type,
+            List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria,
+            Optional<String> probeHashSymbol,
+            Optional<String> indexHashSymbol,
+            PlanMatchPattern probeSource,
+            PlanMatchPattern indexSource)
+    {
+        return node(IndexJoinNode.class, probeSource, indexSource)
+                .with(new IndexJoinMatcher(type, criteria, probeHashSymbol.map(SymbolAlias::new), indexHashSymbol.map(SymbolAlias::new)));
+    }
+
+    public static ExpectedValueProvider<IndexJoinNode.EquiJoinClause> indexJoinEquiClause(String probe, String index)
+    {
+        return new IndexJoinEquiClauseProvider(new SymbolAlias(probe), new SymbolAlias(index));
     }
 
     public static PlanMatchPattern constrainedIndexSource(String expectedTableName, Map<String, String> columnReferences)
