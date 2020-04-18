@@ -57,12 +57,11 @@ public class SqlServerClient
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     private static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
-    // TODO improve this by calling Domain#simplify
-    private static final UnaryOperator<Domain> DISABLE_UNSUPPORTED_PUSHDOWN = domain -> {
+    private static final UnaryOperator<Domain> SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
         if (domain.getValues().getRanges().getRangeCount() <= SQL_SERVER_MAX_LIST_EXPRESSIONS) {
             return domain;
         }
-        return Domain.all(domain.getType());
+        return domain.simplify();
     };
 
     @Inject
@@ -121,7 +120,7 @@ public class SqlServerClient
                         columnMapping.getType(),
                         columnMapping.getReadFunction(),
                         columnMapping.getWriteFunction(),
-                        DISABLE_UNSUPPORTED_PUSHDOWN));
+                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
     }
 
     @Override
