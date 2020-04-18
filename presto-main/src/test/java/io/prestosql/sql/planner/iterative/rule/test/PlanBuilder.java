@@ -561,8 +561,7 @@ public class PlanBuilder
             TableHandle tableHandle,
             Set<Symbol> lookupSymbols,
             List<Symbol> outputSymbols,
-            Map<Symbol, ColumnHandle> assignments,
-            TupleDomain<ColumnHandle> effectiveTupleDomain)
+            Map<Symbol, ColumnHandle> assignments)
     {
         return new IndexSourceNode(
                 idAllocator.getNextId(),
@@ -573,8 +572,7 @@ public class PlanBuilder
                 tableHandle,
                 lookupSymbols,
                 outputSymbols,
-                assignments,
-                effectiveTupleDomain);
+                assignments);
     }
 
     public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)
