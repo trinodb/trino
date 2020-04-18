@@ -773,16 +773,27 @@ public class PlanBuilder
                 Optional.empty());
     }
 
-    public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
+    public PlanNode indexJoin(IndexJoinNode.Type type, PlanNode probe, PlanNode index)
+    {
+        return indexJoin(type, probe, index, emptyList(), Optional.empty(), Optional.empty());
+    }
+
+    public PlanNode indexJoin(
+            IndexJoinNode.Type type,
+            PlanNode probe,
+            PlanNode index,
+            List<IndexJoinNode.EquiJoinClause> criteria,
+            Optional<Symbol> probeHashSymbol,
+            Optional<Symbol> indexHashSymbol)
     {
         return new IndexJoinNode(
                 idAllocator.getNextId(),
                 type,
                 probe,
                 index,
-                emptyList(),
-                Optional.empty(),
-                Optional.empty());
+                criteria,
+                probeHashSymbol,
+                indexHashSymbol);
     }
 
     public UnionNode union(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
