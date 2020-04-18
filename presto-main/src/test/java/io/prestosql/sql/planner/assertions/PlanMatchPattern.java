@@ -183,10 +183,10 @@ public final class PlanMatchPattern
         return result.addColumnReferences(expectedTableName, columnReferences);
     }
 
-    public static PlanMatchPattern constrainedIndexSource(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
+    public static PlanMatchPattern constrainedIndexSource(String expectedTableName, Map<String, String> columnReferences)
     {
         return node(IndexSourceNode.class)
-                .with(new IndexSourceMatcher(expectedTableName, constraint))
+                .with(new IndexSourceMatcher(expectedTableName))
                 .addColumnReferences(expectedTableName, columnReferences);
     }
 
