@@ -139,12 +139,11 @@ public class OracleClient
     private static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
-    // TODO improve this by calling Domain#simplify
-    public static final UnaryOperator<Domain> DISABLE_UNSUPPORTED_PUSHDOWN = domain -> {
+    public static final UnaryOperator<Domain> SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
         if (domain.getValues().getRanges().getRangeCount() <= ORACLE_MAX_LIST_EXPRESSIONS) {
             return domain;
         }
-        return Domain.all(domain.getType());
+        return domain.simplify();
     };
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
@@ -371,7 +370,7 @@ public class OracleClient
                         REAL,
                         (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
                         oracleRealWriteFunction(),
-                        DISABLE_UNSUPPORTED_PUSHDOWN));
+                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
 
             case OracleTypes.BINARY_DOUBLE:
             case OracleTypes.FLOAT:
@@ -379,7 +378,7 @@ public class OracleClient
                         DOUBLE,
                         ResultSet::getDouble,
                         oracleDoubleWriteFunction(),
-                        DISABLE_UNSUPPORTED_PUSHDOWN));
+                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
 
             case OracleTypes.NUMBER:
                 int decimalDigits = type.getDecimalDigits();
@@ -410,13 +409,13 @@ public class OracleClient
                             decimalType,
                             (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), finalScale, roundingMode),
                             shortDecimalWriteFunction(decimalType),
-                            DISABLE_UNSUPPORTED_PUSHDOWN));
+                            SIMPLIFY_UNSUPPORTED_PUSHDOWN));
                 }
                 return Optional.of(ColumnMapping.sliceMapping(
                         decimalType,
                         (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), finalScale, roundingMode),
                         longDecimalWriteFunction(decimalType),
-                        DISABLE_UNSUPPORTED_PUSHDOWN));
+                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
 
             case OracleTypes.CHAR:
             case OracleTypes.NCHAR:
@@ -425,7 +424,7 @@ public class OracleClient
                         charType,
                         charReadFunction(),
                         oracleCharWriteFunction(charType),
-                        DISABLE_UNSUPPORTED_PUSHDOWN));
+                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
 
             case OracleTypes.VARCHAR:
             case OracleTypes.NVARCHAR:
@@ -433,7 +432,7 @@ public class OracleClient
                         createVarcharType(columnSize),
                         (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
                         varcharWriteFunction(),
-                        DISABLE_UNSUPPORTED_PUSHDOWN));
+                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
 
             case OracleTypes.CLOB:
             case OracleTypes.NCLOB:
@@ -513,7 +512,7 @@ public class OracleClient
                             timestamp.getZone().getId());
                 },
                 oracleTimestampWithTimezoneWriteFunction(),
-                DISABLE_UNSUPPORTED_PUSHDOWN);
+                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
     }
 
     public static LongWriteFunction oracleTimestampWithTimezoneWriteFunction()
