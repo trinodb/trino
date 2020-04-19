@@ -716,7 +716,10 @@ public class ParquetTester
                 new FileOutputStream(outputFile),
                 columnNames,
                 types,
-                ParquetWriterOptions.builder().build(),
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.ofBytes(100))
+                        .setMaxBlockSize(DataSize.ofBytes(100000))
+                        .build(),
                 compressionCodecName);
 
         PageBuilder pageBuilder = new PageBuilder(types);
