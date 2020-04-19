@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import io.prestosql.parquet.writer.ColumnWriter.BufferData;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
@@ -40,9 +41,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.parquet.writer.ParquetDataOutput.createDataOutput;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
@@ -51,6 +54,9 @@ public class ParquetWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
+
+    private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.of(128, MEGABYTE).toBytes());
+    private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
 
     private final List<ColumnWriter> columnWriters;
     private final OutputStreamSliceOutput outputStream;
@@ -88,10 +94,14 @@ public class ParquetWriter
         ParquetSchemaConverter parquetSchemaConverter = new ParquetSchemaConverter(types, columnNames);
         this.messageType = parquetSchemaConverter.getMessageType();
 
-        ParquetProperties parquetProperties = ParquetProperties.builder().withWriterVersion(PARQUET_2_0).build();
+        ParquetProperties parquetProperties = ParquetProperties.builder()
+                .withWriterVersion(PARQUET_2_0)
+                .withPageSize(writerOption.getMaxPageSize())
+                .build();
+
         this.columnWriters = ParquetWriters.getColumnWriters(messageType, parquetSchemaConverter.getPrimitiveTypes(), parquetProperties, compressionCodecName);
 
-        this.chunkMaxLogicalBytes = max(1, writerOption.getMaxBlockSize() / 2);
+        this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
     }
 
     public long getWrittenBytes()
@@ -123,7 +133,7 @@ public class ParquetWriter
         checkArgument(page.getChannelCount() == columnWriters.size());
 
         while (page != null) {
-            int chunkRows = min(page.getPositionCount(), writerOption.getRowGroupMaxRowCount());
+            int chunkRows = min(page.getPositionCount(), DEFAULT_ROW_GROUP_MAX_ROW_COUNT);
             Page chunk = page.getRegion(0, chunkRows);
 
             // avoid chunk with huge logical size
@@ -155,7 +165,7 @@ public class ParquetWriter
         }
         rows += page.getPositionCount();
 
-        if (bufferedBytes >= writerOption.getMaxBlockSize()) {
+        if (bufferedBytes >= writerOption.getMaxRowGroupSize()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
             columnWriters.forEach(ColumnWriter::reset);
