@@ -84,35 +84,25 @@ public class TestCassandraDistributedQueries
     @Override
     public void testInsert()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
     }
 
     @Override
     public void testInsertWithCoercion()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
     }
 
     @Override
     public void testInsertUnicode()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
     }
 
     @Override
     public void testInsertArray()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
-    }
-
-    @Override
-    public void testCreateTable()
-    {
-        // Cassandra connector currently does not support create table
     }
 
     @Override
@@ -163,12 +153,19 @@ public class TestCassandraDistributedQueries
     @Override
     public void testColumnName(String columnName)
     {
-        // Cassandra connector currently does not support create table
+        // TODO Enable after fixing the following error messages
+        // - Multiple definition of identifier id
+        // - Column family names shouldn't be more than 48 characters long
+        // - mismatched character '<EOF>'
+        // - missing EOF at 'apostrophe'
     }
 
     @Override
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
-        // Cassandra connector currently does not support create table
+        // TODO Enable after fixing the following error messages
+        // - Multiple definition of identifier id
+        // - unsupported type: char(3), decimal(5,3), decimal(15,3), time, timestamp with time zone
+        // - Invalid (reserved) user type name smallint
     }
 }

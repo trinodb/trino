@@ -246,7 +246,7 @@ public class CassandraMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE not yet supported for Cassandra");
+        createTable(tableMetadata);
     }
 
     @Override
