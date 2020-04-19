@@ -78,7 +78,6 @@ import io.prestosql.sql.tree.Expression;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -212,32 +211,22 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitJoin(JoinNode node, RewriteContext<Set<Symbol>> context)
         {
-            Set<Symbol> expectedFilterInputs = new HashSet<>();
-            if (node.getFilter().isPresent()) {
-                expectedFilterInputs = ImmutableSet.<Symbol>builder()
-                        .addAll(SymbolsExtractor.extractUnique(node.getFilter().get()))
-                        .addAll(context.get())
-                        .build();
-            }
+            Set<Symbol> expectedFilterInputs = node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of());
 
-            ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
-            leftInputsBuilder.addAll(context.get()).addAll(node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft).iterator());
-            if (node.getLeftHashSymbol().isPresent()) {
-                leftInputsBuilder.add(node.getLeftHashSymbol().get());
-            }
-            leftInputsBuilder.addAll(expectedFilterInputs);
-            Set<Symbol> leftInputs = leftInputsBuilder.build();
+            ImmutableSet.Builder<Symbol> leftInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(context.get())
+                    .addAll(expectedFilterInputs)
+                    .addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
+            node.getLeftHashSymbol().ifPresent(leftInputs::add);
 
-            ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
-            rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
-            if (node.getRightHashSymbol().isPresent()) {
-                rightInputsBuilder.add(node.getRightHashSymbol().get());
-            }
-            rightInputsBuilder.addAll(expectedFilterInputs);
-            Set<Symbol> rightInputs = rightInputsBuilder.build();
+            ImmutableSet.Builder<Symbol> rightInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(context.get())
+                    .addAll(expectedFilterInputs)
+                    .addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
+            node.getRightHashSymbol().ifPresent(rightInputs::add);
 
-            PlanNode left = context.rewrite(node.getLeft(), leftInputs);
-            PlanNode right = context.rewrite(node.getRight(), rightInputs);
+            PlanNode left = context.rewrite(node.getLeft(), leftInputs.build());
+            PlanNode right = context.rewrite(node.getRight(), rightInputs.build());
 
             List<Symbol> leftOutputSymbols = node.getLeftOutputSymbols().stream()
                     .filter(context.get()::contains)
