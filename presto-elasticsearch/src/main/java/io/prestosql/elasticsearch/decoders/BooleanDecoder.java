@@ -48,4 +48,10 @@ public class BooleanDecoder
             throw new PrestoException(TYPE_MISMATCH, format("Expected a boolean value for field %s of type BOOLEAN: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
+
+    @Override
+    public Object encode(Object value)
+    {
+        return value;
+    }
 }

@@ -13,7 +13,7 @@
  */
 package io.prestosql.elasticsearch;
 
-import io.airlift.slice.Slice;
+import io.prestosql.elasticsearch.decoders.CoderFactory;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
@@ -27,8 +27,6 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -37,17 +35,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static java.lang.Math.toIntExact;
-import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
 public final class ElasticsearchQueryBuilder
 {
@@ -107,10 +94,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, columnName, type, range.getLow().getValue())));
                             break;
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, columnName, type, range.getLow().getValue())));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -121,10 +108,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, columnName, type, range.getHigh().getValue())));
                             break;
                         case BELOW:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, columnName, type, range.getHigh().getValue())));
                             break;
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
@@ -135,37 +122,15 @@ public final class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, columnName, type, getOnlyElement(valuesToInclude))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }
         return queryBuilder;
     }
 
-    private static Object getValue(ConnectorSession session, Type type, Object value)
+    private static Object getValue(ConnectorSession session, String path, Type type, Object value)
     {
-        if (type.equals(BOOLEAN) ||
-                type.equals(TINYINT) ||
-                type.equals(SMALLINT) ||
-                type.equals(INTEGER) ||
-                type.equals(BIGINT) ||
-                type.equals(DOUBLE)) {
-            return value;
-        }
-        if (type.equals(REAL)) {
-            return Float.intBitsToFloat(toIntExact(((Long) value)));
-        }
-        if (type.equals(VARCHAR)) {
-            return ((Slice) value).toStringUtf8();
-        }
-        if (type.equals(TIMESTAMP)) {
-            checkState(session.isLegacyTimestamp(), "New timestamp semantics not yet supported");
-
-            return Instant.ofEpochMilli((Long) value)
-                    .atZone(ZoneId.of(session.getTimeZoneKey().getId()))
-                    .toLocalDateTime()
-                    .format(ISO_DATE_TIME);
-        }
-        throw new IllegalArgumentException("Unhandled type: " + type);
+        return CoderFactory.createDecoder(session, path, type).encode(value);
     }
 }

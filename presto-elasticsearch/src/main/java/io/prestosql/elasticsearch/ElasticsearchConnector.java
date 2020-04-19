@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -38,6 +39,7 @@ public class ElasticsearchConnector
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
     private final ElasticsearchPageSourceProvider pageSourceProvider;
+    private final ElasticsearchPageSinkProvider pageSinkProvider;
     private final NodesSystemTable nodesSystemTable;
 
     @Inject
@@ -46,13 +48,15 @@ public class ElasticsearchConnector
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
             ElasticsearchPageSourceProvider pageSourceProvider,
-            NodesSystemTable nodesSystemTable)
+            NodesSystemTable nodesSystemTable,
+            ElasticsearchPageSinkProvider pageSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.nodesSystemTable = requireNonNull(nodesSystemTable, "nodesSystemTable is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
     }
 
     @Override
@@ -78,6 +82,12 @@ public class ElasticsearchConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override
