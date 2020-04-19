@@ -67,6 +67,7 @@ public class ParquetWriterConfig
     {
         return ParquetWriterOptions.builder()
                 .setMaxBlockSize(getBlockSize())
+                .setMaxPageSize(getPageSize())
                 .build();
     }
 }

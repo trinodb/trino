@@ -54,36 +54,31 @@ public class ParquetFileWriterFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
-    private final ParquetWriterOptions parquetWriterOptions;
 
     @Inject
     public ParquetFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            HiveConfig hiveConfig,
-            ParquetWriterConfig parquetWriterConfig)
+            HiveConfig hiveConfig)
     {
         this(
                 hdfsEnvironment,
                 typeManager,
                 nodeVersion,
-                requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone(),
-                requireNonNull(parquetWriterConfig, "parquetWriterConfig is null").toParquetWriterOptions());
+                requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone());
     }
 
     public ParquetFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone hiveStorageTimeZone,
-            ParquetWriterOptions parquetWriterOptions)
+            DateTimeZone hiveStorageTimeZone)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        this.parquetWriterOptions = requireNonNull(parquetWriterOptions, "parquetWriterOptions is null");
     }
 
     @Override
@@ -102,6 +97,11 @@ public class ParquetFileWriterFactory
         if (!MapredParquetOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
+
+        ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
+                .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
+                .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
+                .build();
 
         CompressionCodecName compressionCodecName = getCompression(conf);
 
