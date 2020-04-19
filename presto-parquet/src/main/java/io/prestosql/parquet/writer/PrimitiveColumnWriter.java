@@ -79,6 +79,7 @@ public class PrimitiveColumnWriter
     private long totalCompressedSize;
     private long totalUnCompressedSize;
     private long totalRows;
+    private Statistics<?> columnStatistics;
 
     private final int maxDefinitionLevel;
 
@@ -102,6 +103,8 @@ public class PrimitiveColumnWriter
         this.compressionCodec = requireNonNull(compressionCodecName, "compressionCodecName is null");
         this.compressor = getCompressor(compressionCodecName);
         this.pageSizeThreshold = pageSizeThreshold;
+
+        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
     }
 
     @Override
@@ -169,7 +172,7 @@ public class PrimitiveColumnWriter
     {
         checkState(getDataStreamsCalled);
 
-        return new ColumnMetaData(
+        ColumnMetaData columnMetaData = new ColumnMetaData(
                 ParquetTypeConverter.getType(columnDescriptor.getPrimitiveType().getPrimitiveTypeName()),
                 encodings.stream().map(parquetMetadataConverter::getEncoding).collect(toImmutableList()),
                 ImmutableList.copyOf(columnDescriptor.getPath()),
@@ -178,6 +181,8 @@ public class PrimitiveColumnWriter
                 totalUnCompressedSize,
                 totalCompressedSize,
                 -1);
+        columnMetaData.setStatistics(ParquetMetadataConverter.toParquetStatistics(columnStatistics));
+        return columnMetaData;
     }
 
     // page header
@@ -207,8 +212,11 @@ public class PrimitiveColumnWriter
         }
 
         ByteArrayOutputStream pageHeaderOutputStream = new ByteArrayOutputStream();
+
         Statistics<?> statistics = primitiveValueWriter.getStatistics();
         statistics.incrementNumNulls(currentPageNullCounts);
+
+        columnStatistics.mergeStatistics(statistics);
 
         parquetMetadataConverter.writeDataPageV2Header((int) uncompressedSize,
                 (int) compressedSize,
@@ -277,7 +285,6 @@ public class PrimitiveColumnWriter
             totalCompressedSize += pageHeader.size() + compressedSize;
             totalUnCompressedSize += pageHeader.size() + uncompressedSize;
         }
-
         getDataStreamsCalled = true;
 
         return ImmutableList.<ParquetDataOutput>builder()
@@ -317,6 +324,7 @@ public class PrimitiveColumnWriter
         totalUnCompressedSize = 0;
         totalRows = 0;
         encodings.clear();
+        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
 
         getDataStreamsCalled = false;
     }
