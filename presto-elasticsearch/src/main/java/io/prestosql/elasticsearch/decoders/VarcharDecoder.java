@@ -13,6 +13,7 @@
  */
 package io.prestosql.elasticsearch.decoders;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
@@ -48,5 +49,11 @@ public class VarcharDecoder
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a string or numeric value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
+    }
+
+    @Override
+    public Object encode(Object value)
+    {
+        return ((Slice) value).toStringUtf8();
     }
 }

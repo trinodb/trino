@@ -34,6 +34,7 @@ public class TestElasticsearchConfig
     {
         assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
                 .setHost(null)
+                .setProtocol("V6")
                 .setPort(9200)
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
@@ -58,6 +59,7 @@ public class TestElasticsearchConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("elasticsearch.host", "example.com")
                 .put("elasticsearch.port", "9999")
+                .put("elasticsearch.protocol", "V7")
                 .put("elasticsearch.default-schema-name", "test")
                 .put("elasticsearch.scroll-size", "4000")
                 .put("elasticsearch.scroll-timeout", "20s")
@@ -77,6 +79,7 @@ public class TestElasticsearchConfig
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
                 .setHost("example.com")
+                .setProtocol("V7")
                 .setPort(9999)
                 .setDefaultSchema("test")
                 .setScrollSize(4000)

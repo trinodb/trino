@@ -21,6 +21,7 @@ import java.util.function.Supplier;
 
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.RealType.REAL;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -47,5 +48,11 @@ public class RealDecoder
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field %s of type REAL: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
+    }
+
+    @Override
+    public Object encode(Object value)
+    {
+        return Float.intBitsToFloat(toIntExact(((Long) value)));
     }
 }

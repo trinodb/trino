@@ -17,32 +17,18 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
-import io.prestosql.elasticsearch.decoders.ArrayDecoder;
-import io.prestosql.elasticsearch.decoders.BigintDecoder;
-import io.prestosql.elasticsearch.decoders.BooleanDecoder;
+import io.prestosql.elasticsearch.decoders.CoderFactory;
 import io.prestosql.elasticsearch.decoders.Decoder;
-import io.prestosql.elasticsearch.decoders.DoubleDecoder;
 import io.prestosql.elasticsearch.decoders.IdColumnDecoder;
-import io.prestosql.elasticsearch.decoders.IntegerDecoder;
-import io.prestosql.elasticsearch.decoders.IpAddressDecoder;
-import io.prestosql.elasticsearch.decoders.RealDecoder;
-import io.prestosql.elasticsearch.decoders.RowDecoder;
 import io.prestosql.elasticsearch.decoders.ScoreColumnDecoder;
-import io.prestosql.elasticsearch.decoders.SmallintDecoder;
 import io.prestosql.elasticsearch.decoders.SourceColumnDecoder;
-import io.prestosql.elasticsearch.decoders.TimestampDecoder;
-import io.prestosql.elasticsearch.decoders.TinyintDecoder;
-import io.prestosql.elasticsearch.decoders.VarbinaryDecoder;
-import io.prestosql.elasticsearch.decoders.VarcharDecoder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
@@ -61,16 +47,7 @@ import static io.prestosql.elasticsearch.BuiltinColumns.ID;
 import static io.prestosql.elasticsearch.BuiltinColumns.SCORE;
 import static io.prestosql.elasticsearch.BuiltinColumns.SOURCE;
 import static io.prestosql.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
@@ -288,69 +265,12 @@ public class ElasticsearchPageSource
 
     private Decoder createDecoder(ConnectorSession session, String path, Type type)
     {
-        if (type.equals(VARCHAR)) {
-            return new VarcharDecoder(path);
-        }
-        if (type.equals(VARBINARY)) {
-            return new VarbinaryDecoder(path);
-        }
-        if (type.equals(TIMESTAMP)) {
-            return new TimestampDecoder(session, path);
-        }
-        if (type.equals(BOOLEAN)) {
-            return new BooleanDecoder(path);
-        }
-        if (type.equals(DOUBLE)) {
-            return new DoubleDecoder(path);
-        }
-        if (type.equals(REAL)) {
-            return new RealDecoder(path);
-        }
-        if (type.equals(TINYINT)) {
-            return new TinyintDecoder(path);
-        }
-        if (type.equals(SMALLINT)) {
-            return new SmallintDecoder(path);
-        }
-        if (type.equals(INTEGER)) {
-            return new IntegerDecoder(path);
-        }
-        if (type.equals(BIGINT)) {
-            return new BigintDecoder(path);
-        }
-        if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
-            return new IpAddressDecoder(path, type);
-        }
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
-
-            List<Decoder> decoders = rowType.getFields().stream()
-                    .map(field -> createDecoder(session, appendPath(path, field.getName().get()), field.getType()))
-                    .collect(toImmutableList());
-
-            List<String> fieldNames = rowType.getFields().stream()
-                    .map(RowType.Field::getName)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-
-            return new RowDecoder(path, fieldNames, decoders);
-        }
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
-
-            return new ArrayDecoder(path, createDecoder(session, path, elementType));
-        }
-
-        throw new UnsupportedOperationException("Type not supported: " + type);
+        return CoderFactory.createDecoder(session, path, type);
     }
 
     private static String appendPath(String base, String element)
     {
-        if (base.isEmpty()) {
-            return element;
-        }
-
-        return base + "." + element;
+        return CoderFactory.appendPath(base, element);
     }
 
     private static class SearchHitIterator

@@ -60,4 +60,10 @@ public class RowDecoder
             throw new PrestoException(TYPE_MISMATCH, format("Expected object for field '%s' of type ROW: %s [%s]", path, data, data.getClass().getSimpleName()));
         }
     }
+
+    @Override
+    public Object encode(Object value)
+    {
+        throw new UnsupportedOperationException("Encode not supported");
+    }
 }

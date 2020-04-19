@@ -11,23 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch.client;
+package io.prestosql.elasticsearch.elastic7;
 
-import io.prestosql.elasticsearch.client.types.ObjectFieldType;
+import io.prestosql.elasticsearch.BaseElasticsearchSmokeTest;
+import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocol;
 
-import static java.util.Objects.requireNonNull;
-
-public class IndexMetadata
+public class TestElasticsearch7IntegrationSmokeTest
+        extends BaseElasticsearchSmokeTest
 {
-    private final ObjectFieldType schema;
-
-    public IndexMetadata(ObjectFieldType schema)
+    public TestElasticsearch7IntegrationSmokeTest()
     {
-        this.schema = requireNonNull(schema, "schema is null");
-    }
-
-    public ObjectFieldType getSchema()
-    {
-        return schema;
+        super(ElasticsearchProtocol.V7);
     }
 }

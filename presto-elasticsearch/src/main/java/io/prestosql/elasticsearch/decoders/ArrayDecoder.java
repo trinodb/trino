@@ -53,4 +53,10 @@ public class ArrayDecoder
             throw new PrestoException(TYPE_MISMATCH, format("Expected list of elements for field '%s' of type ARRAY: %s [%s]", path, data, data.getClass().getSimpleName()));
         }
     }
+
+    @Override
+    public Object encode(Object value)
+    {
+        throw new UnsupportedOperationException("Encode not supported");
+    }
 }

@@ -11,29 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch;
+package io.prestosql.elasticsearch.elastic7;
 
-import static java.lang.String.format;
+import io.prestosql.elasticsearch.BaseElasticsearchDistributedQueries;
+import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocol;
 
-public class TestElasticsearch6IntegrationSmokeTest
-        extends BaseElasticsearchSmokeTest
+public class TestElasticsearch7DistributedQueries
+        extends BaseElasticsearchDistributedQueries
 {
-    public TestElasticsearch6IntegrationSmokeTest()
+    public TestElasticsearch7DistributedQueries()
     {
-        super("6.0.0");
-    }
-
-    @Override
-    protected String indexEndpoint(String index, String docId)
-    {
-        return format("/%s/doc/%s", index, docId);
-    }
-
-    @Override
-    protected String indexMapping(String properties)
-    {
-        return "{\"mappings\": " +
-               "  {\"doc\": " + properties + "}" +
-               "}";
+        super(ElasticsearchProtocol.V7);
     }
 }

@@ -54,4 +54,10 @@ public class TinyintDecoder
             throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type TINYINT: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
+
+    @Override
+    public Object encode(Object value)
+    {
+        return value;
+    }
 }

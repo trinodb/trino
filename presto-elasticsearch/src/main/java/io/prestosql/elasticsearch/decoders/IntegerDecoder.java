@@ -49,4 +49,10 @@ public class IntegerDecoder
             throw new PrestoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
+
+    @Override
+    public Object encode(Object value)
+    {
+        return value;
+    }
 }

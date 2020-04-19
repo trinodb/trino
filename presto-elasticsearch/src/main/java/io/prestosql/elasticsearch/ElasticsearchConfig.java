@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocol;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -51,6 +52,7 @@ public class ElasticsearchConfig
         AWS
     }
 
+    private ElasticsearchProtocol protocol = ElasticsearchProtocol.V6;
     private String host;
     private int port = 9200;
     private String defaultSchema = "default";
@@ -70,6 +72,19 @@ public class ElasticsearchConfig
     private boolean verifyHostnames = true;
 
     private Security security;
+
+    @NotNull
+    public ElasticsearchProtocol getProtocol()
+    {
+        return protocol;
+    }
+
+    @Config("elasticsearch.protocol")
+    public ElasticsearchConfig setProtocol(String protocol)
+    {
+        this.protocol = ElasticsearchProtocol.valueOf(protocol);
+        return this;
+    }
 
     @NotNull
     public String getHost()

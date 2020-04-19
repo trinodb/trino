@@ -21,8 +21,11 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import org.elasticsearch.search.SearchHit;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.function.Supplier;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -57,6 +60,23 @@ public class IpAddressDecoder
         }
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type IP: %s [%s]", path, value, value.getClass().getSimpleName()));
+        }
+    }
+
+    @Override
+    public Object encode(Object value)
+    {
+        return castToVarchar((Slice) value).toStringUtf8();
+    }
+
+    // This is a copy of IpAddressOperators.castFromIpAddressToVarchar method
+    public static Slice castToVarchar(Slice slice)
+    {
+        try {
+            return utf8Slice(InetAddresses.toAddrString(InetAddress.getByAddress(slice.getBytes())));
+        }
+        catch (UnknownHostException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length(), e);
         }
     }
 

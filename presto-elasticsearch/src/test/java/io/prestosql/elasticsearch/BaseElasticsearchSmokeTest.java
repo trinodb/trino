@@ -13,19 +13,16 @@
  */
 package io.prestosql.elasticsearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
+import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocol;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
-import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -34,6 +31,8 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -46,25 +45,37 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseElasticsearchSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticVersion;
+    private final ElasticsearchProtocol elasticsearchProtocol;
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private ElasticsearchClient client;
 
-    BaseElasticsearchSmokeTest(String elasticVersion)
+    public BaseElasticsearchSmokeTest(ElasticsearchProtocol protocol)
     {
-        this.elasticVersion = elasticVersion;
+        this.elasticsearchProtocol = protocol;
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(elasticVersion);
+        elasticsearch = new ElasticsearchServer(elasticsearchProtocol.getMinVersion());
 
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+//        HostAndPort address = HostAndPort.fromParts("localhost", 9200);
 
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of());
+        client = new ElasticsearchClient(new ElasticsearchConfig()
+                .setProtocol(elasticsearchProtocol.name())
+                .setHost(address.getHost())
+                .setPort(address.getPort())
+                .setIgnorePublishAddress(true)
+                .setDefaultSchema("tpch")
+                .setScrollSize(1000)
+                .setScrollTimeout(Duration.succinctDuration(1, TimeUnit.MINUTES))
+                .setRequestTimeout(Duration.succinctDuration(2, TimeUnit.MINUTES)),
+                Optional.empty());
+        QueryRunner runner = createElasticsearchQueryRunner(address, elasticsearchProtocol, TpchTable.getTables(), ImmutableMap.of());
+
+        return runner;
     }
 
     @AfterClass(alwaysRun = true)
@@ -116,7 +127,7 @@ public abstract class BaseElasticsearchSmokeTest
             throws IOException
     {
         String indexName = "data";
-        index(indexName, ImmutableMap.<String, Object>builder()
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("name", "nestfield")
                 .put("fields.fielda", 32)
                 .put("fields.fieldb", "valueb")
@@ -132,7 +143,7 @@ public abstract class BaseElasticsearchSmokeTest
             throws IOException
     {
         String indexName = "name_conflict";
-        index(indexName, ImmutableMap.<String, Object>builder()
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("field", "value")
                 .put("Conflict", "conflict1")
                 .put("conflict", "conflict2")
@@ -230,7 +241,7 @@ public abstract class BaseElasticsearchSmokeTest
 
         createIndex(indexName, mapping);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("a", ImmutableMap.<String, Object>builder()
                         .put("b", ImmutableMap.<String, Object>builder()
                                 .put("x", 1)
@@ -276,7 +287,7 @@ public abstract class BaseElasticsearchSmokeTest
             throws IOException
     {
         String indexName = "emptyobject";
-        index(indexName, ImmutableMap.<String, Object>builder()
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("name", "stringfield")
                 .put("emptyobject", ImmutableMap.of())
                 .put("fields.fielda", 32)
@@ -294,23 +305,23 @@ public abstract class BaseElasticsearchSmokeTest
     {
         String indexName = "nested_variants";
 
-        index(indexName,
+        saveIndex(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b",
                                 ImmutableMap.of("c",
                                         "value1"))));
 
-        index(indexName,
+        saveIndex(indexName,
                 ImmutableMap.of("a.b",
                         ImmutableMap.of("c",
                                 "value2")));
 
-        index(indexName,
+        saveIndex(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b.c",
                                 "value3")));
 
-        index(indexName,
+        saveIndex(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
 
         assertQuery(
@@ -324,27 +335,21 @@ public abstract class BaseElasticsearchSmokeTest
     {
         String indexName = "types";
 
-        @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "    \"float_column\":     { \"type\": \"float\" }," +
-                "    \"double_column\":    { \"type\": \"double\" }," +
-                "    \"integer_column\":   { \"type\": \"integer\" }," +
-                "    \"long_column\":      { \"type\": \"long\" }," +
-                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "    \"text_column\":      { \"type\": \"text\" }," +
-                "    \"binary_column\":    { \"type\": \"binary\" }," +
-                "    \"timestamp_column\": { \"type\": \"date\" }," +
-                "    \"ipv4_column\":      { \"type\": \"ip\" }," +
-                "    \"ipv6_column\":      { \"type\": \"ip\" }" +
-                "  }" +
-                "}";
+        assertUpdate(format("CREATE TABLE %s( " +
+                "boolean_column BOOLEAN, " +
+                "float_column REAL, " +
+                "double_column DOUBLE, " +
+                "integer_column INTEGER, " +
+                "long_column BIGINT, " +
+                "keyword_column VARCHAR, " +
+                "text_column VARCHAR, " +
+                "binary_column VARBINARY, " +
+                "timestamp_column TIMESTAMP, " +
+                "ipv4_column IPADDRESS, " +
+                "ipv6_column IPADDRESS " +
+                ")", indexName));
 
-        createIndex(indexName, mappings);
-
-        index(indexName, ImmutableMap.<String, Object>builder()
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", true)
                 .put("float_column", 1.0f)
                 .put("double_column", 1.0d)
@@ -387,27 +392,23 @@ public abstract class BaseElasticsearchSmokeTest
     {
         String indexName = "filter_pushdown";
 
-        @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "    \"float_column\":     { \"type\": \"float\" }," +
-                "    \"double_column\":    { \"type\": \"double\" }," +
-                "    \"integer_column\":   { \"type\": \"integer\" }," +
-                "    \"long_column\":      { \"type\": \"long\" }," +
-                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "    \"text_column\":      { \"type\": \"text\" }," +
-                "    \"binary_column\":    { \"type\": \"binary\" }," +
-                "    \"timestamp_column\": { \"type\": \"date\" }," +
-                "    \"ipv4_column\":      { \"type\": \"ip\" }," +
-                "    \"ipv6_column\":      { \"type\": \"ip\" }" +
-                "  }" +
-                "}";
+        assertUpdate(format("CREATE TABLE %s( " +
+                "boolean_column BOOLEAN, " +
+                "byte_column TINYINT, " +
+                "short_column SMALLINT, " +
+                "integer_column INTEGER, " +
+                "long_column BIGINT, " +
+                "float_column REAL, " +
+                "double_column DOUBLE, " +
+                "keyword_column VARCHAR, " +
+                "text_column VARCHAR, " +
+                "binary_column VARBINARY, " +
+                "timestamp_column TIMESTAMP, " +
+                "ipv4_column IPADDRESS, " +
+                "ipv6_column IPADDRESS " +
+                ")", indexName));
 
-        createIndex(indexName, mappings);
-
-        index(indexName, ImmutableMap.<String, Object>builder()
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", true)
                 .put("byte_column", 1)
                 .put("short_column", 2)
@@ -507,9 +508,9 @@ public abstract class BaseElasticsearchSmokeTest
     {
         String indexName = "limit_pushdown";
 
-        index(indexName, ImmutableMap.of("c1", "v1"));
-        index(indexName, ImmutableMap.of("c1", "v2"));
-        index(indexName, ImmutableMap.of("c1", "v3"));
+        saveIndex(indexName, ImmutableMap.of("c1", "v1"));
+        saveIndex(indexName, ImmutableMap.of("c1", "v2"));
+        saveIndex(indexName, ImmutableMap.of("c1", "v3"));
         assertEquals(computeActual("SELECT * FROM limit_pushdown").getRowCount(), 3);
         assertEquals(computeActual("SELECT * FROM limit_pushdown LIMIT 1").getRowCount(), 1);
         assertEquals(computeActual("SELECT * FROM limit_pushdown LIMIT 2").getRowCount(), 2);
@@ -545,7 +546,7 @@ public abstract class BaseElasticsearchSmokeTest
 
         createIndex(indexName, properties);
 
-        index(indexName, ImmutableMap.of(
+        saveIndex(indexName, ImmutableMap.of(
                 "field",
                 ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
@@ -615,7 +616,7 @@ public abstract class BaseElasticsearchSmokeTest
 
         createIndex(indexName, mappings);
 
-        index(indexName, ImmutableMap.of(
+        saveIndex(indexName, ImmutableMap.of(
                 "nested_field",
                 ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
@@ -671,7 +672,7 @@ public abstract class BaseElasticsearchSmokeTest
             throws IOException
     {
         String indexName = "mixed_case";
-        index(indexName, ImmutableMap.<String, Object>builder()
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("Name", "john")
                 .put("AGE", 32)
                 .build());
@@ -690,15 +691,12 @@ public abstract class BaseElasticsearchSmokeTest
             throws IOException
     {
         String indexName = "numeric_keyword";
-        @Language("JSON")
-        String properties = "" +
-                "{" +
-                "  \"properties\":{" +
-                "    \"numeric_keyword\":   { \"type\": \"keyword\" }" +
-                "  }" +
-                "}";
-        createIndex(indexName, properties);
-        index(indexName, ImmutableMap.<String, Object>builder()
+
+        assertUpdate(format("CREATE TABLE %s( " +
+                "numeric_keyword VARCHAR " +
+                ")", indexName));
+
+        saveIndex(indexName, ImmutableMap.<String, Object>builder()
                 .put("numeric_keyword", 20)
                 .build());
 
@@ -739,40 +737,22 @@ public abstract class BaseElasticsearchSmokeTest
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
     }
 
-    protected abstract String indexEndpoint(String index, String docId);
-
-    private void index(String index, Map<String, Object> document)
+    private void saveIndex(String index, Map<String, Object> document)
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(document);
-        String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
-        client.getLowLevelClient()
-                .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+        client.saveIndex(index, document);
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
-
-        refreshIndex(alias);
+        client.addAlias(index, alias);
     }
 
-    protected abstract String indexMapping(@Language("JSON") String properties);
-
+    @Deprecated
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
-        String mappings = indexMapping(properties);
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
-    }
-
-    private void refreshIndex(String index)
-            throws IOException
-    {
-        client.getLowLevelClient()
-                .performRequest("GET", format("/%s/_refresh", index));
+        client.createIndex(indexName, properties);
     }
 }

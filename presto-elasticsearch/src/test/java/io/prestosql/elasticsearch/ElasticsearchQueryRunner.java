@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.Session;
+import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocol;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -47,6 +48,7 @@ public final class ElasticsearchQueryRunner
 
     public static DistributedQueryRunner createElasticsearchQueryRunner(
             HostAndPort address,
+            ElasticsearchProtocol protocol,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties)
             throws Exception
@@ -63,7 +65,7 @@ public final class ElasticsearchQueryRunner
 
             TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory();
 
-            installElasticsearchPlugin(address, queryRunner, testFactory);
+            installElasticsearchPlugin(address, protocol, queryRunner, testFactory);
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
 
@@ -84,12 +86,16 @@ public final class ElasticsearchQueryRunner
         }
     }
 
-    private static void installElasticsearchPlugin(HostAndPort address, QueryRunner queryRunner, TestingElasticsearchConnectorFactory factory)
+    private static void installElasticsearchPlugin(HostAndPort address,
+                                                   ElasticsearchProtocol protocol,
+                                                   QueryRunner queryRunner,
+                                                   TestingElasticsearchConnectorFactory factory)
     {
         queryRunner.installPlugin(new ElasticsearchPlugin(factory));
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("elasticsearch.host", address.getHost())
                 .put("elasticsearch.port", Integer.toString(address.getPort()))
+                .put("elasticsearch.protocol", protocol.name())
                 // Node discovery relies on the publish_address exposed via the Elasticseach API
                 // This doesn't work well within a docker environment that maps ES's port to a random public port
                 .put("elasticsearch.ignore-publish-address", "true")
@@ -126,6 +132,7 @@ public final class ElasticsearchQueryRunner
 
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
                 HostAndPort.fromParts("localhost", 9200),
+                ElasticsearchProtocol.V6,
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"));
 

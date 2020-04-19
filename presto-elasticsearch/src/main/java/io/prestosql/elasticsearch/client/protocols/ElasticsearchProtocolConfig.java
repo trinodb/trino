@@ -11,23 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch.client;
+package io.prestosql.elasticsearch.client.protocols;
 
-import io.prestosql.elasticsearch.client.types.ObjectFieldType;
-
-import static java.util.Objects.requireNonNull;
-
-public class IndexMetadata
+public interface ElasticsearchProtocolConfig
 {
-    private final ObjectFieldType schema;
+    String indexMapping(String properties);
 
-    public IndexMetadata(ObjectFieldType schema)
-    {
-        this.schema = requireNonNull(schema, "schema is null");
-    }
+    String indexTemplate(String index, String properties);
 
-    public ObjectFieldType getSchema()
-    {
-        return schema;
-    }
+    String indexEndpoint(String index, String docId);
+
+    String indexBulk(String index);
 }

@@ -11,27 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch.decoders;
+package io.prestosql.elasticsearch.client.types;
 
-import io.prestosql.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
+import static java.util.Objects.requireNonNull;
 
-import java.util.function.Supplier;
-
-import static io.prestosql.spi.type.RealType.REAL;
-
-public class ScoreColumnDecoder
-        implements Decoder
+public class PrimitiveFieldType
+        implements ElasticFieldType
 {
-    @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    private final ElasticType elasticType;
+
+    public PrimitiveFieldType(ElasticType elasticType)
     {
-        REAL.writeLong(output, Float.floatToRawIntBits(hit.getScore()));
+        this.elasticType = requireNonNull(elasticType, "elasticType is null");
+    }
+
+    public ElasticType getType()
+    {
+        return elasticType;
+    }
+
+    public String getName()
+    {
+        return elasticType.getName();
     }
 
     @Override
-    public Object encode(Object value)
+    public boolean supportsPredicates()
     {
-        throw new UnsupportedOperationException("Encode not supported");
+        return elasticType.supportsPredicate();
     }
 }
