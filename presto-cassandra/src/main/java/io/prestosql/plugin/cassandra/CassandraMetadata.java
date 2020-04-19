@@ -275,6 +275,11 @@ public class CassandraMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        return createTable(tableMetadata);
+    }
+
+    private CassandraOutputTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         ImmutableList.Builder<ExtraColumnMetadata> columnExtra = ImmutableList.builder();
@@ -285,7 +290,6 @@ public class CassandraMetadata
             columnExtra.add(new ExtraColumnMetadata(column.getName(), column.isHidden()));
         }
 
-        // get the root directory for the database
         SchemaTableName table = tableMetadata.getTable();
         String schemaName = cassandraSession.getCaseSensitiveSchemaName(table.getSchemaName());
         String tableName = table.getTableName();
