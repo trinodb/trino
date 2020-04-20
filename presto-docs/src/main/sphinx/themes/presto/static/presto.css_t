@@ -136,6 +136,7 @@ div.note {
     background-color: #f5f5ff
 }
 
+.sig-paren,
 tt, code {
     font-family: Consolas, 'Liberation Mono', Courier, monospace;
     font-size: 0.9em;
@@ -143,6 +144,11 @@ tt, code {
 
 tt.descname, code.descname {
     font-size: 1.1em;
+}
+
+.sig-paren {
+    font-size: 1.1em;
+    font-weight: bold;
 }
 
 tt.docutils.literal, code.docutils.literal {
