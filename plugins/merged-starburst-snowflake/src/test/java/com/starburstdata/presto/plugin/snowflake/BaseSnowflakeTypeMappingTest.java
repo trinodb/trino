@@ -184,7 +184,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 DataTypeTest.create()
                         .addRoundTrip(stringDataType("char(10)", VarcharType.createVarcharType(10)), "string 010")
                         .addRoundTrip(stringDataType("char(20)", VarcharType.createVarcharType(20)), "string 020          ")
-                        .addRoundTrip(makeNullable(stringDataType("char(10)", VarcharType.createVarcharType(10))), null));
+                        .addRoundTrip(stringDataType("char(10)", VarcharType.createVarcharType(10)), null));
     }
 
     @Test
@@ -253,7 +253,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("-27182818284590452353602874713526624977"))
                 .addRoundTrip(decimalType.apply(38, 37), new BigDecimal(".1000020000300004000050000600007000088"))
                 .addRoundTrip(decimalType.apply(38, 37), new BigDecimal("-.2718281828459045235360287471352662497"))
-                .addRoundTrip(makeNullable(decimalType.apply(10, 3)), null);
+                .addRoundTrip(decimalType.apply(10, 3), null);
     }
 
     @Test
@@ -622,7 +622,7 @@ public abstract class BaseSnowflakeTypeMappingTest
 
     private static DataType<BigDecimal> integerDataType(String insertType)
     {
-        return makeNullable(decimalDataType(insertType, createDecimalType(38, 0)));
+        return decimalDataType(insertType, createDecimalType(38, 0));
     }
 
     private static DataType<BigDecimal> decimalDataType(String typeName, int precision, int scale)
@@ -685,16 +685,6 @@ public abstract class BaseSnowflakeTypeMappingTest
                         .map(Object::toString)
                         .collect(Collectors.joining(",")) + ")",
                 value -> expectedResult);
-    }
-
-    private static <T> DataType<T> makeNullable(DataType<T> type)
-    {
-        Function<T, String> toLiteral = type::toLiteral;
-        return DataType.dataType(
-                type.getInsertType(),
-                type.getPrestoResultType(),
-                toLiteral,
-                value -> value == null ? null : type.toPrestoQueryResult(value));
     }
 
     private static <T> DataType<T> dataType(String insertType, Type prestoResultType)
