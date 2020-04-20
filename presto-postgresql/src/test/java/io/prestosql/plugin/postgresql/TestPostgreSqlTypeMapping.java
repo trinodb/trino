@@ -157,7 +157,7 @@ public class TestPostgreSqlTypeMapping
     {
         beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
         epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-        afterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
+        afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
         jvmZone = ZoneId.systemDefault();
 
