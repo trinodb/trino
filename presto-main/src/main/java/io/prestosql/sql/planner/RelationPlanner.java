@@ -673,25 +673,7 @@ class RelationPlanner
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
             Symbol inputSymbol = translations.get(expression);
-            if (type instanceof ArrayType) {
-                Type elementType = ((ArrayType) type).getElementType();
-                if (elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
-                    for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
-                    }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
-                }
-                else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
-                }
-            }
-            else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
-            }
+            computeUnnestMappings(unnestSymbols, unnestedSymbolsIterator, inputSymbol, type);
         }
         Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
@@ -803,25 +785,7 @@ class RelationPlanner
             values.add(rewritten);
             Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);
             argumentSymbols.add(inputSymbol);
-            if (type instanceof ArrayType) {
-                Type elementType = ((ArrayType) type).getElementType();
-                if (elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
-                    for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
-                    }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
-                }
-                else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
-                }
-            }
-            else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
-            }
+            computeUnnestMappings(unnestSymbols, unnestedSymbolsIterator, inputSymbol, type);
         }
         Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
@@ -829,6 +793,29 @@ class RelationPlanner
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol, JoinNode.Type.INNER, Optional.empty());
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
+    }
+
+    private void computeUnnestMappings(ImmutableMap.Builder<Symbol, List<Symbol>> mappings, Iterator<Symbol> outputs, Symbol input, Type type)
+    {
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+            if (elementType instanceof RowType) {
+                ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
+                for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
+                    unnestSymbolBuilder.add(outputs.next());
+                }
+                mappings.put(input, unnestSymbolBuilder.build());
+            }
+            else {
+                mappings.put(input, ImmutableList.of(outputs.next()));
+            }
+        }
+        else if (type instanceof MapType) {
+            mappings.put(input, ImmutableList.of(outputs.next(), outputs.next()));
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
+        }
     }
 
     private TranslationMap translationMapFromSourceOutputs(List<Symbol> sourceOutputs, Node node, List<Symbol> outputSymbols)
