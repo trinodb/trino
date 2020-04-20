@@ -70,6 +70,7 @@ import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Collections.nCopies;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -1238,6 +1239,84 @@ public abstract class AbstractTestDistributedQueries
     }
 
     protected abstract TestTable createTableWithDefaultColumns();
+
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testColumnName(String columnName)
+    {
+        if (!requiresDelimiting(columnName)) {
+            testColumnName(columnName, false);
+        }
+        testColumnName(columnName, true);
+    }
+
+    private void testColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = columnName;
+        if (delimited) {
+            nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+        }
+        String tableName = "test_column_names_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "_") + "_" + randomTableSuffix();
+
+        try {
+            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
+            assertUpdate("CREATE TABLE " + tableName + "(id varchar, " + nameInSql + " varchar)");
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
+
+        // SELECT *
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
+
+        // projection
+        assertQuery("SELECT " + nameInSql + " FROM " + tableName, "VALUES (NULL), ('abc'), ('xyz')");
+
+        // predicate
+        assertQuery("SELECT id FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        return false;
+    }
+
+    private static boolean requiresDelimiting(String identifierName)
+    {
+        return !identifierName.matches("[a-zA-Z][a-zA-Z0-9_]*");
+    }
+
+    @DataProvider
+    public Object[][] testColumnNameDataProvider()
+    {
+        return new Object[][] {
+                {"lowercase"},
+                {"UPPERCASE"},
+                {"MixedCase"},
+                {"an_underscore"},
+                {"a-hyphen-minus"}, // ASCII '-' is HYPHEN-MINUS in Unicode
+                {"a space"},
+                {"atrailingspace "},
+                {"a.dot"},
+                {"a:colon"},
+                {"a;semicolon"},
+                {"an@at"},
+                {"a\"quote"},
+                {"an'apostrophe"},
+                {"a`backtick`"},
+                {"a/slash`"},
+                {"a\\backslash`"},
+                {"adigit0"},
+                {"0startingwithdigit"},
+        };
+    }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)

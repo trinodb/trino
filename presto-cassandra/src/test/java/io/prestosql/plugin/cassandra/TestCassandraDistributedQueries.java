@@ -161,6 +161,12 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
+    public void testColumnName(String columnName)
+    {
+        // Cassandra connector currently does not support create table
+    }
+
+    @Override
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
         // Cassandra connector currently does not support create table
