@@ -773,6 +773,7 @@ class RelationPlanner
         List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
 
         // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
+        // TranslationMap is used to rewrite function references to their resolved form.
         TranslationMap translationMap = translationMapFromSourceOutputs(ImmutableList.of(), node, unnestedSymbols);
         ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
         ImmutableList.Builder<Expression> values = ImmutableList.builder();

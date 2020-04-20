@@ -188,4 +188,12 @@ public class TestUnnest
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) INNER JOIN UNNEST(x) b(y) ON b.y = 1",
                 "line .*: INNER JOIN involving UNNEST is only supported with condition ON TRUE");
     }
+
+    @Test
+    public void testUnnestWithFunctionCall()
+    {
+        assertions.assertQuery(
+                "SELECT x FROM UNNEST(array_distinct(ARRAY[1, 1, 2])) t(x)",
+                "VALUES 1, 2");
+    }
 }
