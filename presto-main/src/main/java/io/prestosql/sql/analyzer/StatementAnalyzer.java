@@ -57,6 +57,7 @@ import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
+import io.prestosql.sql.analyzer.Analysis.UnnestAnalysis;
 import io.prestosql.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.SqlParser;
@@ -938,8 +939,12 @@ class StatementAnalyzer
         @Override
         protected Scope visitUnnest(Unnest node, Optional<Scope> scope)
         {
+            ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappings = ImmutableMap.<NodeRef<Expression>, List<Field>>builder();
+
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
+                List<Field> expressionOutputs = new ArrayList<>();
+
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
@@ -947,23 +952,33 @@ class StatementAnalyzer
                     if (elementType instanceof RowType) {
                         ((RowType) elementType).getFields().stream()
                                 .map(field -> Field.newUnqualified(field.getName(), field.getType()))
-                                .forEach(outputFields::add);
+                                .forEach(expressionOutputs::add);
                     }
                     else {
-                        outputFields.add(Field.newUnqualified(Optional.empty(), elementType));
+                        expressionOutputs.add(Field.newUnqualified(Optional.empty(), elementType));
                     }
                 }
                 else if (expressionType instanceof MapType) {
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
+                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
+                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
                 }
                 else {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
+
+                outputFields.addAll(expressionOutputs);
+                mappings.put(NodeRef.of(expression), expressionOutputs);
             }
+
+            Optional<Field> ordinalityField = Optional.empty();
             if (node.isWithOrdinality()) {
-                outputFields.add(Field.newUnqualified(Optional.empty(), BIGINT));
+                ordinalityField = Optional.of(Field.newUnqualified(Optional.empty(), BIGINT));
             }
+
+            ordinalityField.ifPresent(outputFields::add);
+
+            analysis.setUnnest(node, new UnnestAnalysis(mappings.build(), ordinalityField));
+
             return createAndAssignScope(node, scope, outputFields.build());
         }
 
