@@ -134,6 +134,13 @@ public class TestPhoenixDistributedQueries
     }
 
     @Override
+    public void testColumnName(String columnName)
+    {
+        // TODO (https://github.com/prestosql/presto/issues/3466) Phoenix generally lacks quoting in underlying queries
+        throw new SkipException("TODO");
+    }
+
+    @Override
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
         // TODO enable the test
