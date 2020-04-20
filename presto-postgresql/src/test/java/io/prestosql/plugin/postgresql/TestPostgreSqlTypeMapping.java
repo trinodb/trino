@@ -1462,7 +1462,7 @@ public class TestPostgreSqlTypeMapping
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return prestoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
     private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
