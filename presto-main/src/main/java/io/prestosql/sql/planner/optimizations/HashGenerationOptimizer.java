@@ -668,7 +668,7 @@ public class HashGenerationOptimizer
                                     .addAll(node.getReplicateSymbols())
                                     .addAll(hashSymbols.values())
                                     .build(),
-                            node.getUnnestSymbols(),
+                            node.getMappings(),
                             node.getOrdinalitySymbol(),
                             node.getJoinType(),
                             node.getFilter()),

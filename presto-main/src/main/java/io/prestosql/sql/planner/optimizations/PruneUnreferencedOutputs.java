@@ -519,19 +519,26 @@ public class PruneUnreferencedOutputs
             if (ordinalitySymbol.isPresent() && !context.get().contains(ordinalitySymbol.get())) {
                 ordinalitySymbol = Optional.empty();
             }
-            Map<Symbol, List<Symbol>> unnestSymbols = node.getUnnestSymbols();
+            List<UnnestNode.Mapping> mappings = node.getMappings();
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(replicateSymbols)
-                    .addAll(unnestSymbols.keySet());
+                    .addAll(replicateSymbols);
+
+            mappings.stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .forEach(expectedInputs::add);
+
             ImmutableSet.Builder<Symbol> unnestedSymbols = ImmutableSet.builder();
-            for (List<Symbol> symbols : unnestSymbols.values()) {
-                unnestedSymbols.addAll(symbols);
-            }
+
+            mappings.stream()
+                    .map(UnnestNode.Mapping::getOutputs)
+                    .flatMap(Collection::stream)
+                    .forEach(unnestedSymbols::add);
+
             Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols.build());
             expectedInputs.addAll(expectedFilterSymbols);
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol, node.getJoinType(), node.getFilter());
+            return new UnnestNode(node.getId(), source, replicateSymbols, mappings, ordinalitySymbol, node.getJoinType(), node.getFilter());
         }
 
         @Override

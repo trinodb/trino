@@ -1393,7 +1393,11 @@ public class LocalExecutionPlanner
             for (Symbol symbol : node.getReplicateSymbols()) {
                 replicateTypes.add(context.getTypes().get(symbol));
             }
-            List<Symbol> unnestSymbols = ImmutableList.copyOf(node.getUnnestSymbols().keySet());
+
+            List<Symbol> unnestSymbols = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .collect(toImmutableList());
+
             ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
             for (Symbol symbol : unnestSymbols) {
                 unnestTypes.add(context.getTypes().get(symbol));
@@ -1412,12 +1416,14 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, channel);
                 channel++;
             }
-            for (Symbol symbol : unnestSymbols) {
-                for (Symbol unnestedSymbol : node.getUnnestSymbols().get(symbol)) {
+
+            for (UnnestNode.Mapping mapping : node.getMappings()) {
+                for (Symbol unnestedSymbol : mapping.getOutputs()) {
                     outputMappings.put(unnestedSymbol, channel);
                     channel++;
                 }
             }
+
             if (ordinalitySymbol.isPresent()) {
                 outputMappings.put(ordinalitySymbol.get(), channel);
                 channel++;

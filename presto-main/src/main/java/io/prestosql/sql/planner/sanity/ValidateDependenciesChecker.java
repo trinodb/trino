@@ -497,13 +497,18 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols);
 
             ImmutableSet.Builder<Symbol> required = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getReplicateSymbols())
-                    .addAll(node.getUnnestSymbols().keySet());
-            ImmutableSet.Builder<Symbol> unnestedSymbols = ImmutableSet.builder();
-            for (List<Symbol> symbols : node.getUnnestSymbols().values()) {
-                unnestedSymbols.addAll(symbols);
-            }
-            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols.build());
+                    .addAll(node.getReplicateSymbols());
+
+            node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .forEach(required::add);
+
+            Set<Symbol> unnestedSymbols = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getOutputs)
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableSet());
+
+            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols);
             required.addAll(expectedFilterSymbols);
             checkDependencies(source.getOutputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
 

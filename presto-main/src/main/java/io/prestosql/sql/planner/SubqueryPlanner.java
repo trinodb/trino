@@ -574,7 +574,7 @@ class SubqueryPlanner
                     node.getId(),
                     rewrittenNode.getSource(),
                     rewrittenNode.getReplicateSymbols(),
-                    rewrittenNode.getUnnestSymbols(),
+                    rewrittenNode.getMappings(),
                     rewrittenNode.getOrdinalitySymbol(),
                     rewrittenNode.getJoinType(),
                     rewrittenNode.getFilter().map(expression -> replaceExpression(expression, mapping)));
