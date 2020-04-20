@@ -38,8 +38,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
@@ -59,7 +57,6 @@ import java.util.Set;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -460,130 +457,5 @@ public class TestAccessControlManager
     private static class DenyConnectorAccessControl
             implements ConnectorAccessControl
     {
-        @Override
-        public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-        {
-            denySelectColumns(tableName.toString(), columnNames);
-        }
-
-        @Override
-        public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 }
