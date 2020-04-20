@@ -123,6 +123,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveRedundantEnforceSingleRowNo
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantJoin;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantLimit;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantOffset;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTableScanPredicate;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTopN;
@@ -350,6 +351,7 @@ public class PlanOptimizers
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
                                         new RemoveRedundantLimit(),
+                                        new RemoveRedundantOffset(),
                                         new RemoveRedundantSort(),
                                         new RemoveRedundantTopN(),
                                         new RemoveRedundantDistinctLimit(),
