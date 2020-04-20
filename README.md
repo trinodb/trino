@@ -106,6 +106,7 @@ Enable the following inspections:
 
 Disable the following inspections:
 
+- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``,
 - ``Java | Abstraction issues | 'Optional' used as field or parameter type``.
 
 ### Building the Web UI
