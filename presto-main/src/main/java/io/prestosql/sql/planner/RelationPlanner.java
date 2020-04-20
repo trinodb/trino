@@ -789,9 +789,16 @@ class RelationPlanner
         }
         Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol, JoinNode.Type.INNER, Optional.empty());
+        UnnestNode unnestNode = new UnnestNode(
+                idAllocator.getNextId(),
+                new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build())),
+                ImmutableList.of(),
+                unnestSymbols.build(),
+                ordinalitySymbol,
+                JoinNode.Type.INNER,
+                Optional.empty());
+
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
     }
 
