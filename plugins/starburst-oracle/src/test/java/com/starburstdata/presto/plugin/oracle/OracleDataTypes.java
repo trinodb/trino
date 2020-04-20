@@ -36,6 +36,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 
 public final class OracleDataTypes
 {
@@ -205,6 +206,23 @@ public final class OracleDataTypes
                 BigDecimal::toString,
                 // Round to Oracle's scale if necessary, then return to the scale Presto will use.
                 i -> i.setScale(scale, RoundingMode.HALF_UP).setScale(prestoScale));
+    }
+
+    public static DataType<BigDecimal> oracleDecimalDataType(int precision, int scale)
+    {
+        String databaseType = format("decimal(%s, %s)", precision, scale);
+        return dataType(
+                databaseType,
+                createDecimalType(precision, scale),
+                bigDecimal -> format("CAST(TO_NUMBER('%s', '%s') AS %s)", bigDecimal.toPlainString(), toNumberFormatMask(bigDecimal), databaseType),
+                bigDecimal -> bigDecimal.setScale(scale, UNNECESSARY));
+    }
+
+    private static String toNumberFormatMask(BigDecimal bigDecimal)
+    {
+        return bigDecimal.toPlainString()
+                .replace("-", "")
+                .replaceAll("[\\d]", "9");
     }
 
     public static DataType<Long> integerDataType(String name, int precision)
