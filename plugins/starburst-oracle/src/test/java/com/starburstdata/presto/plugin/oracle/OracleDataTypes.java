@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimestampType;
@@ -152,27 +151,43 @@ public final class OracleDataTypes
                 LocalDate::atStartOfDay);
     }
 
-    public static DataType<ZonedDateTime> prestoTimestampTimeZoneDataType()
+    public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()
     {
-        return dataType("TIMESTAMP WITH TIME ZONE", TIMESTAMP_WITH_TIME_ZONE,
-                DateTimeFormatter.ofPattern("'TIMESTAMP'''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
-                // Normalize to UTC instead of Z.
-                zdt -> zdt.withZoneSameInstant(
-                        ZoneId.of(zdt.getZone().normalized().getId(),
-                                ImmutableMap.of("Z", "UTC"))));
+        return dataType(
+                "timestamp with time zone",
+                TIMESTAMP_WITH_TIME_ZONE,
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
+                OracleDataTypes::normalizeForOracleStorage);
     }
 
     @SuppressWarnings("MisusedWeekYear")
     public static DataType<ZonedDateTime> oracleTimestamp3TimeZoneDataType()
     {
-        return dataType("TIMESTAMP(3) WITH TIME ZONE", TIMESTAMP_WITH_TIME_ZONE,
-                DateTimeFormatter.ofPattern("'to_timestamp_tz('" +
-                        "''yyyy-MM-dd HH:mm:ss.SSS VV''" +
-                        "', ''YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM'')'")::format,
-                // Normalize to UTC instead of Z.
-                zdt -> zdt.withZoneSameInstant(
-                        ZoneId.of(zdt.getZone().normalized().getId(),
-                                ImmutableMap.of("Z", "UTC"))));
+        return dataType(
+                "TIMESTAMP(3) WITH TIME ZONE",
+                TIMESTAMP_WITH_TIME_ZONE,
+                zonedDateTime -> {
+                    String zoneId = zonedDateTime.getZone().getId();
+                    if (zoneId.equals("Z")) {
+                        zoneId = "UTC";
+                    }
+                    return format(
+                            "from_tz(TIMESTAMP '%s', '%s')",
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").format(zonedDateTime.toLocalDateTime()),
+                            zoneId);
+                },
+                OracleDataTypes::normalizeForOracleStorage);
+    }
+
+    private static ZonedDateTime normalizeForOracleStorage(ZonedDateTime zonedDateTime)
+    {
+        // Oracle conflates UTC-equivalent zones to UTC.
+        String zoneId = zonedDateTime.getZone().getId();
+        if (zoneId.equals("Z")) {
+            // Oracle conflates UTC-equivalent zones to UTC.
+            return zonedDateTime.withZoneSameInstant(ZoneId.of("UTC"));
+        }
+        return zonedDateTime;
     }
 
     /* Fixed-point numeric types */

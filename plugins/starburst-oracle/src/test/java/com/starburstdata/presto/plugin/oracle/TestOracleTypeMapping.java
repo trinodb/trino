@@ -66,7 +66,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.numberDataT
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.nvarchar2DataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleFloatDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
-import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampTimeZoneDataType;
+import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.rawDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.realDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
@@ -88,6 +88,7 @@ import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 
 public class TestOracleTypeMapping
         extends AbstractTestQueryFramework
@@ -111,6 +112,9 @@ public class TestOracleTypeMapping
     // minutes offset change since 1970-01-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
+
+    private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
+    private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -738,54 +742,60 @@ public class TestOracleTypeMapping
         };
     }
 
-    @Test
-    public void testTimestampWithTimeZoneMapping()
+    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
-        runTimestampTest(prestoCreateAsSelect("timestamp_tz"),
-                timestampWithTimeZoneTests(prestoTimestampTimeZoneDataType()));
-    }
-
-    @Test
-    public void testTimestampWithTimeZoneReadMapping()
-    {
-        runTimestampTest(oracleCreateAndInsert("read_timestamp_tz"),
-                timestampWithTimeZoneTests(oracleTimestamp3TimeZoneDataType()));
-    }
-
-    @Test
-    public void testTimestampWithTimeZoneReadMappingExtended()
-    {
-        verify(jvmZone.getRules().getValidOffsets(LocalDateTime.parse("1970-01-01T00:00:00.000")).isEmpty());
-        ZonedDateTime tszOfLocalTimeChangeForwardAtMidnightInJvmZone = ZonedDateTime.parse("1970-01-01T01:00:00.000-07:00");
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        verify(someZone.getRules().getValidOffsets(LocalDateTime.parse("1983-04-01T00:00:00.000")).isEmpty());
-        ZonedDateTime tszOfLocalTimeChangeForwardAtMidnightInSomeZone = ZonedDateTime.parse("1983-04-01T01:00:00.000+04:00");
-        verify(someZone.getRules().getValidOffsets(LocalDateTime.parse("1983-10-01T00:00:00.000").minusMinutes(1)).size() == 2);
-        ZonedDateTime tszOfLocalTimeChangeBackwardAtMidnightInSomeZone = ZonedDateTime.parse("1983-10-01T00:00:00.000+03:00");
-
-        DataTypeTest testCases = DataTypeTest.create()
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), tszOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), tszOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), tszOfLocalTimeChangeBackwardAtMidnightInSomeZone)
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), ZonedDateTime.parse("1952-04-03T00:00:00.000+00:00")) // before epoch
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), ZonedDateTime.parse("1970-01-01T00:00:00.000+00:00"))
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), ZonedDateTime.parse("1970-02-03T00:00:00.000+00:00"))
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), ZonedDateTime.parse("2017-07-01T00:00:00.000+00:00"))
-                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), ZonedDateTime.parse("2017-01-01T00:00:00.000+00:00"));
-
-        for (String zone : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            runLegacyTimestampTestInZone(oracleCreateAndInsert("read_timestamp_tz_ext"), zone, testCases);
+        DataType<ZonedDateTime> dataType;
+        DataSetup dataSetup;
+        if (insertWithPresto) {
+            dataType = prestoTimestampWithTimeZoneDataType();
+            dataSetup = prestoCreateAsSelect("test_timestamp_with_time_zone");
         }
+        else {
+            dataType = oracleTimestamp3TimeZoneDataType();
+            dataSetup = oracleCreateAndInsert("test_timestamp_with_time_zone");
+        }
+
+        DataTypeTest tests = DataTypeTest.create()
+                .addRoundTrip(dataType, epoch.atZone(UTC))
+                .addRoundTrip(dataType, epoch.atZone(kathmandu))
+                .addRoundTrip(dataType, epoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, epoch.atZone(fixedOffsetWest))
+                .addRoundTrip(dataType, beforeEpoch.atZone(UTC))
+                .addRoundTrip(dataType, beforeEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetWest))
+                .addRoundTrip(dataType, afterEpoch.atZone(UTC))
+                .addRoundTrip(dataType, afterEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetWest))
+//                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("GMT")))
+//                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC")))
+//                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("Z")))
+//                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC+00:00")))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(UTC))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(jvmZone))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(kathmandu))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(UTC))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(vilnius))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(UTC))
+                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(UTC))
+                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInVilnius.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInKathmandu.atZone(vilnius));
+
+        tests.execute(getQueryRunner(), dataSetup);
     }
 
-    private static DataTypeTest timestampWithTimeZoneTests(DataType<ZonedDateTime> dataType)
+    @DataProvider
+    public Object[][] testTimestampWithTimeZoneDataProvider()
     {
-        return DataTypeTest.create()
-                .addRoundTrip(dataType, ZonedDateTime.parse("2000-01-01T00:00:00.000-06:00"))
-                .addRoundTrip(dataType, ZonedDateTime.parse("2018-07-02T12:11:35.123-04:00"))
-                .addRoundTrip(dataType, ZonedDateTime.parse("1970-01-01T00:00:00.000+00:00"))
-                .addRoundTrip(dataType, null);
+        return new Object[][] {
+                {true},
+                {false},
+        };
     }
 
     /* Unsupported type tests */
@@ -856,11 +866,6 @@ public class TestOracleTypeMapping
         for (DataTypeTest test : tests) {
             test.execute(getQueryRunner(), dataSetup);
         }
-    }
-
-    private void runTimestampTest(DataSetup dataSetup, DataTypeTest test)
-    {
-        runLegacyTimestampTestInZone(dataSetup, null, test);
     }
 
     /**
