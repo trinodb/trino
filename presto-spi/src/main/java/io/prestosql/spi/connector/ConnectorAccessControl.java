@@ -51,6 +51,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
@@ -127,7 +128,10 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName);
+    default void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyShowCreateTable(tableName.toString(), null);
+    }
 
     /**
      * Check if identity is allowed to create the specified table in this catalog.
