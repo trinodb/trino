@@ -58,6 +58,7 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.Table;
+import io.prestosql.sql.tree.Unnest;
 import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
@@ -80,6 +81,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
@@ -151,6 +153,7 @@ public class Analysis
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
 
+    private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
@@ -676,6 +679,16 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
+    public void setUnnest(Unnest node, UnnestAnalysis analysis)
+    {
+        unnestAnalysis.put(NodeRef.of(node), analysis);
+    }
+
+    public UnnestAnalysis getUnnest(Unnest node)
+    {
+        return unnestAnalysis.get(NodeRef.of(node));
+    }
+
     public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
@@ -984,6 +997,31 @@ public class Analysis
         public List<Expression> getComplexExpressions()
         {
             return complexExpressions;
+        }
+    }
+
+    public static class UnnestAnalysis
+    {
+        private final Map<NodeRef<Expression>, List<Field>> mappings;
+        private final Optional<Field> ordinalityField;
+
+        public UnnestAnalysis(Map<NodeRef<Expression>, List<Field>> mappings, Optional<Field> ordinalityField)
+        {
+            requireNonNull(mappings, "mappings is null");
+            this.mappings = mappings.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
+
+            this.ordinalityField = requireNonNull(ordinalityField, "ordinalityField is null");
+        }
+
+        public Map<NodeRef<Expression>, List<Field>> getMappings()
+        {
+            return mappings;
+        }
+
+        public Optional<Field> getOrdinalityField()
+        {
+            return ordinalityField;
         }
     }
 
