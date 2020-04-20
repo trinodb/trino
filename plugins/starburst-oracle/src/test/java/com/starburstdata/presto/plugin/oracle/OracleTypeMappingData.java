@@ -48,21 +48,10 @@ public final class OracleTypeMappingData
         return zone;
     }
 
-    /**
-     * Allow a {@link DataType} to test null values
-     */
-    private static <T> DataType<T> makeNullable(DataType<T> type)
-    {
-        return dataType(type.getInsertType(), type.getPrestoResultType(),
-                type::toLiteral,
-                value -> value == null ? null : type.toPrestoQueryResult(value));
-    }
-
     /* DataType factories */
 
     static DataTypeTest floatTests(DataType<Float> floatType)
     {
-        floatType = makeNullable(floatType);
         return DataTypeTest.create()
                 .addRoundTrip(floatType, 123.45f)
                 .addRoundTrip(floatType, Float.NaN)
@@ -73,7 +62,6 @@ public final class OracleTypeMappingData
 
     static DataTypeTest doubleTests(DataType<Double> doubleType)
     {
-        doubleType = makeNullable(doubleType);
         return DataTypeTest.create()
                 .addRoundTrip(doubleType, 1.0e100d)
                 .addRoundTrip(doubleType, Double.NaN)
@@ -103,7 +91,7 @@ public final class OracleTypeMappingData
                 .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("-27182818284590452353602874713526624977"))
                 .addRoundTrip(decimalType.apply(38, 38), new BigDecimal(".10000200003000040000500006000070000888"))
                 .addRoundTrip(decimalType.apply(38, 38), new BigDecimal("-.27182818284590452353602874713526624977"))
-                .addRoundTrip(makeNullable(decimalType.apply(10, 3)), null);
+                .addRoundTrip(decimalType.apply(10, 3), null);
     }
 
     public static DataType<BigDecimal> oracleDecimalDataType(int precision, int scale)
@@ -125,7 +113,6 @@ public final class OracleTypeMappingData
 
     static DataTypeTest varbinaryTests(DataType<byte[]> binaryType)
     {
-        binaryType = makeNullable(binaryType);
         return DataTypeTest.create()
                 .addRoundTrip(binaryType, "varbinary".getBytes(UTF_8))
                 .addRoundTrip(binaryType, "Piękna łąka w 東京都".getBytes(UTF_8))
@@ -138,12 +125,11 @@ public final class OracleTypeMappingData
     static DataTypeTest basicCharacterTests(
             IntFunction<DataType<String>> typeConstructor, int maxSize)
     {
-        IntFunction<DataType<String>> type = i -> makeNullable(typeConstructor.apply(i));
         return DataTypeTest.create()
-                .addRoundTrip(type.apply(10), "string 010")
-                .addRoundTrip(type.apply(20), "string 20")
-                .addRoundTrip(type.apply(maxSize), "string max size")
-                .addRoundTrip(type.apply(5), null);
+                .addRoundTrip(typeConstructor.apply(10), "string 010")
+                .addRoundTrip(typeConstructor.apply(20), "string 20")
+                .addRoundTrip(typeConstructor.apply(maxSize), "string max size")
+                .addRoundTrip(typeConstructor.apply(5), null);
     }
 
     static DataTypeTest unicodeTests(IntFunction<DataType<String>> typeConstructor,
@@ -154,23 +140,21 @@ public final class OracleTypeMappingData
         int unicodeLength = stringLength.applyAsInt(unicodeText);
         int nonBmpLength = stringLength.applyAsInt(nonBmpCharacter);
 
-        IntFunction<DataType<String>> type = i -> makeNullable(typeConstructor.apply(i));
         return DataTypeTest.create()
-                .addRoundTrip(type.apply(unicodeLength), unicodeText)
-                .addRoundTrip(type.apply(unicodeLength + 8), unicodeText)
-                .addRoundTrip(type.apply(maxSize), unicodeText)
-                .addRoundTrip(type.apply(nonBmpLength), nonBmpCharacter)
-                .addRoundTrip(type.apply(nonBmpLength + 5), nonBmpCharacter);
+                .addRoundTrip(typeConstructor.apply(unicodeLength), unicodeText)
+                .addRoundTrip(typeConstructor.apply(unicodeLength + 8), unicodeText)
+                .addRoundTrip(typeConstructor.apply(maxSize), unicodeText)
+                .addRoundTrip(typeConstructor.apply(nonBmpLength), nonBmpCharacter)
+                .addRoundTrip(typeConstructor.apply(nonBmpLength + 5), nonBmpCharacter);
     }
 
     static DataTypeTest unboundedVarcharTests(DataType<String> dataType)
     {
-        DataType<String> type = makeNullable(dataType);
         // The string length function and max size are placeholders;
         // the data type isn't parameterized.
         return unicodeTests(ignored -> dataType, ignored -> 0, 0)
-                .addRoundTrip(type, "clob")
-                .addRoundTrip(type, null);
+                .addRoundTrip(dataType, "clob")
+                .addRoundTrip(dataType, null);
     }
 
     /**
@@ -254,11 +238,10 @@ public final class OracleTypeMappingData
 
     static DataTypeTest timestampWithTimeZoneTests(DataType<ZonedDateTime> dataType)
     {
-        DataType<ZonedDateTime> type = makeNullable(dataType);
         return DataTypeTest.create()
-                .addRoundTrip(type, ZonedDateTime.parse("2000-01-01T00:00:00.000-06:00"))
-                .addRoundTrip(type, ZonedDateTime.parse("2018-07-02T12:11:35.123-04:00"))
-                .addRoundTrip(type, ZonedDateTime.parse("1970-01-01T00:00:00.000+00:00"))
-                .addRoundTrip(type, null);
+                .addRoundTrip(dataType, ZonedDateTime.parse("2000-01-01T00:00:00.000-06:00"))
+                .addRoundTrip(dataType, ZonedDateTime.parse("2018-07-02T12:11:35.123-04:00"))
+                .addRoundTrip(dataType, ZonedDateTime.parse("1970-01-01T00:00:00.000+00:00"))
+                .addRoundTrip(dataType, null);
     }
 }
