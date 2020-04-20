@@ -134,6 +134,9 @@ public class TestPostgreSqlTypeMapping
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
+    private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
+    private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -1106,10 +1109,20 @@ public class TestPostgreSqlTypeMapping
         DataTypeTest tests = DataTypeTest.create()
                 .addRoundTrip(dataType, epoch.atZone(UTC))
                 .addRoundTrip(dataType, epoch.atZone(kathmandu))
+                .addRoundTrip(dataType, epoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, epoch.atZone(fixedOffsetWest))
                 .addRoundTrip(dataType, beforeEpoch.atZone(UTC))
                 .addRoundTrip(dataType, beforeEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetWest))
                 .addRoundTrip(dataType, afterEpoch.atZone(UTC))
                 .addRoundTrip(dataType, afterEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetWest))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("GMT")))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC")))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("Z")))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC+00:00")))
                 .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(UTC))
                 .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(jvmZone))
                 .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(kathmandu))
