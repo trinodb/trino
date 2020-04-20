@@ -134,6 +134,13 @@ public class TestKuduDistributedQueries
     }
 
     @Override
+    public void testColumnName(String columnName)
+    {
+        // TODO (https://github.com/prestosql/presto/issues/3477) enable the test
+        throw new SkipException("TODO");
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();

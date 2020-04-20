@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test
 public class TestMongoDistributedQueries
@@ -113,6 +114,21 @@ public class TestMongoDistributedQueries
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("test disabled for Mongo");
+    }
+
+    @Override
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testColumnName(String columnName)
+    {
+        if (columnName.equals("a.dot")) {
+            // TODO (https://github.com/prestosql/presto/issues/3460)
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasStackTraceContaining("TableWriterOperator") // during INSERT
+                    .hasMessage("Invalid BSON field name a.dot");
+            throw new SkipException("Insert would fail");
+        }
+
+        super.testColumnName(columnName);
     }
 
     @Override
