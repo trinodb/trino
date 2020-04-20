@@ -689,14 +689,15 @@ class RelationPlanner
                 .collect(toImmutableMap(Function.identity(), symbolAllocator::newSymbol));
 
         UnnestAnalysis unnestAnalysis = analysis.getUnnest(node);
-        ImmutableMap.Builder<Symbol, List<Symbol>> mappings = ImmutableMap.builder();
+
+        ImmutableList.Builder<UnnestNode.Mapping> mappings = ImmutableList.builder();
         for (Expression expression : node.getExpressions()) {
             Symbol input = subPlan.translate(expression);
             List<Symbol> outputs = unnestAnalysis.getMappings().get(NodeRef.of(expression)).stream()
                     .map(allocations::get)
                     .collect(toImmutableList());
 
-            mappings.put(input, outputs);
+            mappings.add(new UnnestNode.Mapping(input, outputs));
         }
 
         UnnestNode unnestNode = new UnnestNode(

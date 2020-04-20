@@ -607,7 +607,7 @@ public class ExtractSpatialJoins
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
                 node.getOutputSymbols(),
-                ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
+                ImmutableList.of(new UnnestNode.Mapping(partitionsSymbol, ImmutableList.of(partitionSymbol))),
                 Optional.empty(),
                 INNER,
                 Optional.empty());
