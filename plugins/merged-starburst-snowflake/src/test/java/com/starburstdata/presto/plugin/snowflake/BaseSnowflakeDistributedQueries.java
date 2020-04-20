@@ -10,8 +10,9 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -23,8 +24,29 @@ import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public abstract class BaseSnowflakeDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
+    SnowflakeServer server = new SnowflakeServer();
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                server::safeExecute,
+                "test_table_with_default_columns",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
     @Override
     public void testShowColumns()
     {
@@ -44,6 +66,12 @@ public abstract class BaseSnowflakeDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Test

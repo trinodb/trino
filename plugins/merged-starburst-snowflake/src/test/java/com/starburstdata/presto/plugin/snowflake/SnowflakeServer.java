@@ -94,6 +94,16 @@ class SnowflakeServer
         }
     }
 
+    void safeExecute(String sql)
+    {
+        try {
+            execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private Connection getConnection()
             throws SQLException
     {
