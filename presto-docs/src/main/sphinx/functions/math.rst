@@ -36,12 +36,6 @@ Mathematical Functions
 
     Returns ``x`` rounded up to the nearest integer.
 
-.. function:: cosine_similarity(x, y) -> double
-
-    Returns the cosine similarity between the sparse vectors ``x`` and ``y``::
-
-        SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
-
 .. function:: degrees(x) -> double
 
     Converts angle ``x`` in radians to degrees.
@@ -57,35 +51,6 @@ Mathematical Functions
 .. function:: floor(x) -> [same as input]
 
     Returns ``x`` rounded down to the nearest integer.
-
-.. function:: from_base(string, radix) -> bigint
-
-    Returns the value of ``string`` interpreted as a base-``radix`` number.
-
-.. function:: inverse_normal_cdf(mean, sd, p) -> double
-
-    Compute the inverse of the Normal cdf with given mean and standard
-    deviation (sd) for the cumulative probability (p): P(N < n). The mean must be
-    a real value and the standard deviation must be a real and positive value.
-    The probability p must lie on the interval (0, 1).
-
-.. function:: normal_cdf(mean, sd, v) -> double
-
-    Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
-    The mean and value v must be real values and the standard deviation must be a real
-    and positive value.
-
-.. function:: inverse_beta_cdf(a, b, p) -> double
-
-    Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
-    probability (p): P(N < n). The a, b parameters must be positive real values.
-    The probability p must lie on the interval [0, 1].
-
-.. function:: beta_cdf(a, b, v) -> double
-
-    Compute the Beta cdf with given a, b parameters:  P(N < v; a, b).
-    The a, b parameters must be positive real numbers and value v must be a real value.
-    The value v must lie on the interval [0, 1].
 
 .. function:: ln(x) -> double
 
@@ -123,22 +88,6 @@ Mathematical Functions
 
     Converts angle ``x`` in degrees to radians.
 
-.. function:: rand() -> double
-
-    This is an alias for :func:`random()`.
-
-.. function:: random() -> double
-
-    Returns a pseudo-random value in the range 0.0 <= x < 1.0.
-
-.. function:: random(n) -> [same as input]
-
-    Returns a pseudo-random number between 0 and n (exclusive).
-
-.. function:: random(m, n) -> [same as input]
-
-    Returns a pseudo-random number between m and n (exclusive).
-
 .. function:: round(x) -> [same as input]
 
     Returns ``x`` rounded to the nearest integer.
@@ -165,10 +114,6 @@ Mathematical Functions
 
     Returns the square root of ``x``.
 
-.. function:: to_base(x, radix) -> varchar
-
-    Returns the base-``radix`` representation of ``x``.
-
 .. function:: truncate(x) -> double
 
     Returns ``x`` rounded to integer by dropping digits after decimal point.
@@ -184,18 +129,24 @@ Mathematical Functions
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
     assumed to be in sorted ascending order.
 
-Statistical Functions
------------------------
+Random Functions
+----------------
 
-.. function:: wilson_interval_lower(successes, trials, z) -> double
+.. function:: rand() -> double
 
-    Returns the lower bound of the Wilson score interval of a Bernoulli trial process
-    at a confidence specified by the z-score ``z``.
+    This is an alias for :func:`random()`.
 
-.. function:: wilson_interval_upper(successes, trials, z) -> double
+.. function:: random() -> double
 
-    Returns the upper bound of the Wilson score interval of a Bernoulli trial process
-    at a confidence specified by the z-score ``z``.
+    Returns a pseudo-random value in the range 0.0 <= x < 1.0.
+
+.. function:: random(n) -> [same as input]
+
+    Returns a pseudo-random number between 0 and n (exclusive).
+
+.. function:: random(m, n) -> [same as input]
+
+    Returns a pseudo-random number between m and n (exclusive).
 
 Trigonometric Functions
 -----------------------
@@ -261,3 +212,61 @@ Floating Point Functions
 .. function:: nan() -> double
 
     Returns the constant representing not-a-number.
+
+Base Conversion Functions
+-------------------------
+
+.. function:: from_base(string, radix) -> bigint
+
+    Returns the value of ``string`` interpreted as a base-``radix`` number.
+
+.. function:: to_base(x, radix) -> varchar
+
+    Returns the base-``radix`` representation of ``x``.
+
+Statistical Functions
+---------------------
+
+.. function:: cosine_similarity(x, y) -> double
+
+    Returns the cosine similarity between the sparse vectors ``x`` and ``y``::
+
+        SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
+
+.. function:: wilson_interval_lower(successes, trials, z) -> double
+
+    Returns the lower bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
+
+.. function:: wilson_interval_upper(successes, trials, z) -> double
+
+    Returns the upper bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
+
+Cumulative Distribution Functions
+---------------------------------
+
+.. function:: beta_cdf(a, b, v) -> double
+
+    Compute the Beta cdf with given a, b parameters:  P(N < v; a, b).
+    The a, b parameters must be positive real numbers and value v must be a real value.
+    The value v must lie on the interval [0, 1].
+
+.. function:: inverse_beta_cdf(a, b, p) -> double
+
+    Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
+    probability (p): P(N < n). The a, b parameters must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_normal_cdf(mean, sd, p) -> double
+
+    Compute the inverse of the Normal cdf with given mean and standard
+    deviation (sd) for the cumulative probability (p): P(N < n). The mean must be
+    a real value and the standard deviation must be a real and positive value.
+    The probability p must lie on the interval (0, 1).
+
+.. function:: normal_cdf(mean, sd, v) -> double
+
+    Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
+    The mean and value v must be real values and the standard deviation must be a real
+    and positive value.
