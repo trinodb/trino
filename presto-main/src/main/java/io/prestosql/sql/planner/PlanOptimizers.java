@@ -260,20 +260,20 @@ public class PlanOptimizers
                 new PruneIntersectSourceColumns(),
                 new PruneJoinChildrenColumns(),
                 new PruneJoinColumns(),
+                new PruneLimitColumns(),
                 new PruneMarkDistinctColumns(),
+                new PruneOffsetColumns(),
                 new PruneOutputColumns(),
                 new PruneProjectColumns(),
                 new PruneSampleColumns(),
                 new PruneSemiJoinColumns(),
                 new PruneSemiJoinFilteringSourceColumns(),
+                new PruneTableScanColumns(metadata, typeAnalyzer),
                 new PruneTopNColumns(),
                 new PruneUnionColumns(),
                 new PruneUnionSourceColumns(),
                 new PruneValuesColumns(),
-                new PruneWindowColumns(),
-                new PruneOffsetColumns(),
-                new PruneLimitColumns(),
-                new PruneTableScanColumns(metadata, typeAnalyzer));
+                new PruneWindowColumns());
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
                 new PushProjectionIntoTableScan(metadata, typeAnalyzer),
