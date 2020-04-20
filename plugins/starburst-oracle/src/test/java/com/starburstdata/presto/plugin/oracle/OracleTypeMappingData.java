@@ -14,7 +14,6 @@ import io.prestosql.testing.datatype.DataTypeTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
@@ -251,16 +250,6 @@ public final class OracleTypeMappingData
                         dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
                 .addRoundTrip(dateDataType(),
                         dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-    }
-
-    static DataTypeTest timestampTests(DataType<LocalDateTime> dataType)
-    {
-        DataType<LocalDateTime> type = makeNullable(dataType);
-        return DataTypeTest.create()
-                .addRoundTrip(type, LocalDateTime.parse("2000-01-01T00:00:00.000"))
-                .addRoundTrip(type, LocalDateTime.parse("2018-07-02T12:12:43.321"))
-                .addRoundTrip(type, LocalDateTime.parse("1970-01-01T00:00:00.000"))
-                .addRoundTrip(type, null);
     }
 
     static DataTypeTest timestampWithTimeZoneTests(DataType<ZonedDateTime> dataType)

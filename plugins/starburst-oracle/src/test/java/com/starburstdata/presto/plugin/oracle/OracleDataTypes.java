@@ -20,7 +20,6 @@ import io.prestosql.testing.datatype.DataType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -150,21 +149,6 @@ public final class OracleDataTypes
         return dataType("DATE", TimestampType.TIMESTAMP,
                 DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
                 LocalDate::atStartOfDay);
-    }
-
-    public static DataType<LocalDateTime> prestoTimestampDataType()
-    {
-        return dataType("TIMESTAMP", TimestampType.TIMESTAMP,
-                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS''")::format);
-    }
-
-    @SuppressWarnings("MisusedWeekYear")
-    public static DataType<LocalDateTime> oracleTimestamp3DataType()
-    {
-        return dataType("TIMESTAMP(3)", TimestampType.TIMESTAMP,
-                DateTimeFormatter.ofPattern("'to_timestamp('" +
-                        "''yyyy-MM-dd HH:mm:ss.SSS''" +
-                        "', ''YYYY-MM-DD HH24:MI:SS.FF3'')'")::format);
     }
 
     public static DataType<ZonedDateTime> prestoTimestampTimeZoneDataType()

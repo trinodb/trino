@@ -17,6 +17,7 @@ import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
@@ -25,12 +26,15 @@ import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -57,9 +61,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.nclobDataTy
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.numberDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.nvarchar2DataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleFloatDataType;
-import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimestamp3DataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
-import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampTimeZoneDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.rawDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.realDataType;
@@ -74,7 +76,6 @@ import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.doubl
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.floatTests;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.getJvmTestTimeZone;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.numericTests;
-import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.timestampTests;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.timestampWithTimeZoneTests;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.unboundedVarcharTests;
 import static com.starburstdata.presto.plugin.oracle.OracleTypeMappingData.unicodeTests;
@@ -84,6 +85,7 @@ import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHA
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
@@ -95,6 +97,24 @@ public class TestOracleTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
+
+    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
+    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
+
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+    private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+    private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
+
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    private final LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+    private final LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
+
+    // minutes offset change since 1970-01-01, no DST
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+    private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -109,6 +129,19 @@ public class TestOracleTypeMapping
                         .build())
                 .withTables(ImmutableList.of())
                 .build();
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        checkIsGap(jvmZone, timeGapInJvmZone1);
+        checkIsGap(jvmZone, timeGapInJvmZone2);
+        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
+
+        checkIsGap(vilnius, timeGapInVilnius);
+        checkIsDoubled(vilnius, timeDoubledInVilnius);
+
+        checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
     @Test
@@ -473,66 +506,75 @@ public class TestOracleTypeMapping
         }
     }
 
-    @Test
-    public void timestampMapping()
+    @Test(dataProvider = "testTimestampDataProvider")
+    public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
     {
-        runTimestampTest(prestoCreateAsSelect("timestamp"),
-                timestampTests(prestoTimestampDataType()));
-    }
+        // using two non-JVM zones so that we don't need to worry what Oracle system zone is
+        DataTypeTest tests = DataTypeTest.create()
+                .addRoundTrip(timestampDataType(), beforeEpoch)
+                .addRoundTrip(timestampDataType(), afterEpoch)
+                .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
+                .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
 
-    @Test
-    public void timestampReadMapping()
-    {
-        runTimestampTest(oracleCreateAndInsert("read_timestamp"),
-                timestampTests(oracleTimestamp3DataType()));
-    }
+        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, epoch); // epoch also is a gap in JVM zone
+        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone1);
+        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone2);
+        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInVilnius);
+        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInKathmandu);
 
-    @Test
-    public void legacyTimestampReadMappingExtended()
-    {
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDateTime tsOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDateTime.parse("1983-10-01T00:00:00.000");
-        verify(someZone.getRules().getValidOffsets(tsOfLocalTimeChangeBackwardAtMidnightInSomeZone.minusMinutes(1)).size() == 2);
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
+                .build();
 
-        DataTypeTest testCases = DataTypeTest.create()
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("1952-04-03T00:00:00.000")) // before epoch
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("1970-02-03T00:00:00.000"))
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("2017-07-01T00:00:00.000")) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("2017-01-01T00:00:00.000")) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(oracleTimestamp3DataType(), tsOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-
-        for (String zone : ImmutableList.of(UTC_KEY.getId(), getJvmTestTimeZone().getId(), someZone.getId())) {
-            runLegacyTimestampTestInZone(oracleCreateAndInsert("legacy_read_timestamp_ext"), zone, testCases);
+        if (insertWithPresto) {
+            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
+        }
+        else {
+            tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
         }
     }
 
-    @Test
-    public void nonLegacyTimestampReadMappingExtended()
+    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
     {
-        ZoneId jvmZone = getJvmTestTimeZone();
-
-        LocalDateTime tsOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDateTime.parse("1970-01-01T00:00:00.000");
-        verify(jvmZone.getRules().getValidOffsets(tsOfLocalTimeChangeForwardAtMidnightInJvmZone).isEmpty());
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDateTime tsOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDateTime.parse("1983-04-01T00:00:00.000");
-        verify(someZone.getRules().getValidOffsets(tsOfLocalTimeChangeForwardAtMidnightInSomeZone).isEmpty());
-        LocalDateTime tsOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDateTime.parse("1983-10-01T00:00:00.000");
-        verify(someZone.getRules().getValidOffsets(tsOfLocalTimeChangeBackwardAtMidnightInSomeZone.minusMinutes(1)).size() == 2);
-
-        DataTypeTest testCases = DataTypeTest.create()
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("1952-04-03T00:00:00.000")) // before epoch
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("1970-01-01T00:00:00.000"))
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("1970-02-03T00:00:00.000"))
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("2017-07-01T00:00:00.000")) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(oracleTimestamp3DataType(), LocalDateTime.parse("2017-01-01T00:00:00.000")) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(oracleTimestamp3DataType(), tsOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(oracleTimestamp3DataType(), tsOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(oracleTimestamp3DataType(), tsOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-
-        for (String zone : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            runNonLegacyTimestampTestInZone(oracleCreateAndInsert("non_legacy_read_timestamp_ext"), zone, testCases);
+        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
+            // in legacy timestamp semantics we cannot represent this dateTime
+            return;
         }
+
+        tests.addRoundTrip(timestampDataType(), dateTime);
+    }
+
+    @DataProvider
+    public Object[][] testTimestampDataProvider()
+    {
+        return new Object[][] {
+                {true, true, ZoneOffset.UTC},
+                {false, true, ZoneOffset.UTC},
+                {true, false, ZoneOffset.UTC},
+                {false, false, ZoneOffset.UTC},
+
+                {true, true, jvmZone},
+                {false, true, jvmZone},
+                {true, false, jvmZone},
+                {false, false, jvmZone},
+
+                // using two non-JVM zones so that we don't need to worry what Oracle system zone is
+                {true, true, vilnius},
+                {false, true, vilnius},
+                {true, false, vilnius},
+                {false, false, vilnius},
+
+                {true, true, kathmandu},
+                {false, true, kathmandu},
+                {true, false, kathmandu},
+                {false, false, kathmandu},
+
+                {true, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {false, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {true, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {false, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+        };
     }
 
     @Test
@@ -608,12 +650,17 @@ public class TestOracleTypeMapping
         }
     }
 
-    protected DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return prestoCreateAsSelect(getQueryRunner().getDefaultSession(), tableNamePrefix);
     }
 
-    protected DataSetup oracleCreateAndInsert(String tableNamePrefix)
+    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup oracleCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(
                 getSqlExecutor(),
@@ -698,5 +745,20 @@ public class TestOracleTypeMapping
     private TestTable oracleTable(String tableName, String schema, String data)
     {
         return new TestTable(getSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 }
