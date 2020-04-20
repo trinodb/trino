@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.UnmodifiableIterator;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
@@ -660,7 +659,7 @@ class RelationPlanner
             Symbol symbol = symbolAllocator.newSymbol(field);
             unnestedSymbolsBuilder.add(symbol);
         }
-        ImmutableList<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
+        List<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
 
         // TODO do these need translation
         // Add a projection for all the unnest arguments
@@ -670,7 +669,7 @@ class RelationPlanner
         ProjectNode projectNode = (ProjectNode) planBuilder.getRoot();
 
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        UnmodifiableIterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+        Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
             Symbol inputSymbol = translations.get(expression);
