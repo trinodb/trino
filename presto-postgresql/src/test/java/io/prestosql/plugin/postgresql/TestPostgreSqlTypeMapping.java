@@ -116,23 +116,23 @@ public class TestPostgreSqlTypeMapping
 
     private TestingPostgreSqlServer postgreSqlServer;
 
-    private LocalDateTime beforeEpoch;
-    private LocalDateTime epoch;
-    private LocalDateTime afterEpoch;
+    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
+    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
-    private ZoneId jvmZone;
-    private LocalDateTime timeGapInJvmZone1;
-    private LocalDateTime timeGapInJvmZone2;
-    private LocalDateTime timeDoubledInJvmZone;
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+    private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+    private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
 
     // no DST in 1970, but has DST in later years (e.g. 2018)
-    private ZoneId vilnius;
-    private LocalDateTime timeGapInVilnius;
-    private LocalDateTime timeDoubledInVilnius;
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    private final LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+    private final LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
 
     // minutes offset change since 1970-01-01, no DST
-    private ZoneId kathmandu;
-    private LocalDateTime timeGapInKathmandu;
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+    private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -155,29 +155,13 @@ public class TestPostgreSqlTypeMapping
     @BeforeClass
     public void setUp()
     {
-        beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-        epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-        afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
-
-        jvmZone = ZoneId.systemDefault();
-
-        timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
         checkIsGap(jvmZone, timeGapInJvmZone1);
-        timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone2);
-        timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
-        vilnius = ZoneId.of("Europe/Vilnius");
-
-        timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
         checkIsGap(vilnius, timeGapInVilnius);
-        timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
-        kathmandu = ZoneId.of("Asia/Kathmandu");
-
-        timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
         checkIsGap(kathmandu, timeGapInKathmandu);
 
         JdbcSqlExecutor executor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
