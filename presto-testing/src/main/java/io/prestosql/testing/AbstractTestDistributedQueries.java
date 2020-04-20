@@ -1241,6 +1241,11 @@ public abstract class AbstractTestDistributedQueries
         };
     }
 
+    protected String dataMappingTableName(String prestoTypeName)
+    {
+        return "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+    }
+
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
@@ -1248,7 +1253,7 @@ public abstract class AbstractTestDistributedQueries
         String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
         String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
 
-        String tableName = "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+        String tableName = dataMappingTableName(prestoTypeName);
 
         Runnable setup = () -> {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
