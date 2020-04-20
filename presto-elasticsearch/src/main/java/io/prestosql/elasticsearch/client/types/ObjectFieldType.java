@@ -11,28 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch.decoders;
+package io.prestosql.elasticsearch.client.types;
 
-import io.airlift.slice.Slices;
-import io.prestosql.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
+import com.google.common.collect.ImmutableList;
 
-import java.util.function.Supplier;
+import java.util.List;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.util.Objects.requireNonNull;
 
-public class SourceColumnDecoder
-        implements Decoder
+public class ObjectFieldType
+        implements ElasticFieldType
 {
-    @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    private final List<ElasticField> fields;
+
+    public ObjectFieldType(List<ElasticField> fields)
     {
-        VARCHAR.writeSlice(output, Slices.utf8Slice(hit.getSourceAsString()));
+        requireNonNull(fields, "fields is null");
+
+        this.fields = ImmutableList.copyOf(fields);
+    }
+
+    public List<ElasticField> getFields()
+    {
+        return fields;
     }
 
     @Override
-    public Object encode(Object value)
+    public boolean supportsPredicates()
     {
-        throw new UnsupportedOperationException("Encode not supported");
+        return false;
     }
 }

@@ -29,6 +29,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,15 +69,20 @@ public class ElasticsearchLoader
     public ResultsSession<Void> getResultSession(Session session)
     {
         requireNonNull(session, "session is null");
-        return new ElasticsearchLoadingSession();
+        return new ElasticsearchLoadingSession(session);
     }
 
     private class ElasticsearchLoadingSession
             implements ResultsSession<Void>
     {
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
+        private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        private final ZoneId zoneId;
 
-        private ElasticsearchLoadingSession() {}
+        private ElasticsearchLoadingSession(Session session)
+        {
+            this.zoneId = ZoneId.of(session.getTimeZoneKey().getId());
+        }
 
         @Override
         public void addResults(QueryStatusInfo statusInfo, QueryData data)
@@ -128,7 +136,16 @@ public class ElasticsearchLoader
                 return null;
             }
 
-            if (type == BOOLEAN || type == DATE || isVarcharType(type)) {
+            if (type == DATE) {
+                if (value instanceof String) {
+                    LocalDate timestamp = formatter.parse((String) value, LocalDate::from);
+                    return formatter.format(timestamp);
+                }
+                else {
+                    return value;
+                }
+            }
+            if (type == BOOLEAN || isVarcharType(type)) {
                 return value;
             }
             if (type == BIGINT) {

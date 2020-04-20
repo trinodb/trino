@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -37,11 +38,13 @@ public class TimestampDecoder
     private static final ZoneId ZULU = ZoneId.of("Z");
     private final String path;
     private final ZoneId zoneId;
+    private final boolean isLegacyTimestamp;
 
     public TimestampDecoder(ConnectorSession session, String path)
     {
         this.path = requireNonNull(path, "path is null");
         this.zoneId = ZoneId.of(session.getTimeZoneKey().getId());
+        this.isLegacyTimestamp = session.isLegacyTimestamp();
     }
 
     @Override
@@ -79,11 +82,23 @@ public class TimestampDecoder
                         value.getClass().getSimpleName()));
             }
 
-            long epochMillis = timestamp.atZone(zoneId)
+            long epochMillis = timestamp
+                    .atZone(zoneId)
                     .toInstant()
                     .toEpochMilli();
 
             TIMESTAMP.writeLong(output, epochMillis);
         }
+    }
+
+    @Override
+    public Object encode(Object value)
+    {
+        checkState(isLegacyTimestamp, "New timestamp semantics not yet supported");
+
+        return Instant.ofEpochMilli((Long) value)
+                .atZone(zoneId)
+                .toLocalDateTime()
+                .format(ISO_DATE_TIME);
     }
 }

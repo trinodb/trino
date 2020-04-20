@@ -29,4 +29,10 @@ public class IdColumnDecoder
     {
         VARCHAR.writeSlice(output, Slices.utf8Slice(hit.getId()));
     }
+
+    @Override
+    public Object encode(Object value)
+    {
+        throw new UnsupportedOperationException("Encode not supported");
+    }
 }

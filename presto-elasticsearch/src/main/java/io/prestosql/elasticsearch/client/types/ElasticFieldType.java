@@ -11,23 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch.client;
+package io.prestosql.elasticsearch.client.types;
 
-import io.prestosql.elasticsearch.client.types.ObjectFieldType;
-
-import static java.util.Objects.requireNonNull;
-
-public class IndexMetadata
+public interface ElasticFieldType
 {
-    private final ObjectFieldType schema;
-
-    public IndexMetadata(ObjectFieldType schema)
-    {
-        this.schema = requireNonNull(schema, "schema is null");
-    }
-
-    public ObjectFieldType getSchema()
-    {
-        return schema;
-    }
+    boolean supportsPredicates();
 }

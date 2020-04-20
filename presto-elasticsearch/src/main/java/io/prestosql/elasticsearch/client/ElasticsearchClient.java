@@ -17,10 +17,14 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
@@ -30,10 +34,19 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.elasticsearch.AwsSecurityConfig;
 import io.prestosql.elasticsearch.ElasticsearchConfig;
+import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocolConfig;
+import io.prestosql.elasticsearch.client.types.DateTimeFieldType;
+import io.prestosql.elasticsearch.client.types.ElasticField;
+import io.prestosql.elasticsearch.client.types.ElasticFieldType;
+import io.prestosql.elasticsearch.client.types.ElasticType;
+import io.prestosql.elasticsearch.client.types.ObjectFieldType;
+import io.prestosql.elasticsearch.client.types.PrimitiveFieldType;
 import io.prestosql.spi.PrestoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.entity.ContentType;
+import org.apache.http.nio.entity.NStringEntity;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -109,6 +122,7 @@ public class ElasticsearchClient
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     private final RestHighLevelClient client;
+    private final ElasticsearchProtocolConfig protocolConfig;
     private final int scrollSize;
     private final Duration scrollTimeout;
 
@@ -128,6 +142,7 @@ public class ElasticsearchClient
         requireNonNull(config, "config is null");
 
         client = createClient(config, awsSecurityConfig);
+        this.protocolConfig = config.getProtocol().getConfig();
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
@@ -465,11 +480,11 @@ public class ElasticsearchClient
         });
     }
 
-    private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
+    private ObjectFieldType parseType(JsonNode properties, JsonNode metaProperties)
     {
         Iterator<Map.Entry<String, JsonNode>> entries = properties.fields();
 
-        ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
+        ImmutableList.Builder<ElasticField> result = ImmutableList.builder();
         while (entries.hasNext()) {
             Map.Entry<String, JsonNode> field = entries.next();
 
@@ -477,26 +492,26 @@ public class ElasticsearchClient
             JsonNode value = field.getValue();
 
             //default type is object
-            String type = "object";
+            ElasticType type = ElasticType.OBJECT;
             if (value.has("type")) {
-                type = value.get("type").asText();
+                type = ElasticType.of(value.get("type").asText());
             }
             JsonNode metaNode = nullSafeNode(metaProperties, name);
             boolean isArray = !metaNode.isNull() && metaNode.has("isArray") && metaNode.get("isArray").asBoolean();
 
             switch (type) {
-                case "date":
+                case DATE:
                     List<String> formats = ImmutableList.of();
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
-                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(formats)));
+                    result.add(new ElasticField(isArray, name, new DateTimeFieldType(type, formats)));
                     break;
 
-                case "nested":
-                case "object":
+                case NESTED:
+                case OBJECT:
                     if (value.has("properties")) {
-                        result.add(new IndexMetadata.Field(isArray, name, parseType(value.get("properties"), metaNode)));
+                        result.add(new ElasticField(isArray, name, parseType(value.get("properties"), metaNode)));
                     }
                     else {
                         LOG.debug("Ignoring empty object field: %s", name);
@@ -504,11 +519,11 @@ public class ElasticsearchClient
                     break;
 
                 default:
-                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.PrimitiveType(type)));
+                    result.add(new ElasticField(isArray, name, new PrimitiveFieldType(type)));
             }
         }
 
-        return new IndexMetadata.ObjectType(result.build());
+        return new ObjectFieldType(result.build());
     }
 
     private JsonNode nullSafeNode(JsonNode jsonNode, String name)
@@ -660,5 +675,106 @@ public class ElasticsearchClient
     private interface ResponseHandler<T>
     {
         T process(String body);
+    }
+
+    public void createTemplate(String index, IndexMetadata metadata, boolean ignoreExisting)
+    {
+        try {
+            ObjectNode node = OBJECT_MAPPER.createObjectNode();
+            ObjectNode properties = node.putObject("properties");
+            metadata.getSchema().getFields()
+                    .forEach(field -> {
+                        ObjectNode type = OBJECT_MAPPER.createObjectNode();
+                        ElasticFieldType fieldType = field.getType();
+                        if (fieldType instanceof PrimitiveFieldType) {
+                            type.put("type", ((PrimitiveFieldType) fieldType).getName());
+                        }
+                        else if (fieldType instanceof DateTimeFieldType) {
+                            type.put("type", ((DateTimeFieldType) fieldType).getName());
+                        }
+                        else {
+                            throw new IllegalStateException("unknown type " + type.getClass());
+                        }
+                        properties.set(field.getName(), type);
+                    });
+
+            String json = node.toPrettyString();
+            createTemplate(index, json);
+            createIndex(index, json);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void createTemplate(String indexName, String properties)
+            throws IOException
+    {
+        String mappings = protocolConfig.indexTemplate(indexName, properties);
+        client.getLowLevelClient()
+                .performRequest("PUT", "/_template/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+    }
+
+    @VisibleForTesting
+    public void createIndex(String indexName, String properties)
+            throws IOException
+    {
+        String mappings = protocolConfig.indexMapping(properties);
+        client.getLowLevelClient()
+                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+    }
+
+    public void deleteIndex(String index)
+    {
+        try {
+            client.getLowLevelClient()
+                    .performRequest("DELETE", ("/" + index));
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @VisibleForTesting
+    public void saveIndex(String index, Map<String, Object> document)
+            throws IOException
+    {
+        String json = OBJECT_MAPPER.writeValueAsString(document);
+        String endpoint = format("%s?refresh", protocolConfig.indexEndpoint(index, String.valueOf(System.nanoTime())));
+        client.getLowLevelClient()
+                .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+    }
+
+    public void saveIndexBulk(String index, ImmutableList<ImmutableMap<String, Object>> documents)
+            throws IOException
+    {
+        ImmutableList.Builder<String> actions = ImmutableList.builder();
+
+        documents.forEach(doc -> {
+            try {
+                actions.add("{\"index\": { } }\n");
+                actions.add(OBJECT_MAPPER.writeValueAsString(doc) + "\n");
+            }
+            catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+        });
+
+        String endpoint = protocolConfig.indexBulk(index);
+
+        String json = String.join("", actions.build());
+
+        client.getLowLevelClient()
+                .performRequest("POST", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+    }
+
+    public void addAlias(String index, String alias)
+            throws IOException
+    {
+        client.getLowLevelClient()
+                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+
+        client.getLowLevelClient()
+                .performRequest("GET", format("/%s/_refresh", index));
     }
 }
