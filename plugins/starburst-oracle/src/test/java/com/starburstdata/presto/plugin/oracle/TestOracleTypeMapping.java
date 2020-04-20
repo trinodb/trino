@@ -141,7 +141,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void floatingPointMappings()
+    public void testFloatingPointMappings()
     {
         testTypeMapping("floats",
                 floatTests(realDataType()),
@@ -149,7 +149,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void oracleFloatingPointMappings()
+    public void testOracleFloatingPointMappings()
     {
         testTypeReadMapping("oracle_float",
                 DataTypeTest.create()
@@ -167,7 +167,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void floatingPointReadMappings()
+    public void testFloatingPointReadMappings()
     {
         testTypeReadMapping("read_floats",
                 floatTests(binaryFloatDataType()),
@@ -197,14 +197,14 @@ public class TestOracleTypeMapping
     /* varchar tests */
 
     @Test
-    public void varcharMapping()
+    public void testVarcharMapping()
     {
         testTypeMapping("varchar",
                 basicCharacterTests(DataType::varcharDataType, MAX_VARCHAR2));
     }
 
     @Test
-    public void varcharReadMapping()
+    public void testVarcharReadMapping()
     {
         testTypeReadMapping("read_varchar",
                 basicCharacterTests(varchar2DataType(CHAR), MAX_VARCHAR2),
@@ -218,14 +218,14 @@ public class TestOracleTypeMapping
      - NLS_CHARACTERSET = AL32UTF8
      */
     @Test
-    public void varcharUnicodeMapping()
+    public void testVarcharUnicodeMapping()
     {
         testTypeMapping("varchar_unicode",
                 unicodeTests(DataType::varcharDataType, codePoints(), MAX_VARCHAR2));
     }
 
     @Test
-    public void varcharUnicodeReadMapping()
+    public void testVarcharUnicodeReadMapping()
     {
         testTypeReadMapping("read_varchar_unicode",
                 unicodeTests(varchar2DataType(CHAR), codePoints(), MAX_VARCHAR2),
@@ -234,7 +234,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void unboundedVarcharMapping()
+    public void testUnboundedVarcharMapping()
     {
         testTypeMapping("unbounded",
                 unboundedVarcharTests(varcharDataType()),
@@ -243,7 +243,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void unboundedVarcharReadMapping()
+    public void testUnboundedVarcharReadMapping()
     {
         testTypeReadMapping("read_unbounded",
                 unboundedVarcharTests(clobDataType()).addRoundTrip(clobDataType(), ""),
@@ -264,14 +264,14 @@ public class TestOracleTypeMapping
     /* char tests */
 
     @Test
-    public void charMapping()
+    public void testCharMapping()
     {
         testTypeMapping("char",
                 basicCharacterTests(DataType::charDataType, MAX_CHAR));
     }
 
     @Test
-    public void charReadMapping()
+    public void testCharReadMapping()
     {
         testTypeReadMapping("read_char",
                 basicCharacterTests(charDataType(CHAR), MAX_CHAR),
@@ -290,14 +290,14 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void charUnicodeMapping()
+    public void testCharUnicodeMapping()
     {
         testTypeMapping("char_unicode",
                 unicodeTests(DataType::charDataType, codePoints(), MAX_CHAR));
     }
 
     @Test
-    public void charUnicodeReadMapping()
+    public void testCharUnicodeReadMapping()
     {
         testTypeReadMapping("read_char_unicode",
                 unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR),
@@ -323,13 +323,13 @@ public class TestOracleTypeMapping
     /* Varbinary tests */
 
     @Test
-    public void varbinaryMapping()
+    public void testVarbinaryMapping()
     {
         testTypeMapping("varbinary", varbinaryTests(varbinaryDataType()));
     }
 
     @Test
-    public void varbinaryReadMapping()
+    public void testVarbinaryReadMapping()
     {
         testTypeReadMapping("read_varbinary",
                 varbinaryTests(blobDataType())
@@ -352,13 +352,13 @@ public class TestOracleTypeMapping
     /* Decimal tests */
 
     @Test
-    public void decimalMapping()
+    public void testDecimalMapping()
     {
         testTypeMapping("decimals", numericTests(DataType::decimalDataType));
     }
 
     @Test
-    public void integerMappings()
+    public void testIntegerMappings()
     {
         testTypeMapping("integers",
                 DataTypeTest.create()
@@ -369,7 +369,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void numberReadMapping()
+    public void testNumberReadMapping()
     {
         testTypeReadMapping("read_decimals", numericTests(OracleDataTypes::oracleDecimalDataType));
     }
@@ -399,7 +399,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void numberWithoutScaleReadMapping()
+    public void testNumberWithoutScaleReadMapping()
     {
         DataTypeTest.create()
                 .addRoundTrip(numberDataType(1), BigDecimal.valueOf(1))
@@ -412,7 +412,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void numberWithoutPrecisionAndScaleReadMapping()
+    public void testNumberWithoutPrecisionAndScaleReadMapping()
     {
         DataTypeTest.create()
                 .addRoundTrip(unspecifiedNumberDataType(9), BigDecimal.valueOf(1))
@@ -423,7 +423,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void roundingOfUnspecifiedNumber()
+    public void testRoundingOfUnspecifiedNumber()
     {
         try (TestTable table = oracleTable("rounding", "col NUMBER", "(0.123456789)")) {
             assertQuery(number(9), "SELECT * FROM " + table.getName(), "VALUES 0.123456789");
@@ -448,7 +448,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void numberNegativeScaleReadMapping()
+    public void testNumberNegativeScaleReadMapping()
     {
         // TODO: Add similar tests for write mappings.
         // Those tests would require the table to be created in Oracle, but values inserted
@@ -474,7 +474,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void highNumberScale()
+    public void testHighNumberScale()
     {
         try (TestTable table = oracleTable("highNumberScale", "col NUMBER(38, 40)", "(0.0012345678901234567890123456789012345678)")) {
             assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
@@ -494,7 +494,7 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void numberWithHiveNegativeScaleReadMapping()
+    public void testNumberWithHiveNegativeScaleReadMapping()
     {
         try (TestTable table = oracleTable("highNegativeNumberScale", "col NUMBER(38, -60)", "(1234567890123456789012345678901234567000000000000000000000000000000000000000000000000000000000000)")) {
             assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.234567890123456789012345678901234567E96'");
@@ -537,13 +537,13 @@ public class TestOracleTypeMapping
     /* Datetime tests */
 
     @Test
-    public void legacyDateMapping()
+    public void testLegacyDateMapping()
     {
         legacyDateTests(s -> prestoCreateAsSelect("legacy_date_in_" + s));
     }
 
     @Test
-    public void legacyDateReadMapping()
+    public void testLegacyDateReadMapping()
     {
         legacyDateTests(s -> oracleCreateAndInsert("legacy_read_date_in_" + s));
     }
@@ -592,13 +592,13 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void nonLegacyDateMapping()
+    public void testNonLegacyDateMapping()
     {
         nonLegacyDateTests(s -> prestoCreateAsSelect("non_legacy_date_in_" + s));
     }
 
     @Test
-    public void nonLegacyDateReadMapping()
+    public void testNonLegacyDateReadMapping()
     {
         nonLegacyDateTests(s -> oracleCreateAndInsert("non_legacy_read_date_in_" + s));
     }
@@ -739,21 +739,21 @@ public class TestOracleTypeMapping
     }
 
     @Test
-    public void timestampWithTimeZoneMapping()
+    public void testTimestampWithTimeZoneMapping()
     {
         runTimestampTest(prestoCreateAsSelect("timestamp_tz"),
                 timestampWithTimeZoneTests(prestoTimestampTimeZoneDataType()));
     }
 
     @Test
-    public void timestampWithTimeZoneReadMapping()
+    public void testTimestampWithTimeZoneReadMapping()
     {
         runTimestampTest(oracleCreateAndInsert("read_timestamp_tz"),
                 timestampWithTimeZoneTests(oracleTimestamp3TimeZoneDataType()));
     }
 
     @Test
-    public void timestampWithTimeZoneReadMappingExtended()
+    public void testTimestampWithTimeZoneReadMappingExtended()
     {
         verify(jvmZone.getRules().getValidOffsets(LocalDateTime.parse("1970-01-01T00:00:00.000")).isEmpty());
         ZonedDateTime tszOfLocalTimeChangeForwardAtMidnightInJvmZone = ZonedDateTime.parse("1970-01-01T01:00:00.000-07:00");
@@ -791,13 +791,13 @@ public class TestOracleTypeMapping
     /* Unsupported type tests */
 
     @Test
-    public void unsupportedBasicType()
+    public void testUnsupportedBasicType()
     {
         testUnsupportedOracleType("BFILE"); // Never in mapping
     }
 
     @Test
-    public void unsupportedNumberScale()
+    public void testUnsupportedNumberScale()
     {
         // Difference between precision and negative scale greater than 38
         testUnsupportedOracleType("number(20, -20)");
