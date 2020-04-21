@@ -19,6 +19,11 @@ presto-product-tests-launcher/bin/run-launcher test run \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-ldap-insecure \
+    -- -g ldap \
+    || suite_exit_code=1
+
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-ldap-referrals \
     -- -g ldap \
     || suite_exit_code=1
