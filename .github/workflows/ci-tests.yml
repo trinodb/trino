@@ -20,6 +20,11 @@ jobs:
             13
         ]
     steps:
+      - name: Free Disk Space
+        run: |
+          df -h
+          sudo apt-get clean
+          df -h
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:
@@ -32,7 +37,7 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./bin/retry ./mvnw verify -B -P ci -pl presto-server-rpm
-      - name: Free Disk Space
+      - name: Clean Maven Output
         run: ./mvnw clean -pl '!presto-server,!presto-cli'
       - name: Test Docker Image
         run: docker/build-local.sh
