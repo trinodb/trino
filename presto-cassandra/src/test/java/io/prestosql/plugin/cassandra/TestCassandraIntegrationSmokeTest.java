@@ -166,6 +166,16 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
+    public void testInsertToTableWithHiddenId()
+    {
+        execute("DROP TABLE IF EXISTS test_create_table");
+        execute("CREATE TABLE test_create_table (col1 integer)");
+        execute("INSERT INTO test_create_table VALUES (12345)");
+        assertQuery("SELECT * FROM smoke_test.test_create_table", "VALUES (12345)");
+        execute("DROP TABLE test_create_table");
+    }
+
+    @Test
     public void testCreateTableAs()
     {
         execute("DROP TABLE IF EXISTS table_all_types_copy");

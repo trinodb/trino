@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
@@ -336,19 +337,35 @@ public class CassandraMetadata
 
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
         List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
-        List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).collect(Collectors.toList());
-        List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
+        List<String> columnNames = columns.stream()
+                .filter(columnHandle -> !isHiddenIdColumn(columnHandle))
+                .map(CassandraColumnHandle::getName)
+                .collect(Collectors.toList());
+        List<Type> columnTypes = columns.stream()
+                .filter(columnHandle -> !isHiddenIdColumn(columnHandle))
+                .map(CassandraColumnHandle::getType)
+                .collect(Collectors.toList());
+        boolean generateUuid = columns.stream()
+                .filter(CassandraMetadata::isHiddenIdColumn)
+                .collect(toOptional()) // must be at most one
+                .isPresent();
 
         return new CassandraInsertTableHandle(
                 table.getSchemaName(),
                 table.getTableName(),
                 columnNames,
-                columnTypes);
+                columnTypes,
+                generateUuid);
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    private static boolean isHiddenIdColumn(CassandraColumnHandle columnHandle)
+    {
+        return columnHandle.isHidden() && ID_COLUMN_NAME.equals(columnHandle.getName());
     }
 }
