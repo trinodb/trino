@@ -19,7 +19,7 @@ jobs:
         java-version:
           - 1.8
           - 11
-          - 13
+          - 14
     steps:
       - name: Free Disk Space
         run: |
