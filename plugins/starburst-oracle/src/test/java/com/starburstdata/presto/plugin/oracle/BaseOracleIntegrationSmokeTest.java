@@ -9,16 +9,27 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
 import static com.google.common.base.Strings.repeat;
+import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
+import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -153,6 +164,54 @@ public abstract class BaseOracleIntegrationSmokeTest
             //Verify using a large value in WHERE, larger than the 2000 and 4000 bytes Oracle max
             assertQueryReturnsEmptyResult(format("SELECT c_char FROM %s WHERE c_long_char = '" + repeat("💩", 2000) + "'", table.getName()));
             assertQueryReturnsEmptyResult(format("SELECT c_char FROM %s WHERE c_long_varchar = '" + repeat("💩", 4000) + "'", table.getName()));
+        }
+    }
+
+    /**
+     * This test covers only predicate pushdown for Oracle (it doesn't test timestamp semantics).
+     *
+     * @see com.starburstdata.presto.plugin.oracle.TestOracleTypeMapping
+     * @see io.prestosql.testing.AbstractTestDistributedQueries
+     */
+    @Test
+    public void testPredicatePushdownForTimestamps()
+    {
+        LocalDateTime date1950 = LocalDateTime.of(1950, 5, 30, 23, 59, 59, 0);
+        ZonedDateTime yakutat1978 = ZonedDateTime.of(1978, 4, 30, 23, 55, 10, 10, ZoneId.of("America/Yakutat"));
+        ZonedDateTime pacific1976 = ZonedDateTime.of(1976, 3, 15, 0, 2, 22, 10, ZoneId.of("Pacific/Wake"));
+
+        List<String> values = ImmutableList.<String>builder()
+                .add(timestampDataType().toLiteral(date1950))
+                .add(oracleTimestamp3TimeZoneDataType().toLiteral(yakutat1978))
+                .add(prestoTimestampWithTimeZoneDataType().toLiteral(pacific1976))
+                .add("'result_value'")
+                .build();
+
+        @Language("SQL")
+        String expectedQueryResult = "SELECT 'result_value'";
+
+        try (TestTable table = new TestTable(
+                inOracle(),
+                getUser() + ".test_predicate_pushdown_timestamp",
+                "(t_timestamp TIMESTAMP, t_timestamp3_with_tz TIMESTAMP(3) WITH TIME ZONE, t_timestamp_with_tz TIMESTAMP WITH TIME ZONE, dummy_col VARCHAR(12))",
+                ImmutableList.of(Joiner.on(", ").join(values)))) {
+            assertQuery(format(
+                    "SELECT dummy_col FROM %s WHERE t_timestamp = %s",
+                    table.getName(),
+                    format("timestamp '%s'", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(date1950))),
+                    expectedQueryResult);
+
+            assertQuery(format(
+                    "SELECT dummy_col FROM %s WHERE t_timestamp3_with_tz = %s",
+                    table.getName(),
+                    prestoTimestampWithTimeZoneDataType().toLiteral(yakutat1978)),
+                    expectedQueryResult);
+
+            assertQuery(format(
+                    "SELECT dummy_col FROM %s WHERE t_timestamp_with_tz = %s",
+                    table.getName(),
+                    prestoTimestampWithTimeZoneDataType().toLiteral(pacific1976)),
+                    expectedQueryResult);
         }
     }
 

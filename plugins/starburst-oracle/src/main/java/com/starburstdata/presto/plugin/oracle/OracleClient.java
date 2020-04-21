@@ -60,15 +60,18 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
@@ -497,8 +500,7 @@ public class OracleClient
                     return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();
                 },
                 oracleTimestampWriteFunction(session),
-                // TODO: Add support for TIMESTAMP/DATE for both legacy and non-legacy semantics
-                DISABLE_PUSHDOWN);
+                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
     }
 
     public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
@@ -548,15 +550,15 @@ public class OracleClient
     {
         if (session.isLegacyTimestamp()) {
             return (statement, index, utcMillis) -> {
-                ZonedDateTime timestamp = Instant.ofEpochMilli(utcMillis)
-                        .atZone(ZoneId.of(session.getTimeZoneKey().getId()));
-                statement.setObject(index, timestamp);
+                long dateTimeAsUtcMillis = Instant.ofEpochMilli(utcMillis)
+                        .atZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                        .withZoneSameLocal(ZoneOffset.UTC)
+                        .toInstant().toEpochMilli();
+                statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(dateTimeAsUtcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
             };
         }
         return (statement, index, utcMillis) -> {
-            ZonedDateTime timestamp = Instant.ofEpochMilli(utcMillis).atZone(ZoneOffset.UTC);
-            // because of how JDBC works with dates we need to use the ZonedDataTime object and not a LocalDateTime
-            statement.setObject(index, timestamp);
+            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(utcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
         };
     }
 
