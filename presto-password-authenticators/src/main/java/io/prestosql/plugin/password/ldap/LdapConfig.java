@@ -16,16 +16,23 @@ package io.prestosql.plugin.password.ldap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
 public class LdapConfig
 {
+    private static final Logger log = Logger.get(LdapConfig.class);
+
     private String ldapUrl;
+    private boolean allowInsecure;
     private String userBindSearchPattern;
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
@@ -35,7 +42,7 @@ public class LdapConfig
     private Duration ldapCacheTtl = new Duration(1, TimeUnit.HOURS);
 
     @NotNull
-    @Pattern(regexp = "^ldaps://.*", message = "LDAP without SSL/TLS unsupported. Expected ldaps://")
+    @Pattern(regexp = "^ldaps?://.*", message = "Invalid LDAP server URL. Expected ldap:// or ldaps://")
     public String getLdapUrl()
     {
         return ldapUrl;
@@ -47,6 +54,25 @@ public class LdapConfig
     {
         this.ldapUrl = url;
         return this;
+    }
+
+    public boolean isAllowInsecure()
+    {
+        return allowInsecure;
+    }
+
+    @Config("ldap.allow-insecure")
+    @ConfigDescription("Allow insecure connection to the LDAP server")
+    public LdapConfig setAllowInsecure(boolean allowInsecure)
+    {
+        this.allowInsecure = allowInsecure;
+        return this;
+    }
+
+    @AssertTrue(message = "Connecting to the LDAP server without SSL enabled requires `ldap.allow-insecure=true`")
+    public boolean isUrlConfigurationValid()
+    {
+        return nullToEmpty(ldapUrl).startsWith("ldaps://") || allowInsecure;
     }
 
     public String getUserBindSearchPattern()

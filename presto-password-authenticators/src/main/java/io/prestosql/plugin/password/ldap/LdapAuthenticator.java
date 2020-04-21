@@ -91,6 +91,10 @@ public class LdapAuthenticator
         checkState(bindDistinguishedName.isPresent() || userBindSearchPattern.isPresent(),
                 "Either user bind search pattern or bind distinguished name must be provided");
 
+        if (ldapConfig.getLdapUrl().startsWith("ldap://")) {
+            log.warn("Passwords will be sent in the clear to the LDAP server. Please consider using SSL to connect.");
+        }
+
         Map<String, String> environment = ImmutableMap.<String, String>builder()
                 .put(INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory")
                 .put(PROVIDER_URL, ldapUrl)
