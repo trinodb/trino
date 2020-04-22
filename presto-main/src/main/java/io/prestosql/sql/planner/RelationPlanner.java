@@ -406,13 +406,7 @@ class RelationPlanner
             // subqueries can be applied only to one side of join - left side is selected in arbitrary way
             leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node);
         }
-        TranslationMap translationMap = translationMapFromSourceOutputs(
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                        .build(),
-                node,
-                outputSymbols);
+        TranslationMap translationMap = initializeTranslationMap(node, outputSymbols);
         translationMap.setFieldMappings(outputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
@@ -618,13 +612,7 @@ class RelationPlanner
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
                 .build();
-        TranslationMap translationMap = translationMapFromSourceOutputs(
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                        .build(),
-                join,
-                rewriterOutputSymbols);
+        TranslationMap translationMap = initializeTranslationMap(join, rewriterOutputSymbols);
         translationMap.setFieldMappings(rewriterOutputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
@@ -757,7 +745,7 @@ class RelationPlanner
             outputSymbolsBuilder.add(symbol);
         }
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        TranslationMap translationMap = translationMapFromSourceOutputs(ImmutableList.of(), node, outputSymbols);
+        TranslationMap translationMap = initializeTranslationMap(node, outputSymbols);
 
         ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
@@ -792,7 +780,7 @@ class RelationPlanner
         List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
 
         // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
-        TranslationMap translationMap = translationMapFromSourceOutputs(ImmutableList.of(), node, unnestedSymbols);
+        TranslationMap translationMap = initializeTranslationMap(node, unnestedSymbols);
         ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
         ImmutableList.Builder<Expression> values = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
@@ -832,11 +820,11 @@ class RelationPlanner
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
     }
 
-    private TranslationMap translationMapFromSourceOutputs(List<Symbol> sourceOutputs, Node node, List<Symbol> outputSymbols)
+    private TranslationMap initializeTranslationMap(Node node, List<Symbol> outputSymbols)
     {
         PlanNode dummy = new ValuesNode(
                 idAllocator.getNextId(),
-                ImmutableList.copyOf(requireNonNull(sourceOutputs, "sourceOutputs is null")),
+                ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null")),
                 ImmutableList.of());
 
         RelationPlan dummyRelationPlan = new RelationPlan(dummy, analysis.getScope(node), outputSymbols);
