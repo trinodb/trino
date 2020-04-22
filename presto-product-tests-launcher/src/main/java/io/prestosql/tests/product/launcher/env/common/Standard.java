@@ -76,10 +76,10 @@ public final class Standard
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         requireNonNull(environmentOptions, "environmentOptions is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
-        serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
+        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        this.serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
-        debug = environmentOptions.debug;
+        this.debug = environmentOptions.debug;
     }
 
     @Override
