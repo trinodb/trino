@@ -69,6 +69,12 @@ public class TestHiveDistributedQueries
                     .hasMessageMatching("Table '.*' does not have columns \\[atrailingspace ]");
             throw new SkipException("works incorrectly, column name is trimmed");
         }
+        if (columnName.equals("a,comma")) {
+            // TODO (https://github.com/prestosql/presto/issues/3537)
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasMessageMatching("Table '.*' does not have columns \\[a,comma]");
+            throw new SkipException("works incorrectly");
+        }
 
         super.testColumnName(columnName);
     }
