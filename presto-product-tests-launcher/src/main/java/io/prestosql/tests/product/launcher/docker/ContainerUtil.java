@@ -20,13 +20,15 @@ import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Network;
+import io.prestosql.tests.product.launcher.env.DockerContainer;
+import org.testcontainers.DockerClientFactory;
 
 import java.util.List;
 import java.util.function.Function;
 
-public final class DockerUtil
+public final class ContainerUtil
 {
-    private DockerUtil() {}
+    private ContainerUtil() {}
 
     public static void killContainers(DockerClient dockerClient, Function<ListContainersCmd, ListContainersCmd> filter)
     {
@@ -58,5 +60,19 @@ public final class DockerUtil
             dockerClient.removeNetworkCmd(network.getId())
                     .exec();
         }
+    }
+
+    public static void killContainersReaperContainer(DockerClient dockerClient)
+    {
+        @SuppressWarnings("resource")
+        Void ignore = dockerClient.removeContainerCmd("testcontainers-ryuk-" + DockerClientFactory.SESSION_ID)
+                .withForce(true)
+                .exec();
+    }
+
+    public static void exposePort(DockerContainer container, int port)
+    {
+        container.addExposedPort(port);
+        container.withFixedExposedPort(port, port);
     }
 }

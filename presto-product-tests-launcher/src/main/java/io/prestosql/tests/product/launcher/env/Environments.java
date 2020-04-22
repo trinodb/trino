@@ -17,7 +17,6 @@ import com.github.dockerjava.api.DockerClient;
 import com.google.common.base.CaseFormat;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.docker.DockerUtil;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
@@ -27,6 +26,8 @@ import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.killContainers;
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.removeNetworks;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_NETWORK;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE;
@@ -41,10 +42,10 @@ public final class Environments
     {
         log.info("Shutting down previous containers");
         try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
-            DockerUtil.killContainers(
+            killContainers(
                     dockerClient,
                     listContainersCmd -> listContainersCmd.withLabelFilter(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)));
-            DockerUtil.removeNetworks(
+            removeNetworks(
                     dockerClient,
                     listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
         }

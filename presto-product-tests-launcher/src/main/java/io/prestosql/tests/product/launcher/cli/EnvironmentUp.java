@@ -21,12 +21,12 @@ import io.airlift.airline.Option;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
+import io.prestosql.tests.product.launcher.docker.ContainerUtil;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
-import io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil;
 import org.testcontainers.DockerClientFactory;
 
 import javax.inject.Inject;
@@ -132,7 +132,7 @@ public final class EnvironmentUp
         {
             try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
                 log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");
-                TestcontainersUtil.killContainersReaperContainer(dockerClient);
+                ContainerUtil.killContainersReaperContainer(dockerClient);
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
