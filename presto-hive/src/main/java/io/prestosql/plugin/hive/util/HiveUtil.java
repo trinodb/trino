@@ -190,7 +190,7 @@ public final class HiveUtil
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
-    private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').omitEmptyStrings();
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {

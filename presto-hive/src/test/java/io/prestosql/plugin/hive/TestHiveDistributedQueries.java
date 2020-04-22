@@ -25,7 +25,6 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
 import static io.prestosql.tpch.TpchTable.getTables;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedQueries
@@ -58,19 +57,6 @@ public class TestHiveDistributedQueries
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
-    }
-
-    @Override
-    public void testColumnName(String columnName)
-    {
-        if (columnName.equals("atrailingspace ")) {
-            // TODO (https://github.com/prestosql/presto/issues/3461)
-            assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching("Table '.*' does not have columns \\[atrailingspace ]");
-            throw new SkipException("works incorrectly, column name is trimmed");
-        }
-
-        super.testColumnName(columnName);
     }
 
     @Override
