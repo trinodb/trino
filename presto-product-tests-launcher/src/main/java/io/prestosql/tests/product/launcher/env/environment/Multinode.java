@@ -57,8 +57,8 @@ public final class Multinode
         super(ImmutableList.of(standard, hadoop));
         this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
-        serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
+        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        this.serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
     }
 
     @Override
