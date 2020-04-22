@@ -97,7 +97,9 @@ public class TestCassandraTokenSplitManager
         }
         server.refreshSizeEstimates(KEYSPACE, tableName);
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
-        assertThat(splits).hasSize(PARTITION_COUNT / SPLIT_SIZE);
+        int expectedTokenSplitSize = PARTITION_COUNT / SPLIT_SIZE;
+        // Use hasSizeBetween because Cassandra server may overestimate the size
+        assertThat(splits).hasSizeBetween(expectedTokenSplitSize, expectedTokenSplitSize + 1);
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 }
