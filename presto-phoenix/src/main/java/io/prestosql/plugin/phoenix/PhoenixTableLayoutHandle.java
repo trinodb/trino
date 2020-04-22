@@ -69,9 +69,7 @@ public class PhoenixTableLayoutHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        if (!super.equals(o)) {
-            return false;
-        }
+
         PhoenixTableLayoutHandle that = (PhoenixTableLayoutHandle) o;
         return Objects.equals(table, that.table) &&
                 Objects.equals(tupleDomain, that.tupleDomain) &&
