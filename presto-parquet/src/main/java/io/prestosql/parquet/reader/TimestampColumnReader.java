@@ -15,10 +15,12 @@ package io.prestosql.parquet.reader;
 
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
-import org.apache.parquet.io.api.Binary;
 
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 
 public class TimestampColumnReader
         extends PrimitiveColumnReader
@@ -32,8 +34,13 @@ public class TimestampColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            type.writeLong(blockBuilder, getTimestampMillis(binary));
+            long utcMillis = getTimestampMillis(valuesReader.readBytes());
+            if (type instanceof TimestampWithTimeZoneType) {
+                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+            }
+            else {
+                type.writeLong(blockBuilder, utcMillis);
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
