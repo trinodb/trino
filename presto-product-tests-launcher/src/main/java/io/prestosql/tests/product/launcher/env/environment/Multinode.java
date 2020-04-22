@@ -28,6 +28,7 @@ import javax.inject.Inject;
 
 import java.io.File;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.enableJavaDebugger;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
@@ -45,6 +46,7 @@ public final class Multinode
 
     private final String imagesVersion;
     private final File serverPackage;
+    private final boolean debug;
 
     @Inject
     public Multinode(
@@ -59,6 +61,7 @@ public final class Multinode
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
         this.serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
+        this.debug = environmentOptions.debug;
     }
 
     @Override
@@ -81,6 +84,10 @@ public final class Multinode
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY)
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY)
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties"), CONTAINER_PRESTO_ICEBERG_PROPERTIES, READ_ONLY);
+
+        if (debug) {
+            enableJavaDebugger(container, CONTAINER_PRESTO_JVM_CONFIG, 5008); // debug port
+        }
 
         return container;
     }
