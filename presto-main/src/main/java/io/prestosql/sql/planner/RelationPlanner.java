@@ -603,12 +603,12 @@ class RelationPlanner
             filterExpression = (Expression) getOnlyElement(criteria.getNodes());
         }
 
-        List<Symbol> rewriterOutputSymbols = ImmutableList.<Symbol>builder()
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
                 .build();
-        TranslationMap translationMap = initializeTranslationMap(join, rewriterOutputSymbols);
-        translationMap.setFieldMappings(rewriterOutputSymbols);
+        TranslationMap translationMap = initializeTranslationMap(join, outputSymbols);
+        translationMap.setFieldMappings(outputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
 
@@ -622,10 +622,6 @@ class RelationPlanner
                 CorrelatedJoinNode.Type.typeConvert(join.getType()),
                 rewrittenFilterCondition);
 
-        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
-                .addAll(leftPlan.getRoot().getOutputSymbols())
-                .addAll(rightPlan.getRoot().getOutputSymbols())
-                .build();
         return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputSymbols);
     }
 
