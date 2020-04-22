@@ -41,6 +41,7 @@ import java.util.function.Function;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
@@ -69,7 +70,7 @@ public class CassandraPageSink
     private final CassandraSession cassandraSession;
     private final PreparedStatement insert;
     private final List<Type> columnTypes;
-    private final boolean generateUUID;
+    private final boolean generateUuid;
     private final Function<Long, Object> toCassandraDate;
 
     public CassandraPageSink(
@@ -79,14 +80,14 @@ public class CassandraPageSink
             String tableName,
             List<String> columnNames,
             List<Type> columnTypes,
-            boolean generateUUID)
+            boolean generateUuid)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession");
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
         requireNonNull(columnNames, "columnNames is null");
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-        this.generateUUID = generateUUID;
+        this.generateUuid = generateUuid;
 
         if (protocolVersion.toInt() <= ProtocolVersion.V3.toInt()) {
             this.toCassandraDate = value -> DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value));
@@ -96,8 +97,8 @@ public class CassandraPageSink
         }
 
         Insert insert = insertInto(validSchemaName(schemaName), validTableName(tableName));
-        if (generateUUID) {
-            insert.value("id", bindMarker());
+        if (generateUuid) {
+            insert.value(ID_COLUMN_NAME, bindMarker());
         }
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
@@ -112,7 +113,7 @@ public class CassandraPageSink
     {
         for (int position = 0; position < page.getPositionCount(); position++) {
             List<Object> values = new ArrayList<>(columnTypes.size() + 1);
-            if (generateUUID) {
+            if (generateUuid) {
                 values.add(UUID.randomUUID());
             }
 
