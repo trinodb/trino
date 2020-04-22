@@ -155,7 +155,6 @@ public class TestConnectorPushdownRulesWithHive
                                     table,
                                     ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                     ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
-                .withSession(HIVE_SESSION)
                 .doesNotFire();
 
         // Test Dereference pushdown
@@ -168,7 +167,6 @@ public class TestConnectorPushdownRulesWithHive
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
-                .withSession(HIVE_SESSION)
                 .matches(project(
                         ImmutableMap.of("expr_deref", expression(new SymbolReference("struct_of_int#a"))),
                         tableScan(
