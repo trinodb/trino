@@ -19,14 +19,12 @@ import org.testng.annotations.Test;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-@Test
 public class TestBigQueryPlugin
 {
     @Test
     public void testStartup()
     {
         BigQueryPlugin plugin = new BigQueryPlugin();
-
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, BigQueryConnectorFactory.class);
     }
