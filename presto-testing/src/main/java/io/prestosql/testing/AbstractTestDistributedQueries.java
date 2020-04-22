@@ -1304,6 +1304,7 @@ public abstract class AbstractTestDistributedQueries
                 {"a space"},
                 {"atrailingspace "},
                 {"a.dot"},
+                {"a,comma"},
                 {"a:colon"},
                 {"a;semicolon"},
                 {"an@at"},
