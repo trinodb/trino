@@ -28,18 +28,14 @@ import java.util.Iterator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-@Test
 public class TestReadRowsHelper
 {
-    // it is not used, we just need the reference
-    BigQueryStorageClient client = mock(BigQueryStorageClient.class);
-    private ReadRowsRequest.Builder request = ReadRowsRequest.newBuilder().setReadPosition(
-            StreamPosition.newBuilder().setStream(
-                    Stream.newBuilder().setName("test")));
-
     @Test
     void testNoFailures()
     {
+        BigQueryStorageClient client = mock(BigQueryStorageClient.class);
+        ReadRowsRequest.Builder request = newRequest();
+
         MockResponsesBatch batch1 = new MockResponsesBatch();
         batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(10).build());
         batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(11).build());
@@ -56,6 +52,9 @@ public class TestReadRowsHelper
     @Test
     void testRetryOfSingleFailure()
     {
+        BigQueryStorageClient client = mock(BigQueryStorageClient.class);
+        ReadRowsRequest.Builder request = newRequest();
+
         MockResponsesBatch batch1 = new MockResponsesBatch();
         batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(10).build());
         batch1.addException(new StatusRuntimeException(Status.INTERNAL.withDescription(
@@ -69,6 +68,13 @@ public class TestReadRowsHelper
 
         assertThat(responses.size()).isEqualTo(2);
         assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
+    }
+
+    private static ReadRowsRequest.Builder newRequest()
+    {
+        return ReadRowsRequest.newBuilder().setReadPosition(
+                StreamPosition.newBuilder().setStream(
+                        Stream.newBuilder().setName("test")));
     }
 
     private static final class MockReadRowsHelper
