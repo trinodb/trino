@@ -17,6 +17,9 @@ if test -d /docker/presto-init.d; then
     done
 fi
 
+export JAVA_HOME="/usr/lib/jvm/zulu-11"
+export PATH="${JAVA_HOME}/bin:${PATH}"
+
 exec /docker/presto-server-*/bin/launcher \
   -Dpresto-temporarily-allow-java8=true \
   -Dnode.id="${HOSTNAME}" \
