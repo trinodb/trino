@@ -22,14 +22,11 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
@@ -103,33 +100,15 @@ public class TpcdsMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
+    public boolean usesLegacyTableLayouts()
     {
-        TpcdsTableHandle tableHandle = (TpcdsTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new TpcdsTableLayoutHandle(tableHandle),
-                Optional.empty(),
-                TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of());
-
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return false;
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        TpcdsTableLayoutHandle layout = (TpcdsTableLayoutHandle) handle;
-
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
-                .getTableLayout();
+        return new ConnectorTableProperties();
     }
 
     @Override
