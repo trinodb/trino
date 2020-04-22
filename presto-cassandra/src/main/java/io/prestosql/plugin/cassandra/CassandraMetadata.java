@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -283,7 +284,7 @@ public class CassandraMetadata
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         ImmutableList.Builder<ExtraColumnMetadata> columnExtra = ImmutableList.builder();
-        columnExtra.add(new ExtraColumnMetadata("id", true));
+        columnExtra.add(new ExtraColumnMetadata(ID_COLUMN_NAME, true));
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             columnNames.add(column.getName());
             columnTypes.add(column.getType());

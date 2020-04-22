@@ -29,6 +29,7 @@ public final class CassandraCqlUtils
 {
     private CassandraCqlUtils() {}
 
+    public static final String ID_COLUMN_NAME = "id";
     public static final String EMPTY_COLUMN_NAME = "__empty__";
 
     public static String validSchemaName(String identifier)
