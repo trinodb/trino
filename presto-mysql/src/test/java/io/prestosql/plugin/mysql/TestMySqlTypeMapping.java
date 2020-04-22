@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.function.Function;
@@ -224,6 +225,7 @@ public class TestMySqlTypeMapping
 
     @Test
     public void testDecimalExceedingPrecisionMax()
+            throws SQLException
     {
         testUnsupportedDataType("decimal(50,0)");
     }
@@ -465,6 +467,7 @@ public class TestMySqlTypeMapping
     }
 
     private void testUnsupportedDataType(String databaseDataType)
+            throws SQLException
     {
         SqlExecutor jdbcSqlExecutor = mysqlServer::execute;
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));

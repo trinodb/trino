@@ -40,6 +40,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -157,6 +158,7 @@ public class TestPostgreSqlTypeMapping
 
     @BeforeClass
     public void setUp()
+            throws SQLException
     {
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
@@ -314,6 +316,7 @@ public class TestPostgreSqlTypeMapping
 
     @Test
     public void testForcedMappingToVarchar()
+            throws SQLException
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         jdbcSqlExecutor.execute("CREATE TABLE tpch.test_forced_varchar_mapping(tsrange_col tsrange, inet_col inet, tsrange_arr_col tsrange[], unsupported_nonforced_column tstzrange)");
@@ -915,6 +918,7 @@ public class TestPostgreSqlTypeMapping
 
     @Test
     public void testEnum()
+            throws SQLException
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         jdbcSqlExecutor.execute("CREATE TYPE enum_t AS ENUM ('a','b','c')");

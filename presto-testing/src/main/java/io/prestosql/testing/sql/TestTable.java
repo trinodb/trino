@@ -16,6 +16,7 @@ package io.prestosql.testing.sql;
 import com.google.common.collect.ImmutableList;
 
 import java.security.SecureRandom;
+import java.sql.SQLException;
 import java.util.List;
 
 import static java.lang.Character.MAX_RADIX;
@@ -41,8 +42,8 @@ public class TestTable
     {
         this.sqlExecutor = sqlExecutor;
         this.name = namePrefix + "_" + randomTableSuffix();
-        sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
         try {
+            sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
             for (String row : rowsToInsert) {
                 // some databases do not support multi value insert statement
                 sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
@@ -50,7 +51,7 @@ public class TestTable
         }
         catch (Exception e) {
             try (TestTable ignored = this) {
-                throw e;
+                throw new RuntimeException(e);
             }
         }
     }
@@ -63,7 +64,12 @@ public class TestTable
     @Override
     public void close()
     {
-        sqlExecutor.execute("DROP TABLE " + name);
+        try {
+            sqlExecutor.execute("DROP TABLE " + name);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static String randomTableSuffix()

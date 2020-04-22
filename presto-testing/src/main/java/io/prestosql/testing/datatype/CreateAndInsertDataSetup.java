@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -45,7 +46,7 @@ public class CreateAndInsertDataSetup
         }
         catch (Exception e) {
             closeQuietly(testTable);
-            throw e;
+            throw new RuntimeException(e);
         }
         return testTable;
     }
@@ -61,6 +62,7 @@ public class CreateAndInsertDataSetup
     }
 
     private void insertRows(TestTable testTable, List<DataTypeTest.Input<?>> inputs)
+            throws SQLException
     {
         Stream<String> literals = inputs.stream()
                 .map(DataTypeTest.Input::toLiteral);

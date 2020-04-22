@@ -35,7 +35,12 @@ public class TestingMySqlServer
         super(dockerImageName);
         withDatabaseName("tpch");
         start();
-        execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", getUsername()), "root", getPassword());
+        try {
+            execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", getUsername()), "root", getPassword());
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -45,18 +50,16 @@ public class TestingMySqlServer
     }
 
     public void execute(String sql)
+            throws SQLException
     {
         execute(sql, getUsername(), getPassword());
     }
 
     public void execute(String sql, String user, String password)
+            throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), user, password);
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        Connection connection = DriverManager.getConnection(getJdbcUrl(), user, password);
+        Statement statement = connection.createStatement();
+        statement.execute(sql);
     }
 }

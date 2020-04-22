@@ -41,13 +41,10 @@ public class JdbcSqlExecutor
 
     @Override
     public void execute(String sql)
+            throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcProperties);
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException("Error executing sql:\n" + sql, e);
-        }
+        Connection connection = DriverManager.getConnection(jdbcUrl, jdbcProperties);
+        Statement statement = connection.createStatement();
+        statement.execute(sql);
     }
 }
