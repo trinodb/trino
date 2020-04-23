@@ -23,6 +23,7 @@ import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
+import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -33,6 +34,7 @@ public class LdapConfig
 
     private String ldapUrl;
     private boolean allowInsecure;
+    private File trustCertificate;
     private String userBindSearchPattern;
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
@@ -73,6 +75,19 @@ public class LdapConfig
     public boolean isUrlConfigurationValid()
     {
         return nullToEmpty(ldapUrl).startsWith("ldaps://") || allowInsecure;
+    }
+
+    public File getTrustCertificate()
+    {
+        return trustCertificate;
+    }
+
+    @Config("ldap.ssl-trust-certificate")
+    @ConfigDescription("Path to the PEM trust certificate for the LDAP server")
+    public LdapConfig setTrustCertificate(File trustCertificate)
+    {
+        this.trustCertificate = trustCertificate;
+        return this;
     }
 
     public String getUserBindSearchPattern()
