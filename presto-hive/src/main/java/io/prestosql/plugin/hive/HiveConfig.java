@@ -897,17 +897,17 @@ public class HiveConfig
         return this;
     }
 
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
+    }
+
     @Config("hive.query-partition-filter-required")
     @ConfigDescription("Require filter on at least one partition column")
     public HiveConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
         return this;
-    }
-
-    public boolean isQueryPartitionFilterRequired()
-    {
-        return queryPartitionFilterRequired;
     }
 
     public boolean getPartitionUseColumnNames()
