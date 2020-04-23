@@ -196,15 +196,10 @@ class RelationPlanner
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan)
     {
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
+        TranslationMap translations = planBuilder.getTranslations();
+
         Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
-
-        PlanNode root = plan.getRoot();
-        List<Symbol> mappings = plan.getFieldMappings();
-
-        TranslationMap translations = new TranslationMap(plan, analysis, lambdaDeclarationToSymbolMap);
-        translations.setFieldMappings(mappings);
-
-        PlanBuilder planBuilder = new PlanBuilder(translations, root);
 
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
@@ -213,10 +208,10 @@ class RelationPlanner
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask);
 
                 Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-                for (Symbol symbol : root.getOutputSymbols()) {
+                for (Symbol symbol : plan.getRoot().getOutputSymbols()) {
                     assignments.put(symbol, symbol.toSymbolReference());
                 }
-                assignments.put(mappings.get(i), translations.rewrite(mask));
+                assignments.put(plan.getFieldMappings().get(i), translations.rewrite(mask));
 
                 planBuilder = planBuilder.withNewRoot(new ProjectNode(
                         idAllocator.getNextId(),
@@ -225,7 +220,7 @@ class RelationPlanner
             }
         }
 
-        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), mappings);
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
     }
 
     @Override
