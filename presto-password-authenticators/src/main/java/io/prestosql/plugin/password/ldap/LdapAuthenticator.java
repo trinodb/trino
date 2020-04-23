@@ -15,7 +15,6 @@ package io.prestosql.plugin.password.ldap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
-import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -39,7 +38,7 @@ import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.prestosql.plugin.password.jndi.JndiUtils.createDirContext;
 import static java.lang.String.format;
@@ -64,7 +63,6 @@ public class LdapAuthenticator
     private final Optional<String> userBaseDistinguishedName;
     private final Optional<String> bindDistinguishedName;
     private final Optional<String> bindPassword;
-    private final boolean ignoreReferrals;
     private final Map<String, String> basicEnvironment;
     private final LoadingCache<Credential, Principal> authenticationCache;
 
@@ -77,39 +75,35 @@ public class LdapAuthenticator
         this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
         this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
         this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
-        this.ignoreReferrals = ldapConfig.isIgnoreReferrals();
 
-        if (groupAuthorizationSearchPattern.isPresent()) {
-            checkState(userBaseDistinguishedName.isPresent(), "Base distinguished name (DN) for user is null");
-        }
-        checkState(bindDistinguishedName.isPresent() == bindPassword.isPresent(),
-                "Both or none bind distinguished name and bind password must be provided");
-        checkState(
+        checkArgument(
+                !groupAuthorizationSearchPattern.isPresent() || userBaseDistinguishedName.isPresent(),
+                "Base distinguished name (DN) for user must be provided");
+        checkArgument(
+                bindDistinguishedName.isPresent() == bindPassword.isPresent(),
+                "Both bind distinguished name and bind password must be provided together");
+        checkArgument(
                 !bindDistinguishedName.isPresent() || groupAuthorizationSearchPattern.isPresent(),
-                "Group authorization search pattern must be provided when bind distinguished name is not used");
-        checkState(bindDistinguishedName.isPresent() || userBindSearchPattern.isPresent(),
+                "Group authorization search pattern must be provided when bind distinguished name is used");
+        checkArgument(
+                bindDistinguishedName.isPresent() || userBindSearchPattern.isPresent(),
                 "Either user bind search pattern or bind distinguished name must be provided");
 
-        if (ldapConfig.getLdapUrl().startsWith("ldap://")) {
+        if (ldapUrl.startsWith("ldap://")) {
             log.warn("Passwords will be sent in the clear to the LDAP server. Please consider using SSL to connect.");
         }
 
-        Map<String, String> environment = ImmutableMap.<String, String>builder()
+        this.basicEnvironment = ImmutableMap.<String, String>builder()
                 .put(INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory")
                 .put(PROVIDER_URL, ldapUrl)
+                .put(REFERRAL, ldapConfig.isIgnoreReferrals() ? "ignore" : "follow")
                 .build();
-        this.basicEnvironment = environment;
 
-        if (this.bindDistinguishedName.isPresent()) {
-            this.authenticationCache = CacheBuilder.newBuilder()
-                    .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
-                    .build(CacheLoader.from(this::authenticateWithBindDistinguishedName));
-        }
-        else {
-            this.authenticationCache = CacheBuilder.newBuilder()
-                    .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
-                    .build(CacheLoader.from(this::authenticateWithUserBind));
-        }
+        this.authenticationCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
+                .build(CacheLoader.from(bindDistinguishedName.isPresent()
+                        ? this::authenticateWithBindDistinguishedName
+                        : this::authenticateWithUserBind));
     }
 
     @Override
@@ -208,7 +202,7 @@ public class LdapAuthenticator
     /**
      * Returns {@code true} when parameter contains a character that has a special meaning in
      * LDAP search or bind name (DN).
-     *
+     * <p>
      * Based on <a href="https://www.owasp.org/index.php/Preventing_LDAP_Injection_in_Java">Preventing_LDAP_Injection_in_Java</a> and
      * {@link javax.naming.ldap.Rdn#escapeValue(Object) escapeValue} method.
      */
@@ -252,7 +246,7 @@ public class LdapAuthenticator
     private NamingEnumeration<SearchResult> searchGroupMembership(String user, DirContext context)
             throws NamingException
     {
-        String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
+        String userBase = userBaseDistinguishedName.get();
         String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
@@ -289,7 +283,6 @@ public class LdapAuthenticator
                 .put(SECURITY_AUTHENTICATION, "simple")
                 .put(SECURITY_PRINCIPAL, userDistinguishedName)
                 .put(SECURITY_CREDENTIALS, password)
-                .put(REFERRAL, ignoreReferrals ? "ignore" : "follow")
                 .build();
     }
 
