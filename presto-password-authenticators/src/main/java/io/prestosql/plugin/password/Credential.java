@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.password.file;
+package io.prestosql.plugin.password;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class Credential
@@ -22,9 +23,9 @@ public final class Credential
     private final String user;
     private final String password;
 
-    public Credential(String username, String password)
+    public Credential(String user, String password)
     {
-        this.user = requireNonNull(username, "username is null");
+        this.user = requireNonNull(user, "user is null");
         this.password = requireNonNull(password, "password is null");
     }
 
@@ -56,5 +57,13 @@ public final class Credential
     public int hashCode()
     {
         return Objects.hash(user, password);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("user", user)
+                .toString();
     }
 }
