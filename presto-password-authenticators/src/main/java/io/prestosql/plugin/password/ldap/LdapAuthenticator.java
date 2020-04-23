@@ -21,7 +21,9 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.airlift.security.pem.PemReader;
 import io.prestosql.plugin.password.Credential;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.PasswordAuthenticator;
@@ -33,8 +35,17 @@ import javax.naming.NamingException;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 
+import java.io.File;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
@@ -65,6 +76,7 @@ public class LdapAuthenticator
     private final Optional<String> bindPassword;
     private final Map<String, String> basicEnvironment;
     private final LoadingCache<Credential, Principal> authenticationCache;
+    private final Optional<SSLContext> sslContext;
 
     @Inject
     public LdapAuthenticator(LdapConfig ldapConfig)
@@ -104,12 +116,15 @@ public class LdapAuthenticator
                 .build(CacheLoader.from(bindDistinguishedName.isPresent()
                         ? this::authenticateWithBindDistinguishedName
                         : this::authenticateWithUserBind));
+
+        this.sslContext = Optional.ofNullable(ldapConfig.getTrustCertificate())
+                .map(LdapAuthenticator::createSslContext);
     }
 
     @Override
     public Principal createAuthenticatedPrincipal(String user, String password)
     {
-        try {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             return authenticationCache.getUnchecked(new Credential(user, password));
         }
         catch (UncheckedExecutionException e) {
@@ -278,16 +293,46 @@ public class LdapAuthenticator
 
     private Map<String, String> createEnvironment(String userDistinguishedName, String password)
     {
-        return ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> environment = ImmutableMap.<String, String>builder()
                 .putAll(basicEnvironment)
                 .put(SECURITY_AUTHENTICATION, "simple")
                 .put(SECURITY_PRINCIPAL, userDistinguishedName)
-                .put(SECURITY_CREDENTIALS, password)
-                .build();
+                .put(SECURITY_CREDENTIALS, password);
+
+        sslContext.ifPresent(context -> {
+            LdapSslSocketFactory.setSslContextForCurrentThread(context);
+
+            // see https://docs.oracle.com/javase/jndi/tutorial/ldap/security/ssl.html
+            environment.put("java.naming.ldap.factory.socket", LdapSslSocketFactory.class.getName());
+        });
+
+        return environment.build();
     }
 
     private static String replaceUser(String pattern, String user)
     {
         return pattern.replace("${USER}", user);
+    }
+
+    private static SSLContext createSslContext(File trustCertificate)
+    {
+        try {
+            KeyStore trustStore = PemReader.loadTrustStore(trustCertificate);
+
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(trustStore);
+
+            TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
+            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
+                throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
+            }
+
+            SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustManagers, null);
+            return sslContext;
+        }
+        catch (GeneralSecurityException | IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
