@@ -14,7 +14,8 @@ import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveColumnHandle;
-import io.prestosql.plugin.hive.parquet.ParquetPageSource;
+import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
+import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.spi.PrestoException;
@@ -37,12 +38,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.SYMMETRIC_CIPHER_BLOCK_SIZE;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory.createParquetPageSource;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
@@ -109,22 +110,24 @@ class SnowflakePageSourceProvider
                 })
                 .collect(toImmutableList());
 
-        ParquetPageSource pageSource = createParquetPageSource(
-                hdfsEnvironment,
-                session.getUser(),
-                configuration,
+        ReaderPageSourceWithProjections pageSource = ParquetPageSourceFactory.createPageSource(
                 path,
                 snowflakeSplit.getStart(),
                 snowflakeSplit.getLength(),
                 unpaddedFileSize,
                 transformedColumns,
-                true,
-                parquetReaderConfig.toParquetReaderOptions()
-                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                 snowflakeSplit.getEffectivePredicate(),
-                stats);
+                true,
+                hdfsEnvironment,
+                configuration,
+                session.getUser(),
+                stats,
+                parquetReaderConfig.toParquetReaderOptions()
+                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)));
 
-        return new TranslatingPageSource(pageSource, hiveColumns, session);
+        verify(!pageSource.getProjectedReaderColumns().isPresent(), "All columns expected to be base columns");
+
+        return new TranslatingPageSource(pageSource.getConnectorPageSource(), hiveColumns, session);
     }
 
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237
