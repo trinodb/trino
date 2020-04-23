@@ -444,21 +444,22 @@ public abstract class AbstractTestDistributedQueries
     {
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
-        assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
-        assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
+        String tableName = "test_insert_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS " + query + " WITH NO DATA", 0);
+        assertQuery("SELECT count(*) FROM " + tableName + "", "SELECT 0");
 
-        assertUpdate("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
+        assertUpdate("INSERT INTO " + tableName + " " + query, "SELECT count(*) FROM orders");
 
-        assertQuery("SELECT * FROM test_insert", query);
+        assertQuery("SELECT * FROM " + tableName + "", query);
 
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (null)", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
-        assertUpdate("INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderkey) VALUES (-1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderkey) VALUES (null)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderdate) VALUES (DATE '2001-01-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (totalprice) VALUES (1234)", 1);
 
-        assertQuery("SELECT * FROM test_insert", query
+        assertQuery("SELECT * FROM " + tableName + "", query
                 + " UNION ALL SELECT null, -1, null"
                 + " UNION ALL SELECT null, null, null"
                 + " UNION ALL SELECT DATE '2001-01-01', null, null"
@@ -469,13 +470,13 @@ public abstract class AbstractTestDistributedQueries
         // UNION query produces columns in the opposite order
         // of how they are declared in the table schema
         assertUpdate(
-                "INSERT INTO test_insert (orderkey, orderdate, totalprice) " +
+                "INSERT INTO " + tableName + " (orderkey, orderdate, totalprice) " +
                         "SELECT orderkey, orderdate, totalprice FROM orders " +
                         "UNION ALL " +
                         "SELECT orderkey, orderdate, totalprice FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
-        assertUpdate("DROP TABLE test_insert");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
