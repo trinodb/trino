@@ -23,6 +23,7 @@ import java.util.Properties;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOracleDistributedQueries
         extends AbstractTestDistributedQueries
@@ -122,6 +123,19 @@ public class TestOracleDistributedQueries
                         "col_default NUMBER(15) DEFAULT 43," +
                         "col_nonnull_default NUMBER(15) DEFAULT 42 NOT NULL," +
                         "col_required2 NUMBER(15) NOT NULL)");
+    }
+
+    @Override
+    public void testColumnName(String columnName)
+    {
+        if (columnName.equals("a\"quote")) {
+            // Quote is not supported within column name
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasMessageMatching("Oracle does not support escaping '\"' in identifiers");
+            throw new SkipException("works incorrectly, column name is trimmed");
+        }
+
+        super.testColumnName(columnName);
     }
 
     @Override
