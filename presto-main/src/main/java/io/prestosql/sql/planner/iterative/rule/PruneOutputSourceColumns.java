@@ -22,7 +22,7 @@ import io.prestosql.sql.planner.plan.OutputNode;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static io.prestosql.sql.planner.plan.Patterns.output;
 
-public class PruneOutputColumns
+public class PruneOutputSourceColumns
         implements Rule<OutputNode>
 {
     private static final Pattern<OutputNode> PATTERN = output();

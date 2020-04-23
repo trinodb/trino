@@ -83,7 +83,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneLimitColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneMarkDistinctColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneOffsetColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneOrderByInAggregation;
-import io.prestosql.sql.planner.iterative.rule.PruneOutputColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneOutputSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneProjectColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSampleColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinColumns;
@@ -270,7 +270,7 @@ public class PlanOptimizers
                 new PruneLimitColumns(),
                 new PruneMarkDistinctColumns(),
                 new PruneOffsetColumns(),
-                new PruneOutputColumns(),
+                new PruneOutputSourceColumns(),
                 new PruneProjectColumns(),
                 new PruneSampleColumns(),
                 new PruneSemiJoinColumns(),

@@ -24,13 +24,13 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictOutput;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 
-public class TestPruneOutputColumns
+public class TestPruneOutputSourceColumns
         extends BaseRuleTest
 {
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneOutputColumns())
+        tester().assertThat(new PruneOutputSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -50,7 +50,7 @@ public class TestPruneOutputColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneOutputColumns())
+        tester().assertThat(new PruneOutputSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
