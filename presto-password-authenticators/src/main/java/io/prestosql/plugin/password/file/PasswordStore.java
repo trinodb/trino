@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.password.Credential;
 import io.prestosql.spi.PrestoException;
 
 import java.io.File;

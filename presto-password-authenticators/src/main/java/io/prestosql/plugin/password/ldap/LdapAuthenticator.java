@@ -22,6 +22,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.password.Credential;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.PasswordAuthenticator;
@@ -36,10 +37,8 @@ import javax.naming.directory.SearchResult;
 
 import java.security.Principal;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.prestosql.plugin.password.jndi.JndiUtils.createDirContext;
@@ -67,7 +66,7 @@ public class LdapAuthenticator
     private final Optional<String> bindPassword;
     private final boolean ignoreReferrals;
     private final Map<String, String> basicEnvironment;
-    private final LoadingCache<Credentials, Principal> authenticationCache;
+    private final LoadingCache<Credential, Principal> authenticationCache;
 
     @Inject
     public LdapAuthenticator(LdapConfig ldapConfig)
@@ -117,7 +116,7 @@ public class LdapAuthenticator
     public Principal createAuthenticatedPrincipal(String user, String password)
     {
         try {
-            return authenticationCache.getUnchecked(new Credentials(user, password));
+            return authenticationCache.getUnchecked(new Credential(user, password));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), AccessDeniedException.class);
@@ -125,9 +124,9 @@ public class LdapAuthenticator
         }
     }
 
-    private Principal authenticateWithUserBind(Credentials credentials)
+    private Principal authenticateWithUserBind(Credential credential)
     {
-        String user = credentials.getUser();
+        String user = credential.getUser();
         if (containsSpecialCharacters(user)) {
             throw new AccessDeniedException("Username contains a special LDAP character");
         }
@@ -135,10 +134,10 @@ public class LdapAuthenticator
             String userDistinguishedName = createUserDistinguishedName(user);
             if (groupAuthorizationSearchPattern.isPresent()) {
                 // user password is also validated as user DN and password is used for querying LDAP
-                checkGroupMembership(user, userDistinguishedName, credentials.getPassword());
+                checkGroupMembership(user, userDistinguishedName, credential.getPassword());
             }
             else {
-                validatePassword(userDistinguishedName, credentials.getPassword());
+                validatePassword(userDistinguishedName, credential.getPassword());
             }
             log.debug("Authentication successful for user [%s]", user);
         }
@@ -149,22 +148,22 @@ public class LdapAuthenticator
         return new BasicPrincipal(user);
     }
 
-    private Principal authenticateWithBindDistinguishedName(Credentials credentials)
+    private Principal authenticateWithBindDistinguishedName(Credential credential)
     {
-        String user = credentials.getUser();
+        String user = credential.getUser();
         if (containsSpecialCharacters(user)) {
             throw new AccessDeniedException("Username contains a special LDAP character");
         }
         try {
             String userDistinguishedName = validateGroupMembership(user, bindDistinguishedName.get(), bindPassword.get());
-            validatePassword(userDistinguishedName, credentials.getPassword());
+            validatePassword(userDistinguishedName, credential.getPassword());
             log.debug("Authentication successful for user [%s]", user);
         }
         catch (NamingException e) {
             log.debug(e, "Authentication failed for user [%s], %s", user, e.getMessage());
             throw new RuntimeException("Authentication error");
         }
-        return new BasicPrincipal(credentials.getUser());
+        return new BasicPrincipal(credential.getUser());
     }
 
     private String createUserDistinguishedName(String user)
@@ -297,58 +296,5 @@ public class LdapAuthenticator
     private static String replaceUser(String pattern, String user)
     {
         return pattern.replace("${USER}", user);
-    }
-
-    private static class Credentials
-    {
-        private final String user;
-        private final String password;
-
-        private Credentials(String user, String password)
-        {
-            this.user = requireNonNull(user);
-            this.password = requireNonNull(password);
-        }
-
-        public String getUser()
-        {
-            return user;
-        }
-
-        public String getPassword()
-        {
-            return password;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            Credentials that = (Credentials) o;
-
-            return Objects.equals(this.user, that.user) &&
-                    Objects.equals(this.password, that.password);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(user, password);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("user", user)
-                    .add("password", password)
-                    .toString();
-        }
     }
 }
