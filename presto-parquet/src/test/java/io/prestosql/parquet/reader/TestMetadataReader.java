@@ -163,32 +163,52 @@ public class TestMetadataReader
     public Object[][] testReadStatsBinaryUtf8OldWriterDataProvider()
     {
         return new Object[][] {
-                // [aa, bé]
+                // [aa, bé]: no common prefix, first different are both ASCII, min is all ASCII
                 {NO_CREATED_BY, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "aa".getBytes(UTF_8), "c".getBytes(UTF_8)},
 
-                // [abc\u007fé, bcd\u007fé]; \u007f is retained in min value, but removed from max
+                // [abcé, abcéN]: common prefix, not only ASCII, one prefix of the other
+                {NO_CREATED_BY, 13, "abcé".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "abcé".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, "abcé".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, "abcé".getBytes(UTF_8), "abcéO".getBytes(UTF_8)},
+
+                // [abcéM, abcéN]: common prefix, not only ASCII, first different are both ASCII
+                {NO_CREATED_BY, 13, "abcéM".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "abcéM".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, "abcéM".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, "abcéM".getBytes(UTF_8), "abcéO".getBytes(UTF_8)},
+
+                // [abcéMab, abcéNxy]: common prefix, not only ASCII, first different are both ASCII, more characters afterwards
+                {NO_CREATED_BY, 13, "abcéMab".getBytes(UTF_8), "abcéNxy".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "abcéMab".getBytes(UTF_8), "abcéNxy".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, "abcéMab".getBytes(UTF_8), "abcéNxy".getBytes(UTF_8), 13, "abcéMab".getBytes(UTF_8), "abcéO".getBytes(UTF_8)},
+
+                // [abcéM, abcé\u00f7]: common prefix, not only ASCII, first different are both ASCII, but need to be chopped off (127)
+                {NO_CREATED_BY, 13, "abcéM".getBytes(UTF_8), "abcé\u00f7".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "abcéM".getBytes(UTF_8), "abcé\u00f7".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, "abcéM".getBytes(UTF_8), "abcé\u00f7".getBytes(UTF_8), 13, "abcéM".getBytes(UTF_8), "abd".getBytes(UTF_8)},
+
+                // [abc\u007fé, bcd\u007fé]: no common prefix, first different are both ASCII
                 {NO_CREATED_BY, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, "abc\u007f".getBytes(UTF_8), "bce".getBytes(UTF_8)},
+                {PARQUET_MR_1_8, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, "abc\u007f".getBytes(UTF_8), "c".getBytes(UTF_8)},
 
-                // [é, a]
+                // [é, a]: no common prefix, first different are not both ASCII
                 {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, new byte[0], "b".getBytes(UTF_8)},
+                {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, null, null},
 
-                // [é, ê]
+                // [é, ê]: no common prefix, first different are both not ASCII
                 {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
 
-                // [aé, aé]
+                // [aé, aé]: min = max (common prefix, first different are both not ASCII)
                 {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8)},
 
-                // [aé, bé]
+                // [aé, bé]: no common prefix, first different are both ASCII
                 {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "a".getBytes(UTF_8), "c".getBytes(UTF_8)},
