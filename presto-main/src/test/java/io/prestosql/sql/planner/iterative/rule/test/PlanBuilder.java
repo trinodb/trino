@@ -876,13 +876,18 @@ public class PlanBuilder
 
     public RowNumberNode rowNumber(List<Symbol> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, PlanNode source)
     {
+        return rowNumber(partitionBy, maxRowCountPerPartition, rowNumberSymbol, Optional.empty(), source);
+    }
+
+    public RowNumberNode rowNumber(List<Symbol> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, Optional<Symbol> hashSymbol, PlanNode source)
+    {
         return new RowNumberNode(
                 idAllocator.getNextId(),
                 source,
                 partitionBy,
                 rowNumberSymbol,
                 maxRowCountPerPartition,
-                Optional.empty());
+                hashSymbol);
     }
 
     public RemoteSourceNode remoteSourceNode(List<PlanFragmentId> fragmentIds, List<Symbol> symbols, ExchangeNode.Type exchangeType)
