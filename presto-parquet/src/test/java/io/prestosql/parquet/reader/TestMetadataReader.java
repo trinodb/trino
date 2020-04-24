@@ -137,20 +137,20 @@ public class TestMetadataReader
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
                     assertEquals(columnStatistics.getNumNulls(), expectedNullCount);
 
-                    assertEquals(columnStatistics.getMinBytes(), expectedMin);
+                    assertThat(columnStatistics.getMinBytes()).isEqualTo(expectedMin);
                     if (expectedMin != null) {
-                        assertEquals(columnStatistics.getMin().getBytes(), expectedMin);
-                        assertEquals(columnStatistics.genericGetMin().getBytes(), expectedMin);
+                        assertThat(columnStatistics.getMin().getBytes()).isEqualTo(expectedMin);
+                        assertThat(columnStatistics.genericGetMin().getBytes()).isEqualTo(expectedMin);
                     }
                     else {
                         assertNull(columnStatistics.getMin());
                         assertNull(columnStatistics.genericGetMin());
                     }
 
-                    assertEquals(columnStatistics.getMaxBytes(), expectedMax);
+                    assertThat(columnStatistics.getMaxBytes()).isEqualTo(expectedMax);
                     if (expectedMax != null) {
-                        assertEquals(columnStatistics.getMax().getBytes(), expectedMax);
-                        assertEquals(columnStatistics.genericGetMax().getBytes(), expectedMax);
+                        assertThat(columnStatistics.getMax().getBytes()).isEqualTo(expectedMax);
+                        assertThat(columnStatistics.genericGetMax().getBytes()).isEqualTo(expectedMax);
                     }
                     else {
                         assertNull(columnStatistics.getMax());
