@@ -148,6 +148,7 @@ class RelationPlanner
         Query namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
 
+        RelationPlan plan;
         if (namedQuery != null) {
             RelationPlan subPlan = process(namedQuery, null);
 
@@ -155,27 +156,31 @@ class RelationPlanner
             // of the view (e.g., if the underlying tables referenced by the view changed)
             Type[] types = scope.getRelationType().getAllFields().stream().map(Field::getType).toArray(Type[]::new);
             RelationPlan withCoercions = addCoercions(subPlan, types);
-            return new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
+
+            plan = new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
+        }
+        else {
+            TableHandle handle = analysis.getTableHandle(node);
+
+            ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+            for (Field field : scope.getRelationType().getAllFields()) {
+                Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
+
+                outputSymbolsBuilder.add(symbol);
+                columns.put(symbol, analysis.getColumn(field));
+            }
+
+            List<Symbol> outputSymbols = outputSymbolsBuilder.build();
+            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
+
+            plan = new RelationPlan(root, scope, outputSymbols);
         }
 
-        TableHandle handle = analysis.getTableHandle(node);
+        plan = addRowFilters(node, plan);
+        plan = addColumnMasks(node, plan);
 
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        for (Field field : scope.getRelationType().getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-
-            outputSymbolsBuilder.add(symbol);
-            columns.put(symbol, analysis.getColumn(field));
-        }
-
-        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
-
-        RelationPlan tableScan = new RelationPlan(root, scope, outputSymbols);
-        tableScan = addRowFilters(node, tableScan);
-        tableScan = addColumnMasks(node, tableScan);
-        return tableScan;
+        return plan;
     }
 
     private RelationPlan addRowFilters(Table node, RelationPlan plan)
@@ -196,10 +201,17 @@ class RelationPlanner
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan)
     {
+        Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
+
+        // A Table can represent a WITH query, which can have anonymous fields. On the other hand,
+        // it can't have masks. The loop below expects fields to have proper names, so bail out
+        // if the masks are missing
+        if (columnMasks.isEmpty()) {
+            return plan;
+        }
+
         PlanBuilder planBuilder = initializePlanBuilder(plan);
         TranslationMap translations = planBuilder.getTranslations();
-
-        Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
 
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
