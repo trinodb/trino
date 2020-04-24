@@ -104,6 +104,7 @@ public class CachingHiveMetastore
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<String, Set<String>> rolesCache;
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
+    private final LoadingCache<String, Set<RoleGrant>> grantedPrincipalsCache;
     private final LoadingCache<String, Optional<String>> configValuesCache;
 
     public static HiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, CachingHiveMetastoreConfig config)
@@ -216,6 +217,9 @@ public class CachingHiveMetastore
 
         roleGrantsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadRoleGrants), executor));
+
+        grantedPrincipalsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadPrincipals), executor));
 
         configValuesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadConfigValue), executor));
@@ -805,6 +809,12 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        return get(grantedPrincipalsCache, role);
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return get(roleGrantsCache, principal);
@@ -813,6 +823,11 @@ public class CachingHiveMetastore
     private Set<RoleGrant> loadRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
+    }
+
+    private Set<RoleGrant> loadPrincipals(String role)
+    {
+        return delegate.listGrantedPrincipals(role);
     }
 
     private void invalidatePartitionCache(String databaseName, String tableName)

@@ -376,6 +376,12 @@ public interface Metadata
     Set<String> listRoles(Session session, String catalog);
 
     /**
+     * List all role grants in the specified catalog,
+     * optionally filtered by passed role, grantee, and limit predicates.
+     */
+    Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
+
+    /**
      * List roles grants in the specified catalog for a given principal, not recursively.
      */
     Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal);

@@ -416,6 +416,13 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
     {
         accessCount.incrementAndGet();

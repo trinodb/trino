@@ -67,6 +67,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
@@ -332,6 +333,12 @@ public class DenyAllAccessControl
     public void checkCanSetRole(SecurityContext context, String role, String catalog)
     {
         denySetRole(role);
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
+    {
+        denyShowRoleAuthorizationDescriptors(catalogName);
     }
 
     @Override

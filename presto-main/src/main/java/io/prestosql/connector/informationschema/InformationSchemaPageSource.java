@@ -37,6 +37,7 @@ import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
@@ -78,6 +79,8 @@ public class InformationSchemaPageSource
     private final PageBuilder pageBuilder;
     private final Function<Page, Page> projection;
 
+    private final Optional<Set<String>> roles;
+    private final Optional<Set<String>> grantees;
     private long recordCount;
     private long completedBytes;
     private long memoryUsageBytes;
@@ -118,6 +121,9 @@ public class InformationSchemaPageSource
             return prefixes.iterator();
         });
         limit = tableHandle.getLimit();
+
+        roles = tableHandle.getRoles();
+        grantees = tableHandle.getGrantees();
 
         List<ColumnMetadata> columnMetadata = table.getTableMetadata().getColumns();
 
@@ -227,6 +233,9 @@ public class InformationSchemaPageSource
                     break;
                 case ENABLED_ROLES:
                     addEnabledRolesRecords();
+                    break;
+                case ROLE_AUTHORIZATION_DESCRIPTORS:
+                    addRoleAuthorizationDescriptorRecords();
                     break;
             }
         }
@@ -346,13 +355,35 @@ public class InformationSchemaPageSource
         }
     }
 
+    private void addRoleAuthorizationDescriptorRecords()
+    {
+        try {
+            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), catalogName);
+        }
+        catch (AccessDeniedException exception) {
+            return;
+        }
+
+        for (RoleGrant grant : metadata.listAllRoleGrants(session, catalogName, roles, grantees, limit)) {
+            addRecord(
+                    grant.getRoleName(),
+                    null, // grantor
+                    null, // grantor type
+                    grant.getGrantee().getName(),
+                    grant.getGrantee().getType().toString(),
+                    grant.isGrantable() ? "YES" : "NO");
+            if (isLimitExhausted()) {
+                return;
+            }
+        }
+    }
+
     private void addApplicableRolesRecords()
     {
         for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalogName)) {
-            PrestoPrincipal grantee = grant.getGrantee();
             addRecord(
-                    grantee.getName(),
-                    grantee.getType().toString(),
+                    grant.getGrantee().getName(),
+                    grant.getGrantee().getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
             if (isLimitExhausted()) {

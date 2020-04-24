@@ -82,6 +82,7 @@ public class RecordingHiveMetastore
     private final Cache<Set<HivePartitionName>, Map<String, Optional<Partition>>> partitionsByNamesCache;
     private final Cache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final Cache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
+    private final Cache<String, Set<RoleGrant>> grantedPrincipalsCache;
 
     @Inject
     public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, HiveConfig hiveConfig)
@@ -106,6 +107,7 @@ public class RecordingHiveMetastore
         partitionsByNamesCache = createCache(hiveConfig);
         tablePrivilegesCache = createCache(hiveConfig);
         roleGrantsCache = createCache(hiveConfig);
+        grantedPrincipalsCache = createCache(hiveConfig);
 
         if (replay) {
             loadRecording();
@@ -134,6 +136,7 @@ public class RecordingHiveMetastore
         partitionsByNamesCache.putAll(toMap(recording.getPartitionsByNames()));
         tablePrivilegesCache.putAll(toMap(recording.getTablePrivileges()));
         roleGrantsCache.putAll(toMap(recording.getRoleGrants()));
+        grantedPrincipalsCache.putAll(toMap(recording.getGrantedPrincipals()));
     }
 
     private static <K, V> Cache<K, V> createCache(HiveConfig hiveConfig)
@@ -172,7 +175,8 @@ public class RecordingHiveMetastore
                 toPairs(partitionNamesByPartsCache),
                 toPairs(partitionsByNamesCache),
                 toPairs(tablePrivilegesCache),
-                toPairs(roleGrantsCache));
+                toPairs(roleGrantsCache),
+                toPairs(grantedPrincipalsCache));
 
         Files.write(recordingPath, RECORDING_CODEC.toJsonBytes(recording));
     }
@@ -480,6 +484,15 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        return loadValue(
+                grantedPrincipalsCache,
+                role,
+                () -> delegate.listGrantedPrincipals(role));
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return loadValue(
@@ -532,6 +545,7 @@ public class RecordingHiveMetastore
         private final List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames;
         private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
         private final List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants;
+        private final List<Pair<String, Set<RoleGrant>>> grantedPrincipals;
 
         @JsonCreator
         public Recording(
@@ -550,7 +564,8 @@ public class RecordingHiveMetastore
                 @JsonProperty("partitionNamesByParts") List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts,
                 @JsonProperty("partitionsByNames") List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
-                @JsonProperty("roleGrants") List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants)
+                @JsonProperty("roleGrants") List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants,
+                @JsonProperty("grantedPincipals") List<Pair<String, Set<RoleGrant>>> grantedPrincipals)
         {
             this.allDatabases = allDatabases;
             this.allRoles = allRoles;
@@ -568,6 +583,7 @@ public class RecordingHiveMetastore
             this.partitionsByNames = partitionsByNames;
             this.tablePrivileges = tablePrivileges;
             this.roleGrants = roleGrants;
+            this.grantedPrincipals = grantedPrincipals;
         }
 
         @JsonProperty
@@ -658,6 +674,12 @@ public class RecordingHiveMetastore
         public List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> getTablePrivileges()
         {
             return tablePrivileges;
+        }
+
+        @JsonProperty
+        public List<Pair<String, Set<RoleGrant>>> getGrantedPrincipals()
+        {
+            return grantedPrincipals;
         }
 
         @JsonProperty

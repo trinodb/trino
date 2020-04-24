@@ -753,6 +753,17 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext securityContext, String catalogName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalogName, "catalogName is null");
+
+        checkCanAccessCatalog(securityContext, catalogName);
+
+        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleAuthorizationDescriptors(context, catalogName));
+    }
+
+    @Override
     public void checkCanShowRoles(SecurityContext securityContext, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
