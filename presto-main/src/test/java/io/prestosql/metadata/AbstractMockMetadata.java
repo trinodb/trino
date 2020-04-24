@@ -494,6 +494,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();

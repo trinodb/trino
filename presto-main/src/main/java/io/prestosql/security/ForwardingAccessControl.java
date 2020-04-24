@@ -310,6 +310,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
+    {
+        delegate().checkCanShowRoleAuthorizationDescriptors(context, catalogName);
+    }
+
+    @Override
     public void checkCanShowRoles(SecurityContext context, String catalogName)
     {
         delegate().checkCanShowRoles(context, catalogName);

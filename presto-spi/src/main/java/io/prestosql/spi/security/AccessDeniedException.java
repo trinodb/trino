@@ -356,6 +356,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName));
     }
 
+    public static void denyShowRoleAuthorizationDescriptors(String catalogName)
+    {
+        throw new AccessDeniedException(format("Cannot show role authorizatin descriptors from catalog %s", catalogName));
+    }
+
     public static void denyShowCurrentRoles(String catalogName)
     {
         throw new AccessDeniedException(format("Cannot show current roles from catalog %s", catalogName));

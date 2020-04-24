@@ -4974,6 +4974,113 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testRoleAuthorizationDescriptors()
+    {
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        assertUpdate("CREATE ROLE test_r_a_d1");
+        assertUpdate("CREATE ROLE test_r_a_d2");
+        assertUpdate("CREATE ROLE test_r_a_d3");
+
+        // nothing showing because no roles have been granted
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.role_authorization_descriptors");
+
+        // role_authorization_descriptors is not accessible for a non-admin user, even when it's empty
+        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
+                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
+
+        assertUpdate("GRANT test_r_a_d1 TO USER user");
+        // user with same name as a role
+        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1");
+        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION");
+        assertUpdate("GRANT test_r_a_d2 TO USER user2");
+        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1");
+
+        // role_authorization_descriptors is not accessible for a non-admin user
+        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
+                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
+                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors LIMIT 1000000000",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
+                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors LIMIT 2)",
+                "VALUES (2)");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2'",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2' LIMIT 1)",
+                "VALUES 1");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'user'",
+                "VALUES ('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%'",
+                "VALUES " +
+                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')");
+
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%' LIMIT 2)",
+                "VALUES 2");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1'",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' LIMIT 1",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'USER'",
+                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'ROLE'",
+                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee_type = 'ROLE'",
+                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
+
+        assertUpdate("DROP ROLE test_r_a_d1");
+        assertUpdate("DROP ROLE test_r_a_d2");
+        assertUpdate("DROP ROLE test_r_a_d3");
+    }
+
+    @Test
     public void testShowViews()
     {
         String viewName = "test_show_views";

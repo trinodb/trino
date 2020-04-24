@@ -147,6 +147,9 @@ public interface ThriftMetastoreClient
     void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
             throws TException;
 
+    List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException;
+
     List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException;
 

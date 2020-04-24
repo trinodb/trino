@@ -876,6 +876,12 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeRoles(roles, grantees, adminOption, grantor));
     }
 
+    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        checkReadable();
+        return delegate.listGrantedPrincipals(role);
+    }
+
     public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         checkReadable();
