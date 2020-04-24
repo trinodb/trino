@@ -13,12 +13,18 @@
  */
 package io.prestosql.sql.query;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.TestingAccessControlManager;
 import org.testng.annotations.AfterClass;
@@ -33,8 +39,16 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public class TestColumnMask
 {
     private static final String CATALOG = "local";
+    private static final String MOCK_CATALOG = "mock";
     private static final String USER = "user";
+    private static final String VIEW_OWNER = "view-owner";
     private static final String RUN_AS_USER = "run-as-user";
+
+    private static final Session SESSION = testSessionBuilder()
+            .setCatalog(CATALOG)
+            .setSchema(TINY_SCHEMA_NAME)
+            .setIdentity(Identity.forUser(USER).build())
+            .build();
 
     private QueryAssertions assertions;
     private TestingAccessControlManager accessControl;
@@ -42,16 +56,26 @@ public class TestColumnMask
     @BeforeClass
     public void init()
     {
-        Session session = testSessionBuilder()
-                .setCatalog(CATALOG)
-                .setSchema(TINY_SCHEMA_NAME)
-                .setIdentity(Identity.forUser(USER).build())
-                .build();
-
-        LocalQueryRunner runner = LocalQueryRunner.builder(session)
-                .build();
+        LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
 
         runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+
+        ConnectorViewDefinition view = new ConnectorViewDefinition(
+                "SELECT nationkey, name FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("nationkey", BigintType.BIGINT.getTypeId()), new ConnectorViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25).getTypeId())),
+                Optional.empty(),
+                Optional.of(VIEW_OWNER),
+                false);
+
+        MockConnectorFactory mock = MockConnectorFactory.builder()
+                .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
+                        .put(new SchemaTableName("default", "nation_view"), view)
+                        .build())
+                .build();
+
+        runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
         accessControl = assertions.getQueryRunner().getAccessControl();
@@ -146,6 +170,58 @@ public class TestColumnMask
                     USER,
                     new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "(SELECT cast(max(name) AS VARCHAR(15)) FROM nation WHERE nationkey = orderkey)"));
             assertions.assertQuery("SELECT clerk FROM orders WHERE orderkey = 1", "VALUES CAST('ARGENTINA' AS VARCHAR(15))");
+        });
+    }
+
+    @Test
+    public void testView()
+    {
+        // mask on the underlying table for view owner when running query as different user
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.columnMask(
+                    new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                    "name",
+                    VIEW_OWNER,
+                    new ViewExpression(VIEW_OWNER, Optional.empty(), Optional.empty(), "reverse(name)"));
+
+            Session session = Session.builder(SESSION)
+                    .setIdentity(Identity.forUser(RUN_AS_USER).build())
+                    .build();
+
+            assertions.assertQuery(session, "SELECT name FROM mock.default.nation_view WHERE nationkey = 1", "VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+        });
+
+        // mask on the underlying table for view owner when running as themselves
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.columnMask(
+                    new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                    "name",
+                    VIEW_OWNER,
+                    new ViewExpression(VIEW_OWNER, Optional.of(CATALOG), Optional.of("tiny"), "reverse(name)"));
+
+            Session session = Session.builder(SESSION)
+                    .setIdentity(Identity.forUser(VIEW_OWNER).build())
+                    .build();
+
+            assertions.assertQuery(session, "SELECT name FROM mock.default.nation_view WHERE nationkey = 1", "VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+        });
+
+        // mask on the underlying table for user running the query (different from view owner) should not be applied
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.columnMask(
+                    new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                    "name",
+                    RUN_AS_USER,
+                    new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "reverse(name)"));
+
+            Session session = Session.builder(SESSION)
+                    .setIdentity(Identity.forUser(RUN_AS_USER).build())
+                    .build();
+
+            assertions.assertQuery(session, "SELECT name FROM mock.default.nation_view WHERE nationkey = 1", "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
         });
     }
 
