@@ -25,7 +25,6 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -50,13 +49,7 @@ public class CassandraClusteringPredicatesExtractor
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
         Map<ColumnHandle, Domain> pushedDown = clusteringPushDownResult.getDomains();
-        Map<ColumnHandle, Domain> notPushedDown = new HashMap<>(predicates.getDomains().get());
-
-        if (!notPushedDown.isEmpty() && !pushedDown.isEmpty()) {
-            notPushedDown.entrySet().removeAll(pushedDown.entrySet());
-        }
-
-        return TupleDomain.withColumnDomains(notPushedDown);
+        return predicates.filter(((columnHandle, domain) -> !pushedDown.containsKey(columnHandle)));
     }
 
     private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)

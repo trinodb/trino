@@ -39,7 +39,6 @@ import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.QualifiedName;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -54,7 +53,6 @@ import static io.prestosql.sql.planner.DomainTranslator.fromPredicate;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class WindowFilterPushDown
         implements PlanOptimizer
@@ -191,12 +189,7 @@ public class WindowFilterPushDown
             }
 
             // Remove the row number domain because it is absorbed into the node
-            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().get().entrySet().stream()
-                    .filter(entry -> !entry.getKey().equals(rowNumberSymbol))
-                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            // Construct a new predicate
-            TupleDomain<Symbol> newTupleDomain = TupleDomain.withColumnDomains(newDomains);
+            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     metadata,
                     extractionResult.getRemainingExpression(),

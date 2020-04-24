@@ -84,7 +84,7 @@ public class S3SelectRecordCursorProvider
 
         Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
         // Ignore predicates on partial columns for now.
-        effectivePredicate = effectivePredicate.transform(column -> column.isBaseColumn() ? column : null);
+        effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
 
         String serdeName = getDeserializerClassName(schema);
         if (CSV_SERDES.contains(serdeName)) {

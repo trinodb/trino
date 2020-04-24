@@ -16,7 +16,6 @@ package io.prestosql.testing.tpch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import io.prestosql.plugin.tpch.TpchMetadata;
 import io.prestosql.plugin.tpch.TpchTableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -31,8 +30,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static io.prestosql.testing.tpch.TpchIndexProvider.handleToNames;
 import static java.util.Objects.requireNonNull;
 
@@ -76,10 +73,7 @@ public class TpchIndexMetadata
             return Optional.empty();
         }
 
-        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain;
-        if (!tupleDomain.isNone()) {
-            filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(fixedValues.keySet()))));
-        }
+        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain.filter((column, domain) -> !fixedValues.containsKey(column));
         TpchIndexHandle indexHandle = new TpchIndexHandle(
                 tpchTableHandle.getTableName(),
                 tpchTableHandle.getScaleFactor(),

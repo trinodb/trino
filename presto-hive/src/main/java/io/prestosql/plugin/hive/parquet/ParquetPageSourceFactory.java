@@ -163,7 +163,7 @@ public class ParquetPageSourceFactory
             ParquetReaderOptions options)
     {
         // Ignore predicates on partial columns for now.
-        effectivePredicate = effectivePredicate.transform(column -> column.isBaseColumn() ? column : null);
+        effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
 
         MessageType fileSchema;
         MessageType requestedSchema;
