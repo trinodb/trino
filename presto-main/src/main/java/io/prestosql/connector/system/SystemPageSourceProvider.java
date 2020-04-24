@@ -14,7 +14,6 @@
 package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -30,7 +29,6 @@ import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.MappedPageSource;
@@ -43,7 +41,6 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -100,18 +97,14 @@ public class SystemPageSourceProvider
         if (constraint.isNone()) {
             return new FixedPageSource(ImmutableList.of());
         }
-        ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
-            String columnName = ((SystemColumnHandle) entry.getKey()).getColumnName();
-            newConstraints.put(columnsByName.get(columnName), entry.getValue());
-        }
-        TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
+        TupleDomain<Integer> newConstraint = systemSplit.getConstraint().transform(columnHandle ->
+                columnsByName.get(((SystemColumnHandle) columnHandle).getColumnName()));
 
         try {
-            return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newContraint), userToSystemFieldIndex.build());
+            return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newConstraint), userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
-            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build()));
+            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, newConstraint), userToSystemFieldIndex.build()));
         }
     }
 
