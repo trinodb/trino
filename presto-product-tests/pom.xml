@@ -43,6 +43,10 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testing</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>

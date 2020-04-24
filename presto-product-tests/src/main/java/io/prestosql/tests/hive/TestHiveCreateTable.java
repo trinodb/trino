@@ -14,14 +14,19 @@
 package io.prestosql.tests.hive;
 
 import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.assertions.QueryAssert;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.HDP3_ONLY;
@@ -29,7 +34,10 @@ import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class TestHiveCreateTable
         extends ProductTest
@@ -74,6 +82,29 @@ public class TestHiveCreateTable
                 // Hive 3 removes "transactional" table property when it has value "false"
                 .isIn(Optional.empty(), Optional.of("false"));
         onPresto().executeQuery("DROP TABLE test_create_table_as_select");
+    }
+
+    @Test
+    public void testColumnNames()
+    {
+        List<String> sqlColumnNames = AbstractTestDistributedQueries.FANCY_COLUMN_NAMES.stream()
+                .map(columnName -> "\"" + columnName.replace("\"", "\"\"") + "\"")
+                .collect(toImmutableList());
+        String createTable = "CREATE TABLE test_column_names AS SELECT " +
+                IntStream.range(0, sqlColumnNames.size())
+                        .mapToObj(i -> format("'value %s %s' %s", i, sqlColumnNames.get(i).replace("'", "''"), sqlColumnNames.get(i)))
+                        .collect(joining(", "));
+        String select = "SELECT " + join(", ", sqlColumnNames) + " FROM test_column_names";
+        QueryAssert.Row values = new QueryAssert.Row(
+                IntStream.range(0, sqlColumnNames.size())
+                        .mapToObj(i -> format("value %s %s", i, sqlColumnNames.get(i)))
+                        .toArray());
+
+        onPresto().executeQuery("DROP TABLE IF EXISTS test_column_names");
+        onPresto().executeQuery(createTable);
+        assertThat(onPresto().executeQuery(select)).contains(values);
+        assertThat(onHive().executeQuery(select)).contains(values);
+        onPresto().executeQuery("DROP TABLE test_column_names");
     }
 
     @Test(groups = {HDP3_ONLY, PROFILE_SPECIFIC_TESTS})

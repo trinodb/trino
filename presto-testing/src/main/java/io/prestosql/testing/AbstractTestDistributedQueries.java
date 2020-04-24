@@ -82,6 +82,27 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    public static final List<String> FANCY_COLUMN_NAMES = ImmutableList.<String>builder()
+            .add("lowercase")
+            .add("UPPERCASE")
+            .add("MixedCase")
+            .add("an_underscore")
+            .add("a-hyphen-minus") // ASCII '-' is HYPHEN-MINUS in Unicode
+            .add("a space")
+            .add("atrailingspace ")
+            .add("a.dot")
+            .add("a:colon")
+            .add("a;semicolon")
+            .add("an@at")
+            .add("a\"quote")
+            .add("an'apostrophe")
+            .add("a`backtick`")
+            .add("a/slash`")
+            .add("a\\backslash`")
+            .add("adigit0")
+            .add("0startingwithdigit")
+            .build();
+
     protected boolean supportsViews()
     {
         return true;
@@ -1294,26 +1315,9 @@ public abstract class AbstractTestDistributedQueries
     @DataProvider
     public Object[][] testColumnNameDataProvider()
     {
-        return new Object[][] {
-                {"lowercase"},
-                {"UPPERCASE"},
-                {"MixedCase"},
-                {"an_underscore"},
-                {"a-hyphen-minus"}, // ASCII '-' is HYPHEN-MINUS in Unicode
-                {"a space"},
-                {"atrailingspace "},
-                {"a.dot"},
-                {"a:colon"},
-                {"a;semicolon"},
-                {"an@at"},
-                {"a\"quote"},
-                {"an'apostrophe"},
-                {"a`backtick`"},
-                {"a/slash`"},
-                {"a\\backslash`"},
-                {"adigit0"},
-                {"0startingwithdigit"},
-        };
+        return FANCY_COLUMN_NAMES.stream()
+                .map(columnName -> new Object[] {columnName})
+                .toArray(Object[][]::new);
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
