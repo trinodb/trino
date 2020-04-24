@@ -462,6 +462,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "listRoleGrants");
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         throw new PrestoException(NOT_SUPPORTED, "listRoleGrants");

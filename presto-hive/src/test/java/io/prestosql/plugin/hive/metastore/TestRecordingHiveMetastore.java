@@ -143,6 +143,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.listTablePrivileges("database", "table", "owner", Optional.of(new HivePrincipal(USER, "user"))), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
+        assertEquals(hiveMetastore.listGrantedPrincipals("role"), ImmutableSet.of(ROLE_GRANT));
     }
 
     private static class TestingHiveMetastore
@@ -291,6 +292,12 @@ public class TestRecordingHiveMetastore
         public Set<String> listRoles()
         {
             return ImmutableSet.of("role");
+        }
+
+        @Override
+        public Set<RoleGrant> listGrantedPrincipals(String role)
+        {
+            return ImmutableSet.of(ROLE_GRANT);
         }
 
         @Override

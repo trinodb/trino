@@ -253,6 +253,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+        delegate().checkCanShowRoleAuthorizationDescriptors(context, catalogName);
+    }
+
+    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
         delegate().checkCanShowRoles(context, catalogName);

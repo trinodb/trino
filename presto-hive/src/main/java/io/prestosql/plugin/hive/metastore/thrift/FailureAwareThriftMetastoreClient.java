@@ -319,6 +319,13 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
+    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.listGrantedPrincipals(role));
+    }
+
+    @Override
     public List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException
     {

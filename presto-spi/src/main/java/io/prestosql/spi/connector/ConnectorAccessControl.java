@@ -54,6 +54,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
@@ -381,6 +382,16 @@ public interface ConnectorAccessControl
     default void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
     {
         denySetRole(role);
+    }
+
+    /**
+     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+        denyShowRoleAuthorizationDescriptors(catalogName);
     }
 
     /**

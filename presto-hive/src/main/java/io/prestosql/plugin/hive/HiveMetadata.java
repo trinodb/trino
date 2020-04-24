@@ -2367,6 +2367,12 @@ public class HiveMetadata
     }
 
     @Override
+    public Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    {
+        return ImmutableSet.copyOf(accessControlMetadata.listAllRoleGrants(session, roles, grantees, limit));
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
     {
         return ImmutableSet.copyOf(accessControlMetadata.listRoleGrants(session, HivePrincipal.from(principal)));

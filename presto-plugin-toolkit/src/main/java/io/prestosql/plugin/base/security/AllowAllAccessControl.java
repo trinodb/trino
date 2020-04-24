@@ -204,6 +204,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
     }

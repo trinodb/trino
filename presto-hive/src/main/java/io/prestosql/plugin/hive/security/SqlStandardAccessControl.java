@@ -83,6 +83,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAutho
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -95,6 +96,7 @@ public class SqlStandardAccessControl
     public static final String ADMIN_ROLE_NAME = "admin";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
     private static final SchemaTableName ROLES = new SchemaTableName(INFORMATION_SCHEMA_NAME, "roles");
+    private static final SchemaTableName ROLE_AUHTORIZATION_DESCRIPTORS = new SchemaTableName(INFORMATION_SCHEMA_NAME, "role_authorization_descriptors");
 
     private final String catalogName;
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
@@ -398,6 +400,14 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+        if (!isAdmin(context)) {
+            denyShowRoleAuthorizationDescriptors(catalogName);
+        }
+    }
+
+    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
         if (!isAdmin(context)) {
@@ -483,7 +493,7 @@ public class SqlStandardAccessControl
             return true;
         }
 
-        if (tableName.equals(ROLES)) {
+        if (tableName.equals(ROLES) || tableName.equals(ROLE_AUHTORIZATION_DESCRIPTORS)) {
             return false;
         }
 
