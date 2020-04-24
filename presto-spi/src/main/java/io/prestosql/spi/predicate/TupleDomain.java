@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
@@ -401,6 +403,17 @@ public final class TupleDomain<T>
         return buffer.toString();
     }
 
+    public TupleDomain<T> filter(BiPredicate<T, Domain> predicate)
+    {
+        requireNonNull(predicate, "predicate is null");
+        return transformDomains((key, domain) -> {
+            if (!predicate.test(key, domain)) {
+                return Domain.all(domain.getType());
+            }
+            return domain;
+        });
+    }
+
     public <U> TupleDomain<U> transform(Function<T, U> function)
     {
         if (!domains.isPresent()) {
@@ -427,24 +440,28 @@ public final class TupleDomain<T>
 
     public TupleDomain<T> simplify()
     {
-        return transformDomains(Domain::simplify);
+        return transformDomains((key, domain) -> domain.simplify());
     }
 
     public TupleDomain<T> simplify(int threshold)
     {
-        return transformDomains(domain -> domain.simplify(threshold));
+        return transformDomains((key, domain) -> domain.simplify(threshold));
     }
 
-    private TupleDomain<T> transformDomains(Function<Domain, Domain> transformation)
+    public TupleDomain<T> transformDomains(BiFunction<T, Domain, Domain> transformation)
     {
+        requireNonNull(transformation, "transformation is null");
         if (isNone() || isAll()) {
             return this;
         }
 
-        Map<T, Domain> simplified = domains.get().entrySet().stream()
-                .collect(toLinkedMap(Map.Entry::getKey, entry -> transformation.apply(entry.getValue())));
-
-        return TupleDomain.withColumnDomains(simplified);
+        return withColumnDomains(domains.get().entrySet().stream()
+                .collect(toLinkedMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            Domain newDomain = transformation.apply(entry.getKey(), entry.getValue());
+                            return requireNonNull(newDomain, "newDomain is null");
+                        })));
     }
 
     // Available for Jackson serialization only!
