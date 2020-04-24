@@ -1303,6 +1303,7 @@ public abstract class AbstractTestDistributedQueries
                 {"a-hyphen-minus"}, // ASCII '-' is HYPHEN-MINUS in Unicode
                 {"a space"},
                 {"atrailingspace "},
+                {" aleadingspace"},
                 {"a.dot"},
                 {"a,comma"},
                 {"a:colon"},
