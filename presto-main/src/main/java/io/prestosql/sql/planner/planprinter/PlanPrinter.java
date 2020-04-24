@@ -1176,7 +1176,7 @@ public class PlanPrinter
         {
             checkArgument(!constraint.isNone());
             Map<ColumnHandle, Domain> domains = constraint.getDomains().get();
-            if (!constraint.isAll() && domains.containsKey(column)) {
+            if (domains.containsKey(column)) {
                 nodeOutput.appendDetailsLine("    :: %s", formatDomain(domains.get(column).simplify()));
             }
         }

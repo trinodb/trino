@@ -65,7 +65,7 @@ public class TestParquetPredicateUtils
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
-        assertTrue(tupleDomain.getDomains().get().isEmpty());
+        assertTrue(tupleDomain.isAll());
     }
 
     @Test
@@ -85,7 +85,7 @@ public class TestParquetPredicateUtils
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
-        assertTrue(tupleDomain.getDomains().get().isEmpty());
+        assertTrue(tupleDomain.isAll());
     }
 
     @Test
@@ -125,7 +125,7 @@ public class TestParquetPredicateUtils
                         new PrimitiveType(OPTIONAL, INT32, "b")));
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
-        assertTrue(tupleDomain.getDomains().get().isEmpty());
+        assertTrue(tupleDomain.isAll());
     }
 
     @Test
@@ -151,7 +151,7 @@ public class TestParquetPredicateUtils
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
-        assertTrue(tupleDomain.getDomains().get().isEmpty());
+        assertTrue(tupleDomain.isAll());
     }
 
     public static void throwUnsupportedOperationException()
