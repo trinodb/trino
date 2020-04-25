@@ -55,14 +55,12 @@ public class TestMinimalFunctionality
 
     @BeforeClass
     public void startRedis()
-            throws Exception
     {
         redisServer = new RedisServer();
     }
 
     @AfterClass(alwaysRun = true)
     public void stopRedis()
-            throws Exception
     {
         redisServer.close();
         redisServer = null;
@@ -70,7 +68,6 @@ public class TestMinimalFunctionality
 
     @BeforeMethod
     public void spinUp()
-            throws Exception
     {
         this.tableName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 

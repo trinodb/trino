@@ -152,7 +152,6 @@ public class TestNodeScheduler
 
     @Test(timeOut = 60 * 1000)
     public void testTopologyAwareScheduling()
-            throws Exception
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();

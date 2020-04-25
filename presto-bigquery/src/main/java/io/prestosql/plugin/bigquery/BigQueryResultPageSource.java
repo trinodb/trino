@@ -262,7 +262,6 @@ public class BigQueryResultPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         bigQueryStorageClient.close();
         closed = true;

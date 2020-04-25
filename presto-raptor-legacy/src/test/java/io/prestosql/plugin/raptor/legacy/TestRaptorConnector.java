@@ -87,7 +87,6 @@ public class TestRaptorConnector
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());

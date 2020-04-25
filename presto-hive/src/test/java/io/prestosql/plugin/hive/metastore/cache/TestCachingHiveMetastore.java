@@ -235,7 +235,6 @@ public class TestCachingHiveMetastore
 
     @Test
     public void testListRoles()
-            throws Exception
     {
         assertEquals(mockClient.getAccessCount(), 0);
 

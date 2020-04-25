@@ -1119,7 +1119,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testForceFreeMemory()
-            throws Throwable
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)

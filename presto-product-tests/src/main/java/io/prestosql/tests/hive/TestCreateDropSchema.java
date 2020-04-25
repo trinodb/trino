@@ -18,8 +18,6 @@ import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
-
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
@@ -35,7 +33,6 @@ public class TestCreateDropSchema
 
     @Test
     public void testCreateDropSchema()
-            throws SQLException
     {
         onHive().executeQuery("DROP DATABASE IF EXISTS test_drop_schema CASCADE");
 

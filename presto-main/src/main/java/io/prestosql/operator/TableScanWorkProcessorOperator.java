@@ -121,7 +121,6 @@ public class TableScanWorkProcessorOperator
 
     @Override
     public void close()
-            throws Exception
     {
         splitToPages.close();
     }

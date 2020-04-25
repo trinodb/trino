@@ -94,7 +94,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testInsertWithEveryType()
-            throws Exception
     {
         String createSql = "" +
                 "CREATE TABLE test_insert_types_table " +

@@ -67,7 +67,6 @@ public class TestHiveGlueMetastore
 
     @Override
     public void testPartitionStatisticsSampling()
-            throws Exception
     {
         // Glue metastore does not support column level statistics
     }

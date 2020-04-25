@@ -26,7 +26,6 @@ import io.prestosql.plugin.thrift.api.PrestoThriftNullableToken;
 import io.prestosql.plugin.thrift.api.PrestoThriftPageResult;
 import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
 import io.prestosql.plugin.thrift.api.PrestoThriftService;
-import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
 import io.prestosql.plugin.thrift.api.PrestoThriftSplit;
 import io.prestosql.plugin.thrift.api.PrestoThriftSplitBatch;
 import io.prestosql.plugin.thrift.api.PrestoThriftTupleDomain;
@@ -291,21 +290,18 @@ public class TestThriftIndexPageSource
 
         @Override
         public List<String> listSchemaNames()
-                throws PrestoThriftServiceException
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
         public List<PrestoThriftSchemaTableName> listTables(PrestoThriftNullableSchemaName schemaNameOrNull)
-                throws PrestoThriftServiceException
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
         public PrestoThriftNullableTableMetadata getTableMetadata(PrestoThriftSchemaTableName schemaTableName)
-                throws PrestoThriftServiceException
         {
             throw new UnsupportedOperationException();
         }

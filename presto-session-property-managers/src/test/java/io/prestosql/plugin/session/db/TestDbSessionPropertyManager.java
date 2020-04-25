@@ -24,7 +24,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -84,7 +83,6 @@ public class TestDbSessionPropertyManager
 
     @Override
     protected void assertProperties(Map<String, String> properties, SessionMatchSpec... specs)
-            throws IOException
     {
         insertSpecs(specs);
         long failureCountBefore = specsProvider.getDbLoadFailures().getTotalCount();
