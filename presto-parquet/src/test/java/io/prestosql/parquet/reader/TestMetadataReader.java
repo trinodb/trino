@@ -163,15 +163,30 @@ public class TestMetadataReader
     public Object[][] testReadStatsBinaryUtf8OldWriterDataProvider()
     {
         return new Object[][] {
+                // [, bcé]: min is empty, max starts with ASCII
+                {NO_CREATED_BY, 13, new byte[0], "bcé".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, new byte[0], "bcé".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, new byte[0], "bcé".getBytes(UTF_8), 13, null, null},
+
+                // [, ébc]: min is empty, max starts with non-ASCII
+                {NO_CREATED_BY, 13, new byte[0], "ébc".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, new byte[0], "ébc".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, new byte[0], "ébc".getBytes(UTF_8), 13, null, null},
+
                 // [aa, bé]: no common prefix, first different are both ASCII, min is all ASCII
                 {NO_CREATED_BY, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR_1_8, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "aa".getBytes(UTF_8), "c".getBytes(UTF_8)},
 
-                // [abcé, abcéN]: common prefix, not only ASCII, one prefix of the other
+                // [abcd, abcdN]: common prefix, not only ASCII, one prefix of the other, last common ASCII
+                {NO_CREATED_BY, 13, "abcd".getBytes(UTF_8), "abcdN".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR, 13, "abcd".getBytes(UTF_8), "abcdN".getBytes(UTF_8), 13, null, null},
+                {PARQUET_MR_1_8, 13, "abcd".getBytes(UTF_8), "abcdN".getBytes(UTF_8), 13, "abcd".getBytes(UTF_8), "abce".getBytes(UTF_8)},
+
+                // [abcé, abcéN]: common prefix, not only ASCII, one prefix of the other, last common non ASCII
                 {NO_CREATED_BY, 13, "abcé".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, null, null},
                 {PARQUET_MR, 13, "abcé".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "abcé".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, "abcé".getBytes(UTF_8), "abcéO".getBytes(UTF_8)},
+                {PARQUET_MR_1_8, 13, "abcé".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, "abcé".getBytes(UTF_8), "abd".getBytes(UTF_8)},
 
                 // [abcéM, abcéN]: common prefix, not only ASCII, first different are both ASCII
                 {NO_CREATED_BY, 13, "abcéM".getBytes(UTF_8), "abcéN".getBytes(UTF_8), 13, null, null},
