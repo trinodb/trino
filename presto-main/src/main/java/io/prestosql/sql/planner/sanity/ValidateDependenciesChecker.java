@@ -319,6 +319,14 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
+            if (node.getTiesResolvingScheme().isPresent()) {
+                checkDependencies(
+                        createInputs(source, boundSymbols),
+                        node.getTiesResolvingScheme().get().getOrderBy(),
+                        "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
+                        node.getTiesResolvingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+            }
+
             return null;
         }
 
