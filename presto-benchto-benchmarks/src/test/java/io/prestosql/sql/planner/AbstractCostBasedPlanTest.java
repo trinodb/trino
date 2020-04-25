@@ -76,7 +76,6 @@ public abstract class AbstractCostBasedPlanTest
     }
 
     protected void generate()
-            throws Exception
     {
         initPlanTest();
         try {

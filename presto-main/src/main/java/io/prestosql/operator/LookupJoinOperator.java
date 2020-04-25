@@ -131,7 +131,6 @@ public class LookupJoinOperator
 
     @Override
     public void close()
-            throws Exception
     {
         joinProcessor.close();
     }

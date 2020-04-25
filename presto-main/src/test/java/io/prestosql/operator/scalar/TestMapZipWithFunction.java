@@ -41,7 +41,6 @@ public class TestMapZipWithFunction
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction(
                 "map_zip_with(" +
@@ -83,7 +82,6 @@ public class TestMapZipWithFunction
 
     @Test
     public void testTypes()
-            throws Exception
     {
         assertFunction(
                 "map_zip_with(" +

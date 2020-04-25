@@ -167,7 +167,6 @@ public class TestTransactionManager
 
     @Test
     public void testExpiration()
-            throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = InMemoryTransactionManager.create(

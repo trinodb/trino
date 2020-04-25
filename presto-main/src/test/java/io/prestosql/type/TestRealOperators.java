@@ -293,7 +293,6 @@ public class TestRealOperators
 
     @Test
     public void testIndeterminate()
-            throws Exception
     {
         assertOperator(INDETERMINATE, "cast(null as real)", BOOLEAN, true);
         assertOperator(INDETERMINATE, "cast(-1.2 as real)", BOOLEAN, false);

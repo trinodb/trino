@@ -64,7 +64,6 @@ public class TestAvroSymlinkInputFormat
 
     @Test(groups = STORAGE_FORMATS)
     public void testSymlinkTable()
-            throws IOException
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_symlink");
 
