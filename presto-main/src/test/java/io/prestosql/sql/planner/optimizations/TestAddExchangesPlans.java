@@ -23,6 +23,8 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
@@ -41,15 +43,22 @@ import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.rowNumber;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -57,6 +66,9 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.TopNNode.Step.FINAL;
+import static io.prestosql.sql.tree.SortItem.NullOrdering.LAST;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestAddExchangesPlans
@@ -216,6 +228,56 @@ public class TestAddExchangesPlans
                                                         project(ImmutableMap.of("partition3", expression("3"), "partition4", expression("4")),
                                                                 anyTree(
                                                                         node(ValuesNode.class)))))))));
+    }
+
+    @Test
+    public void testImplementOffsetWithOrderedSource()
+    {
+        // no repartitioning exchange is added below row number, so the ordering established by topN is preserved.
+        // also, no repartitioning exchange is added above row number, so the order is respected at output.
+        assertPlan(
+                "SELECT name FROM nation ORDER BY regionkey, name OFFSET 5 LIMIT 2",
+                output(
+                        project(
+                                ImmutableMap.of("name", PlanMatchPattern.expression("name")),
+                                filter(
+                                        "row_num > BIGINT '5'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                project(
+                                                        ImmutableMap.of("name", PlanMatchPattern.expression("name")),
+                                                        topN(
+                                                                7,
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST), sort("name", ASCENDING, LAST)),
+                                                                FINAL,
+                                                                anyTree(
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
+    }
+
+    @Test
+    public void testImplementOffsetWithUnorderedSource()
+    {
+        // no ordering of output is expected; repartitioning exchange is present in the plan
+        assertPlan(
+                "SELECT name FROM nation OFFSET 5 LIMIT 2",
+                any(
+                        project(
+                                ImmutableMap.of("name", PlanMatchPattern.expression("name")),
+                                filter(
+                                        "row_num > BIGINT '5'",
+                                        exchange(
+                                                LOCAL,
+                                                REPARTITION,
+                                                rowNumber(
+                                                        pattern -> pattern
+                                                                .partitionBy(ImmutableList.of()),
+                                                        limit(
+                                                                7,
+                                                                anyTree(
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name")))))
+                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))));
     }
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)
