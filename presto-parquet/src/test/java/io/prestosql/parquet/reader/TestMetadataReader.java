@@ -124,74 +124,67 @@ public class TestMetadataReader
     }
 
     /**
+     * Stats written potentially before https://issues.apache.org/jira/browse/PARQUET-251
+     */
+    @Test
+    public void testReadStatsBinaryUtf8PotentiallyCorrupted()
+    {
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "", "abc", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "", "abc", null, null);
+
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abc", "def", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abc", "def", null, null);
+
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abc", "abc", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abc", "abc", null, null);
+
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abcéM", "abcé\u00f7", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abcéM", "abcé\u00f7", null, null);
+    }
+
+    /**
      * Stats written by Parquet before https://issues.apache.org/jira/browse/PARQUET-1025
      */
     @Test
     public void testReadStatsBinaryUtf8OldWriter()
     {
         // [, bcé]: min is empty, max starts with ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "", "bcé", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "", "bcé", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "", "bcé", null, null);
 
         // [, ébc]: min is empty, max starts with non-ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "", "ébc", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "", "ébc", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "", "ébc", null, null);
 
         // [aa, bé]: no common prefix, first different are both ASCII, min is all ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "aa", "bé", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "aa", "bé", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "aa", "bé", "aa", "c");
 
         // [abcd, abcdN]: common prefix, not only ASCII, one prefix of the other, last common ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abcd", "abcdN", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abcd", "abcdN", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcd", "abcdN", "abcd", "abce");
 
         // [abcé, abcéN]: common prefix, not only ASCII, one prefix of the other, last common non ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abcé", "abcéN", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abcé", "abcéN", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcé", "abcéN", "abcé", "abd");
 
         // [abcéM, abcéN]: common prefix, not only ASCII, first different are both ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abcéM", "abcéN", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abcéM", "abcéN", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcéM", "abcéN", "abcéM", "abcéO");
 
         // [abcéMab, abcéNxy]: common prefix, not only ASCII, first different are both ASCII, more characters afterwards
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abcéMab", "abcéNxy", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abcéMab", "abcéNxy", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcéMab", "abcéNxy", "abcéMab", "abcéO");
 
         // [abcéM, abcé\u00f7]: common prefix, not only ASCII, first different are both ASCII, but need to be chopped off (127)
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abcéM", "abcé\u00f7", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abcéM", "abcé\u00f7", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcéM", "abcé\u00f7", "abcéM", "abd");
 
         // [abc\u007fé, bcd\u007fé]: no common prefix, first different are both ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abc\u007fé", "bcd\u007fé", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abc\u007fé", "bcd\u007fé", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abc\u007fé", "bcd\u007fé", "abc\u007f", "c");
 
         // [é, a]: no common prefix, first different are not both ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "é", "a", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "é", "a", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "é", "a", null, null);
 
         // [é, ê]: no common prefix, first different are both not ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "é", "ê", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "é", "ê", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "é", "ê", null, null);
 
         // [aé, aé]: min = max (common prefix, first different are both not ASCII)
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "aé", "aé", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "aé", "aé", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "aé", "aé", "aé", "aé");
 
         // [aé, bé]: no common prefix, first different are both ASCII
-        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "aé", "bé", null, null);
-        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "aé", "bé", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "aé", "bé", "a", "c");
     }
 
