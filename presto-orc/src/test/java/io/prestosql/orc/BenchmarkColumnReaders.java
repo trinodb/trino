@@ -92,7 +92,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -101,7 +101,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -110,7 +110,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readAllNull(AllNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -119,7 +119,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readByteNoNull(TinyIntNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -128,7 +128,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readByteWithNull(TinyIntWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -137,7 +137,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -146,7 +146,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -155,7 +155,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -164,7 +164,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readLongDecimalWithNull(LongDecimalWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -173,7 +173,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readDoubleNoNull(DoubleNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -182,7 +182,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readDoubleWithNull(DoubleWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -191,7 +191,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readFloatNoNull(FloatNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -200,7 +200,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readFloatWithNull(FloatWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -209,7 +209,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readLongNoNull(BigintNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -218,7 +218,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readLongWithNull(BigintWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -227,7 +227,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readIntNoNull(IntegerNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -236,7 +236,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readIntWithNull(IntegerWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -245,7 +245,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readShortNoNull(SmallintNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -254,7 +254,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readShortWithNull(SmallintWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -263,7 +263,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -272,7 +272,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -281,7 +281,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readSliceDictionaryNoNull(VarcharDictionaryNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -290,7 +290,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readSliceDictionaryWithNull(VarcharDictionaryWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -299,7 +299,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readTimestampNoNull(TimestampNoNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -308,7 +308,7 @@ public class BenchmarkColumnReaders
 
     @Benchmark
     public Object readTimestampWithNull(TimestampWithNullBenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             return readFirstColumn(recordReader);
@@ -1085,7 +1085,7 @@ public class BenchmarkColumnReaders
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
