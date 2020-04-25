@@ -161,7 +161,6 @@ public class MockThriftMetastoreClient
 
     @Override
     public List<FieldSchema> getFields(String databaseName, String tableName)
-            throws TException
     {
         return ImmutableList.of(new FieldSchema("key", "string", null));
     }
@@ -381,14 +380,12 @@ public class MockThriftMetastoreClient
 
     @Override
     public void createRole(String role, String grantor)
-            throws TException
     {
         // No-op
     }
 
     @Override
     public void dropRole(String role)
-            throws TException
     {
         // No-op
     }
@@ -407,21 +404,18 @@ public class MockThriftMetastoreClient
 
     @Override
     public void grantRole(String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
-            throws TException
     {
         // No-op
     }
 
     @Override
     public void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
-            throws TException
     {
         // No-op
     }
 
     @Override
     public List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
-            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -444,49 +438,42 @@ public class MockThriftMetastoreClient
 
     @Override
     public long openTransaction(String user)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void commitTransaction(long transactionId)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void sendTransactionHeartbeat(long transactionId)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public LockResponse acquireLock(LockRequest lockRequest)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public LockResponse checkLock(long lockId)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public String getValidWriteIds(List<String> tableList, long currentTransactionId)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public String get_config_value(String name, String defaultValue)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }

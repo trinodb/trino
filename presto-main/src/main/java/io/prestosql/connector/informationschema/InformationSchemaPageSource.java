@@ -33,7 +33,6 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.type.Type;
 
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
@@ -196,7 +195,6 @@ public class InformationSchemaPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         closed = true;
     }

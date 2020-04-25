@@ -978,7 +978,6 @@ public class TestArbitraryOutputBuffer
 
     @Test
     public void testForceFreeMemory()
-            throws Throwable
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
         for (int i = 0; i < 3; i++) {

@@ -79,7 +79,6 @@ public class BackupModule
             MBeanExporter exporter,
             RaptorConnectorId connectorId,
             BackupConfig config)
-            throws Exception
     {
         if (store == null) {
             return Optional.empty();

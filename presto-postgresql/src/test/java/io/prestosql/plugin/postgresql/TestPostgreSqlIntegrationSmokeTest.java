@@ -119,7 +119,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testSystemTable()
-            throws Exception
     {
         assertThat(computeActual("SHOW TABLES FROM pg_catalog").getOnlyColumnAsSet())
                 .contains("pg_tables", "pg_views", "pg_type", "pg_index");

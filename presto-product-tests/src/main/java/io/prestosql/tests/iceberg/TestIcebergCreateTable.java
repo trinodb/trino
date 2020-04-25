@@ -17,8 +17,6 @@ import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
-
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.ICEBERG;
@@ -30,7 +28,6 @@ public class TestIcebergCreateTable
 {
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testCreateTable()
-            throws SQLException
     {
         QueryExecutor queryExecutor = onPresto();
         queryExecutor.executeQuery("CREATE SCHEMA iceberg.iceberg");
@@ -51,7 +48,6 @@ public class TestIcebergCreateTable
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testCreateTableAsSelect()
-            throws SQLException
     {
         QueryExecutor queryExecutor = onPresto();
         queryExecutor.executeQuery("CREATE SCHEMA iceberg.iceberg");

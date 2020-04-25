@@ -38,7 +38,6 @@ public class TestRedisDistributedHash
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws Exception
     {
         redisServer.close();
     }

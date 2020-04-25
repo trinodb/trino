@@ -364,7 +364,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPartitionPredicateAllowed()
-            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -390,7 +389,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testNestedQueryWithInnerPartitionPredicate()
-            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -416,7 +414,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPartitionPredicateDisallowed()
-            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -6279,7 +6276,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCreateOrcTableWithSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_orc (\n" +
@@ -6297,7 +6293,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCtasFailsWithAvroSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String ctasSqlWithoutData = "CREATE TABLE create_avro\n" +
                 "WITH (avro_schema_url = 'dummy_schema')\n" +
@@ -6314,7 +6309,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testBucketedTablesFailWithAvroSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
                 "WITH (avro_schema_url = 'dummy_schema',\n" +
@@ -6325,7 +6319,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPartitionedTablesFailWithAvroSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
                 "WITH (avro_schema_url = 'dummy_schema',\n" +
