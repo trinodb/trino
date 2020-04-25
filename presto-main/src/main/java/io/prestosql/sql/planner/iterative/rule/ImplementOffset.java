@@ -68,6 +68,7 @@ public class ImplementOffset
                 context.getIdAllocator().getNextId(),
                 parent.getSource(),
                 ImmutableList.of(),
+                true,
                 rowNumberSymbol,
                 Optional.empty(),
                 Optional.empty());

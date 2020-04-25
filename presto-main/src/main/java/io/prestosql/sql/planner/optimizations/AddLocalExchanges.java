@@ -65,6 +65,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
@@ -456,8 +457,15 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitRowNumber(RowNumberNode node, StreamPreferredProperties parentPreferences)
         {
-            // row number requires that all data be partitioned
-            StreamPreferredProperties requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getPartitionBy());
+            StreamPreferredProperties requiredProperties;
+            if (node.isOrderSensitive()) {
+                // for an order sensitive RowNumberNode pass the orderSensitive context
+                verify(node.getPartitionBy().isEmpty(), "unexpected partitioning");
+                requiredProperties = singleStream().withOrderSensitivity();
+            }
+            else {
+                requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getPartitionBy());
+            }
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);
         }
 

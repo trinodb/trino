@@ -255,6 +255,7 @@ public class PlanNodeDecorrelator
                     node.getId(),
                     decorrelatedChildNode,
                     ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                    false,
                     symbolAllocator.newSymbol("row_number", BIGINT),
                     Optional.of(toIntExact(node.getCount())),
                     Optional.empty());
@@ -338,6 +339,7 @@ public class PlanNodeDecorrelator
                                 node.getId(),
                                 decorrelatedChildNode,
                                 ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                                false,
                                 symbolAllocator.newSymbol("row_number", BIGINT),
                                 Optional.of(toIntExact(node.getCount())),
                                 Optional.empty());
