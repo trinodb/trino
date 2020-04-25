@@ -270,6 +270,7 @@ public class HashGenerationOptimizer
                             node.getId(),
                             child.getNode(),
                             node.getPartitionBy(),
+                            node.isOrderSensitive(),
                             node.getRowNumberSymbol(),
                             node.getMaxRowCountPerPartition(),
                             Optional.of(hashSymbol)),
