@@ -241,7 +241,7 @@ public final class MetadataReader
 
             // For max we can be sure only of the part matching the min. When they differ, we can consider only one next, and only if both are ASCII
             int maxGoodLength = commonPrefix;
-            if (maxGoodLength < max.length && (maxGoodLength == min.length || isAscii(min[maxGoodLength])) && isAscii(max[maxGoodLength])) {
+            if (maxGoodLength < max.length && maxGoodLength < min.length && isAscii(min[maxGoodLength]) && isAscii(max[maxGoodLength])) {
                 maxGoodLength++;
             }
             // Incrementing 127 would overflow. Incrementing within non-ASCII can have side-effects.
