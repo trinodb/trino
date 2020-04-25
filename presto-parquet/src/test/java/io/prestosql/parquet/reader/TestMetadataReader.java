@@ -129,6 +129,9 @@ public class TestMetadataReader
     @Test
     public void testReadStatsBinaryUtf8PotentiallyCorrupted()
     {
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, null, null, null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, null, null, null, null);
+
         testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "", "abc", null, null);
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "", "abc", null, null);
 
@@ -148,6 +151,9 @@ public class TestMetadataReader
     @Test
     public void testReadStatsBinaryUtf8OldWriter()
     {
+        // null
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, null, null, null, null);
+
         // [, bcé]: min is empty, max starts with ASCII
         testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "", "bcé", null, null);
 
@@ -192,8 +198,12 @@ public class TestMetadataReader
     {
         Statistics statistics = new Statistics();
         statistics.setNull_count(13);
-        statistics.setMin(min.getBytes(UTF_8));
-        statistics.setMax(max.getBytes(UTF_8));
+        if (min != null) {
+            statistics.setMin(min.getBytes(UTF_8));
+        }
+        if (max != null) {
+            statistics.setMax(max.getBytes(UTF_8));
+        }
         assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, BINARY, "Test column", OriginalType.UTF8)))
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
                     assertEquals(columnStatistics.getNumNulls(), 13);
