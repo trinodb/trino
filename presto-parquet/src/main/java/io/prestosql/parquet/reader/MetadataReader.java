@@ -245,7 +245,7 @@ public final class MetadataReader
                 maxGoodLength++;
             }
             // Incrementing 127 would overflow. Incrementing within non-ASCII can have side-effects.
-            while (maxGoodLength > 0 && (!isAscii(max[maxGoodLength - 1]) || max[maxGoodLength - 1] == 127)) {
+            while (maxGoodLength > 0 && (max[maxGoodLength - 1] == 127 || !isAscii(max[maxGoodLength - 1]))) {
                 maxGoodLength--;
             }
             if (maxGoodLength == 0) {
