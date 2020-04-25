@@ -149,7 +149,7 @@ public class BenchmarkRowToRowCast
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
