@@ -1338,14 +1338,6 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Blocked Time
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.totalBlockedTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
                                             Input Rows
                                         </td>
                                         <td className="info-text">
