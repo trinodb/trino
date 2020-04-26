@@ -278,6 +278,12 @@ class RelationPlanner
     }
 
     @Override
+    protected RelationPlan visitLateral(Lateral node, Void context)
+    {
+        return process(node.getQuery(), context);
+    }
+
+    @Override
     protected RelationPlan visitJoin(Join node, Void context)
     {
         // TODO: translate the RIGHT join into a mirrored LEFT join when we refactor (@martint)
