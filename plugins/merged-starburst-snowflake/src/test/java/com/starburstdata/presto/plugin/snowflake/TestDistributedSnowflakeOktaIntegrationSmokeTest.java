@@ -21,6 +21,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.okt
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_PASSWORD;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_USER;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestDistributedSnowflakeOktaIntegrationSmokeTest

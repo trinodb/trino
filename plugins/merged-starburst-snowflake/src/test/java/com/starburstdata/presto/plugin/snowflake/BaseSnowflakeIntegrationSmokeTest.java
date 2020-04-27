@@ -27,12 +27,12 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -260,10 +260,5 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                         "   shippriority decimal(38, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
-    }
-
-    protected static String randomTableSuffix()
-    {
-        return UUID.randomUUID().toString().replace("-", "_");
     }
 }

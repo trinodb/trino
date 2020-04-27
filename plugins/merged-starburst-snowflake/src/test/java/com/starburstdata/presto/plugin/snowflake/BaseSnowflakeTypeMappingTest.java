@@ -40,7 +40,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -55,6 +54,7 @@ import static io.prestosql.testing.datatype.DataType.dateDataType;
 import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
@@ -765,10 +765,5 @@ public abstract class BaseSnowflakeTypeMappingTest
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    protected static String randomTableSuffix()
-    {
-        return UUID.randomUUID().toString().replace("-", "_");
     }
 }

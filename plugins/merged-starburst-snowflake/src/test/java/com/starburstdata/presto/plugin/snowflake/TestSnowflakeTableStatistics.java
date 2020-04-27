@@ -13,9 +13,9 @@ import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.presto.plugin.snowflake.BaseSnowflakeTypeMappingTest.randomTableSuffix;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestSnowflakeTableStatistics
