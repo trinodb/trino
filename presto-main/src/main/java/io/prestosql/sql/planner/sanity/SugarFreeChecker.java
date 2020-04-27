@@ -53,7 +53,7 @@ public final class SugarFreeChecker
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, Builder<Symbol>>
+            extends DefaultExpressionTraversalVisitor<Builder<Symbol>>
     {
         @Override
         protected Void visitExtract(Extract node, Builder<Symbol> context)

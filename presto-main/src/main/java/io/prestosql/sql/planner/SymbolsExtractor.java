@@ -143,7 +143,7 @@ public final class SymbolsExtractor
     }
 
     private static class SymbolBuilderVisitor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
+            extends DefaultExpressionTraversalVisitor<ImmutableList.Builder<Symbol>>
     {
         @Override
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
@@ -154,7 +154,7 @@ public final class SymbolsExtractor
     }
 
     private static class QualifiedNameBuilderVisitor
-            extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
+            extends DefaultTraversalVisitor<ImmutableSet.Builder<QualifiedName>>
     {
         private final Set<NodeRef<Expression>> columnReferences;
 

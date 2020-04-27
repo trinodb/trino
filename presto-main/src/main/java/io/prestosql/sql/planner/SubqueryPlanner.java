@@ -527,7 +527,7 @@ class SubqueryPlanner
     }
 
     private static class ColumnReferencesExtractor
-            extends DefaultExpressionTraversalVisitor<Void, Void>
+            extends DefaultExpressionTraversalVisitor<Void>
     {
         private final Set<NodeRef<Expression>> columnReferences;
         private final ImmutableSet.Builder<NodeRef<Expression>> found = ImmutableSet.builder();

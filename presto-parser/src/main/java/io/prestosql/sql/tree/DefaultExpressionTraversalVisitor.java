@@ -16,11 +16,11 @@ package io.prestosql.sql.tree;
 /**
  * When walking Expressions, don't traverse into SubqueryExpressions
  */
-public abstract class DefaultExpressionTraversalVisitor<R, C>
-        extends DefaultTraversalVisitor<R, C>
+public abstract class DefaultExpressionTraversalVisitor<C>
+        extends DefaultTraversalVisitor<C>
 {
     @Override
-    protected R visitSubqueryExpression(SubqueryExpression node, C context)
+    protected Void visitSubqueryExpression(SubqueryExpression node, C context)
     {
         // Don't traverse into Subqueries within an Expression
         return null;
