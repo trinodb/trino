@@ -642,6 +642,6 @@ public abstract class DefaultTraversalVisitor<R, C>
     {
         process(node.getQuery(), context);
 
-        return super.visitLateral(node, context);
+        return null;
     }
 }
