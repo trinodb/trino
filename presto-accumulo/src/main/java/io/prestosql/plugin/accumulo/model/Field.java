@@ -15,7 +15,6 @@ package io.prestosql.plugin.accumulo.model;
 
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.accumulo.Types;
-import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.ArrayBlock;
 import io.prestosql.spi.block.Block;
@@ -27,11 +26,9 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -266,108 +263,10 @@ public class Field
     @Override
     public String toString()
     {
-        if (value == null) {
-            return "null";
-        }
-
-        if (Types.isArrayType(type)) {
-            Type elementType = Types.getElementType(type);
-            StringBuilder builder = new StringBuilder("ARRAY [");
-            for (Object element : AccumuloRowSerializer.getArrayFromBlock(elementType, this.getArray())) {
-                if (Types.isArrayType(elementType)) {
-                    Type elementElementType = Types.getElementType(elementType);
-                    builder.append(
-                            new Field(
-                                    AccumuloRowSerializer.getBlockFromArray(elementElementType, (List<?>) element),
-                                    elementType))
-                            .append(',');
-                }
-                else if (Types.isMapType(elementType)) {
-                    builder.append(
-                            new Field(
-                                    AccumuloRowSerializer.getBlockFromMap(elementType, (Map<?, ?>) element),
-                                    elementType))
-                            .append(',');
-                }
-                else {
-                    builder.append(new Field(element, elementType))
-                            .append(',');
-                }
-            }
-
-            return builder.deleteCharAt(builder.length() - 1).append("]").toString();
-        }
-
-        if (Types.isMapType(type)) {
-            StringBuilder builder = new StringBuilder("MAP(");
-            StringBuilder keys = new StringBuilder("ARRAY [");
-            StringBuilder values = new StringBuilder("ARRAY [");
-            for (Entry<Object, Object> entry : AccumuloRowSerializer
-                    .getMapFromBlock(type, this.getMap()).entrySet()) {
-                Type keyType = Types.getKeyType(type);
-                if (Types.isArrayType(keyType)) {
-                    keys.append(
-                            new Field(
-                                    AccumuloRowSerializer.getBlockFromArray(Types.getElementType(keyType), (List<?>) entry.getKey()),
-                                    keyType))
-                            .append(',');
-                }
-                else if (Types.isMapType(keyType)) {
-                    keys.append(
-                            new Field(
-                                    AccumuloRowSerializer.getBlockFromMap(keyType, (Map<?, ?>) entry.getKey()),
-                                    keyType))
-                            .append(',');
-                }
-                else {
-                    keys.append(new Field(entry.getKey(), keyType))
-                            .append(',');
-                }
-
-                Type valueType = Types.getValueType(type);
-                if (Types.isArrayType(valueType)) {
-                    values.append(
-                            new Field(AccumuloRowSerializer.getBlockFromArray(Types.getElementType(valueType),
-                                    (List<?>) entry.getValue()), valueType))
-                            .append(',');
-                }
-                else if (Types.isMapType(valueType)) {
-                    values.append(
-                            new Field(
-                                    AccumuloRowSerializer.getBlockFromMap(valueType, (Map<?, ?>) entry.getValue()),
-                                    valueType))
-                            .append(',');
-                }
-                else {
-                    values.append(new Field(entry.getValue(), valueType)).append(',');
-                }
-            }
-
-            keys.deleteCharAt(keys.length() - 1).append(']');
-            values.deleteCharAt(values.length() - 1).append(']');
-            return builder.append(keys).append(", ").append(values).append(")").toString();
-        }
-
-        // Validate the object is the given type
-        if (type.equals(BIGINT) || type.equals(BOOLEAN) || type.equals(DOUBLE) || type.equals(INTEGER) || type.equals(REAL) || type.equals(TINYINT) || type.equals(SMALLINT)) {
-            return value.toString();
-        }
-        if (type.equals(DATE)) {
-            return "DATE '" + value.toString() + "'";
-        }
-        if (type.equals(TIME)) {
-            return "TIME '" + value.toString() + "'";
-        }
-        if (type.equals(TIMESTAMP)) {
-            return "TIMESTAMP '" + value.toString() + "'";
-        }
-        if (type.equals(VARBINARY)) {
-            return "CAST('" + new String((byte[]) value, UTF_8).replaceAll("'", "''") + "' AS VARBINARY)";
-        }
-        if (type instanceof VarcharType) {
-            return "'" + value.toString().replaceAll("'", "''") + "'";
-        }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
+        return toStringHelper(this)
+                .add("value", value)
+                .add("type", type)
+                .toString();
     }
 
     /**
