@@ -23,16 +23,17 @@ import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
 import com.qubole.rubix.core.CachingFileSystem;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 
 /*
  * Responsibilities of this initializer:
@@ -46,14 +47,17 @@ public class RubixInitializer
 
     private final CatalogName catalogName;
     private final RubixConfigurationInitializer rubixConfigurationInitializer;
-    private final Set<ConfigurationInitializer> configurationInitializers;
+    private final HdfsConfigurationInitializer hdfsConfigurationInitializer;
 
     @Inject
-    public RubixInitializer(CatalogName catalogName, RubixConfigurationInitializer rubixConfigurationInitializer, Set<ConfigurationInitializer> configurationInitializers)
+    public RubixInitializer(
+            CatalogName catalogName,
+            RubixConfigurationInitializer rubixConfigurationInitializer,
+            HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
         this.catalogName = catalogName;
         this.rubixConfigurationInitializer = rubixConfigurationInitializer;
-        this.configurationInitializers = configurationInitializers;
+        this.hdfsConfigurationInitializer = hdfsConfigurationInitializer;
     }
 
     public void initializeRubix(NodeManager nodeManager)
@@ -84,14 +88,14 @@ public class RubixInitializer
                         rubixConfigurationInitializer.setMasterAddress(master.getHostAndPort());
                         rubixConfigurationInitializer.setCurrentNodeAddress(nodeManager.getCurrentNode().getHost());
 
-                        Configuration configuration = new Configuration(false);
-                        for (ConfigurationInitializer configurationInitializer : configurationInitializers) {
-                            configurationInitializer.initializeConfiguration(configuration);
-                        }
-
-                        // RubixConfigurationInitializer.initializeConfiguration will not update configurations yet as it has not been fully initialized
-                        // Apply configurations from it by skipping init check
+                        Configuration configuration = getInitialConfiguration();
+                        // Perform standard HDFS configuration initialization.
+                        // This will also call out to RubixConfigurationInitializer but this will be no-op because
+                        // cacheNotReady is not yet changed to false.
+                        hdfsConfigurationInitializer.initializeConfiguration(configuration);
+                        // Apply RubixConfigurationInitializer directly suppressing cacheNotReady check
                         rubixConfigurationInitializer.updateConfiguration(configuration);
+
                         MetricRegistry metricRegistry = new MetricRegistry();
                         BookKeeperServer bookKeeperServer = new BookKeeperServer();
                         BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
