@@ -53,7 +53,7 @@ public class RubixConfigurationInitializer
     private final int dataTransferServerPort;
 
     // Configs below are dependent on node joining the cluster
-    private volatile boolean cacheNotReady = true;
+    private volatile boolean cacheReady;
     private boolean isMaster;
     private HostAddress masterAddress;
     private String nodeAddress;
@@ -70,7 +70,7 @@ public class RubixConfigurationInitializer
     @Override
     public void initializeConfiguration(Configuration config)
     {
-        if (cacheNotReady) {
+        if (!cacheReady) {
             setCacheDataEnabled(config, false);
             return;
         }
@@ -125,6 +125,6 @@ public class RubixConfigurationInitializer
     public void initializationDone()
     {
         checkState(masterAddress != null, "masterAddress is not set");
-        cacheNotReady = false;
+        cacheReady = true;
     }
 }
