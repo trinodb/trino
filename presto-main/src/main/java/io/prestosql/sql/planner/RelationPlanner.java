@@ -421,7 +421,7 @@ class RelationPlanner
             }
 
             // subqueries can be applied only to one side of join - left side is selected in arbitrary way
-            leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node);
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexJoinExpressions, node);
         }
         TranslationMap translationMap = initializeTranslationMap(node, outputSymbols);
         translationMap.setFieldMappings(outputSymbols);
@@ -640,7 +640,6 @@ class RelationPlanner
                 leftPlanBuilder,
                 rightPlanBuilder,
                 lateral.getQuery(),
-                true,
                 CorrelatedJoinNode.Type.typeConvert(join.getType()),
                 rewrittenFilterCondition);
 
