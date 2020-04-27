@@ -48,10 +48,10 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.AliasedRelation;
+import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
 import io.prestosql.sql.tree.Except;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -73,6 +73,7 @@ import io.prestosql.sql.tree.Relation;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.SetOperation;
+import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.TableSubquery;
@@ -106,7 +107,7 @@ import static io.prestosql.sql.tree.Join.Type.INNER;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
-        extends DefaultTraversalVisitor<RelationPlan, Void>
+        extends AstVisitor<RelationPlan, Void>
 {
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
@@ -140,6 +141,12 @@ class RelationPlanner
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.session = session;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session);
+    }
+
+    @Override
+    protected RelationPlan visitNode(Node node, Void context)
+    {
+        throw new IllegalStateException("Unsupported node type: " + node.getClass().getName());
     }
 
     @Override
@@ -736,6 +743,12 @@ class RelationPlanner
     {
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
                 .plan(node);
+    }
+
+    @Override
+    protected RelationPlan visitSubqueryExpression(SubqueryExpression node, Void context)
+    {
+        return process(node.getQuery(), context);
     }
 
     @Override
