@@ -13,11 +13,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveSplit;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Properties;
@@ -38,7 +36,6 @@ public class SnowflakeSplit
     private final List<HostAddress> addresses;
     private final String database;
     private final String table;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final boolean forceLocalScheduling;
 
     private final String s3AwsAccessKey;
@@ -48,7 +45,6 @@ public class SnowflakeSplit
 
     SnowflakeSplit(
             HiveSplit hiveSplit,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
             String s3AwsAccessKey,
             String s3AwsSecretKey,
             String s3AwsSessionToken,
@@ -64,7 +60,6 @@ public class SnowflakeSplit
                 hiveSplit.getSchema(),
                 hiveSplit.getAddresses(),
                 hiveSplit.isForceLocalScheduling(),
-                effectivePredicate,
                 s3AwsAccessKey,
                 s3AwsSecretKey,
                 s3AwsSessionToken,
@@ -82,7 +77,6 @@ public class SnowflakeSplit
             @JsonProperty("schema") Properties schema,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
             @JsonProperty("s3AwsAccessKey") String s3AwsAccessKey,
             @JsonProperty("s3AwsSecretKey") String s3AwsSecretKey,
             @JsonProperty("s3AwsSessionToken") String s3AwsSessionToken,
@@ -96,7 +90,6 @@ public class SnowflakeSplit
         requireNonNull(path, "path is null");
         requireNonNull(schema, "schema is null");
         requireNonNull(addresses, "addresses is null");
-        requireNonNull(effectivePredicate, "tupleDomain is null");
 
         this.database = database;
         this.table = table;
@@ -107,7 +100,6 @@ public class SnowflakeSplit
         this.schema = schema;
         this.addresses = ImmutableList.copyOf(addresses);
         this.forceLocalScheduling = forceLocalScheduling;
-        this.effectivePredicate = effectivePredicate;
 
         this.s3AwsAccessKey = requireNonNull(s3AwsAccessKey, "s3AwsAccessKey is null");
         this.s3AwsSecretKey = requireNonNull(s3AwsSecretKey, "s3AwsSecretKey is null");
@@ -164,12 +156,6 @@ public class SnowflakeSplit
         return addresses;
     }
 
-    @JsonProperty
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
-    {
-        return effectivePredicate;
-    }
-
     @Override
     public boolean isRemotelyAccessible()
     {
@@ -222,7 +208,6 @@ public class SnowflakeSplit
                 .addValue(start)
                 .addValue(length)
                 .addValue(fileSize)
-                .addValue(effectivePredicate)
                 .toString();
     }
 }

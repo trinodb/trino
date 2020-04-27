@@ -116,7 +116,7 @@ class SnowflakePageSourceProvider
                 snowflakeSplit.getLength(),
                 unpaddedFileSize,
                 transformedColumns,
-                snowflakeSplit.getEffectivePredicate(),
+                TupleDomain.all(),
                 true,
                 hdfsEnvironment,
                 configuration,

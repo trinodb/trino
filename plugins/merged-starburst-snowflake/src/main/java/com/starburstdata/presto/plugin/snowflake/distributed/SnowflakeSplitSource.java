@@ -178,7 +178,6 @@ public class SnowflakeSplitSource
                         hiveSplitBatch.getSplits().stream()
                                 .map(hiveSplit -> new SnowflakeSplit(
                                         (HiveSplit) hiveSplit,
-                                        all(),
                                         getCredential(AWS_KEY_ID),
                                         getCredential(AWS_SECRET_KEY),
                                         getCredential(AWS_TOKEN),
