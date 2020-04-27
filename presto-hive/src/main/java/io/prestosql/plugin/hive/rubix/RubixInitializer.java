@@ -91,9 +91,9 @@ public class RubixInitializer
                         Configuration configuration = getInitialConfiguration();
                         // Perform standard HDFS configuration initialization.
                         // This will also call out to RubixConfigurationInitializer but this will be no-op because
-                        // cacheNotReady is not yet changed to false.
+                        // cacheReady is not yet set.
                         hdfsConfigurationInitializer.initializeConfiguration(configuration);
-                        // Apply RubixConfigurationInitializer directly suppressing cacheNotReady check
+                        // Apply RubixConfigurationInitializer directly suppressing cacheReady check
                         rubixConfigurationInitializer.updateConfiguration(configuration);
 
                         MetricRegistry metricRegistry = new MetricRegistry();
