@@ -238,6 +238,7 @@ import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.prestosql.sql.tree.Join.Type.FULL;
+import static io.prestosql.sql.tree.Join.Type.INNER;
 import static io.prestosql.sql.tree.Join.Type.RIGHT;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -259,6 +260,7 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
     private final WarningCollector warningCollector;
+    private final Correlation correlation;
 
     public StatementAnalyzer(
             Analysis analysis,
@@ -266,7 +268,8 @@ class StatementAnalyzer
             SqlParser sqlParser,
             AccessControl accessControl,
             Session session,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Correlation correlation)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -275,6 +278,7 @@ class StatementAnalyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.correlation = requireNonNull(correlation, "correlation is null");
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)
@@ -493,7 +497,8 @@ class StatementAnalyzer
                     sqlParser,
                     new AllowAllAccessControl(),
                     session,
-                    warningCollector);
+                    warningCollector,
+                    Correlation.ALLOWED);
 
             Scope tableScope = analyzer.analyze(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
@@ -663,7 +668,7 @@ class StatementAnalyzer
             analysis.setUpdateType("CREATE VIEW", viewName);
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, Correlation.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -977,7 +982,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, Correlation.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1223,7 +1228,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, Correlation.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1450,7 +1455,7 @@ class StatementAnalyzer
                 Expression expression = ((JoinOn) criteria).getExpression();
 
                 // need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, output);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, output, node.getType() == INNER ? Correlation.ALLOWED : Correlation.DISALLOWED);
                 Type clauseType = expressionAnalysis.getType(expression);
                 if (!clauseType.equals(BOOLEAN)) {
                     if (!clauseType.equals(UNKNOWN)) {
@@ -2353,7 +2358,7 @@ class StatementAnalyzer
                 // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
                 Session viewSession = createViewSession(catalog, schema, identity, session.getPath());
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector, Correlation.ALLOWED);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -2412,7 +2417,22 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
-                    warningCollector);
+                    warningCollector,
+                    correlation);
+        }
+
+        private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope, Correlation correlation)
+        {
+            return ExpressionAnalyzer.analyzeExpression(
+                    session,
+                    metadata,
+                    accessControl,
+                    sqlParser,
+                    scope,
+                    analysis,
+                    expression,
+                    warningCollector,
+                    correlation);
         }
 
         private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
@@ -2440,7 +2460,8 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector);
+                        warningCollector,
+                        correlation);
             }
             catch (PrestoException e) {
                 throw new PrestoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
@@ -2493,7 +2514,8 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector);
+                        warningCollector,
+                        correlation);
             }
             catch (PrestoException e) {
                 throw new PrestoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
@@ -2627,7 +2649,8 @@ class StatementAnalyzer
                         orderByScope,
                         analysis,
                         expression,
-                        WarningCollector.NOOP);
+                        WarningCollector.NOOP,
+                        correlation);
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type type = analysis.getType(expression);

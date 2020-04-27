@@ -1278,7 +1278,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
                         "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                "line 1:86: Reference to column 'o1.orderkey' in outer scope not allowed in this context");
 
         // subrelation
         assertQuery(
@@ -1339,7 +1339,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
                         "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                "line 1:107: Reference to column 'o1.orderkey' in outer scope not allowed in this context");
 
         // subrelation
         assertQuery(
@@ -1498,7 +1498,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
                         "ON NOT EXISTS(SELECT 1 WHERE o1.orderkey = o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                "line 1:81: Reference to column 'o1.orderkey' in outer scope not allowed in this context");
 
         // subrelation
         assertQuery(
@@ -1579,7 +1579,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
                         "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                "line 1:95: Reference to column 'o1.orderkey' in outer scope not allowed in this context");
 
         // subrelation
         assertQuery(

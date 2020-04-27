@@ -203,6 +203,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
     private final TypeCoercion typeCoercion;
+    private final Correlation correlation;
 
     public ExpressionAnalyzer(
             Metadata metadata,
@@ -214,6 +215,20 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             boolean isDescribe)
     {
+        this(metadata, accessControl, statementAnalyzerFactory, session, symbolTypes, parameters, warningCollector, isDescribe, Correlation.ALLOWED);
+    }
+
+    public ExpressionAnalyzer(
+            Metadata metadata,
+            AccessControl accessControl,
+            Function<Node, StatementAnalyzer> statementAnalyzerFactory,
+            Session session,
+            TypeProvider symbolTypes,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            WarningCollector warningCollector,
+            boolean isDescribe,
+            Correlation correlation)
+    {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
@@ -223,6 +238,7 @@ public class ExpressionAnalyzer
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.correlation = requireNonNull(correlation, "correlation is null");
     }
 
     public Map<NodeRef<FunctionCall>, ResolvedFunction> getResolvedFunctions()
@@ -411,6 +427,10 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
         {
+            if (!resolvedField.isLocal() && correlation != Correlation.ALLOWED) {
+                throw semanticException(NOT_SUPPORTED, node, "Reference to column '%s' in outer scope not allowed in this context", node);
+            }
+
             return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getField(), context);
         }
 
@@ -991,7 +1011,8 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         warningCollector,
-                                        isDescribe);
+                                        isDescribe,
+                                        correlation);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration lambdaArgument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(lambdaArgument, getExpressionType(lambdaArgument));
@@ -1586,9 +1607,10 @@ public class ExpressionAnalyzer
             Scope scope,
             Analysis analysis,
             Expression expression,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Correlation correlation)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector, correlation);
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1629,15 +1651,29 @@ public class ExpressionAnalyzer
             TypeProvider types,
             WarningCollector warningCollector)
     {
+        return create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector, Correlation.ALLOWED);
+    }
+
+    public static ExpressionAnalyzer create(
+            Analysis analysis,
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            TypeProvider types,
+            WarningCollector warningCollector,
+            Correlation correlation)
+    {
         return new ExpressionAnalyzer(
                 metadata,
                 accessControl,
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, correlation),
                 session,
                 types,
                 analysis.getParameters(),
                 warningCollector,
-                analysis.isDescribe());
+                analysis.isDescribe(),
+                correlation);
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(

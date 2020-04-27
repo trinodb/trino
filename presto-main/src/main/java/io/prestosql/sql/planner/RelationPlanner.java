@@ -643,7 +643,6 @@ class RelationPlanner
                 leftPlanBuilder,
                 rightPlanBuilder,
                 lateral.getQuery(),
-                true,
                 CorrelatedJoinNode.Type.typeConvert(join.getType()),
                 rewrittenFilterCondition);
 
