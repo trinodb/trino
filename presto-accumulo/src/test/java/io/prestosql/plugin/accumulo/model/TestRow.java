@@ -51,7 +51,7 @@ public class TestRow
         r1.addField(12345678, INTEGER);
         r1.addField(new Field(12345678L, BIGINT));
         r1.addField(new Field((short) 12345, SMALLINT));
-        r1.addField(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime(), TIME);
+        r1.addField(new GregorianCalendar(1970, 0, 1, 12, 30, 0).getTime().getTime(), TIME);
         r1.addField(new Field(new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime()), TIMESTAMP));
         r1.addField((byte) 123, TINYINT);
         r1.addField(new Field("O'Leary".getBytes(UTF_8), VARBINARY));
