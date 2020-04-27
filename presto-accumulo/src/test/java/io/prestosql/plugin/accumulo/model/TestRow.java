@@ -14,14 +14,16 @@
 package io.prestosql.plugin.accumulo.model;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.GregorianCalendar;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -34,6 +36,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -45,17 +48,17 @@ public class TestRow
         Row r1 = new Row();
         r1.addField(new Field(AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c")), new ArrayType(VARCHAR)));
         r1.addField(true, BOOLEAN);
-        r1.addField(new Field(new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime()), DATE));
+        r1.addField(new Field(10592L, DATE));
         r1.addField(123.45678, DOUBLE);
-        r1.addField(new Field(123.45678f, REAL));
-        r1.addField(12345678, INTEGER);
+        r1.addField(new Field((long) floatToIntBits(123.45678f), REAL));
+        r1.addField(12345678L, INTEGER);
         r1.addField(new Field(12345678L, BIGINT));
-        r1.addField(new Field((short) 12345, SMALLINT));
+        r1.addField(new Field(12345L, SMALLINT));
         r1.addField(new GregorianCalendar(1970, 0, 1, 12, 30, 0).getTime().getTime(), TIME);
-        r1.addField(new Field(new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime()), TIMESTAMP));
-        r1.addField((byte) 123, TINYINT);
-        r1.addField(new Field("O'Leary".getBytes(UTF_8), VARBINARY));
-        r1.addField("O'Leary", VARCHAR);
+        r1.addField(new Field(Timestamp.valueOf(LocalDateTime.of(1999, 1, 1, 12, 30, 0)).getTime(), TIMESTAMP));
+        r1.addField((long) 123, TINYINT);
+        r1.addField(new Field(Slices.wrappedBuffer("O'Leary".getBytes(UTF_8)), VARBINARY));
+        r1.addField(utf8Slice("O'Leary"), VARCHAR);
         r1.addField(null, VARCHAR);
 
         assertEquals(r1.length(), 14);

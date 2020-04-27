@@ -15,6 +15,7 @@ package io.prestosql.plugin.accumulo.model;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.ArrayType;
@@ -28,6 +29,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.GregorianCalendar;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -41,6 +43,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -89,7 +92,7 @@ public class TestField
     {
         Type type = DATE;
         Date expected = new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime());
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field(10592L, type);
         assertEquals(f1.getDate(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -117,7 +120,7 @@ public class TestField
     {
         Type type = REAL;
         Float expected = 123.45678f;
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field((long) floatToIntBits(expected), type);
         assertEquals(f1.getFloat(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -131,7 +134,7 @@ public class TestField
     {
         Type type = INTEGER;
         Integer expected = 12345678;
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field((long) expected, type);
         assertEquals(f1.getInt(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -172,7 +175,7 @@ public class TestField
     {
         Type type = SMALLINT;
         Short expected = 12345;
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field((long) expected, type);
         assertEquals(f1.getShort(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -186,7 +189,7 @@ public class TestField
     {
         Type type = TIME;
         Time expected = new Time(new GregorianCalendar(1970, 0, 1, 12, 30, 0).getTime().getTime());
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field(70200000L, type);
         assertEquals(f1.getTime(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -200,7 +203,7 @@ public class TestField
     {
         Type type = TIMESTAMP;
         Timestamp expected = new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field(915219000000L, type);
         assertEquals(f1.getTimestamp(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -214,7 +217,7 @@ public class TestField
     {
         Type type = TINYINT;
         Byte expected = 123;
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field((long) expected, type);
         assertEquals(f1.getByte(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -228,7 +231,7 @@ public class TestField
     {
         Type type = VARBINARY;
         byte[] expected = "O'Leary".getBytes(UTF_8);
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field(Slices.wrappedBuffer(expected.clone()), type);
         assertEquals(f1.getVarbinary(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
@@ -242,7 +245,7 @@ public class TestField
     {
         Type type = VARCHAR;
         String expected = "O'Leary";
-        Field f1 = new Field(expected, type);
+        Field f1 = new Field(utf8Slice(expected), type);
         assertEquals(f1.getVarchar(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);
