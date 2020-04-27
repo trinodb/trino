@@ -59,7 +59,6 @@ public class TestRow
         r1.addField(null, VARCHAR);
 
         assertEquals(r1.length(), 14);
-        assertEquals(r1.toString(), "(ARRAY ['a','b','c'],true,DATE '1999-01-01',123.45678,123.45678,12345678,12345678,12345,TIME '12:30:00',TIMESTAMP '1999-01-01 12:30:00.0',123,CAST('O''Leary' AS VARBINARY),'O''Leary',null)");
 
         Row r2 = new Row(r1);
         assertEquals(r2, r1);
