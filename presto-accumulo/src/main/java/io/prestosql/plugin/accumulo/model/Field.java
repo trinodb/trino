@@ -13,6 +13,9 @@
  */
 package io.prestosql.plugin.accumulo.model;
 
+import com.google.common.primitives.Primitives;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.accumulo.Types;
 import io.prestosql.spi.PrestoException;
@@ -24,12 +27,12 @@ import io.prestosql.spi.type.VarcharType;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -43,9 +46,9 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
 
 public class Field
 {
@@ -53,14 +56,14 @@ public class Field
     private final Type type;
     private final boolean indexed;
 
-    public Field(Object value, Type type)
+    public Field(Object nativeValue, Type type)
     {
-        this(value, type, false);
+        this(nativeValue, type, false);
     }
 
-    public Field(Object value, Type type, boolean indexed)
+    public Field(Object nativeValue, Type type, boolean indexed)
     {
-        this.value = cleanObject(value, type);
+        this.value = convert(nativeValue, type);
         this.type = requireNonNull(type, "type is null");
         this.indexed = indexed;
     }
@@ -270,174 +273,85 @@ public class Field
     }
 
     /**
-     * Does it's damnedest job to convert the given object to the given type.
+     * Convert Presto native value (stack representation) of given type to Accumulo equivalent.
      *
      * @param value Object to convert
      * @param type Destination Presto type
-     * @return Null if null, the converted type of it could convert it, or the same value if it is fine just the way it is :D
-     * @throws PrestoException If the given object is not any flavor of the given type
      */
-    private static Object cleanObject(Object value, Type type)
+    private static Object convert(Object value, Type type)
     {
         if (value == null) {
             return null;
         }
 
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(value), "Invalid representation for %s: %s [%s]", type, value, value.getClass().getName());
+
         // Array? Better be a block!
         if (Types.isArrayType(type)) {
-            if (!(value instanceof Block)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Block, but " + value.getClass());
-            }
+            // Block
             return value;
         }
 
         // Map? Better be a block!
         if (Types.isMapType(type)) {
-            if (!(value instanceof Block)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Block, but " + value.getClass());
-            }
+            // Block
             return value;
         }
 
         // And now for the plain types
         if (type.equals(BIGINT)) {
-            if (!(value instanceof Long)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long, but " + value.getClass());
-            }
+            // long
             return value;
         }
 
         if (type.equals(INTEGER)) {
-            if (value instanceof Long) {
-                return ((Long) value).intValue();
-            }
-
-            if (!(value instanceof Integer)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Integer, but " + value.getClass());
-            }
-            return value;
+            return toIntExact((long) value);
         }
 
         if (type.equals(BOOLEAN)) {
-            if (!(value instanceof Boolean)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Boolean, but " + value.getClass());
-            }
+            // boolean
             return value;
         }
 
         if (type.equals(DATE)) {
-            if (value instanceof Long) {
-                return new Date(DAYS.toMillis((Long) value));
-            }
-
-            if (value instanceof Calendar) {
-                return new Date(((Calendar) value).getTime().getTime());
-            }
-
-            if (!(value instanceof Date)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Calendar, Date, or Long, but " + value.getClass());
-            }
-            return value;
+            return Date.valueOf(LocalDate.ofEpochDay((long) value));
         }
 
         if (type.equals(DOUBLE)) {
-            if (!(value instanceof Double)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Double, but " + value.getClass());
-            }
+            // double
             return value;
         }
 
         if (type.equals(REAL)) {
-            if (value instanceof Long) {
-                return Float.intBitsToFloat(((Long) value).intValue());
-            }
-
-            if (value instanceof Integer) {
-                return Float.intBitsToFloat((Integer) value);
-            }
-
-            if (!(value instanceof Float)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Float, but " + value.getClass());
-            }
-            return value;
+            return intBitsToFloat(toIntExact((long) value));
         }
 
         if (type.equals(SMALLINT)) {
-            if (value instanceof Long) {
-                return ((Long) value).shortValue();
-            }
-
-            if (value instanceof Integer) {
-                return ((Integer) value).shortValue();
-            }
-
-            if (!(value instanceof Short)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Short, but " + value.getClass());
-            }
-            return value;
+            return Shorts.checkedCast((long) value);
         }
 
         if (type.equals(TIME)) {
-            if (value instanceof Long) {
-                return new Time((Long) value);
-            }
-
-            if (!(value instanceof Time)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Time, but " + value.getClass());
-            }
-            return value;
+            // TODO this likely is incorrect, passing the millis value interpreted in UTC into millis value interpreted in JVM's zone
+            // TODO account for non-legacy timestamp
+            return new Time((long) value);
         }
 
         if (type.equals(TIMESTAMP)) {
-            if (value instanceof Long) {
-                return new Timestamp((Long) value);
-            }
-
-            if (!(value instanceof Timestamp)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Timestamp, but " + value.getClass());
-            }
-            return value;
+            // TODO this likely is incorrect, passing the millis value interpreted in UTC into millis value interpreted in JVM's zone
+            // TODO account for non-legacy timestamp
+            return new Timestamp((long) value);
         }
 
         if (type.equals(TINYINT)) {
-            if (value instanceof Long) {
-                return ((Long) value).byteValue();
-            }
-
-            if (value instanceof Integer) {
-                return ((Integer) value).byteValue();
-            }
-
-            if (value instanceof Short) {
-                return ((Short) value).byteValue();
-            }
-
-            if (!(value instanceof Byte)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Byte, but " + value.getClass());
-            }
-            return value;
+            return SignedBytes.checkedCast((long) value);
         }
 
         if (type.equals(VARBINARY)) {
-            if (value instanceof Slice) {
-                return ((Slice) value).getBytes();
-            }
-
-            if (!(value instanceof byte[])) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Slice byte[], but " + value.getClass());
-            }
-            return value;
+            return ((Slice) value).getBytes();
         }
 
         if (type instanceof VarcharType) {
-            if (value instanceof Slice) {
-                return new String(((Slice) value).getBytes(), UTF_8);
-            }
-
-            if (!(value instanceof String)) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Slice or String, but " + value.getClass());
-            }
-            return value;
+            return ((Slice) value).toStringUtf8();
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
