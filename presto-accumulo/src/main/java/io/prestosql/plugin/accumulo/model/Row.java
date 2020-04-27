@@ -42,10 +42,10 @@ public class Row
         return this;
     }
 
-    public Row addField(Object value, Type type)
+    public Row addField(Object nativeValue, Type type)
     {
         requireNonNull(type, "type is null");
-        fields.add(new Field(value, type));
+        fields.add(new Field(nativeValue, type));
         return this;
     }
 
