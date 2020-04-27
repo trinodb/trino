@@ -16,6 +16,7 @@ import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.spi.PrestoException;
 import oracle.jdbc.pool.OracleDataSource;
+import oracle.ucp.UniversalConnectionPoolAdapter;
 import oracle.ucp.UniversalConnectionPoolException;
 import oracle.ucp.admin.UniversalConnectionPoolManager;
 import oracle.ucp.admin.UniversalConnectionPoolManagerImpl;
@@ -42,13 +43,16 @@ public class OraclePoolingConnectionFactory
 
     public OraclePoolingConnectionFactory(String catalogName, BaseJdbcConfig config, Properties properties, Optional<CredentialProvider> credentialProvider, OracleConnectionPoolingConfig poolingConfig)
     {
+        String poolUuid = randomUuidValue();
+
         try {
             poolManager = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
             poolManager.setJmxEnabled(true);
             dataSource = PoolDataSourceFactory.getPoolDataSource();
-            // generate a unique pool name so that we avoid clashes when tests instantiate a connector
+            // generate a unique pool and data source name so that we avoid clashes when tests instantiate a connector
             // for the same catalog more than once (e.g. when running multiple nodes)
-            dataSource.setConnectionPoolName(catalogName + "_" + randomUuidValue());
+            dataSource.setConnectionPoolName(catalogName + "_pool_" + poolUuid);
+            dataSource.setDataSourceName(catalogName + "_" + poolUuid);
             dataSource.setConnectionFactoryClassName(OracleDataSource.class.getName());
             dataSource.setURL(config.getConnectionUrl());
             dataSource.setConnectionProperties(properties);
@@ -60,6 +64,9 @@ public class OraclePoolingConnectionFactory
             credentialProvider.flatMap(provider -> provider.getConnectionPassword(Optional.empty()))
                     .ifPresent(pwd -> attempt(() -> dataSource.setPassword(pwd)));
             dataSource.setValidateConnectionOnBorrow(true);
+
+            log.debug("Opening Oracle UCP %s", dataSource.getConnectionPoolName());
+            poolManager.createConnectionPool((UniversalConnectionPoolAdapter) dataSource);
         }
         catch (SQLException | UniversalConnectionPoolException e) {
             throw fail(e);
@@ -77,7 +84,8 @@ public class OraclePoolingConnectionFactory
     public void close()
     {
         try {
-            poolManager.stopConnectionPool(dataSource.getDataSourceName());
+            log.debug("Closing Oracle UCP %s", dataSource.getConnectionPoolName());
+            poolManager.stopConnectionPool(dataSource.getConnectionPoolName());
         }
         catch (UniversalConnectionPoolException e) {
             log.error(e, "Failed to stop UCP pool " + dataSource.getDataSourceName());
