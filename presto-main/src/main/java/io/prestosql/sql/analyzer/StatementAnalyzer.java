@@ -68,6 +68,7 @@ import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.Analyze;
+import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
@@ -77,7 +78,6 @@ import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.CreateView;
 import io.prestosql.sql.tree.Cube;
 import io.prestosql.sql.tree.Deallocate;
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.DropColumn;
@@ -141,6 +141,7 @@ import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.StartTransaction;
 import io.prestosql.sql.tree.Statement;
+import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.TableSubquery;
@@ -292,7 +293,7 @@ class StatementAnalyzer
      * (if provided) as ancestor.
      */
     private class Visitor
-            extends DefaultTraversalVisitor<Scope, Optional<Scope>>
+            extends AstVisitor<Scope, Optional<Scope>>
     {
         private final Optional<Scope> outerQueryScope;
         private final WarningCollector warningCollector;
@@ -317,6 +318,12 @@ class StatementAnalyzer
         private Scope process(Node node, Scope scope)
         {
             return process(node, Optional.of(scope));
+        }
+
+        @Override
+        protected Scope visitNode(Node node, Optional<Scope> context)
+        {
+            throw new IllegalStateException("Unsupported node type: " + node.getClass().getName());
         }
 
         @Override
@@ -1287,6 +1294,12 @@ class StatementAnalyzer
             }
 
             return outputScope;
+        }
+
+        @Override
+        protected Scope visitSubqueryExpression(SubqueryExpression node, Optional<Scope> context)
+        {
+            return process(node.getQuery(), context);
         }
 
         @Override
