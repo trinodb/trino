@@ -512,9 +512,9 @@ class SubqueryPlanner
 
     private static Set<NodeRef<Expression>> extractColumnReferences(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
-        ImmutableSet.Builder<NodeRef<Expression>> expressionColumnReferences = ImmutableSet.builder();
-        new ColumnReferencesExtractor(columnReferences).process(expression, expressionColumnReferences);
-        return expressionColumnReferences.build();
+        ColumnReferencesExtractor columnReferencesExtractor = new ColumnReferencesExtractor(columnReferences);
+        columnReferencesExtractor.process(expression, null);
+        return columnReferencesExtractor.getFound();
     }
 
     private PlanNode replaceExpressionsWithSymbols(PlanNode planNode, Map<NodeRef<Expression>, Expression> mapping)
@@ -527,31 +527,37 @@ class SubqueryPlanner
     }
 
     private static class ColumnReferencesExtractor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<NodeRef<Expression>>>
+            extends DefaultExpressionTraversalVisitor<Void, Void>
     {
         private final Set<NodeRef<Expression>> columnReferences;
+        private final ImmutableSet.Builder<NodeRef<Expression>> found = ImmutableSet.builder();
 
         private ColumnReferencesExtractor(Set<NodeRef<Expression>> columnReferences)
         {
             this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
         }
 
+        public Set<NodeRef<Expression>> getFound()
+        {
+            return found.build();
+        }
+
         @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<NodeRef<Expression>> builder)
+        protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                builder.add(NodeRef.of(node));
+                found.add(NodeRef.of(node));
             }
             else {
-                process(node.getBase(), builder);
+                process(node.getBase(), context);
             }
             return null;
         }
 
         @Override
-        protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<NodeRef<Expression>> builder)
+        protected Void visitIdentifier(Identifier node, Void context)
         {
-            builder.add(NodeRef.of(node));
+            found.add(NodeRef.of(node));
             return null;
         }
     }
