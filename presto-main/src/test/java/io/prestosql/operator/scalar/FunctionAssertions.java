@@ -679,7 +679,7 @@ public final class FunctionAssertions
     private static boolean needsBoundValue(Expression projectionExpression)
     {
         final AtomicBoolean hasSymbolReferences = new AtomicBoolean();
-        new DefaultTraversalVisitor<Void, Void>()
+        new DefaultTraversalVisitor<Void>()
         {
             @Override
             protected Void visitSymbolReference(SymbolReference node, Void context)
