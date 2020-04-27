@@ -13,23 +13,25 @@
  */
 package io.prestosql.sql.tree;
 
-public abstract class DefaultTraversalVisitor<R, C>
-        extends AstVisitor<R, C>
+public abstract class DefaultTraversalVisitor<C>
+        extends AstVisitor<Void, C>
 {
     @Override
-    protected R visitExtract(Extract node, C context)
+    protected Void visitExtract(Extract node, C context)
     {
-        return process(node.getExpression(), context);
+        process(node.getExpression(), context);
+        return null;
     }
 
     @Override
-    protected R visitCast(Cast node, C context)
+    protected Void visitCast(Cast node, C context)
     {
-        return process(node.getExpression(), context);
+        process(node.getExpression(), context);
+        return null;
     }
 
     @Override
-    protected R visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
+    protected Void visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
     {
         process(node.getLeft(), context);
         process(node.getRight(), context);
@@ -38,7 +40,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitBetweenPredicate(BetweenPredicate node, C context)
+    protected Void visitBetweenPredicate(BetweenPredicate node, C context)
     {
         process(node.getValue(), context);
         process(node.getMin(), context);
@@ -48,7 +50,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitCoalesceExpression(CoalesceExpression node, C context)
+    protected Void visitCoalesceExpression(CoalesceExpression node, C context)
     {
         for (Expression operand : node.getOperands()) {
             process(operand, context);
@@ -58,7 +60,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitAtTimeZone(AtTimeZone node, C context)
+    protected Void visitAtTimeZone(AtTimeZone node, C context)
     {
         process(node.getValue(), context);
         process(node.getTimeZone(), context);
@@ -67,7 +69,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitArrayConstructor(ArrayConstructor node, C context)
+    protected Void visitArrayConstructor(ArrayConstructor node, C context)
     {
         for (Expression expression : node.getValues()) {
             process(expression, context);
@@ -77,7 +79,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    protected Void visitSubscriptExpression(SubscriptExpression node, C context)
     {
         process(node.getBase(), context);
         process(node.getIndex(), context);
@@ -86,7 +88,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitComparisonExpression(ComparisonExpression node, C context)
+    protected Void visitComparisonExpression(ComparisonExpression node, C context)
     {
         process(node.getLeft(), context);
         process(node.getRight(), context);
@@ -95,7 +97,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitQuery(Query node, C context)
+    protected Void visitQuery(Query node, C context)
     {
         if (node.getWith().isPresent()) {
             process(node.getWith().get(), context);
@@ -109,7 +111,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitWith(With node, C context)
+    protected Void visitWith(With node, C context)
     {
         for (WithQuery query : node.getQueries()) {
             process(query, context);
@@ -119,13 +121,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitWithQuery(WithQuery node, C context)
+    protected Void visitWithQuery(WithQuery node, C context)
     {
-        return process(node.getQuery(), context);
+        process(node.getQuery(), context);
+        return null;
     }
 
     @Override
-    protected R visitSelect(Select node, C context)
+    protected Void visitSelect(Select node, C context)
     {
         for (SelectItem item : node.getSelectItems()) {
             process(item, context);
@@ -135,7 +138,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSingleColumn(SingleColumn node, C context)
+    protected Void visitSingleColumn(SingleColumn node, C context)
     {
         process(node.getExpression(), context);
 
@@ -143,7 +146,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitAllColumns(AllColumns node, C context)
+    protected Void visitAllColumns(AllColumns node, C context)
     {
         node.getTarget().ifPresent(value -> process(value, context));
 
@@ -151,7 +154,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitWhenClause(WhenClause node, C context)
+    protected Void visitWhenClause(WhenClause node, C context)
     {
         process(node.getOperand(), context);
         process(node.getResult(), context);
@@ -160,7 +163,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitInPredicate(InPredicate node, C context)
+    protected Void visitInPredicate(InPredicate node, C context)
     {
         process(node.getValue(), context);
         process(node.getValueList(), context);
@@ -169,7 +172,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitFunctionCall(FunctionCall node, C context)
+    protected Void visitFunctionCall(FunctionCall node, C context)
     {
         for (Expression argument : node.getArguments()) {
             process(argument, context);
@@ -191,7 +194,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitGroupingOperation(GroupingOperation node, C context)
+    protected Void visitGroupingOperation(GroupingOperation node, C context)
     {
         for (Expression columnArgument : node.getGroupingColumns()) {
             process(columnArgument, context);
@@ -201,14 +204,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitDereferenceExpression(DereferenceExpression node, C context)
+    protected Void visitDereferenceExpression(DereferenceExpression node, C context)
     {
         process(node.getBase(), context);
         return null;
     }
 
     @Override
-    public R visitWindow(Window node, C context)
+    public Void visitWindow(Window node, C context)
     {
         for (Expression expression : node.getPartitionBy()) {
             process(expression, context);
@@ -226,7 +229,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    public R visitWindowFrame(WindowFrame node, C context)
+    public Void visitWindowFrame(WindowFrame node, C context)
     {
         process(node.getStart(), context);
         if (node.getEnd().isPresent()) {
@@ -237,7 +240,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    public R visitFrameBound(FrameBound node, C context)
+    public Void visitFrameBound(FrameBound node, C context)
     {
         if (node.getValue().isPresent()) {
             process(node.getValue().get(), context);
@@ -247,7 +250,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSimpleCaseExpression(SimpleCaseExpression node, C context)
+    protected Void visitSimpleCaseExpression(SimpleCaseExpression node, C context)
     {
         process(node.getOperand(), context);
         for (WhenClause clause : node.getWhenClauses()) {
@@ -261,7 +264,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitInListExpression(InListExpression node, C context)
+    protected Void visitInListExpression(InListExpression node, C context)
     {
         for (Expression value : node.getValues()) {
             process(value, context);
@@ -271,7 +274,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitNullIfExpression(NullIfExpression node, C context)
+    protected Void visitNullIfExpression(NullIfExpression node, C context)
     {
         process(node.getFirst(), context);
         process(node.getSecond(), context);
@@ -280,7 +283,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitIfExpression(IfExpression node, C context)
+    protected Void visitIfExpression(IfExpression node, C context)
     {
         process(node.getCondition(), context);
         process(node.getTrueValue(), context);
@@ -292,14 +295,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitTryExpression(TryExpression node, C context)
+    protected Void visitTryExpression(TryExpression node, C context)
     {
         process(node.getInnerExpression(), context);
         return null;
     }
 
     @Override
-    protected R visitBindExpression(BindExpression node, C context)
+    protected Void visitBindExpression(BindExpression node, C context)
     {
         for (Expression value : node.getValues()) {
             process(value, context);
@@ -310,19 +313,21 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
+    protected Void visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
-        return process(node.getValue(), context);
+        process(node.getValue(), context);
+        return null;
     }
 
     @Override
-    protected R visitNotExpression(NotExpression node, C context)
+    protected Void visitNotExpression(NotExpression node, C context)
     {
-        return process(node.getValue(), context);
+        process(node.getValue(), context);
+        return null;
     }
 
     @Override
-    protected R visitSearchedCaseExpression(SearchedCaseExpression node, C context)
+    protected Void visitSearchedCaseExpression(SearchedCaseExpression node, C context)
     {
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
@@ -334,7 +339,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitLikePredicate(LikePredicate node, C context)
+    protected Void visitLikePredicate(LikePredicate node, C context)
     {
         process(node.getValue(), context);
         process(node.getPattern(), context);
@@ -344,19 +349,21 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitIsNotNullPredicate(IsNotNullPredicate node, C context)
+    protected Void visitIsNotNullPredicate(IsNotNullPredicate node, C context)
     {
-        return process(node.getValue(), context);
+        process(node.getValue(), context);
+        return null;
     }
 
     @Override
-    protected R visitIsNullPredicate(IsNullPredicate node, C context)
+    protected Void visitIsNullPredicate(IsNullPredicate node, C context)
     {
-        return process(node.getValue(), context);
+        process(node.getValue(), context);
+        return null;
     }
 
     @Override
-    protected R visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
+    protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
     {
         process(node.getLeft(), context);
         process(node.getRight(), context);
@@ -365,13 +372,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSubqueryExpression(SubqueryExpression node, C context)
+    protected Void visitSubqueryExpression(SubqueryExpression node, C context)
     {
-        return process(node.getQuery(), context);
+        process(node.getQuery(), context);
+        return null;
     }
 
     @Override
-    protected R visitOrderBy(OrderBy node, C context)
+    protected Void visitOrderBy(OrderBy node, C context)
     {
         for (SortItem sortItem : node.getSortItems()) {
             process(sortItem, context);
@@ -380,13 +388,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSortItem(SortItem node, C context)
+    protected Void visitSortItem(SortItem node, C context)
     {
-        return process(node.getSortKey(), context);
+        process(node.getSortKey(), context);
+        return null;
     }
 
     @Override
-    protected R visitQuerySpecification(QuerySpecification node, C context)
+    protected Void visitQuerySpecification(QuerySpecification node, C context)
     {
         process(node.getSelect(), context);
         if (node.getFrom().isPresent()) {
@@ -408,7 +417,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSetOperation(SetOperation node, C context)
+    protected Void visitSetOperation(SetOperation node, C context)
     {
         for (Relation relation : node.getRelations()) {
             process(relation, context);
@@ -417,7 +426,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitValues(Values node, C context)
+    protected Void visitValues(Values node, C context)
     {
         for (Expression row : node.getRows()) {
             process(row, context);
@@ -426,7 +435,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitRow(Row node, C context)
+    protected Void visitRow(Row node, C context)
     {
         for (Expression expression : node.getItems()) {
             process(expression, context);
@@ -435,19 +444,21 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitTableSubquery(TableSubquery node, C context)
+    protected Void visitTableSubquery(TableSubquery node, C context)
     {
-        return process(node.getQuery(), context);
+        process(node.getQuery(), context);
+        return null;
     }
 
     @Override
-    protected R visitAliasedRelation(AliasedRelation node, C context)
+    protected Void visitAliasedRelation(AliasedRelation node, C context)
     {
-        return process(node.getRelation(), context);
+        process(node.getRelation(), context);
+        return null;
     }
 
     @Override
-    protected R visitSampledRelation(SampledRelation node, C context)
+    protected Void visitSampledRelation(SampledRelation node, C context)
     {
         process(node.getRelation(), context);
         process(node.getSamplePercentage(), context);
@@ -455,7 +466,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitJoin(Join node, C context)
+    protected Void visitJoin(Join node, C context)
     {
         process(node.getLeft(), context);
         process(node.getRight(), context);
@@ -468,7 +479,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitUnnest(Unnest node, C context)
+    protected Void visitUnnest(Unnest node, C context)
     {
         for (Expression expression : node.getExpressions()) {
             process(expression, context);
@@ -478,7 +489,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitGroupBy(GroupBy node, C context)
+    protected Void visitGroupBy(GroupBy node, C context)
     {
         for (GroupingElement groupingElement : node.getGroupingElements()) {
             process(groupingElement, context);
@@ -488,19 +499,19 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitCube(Cube node, C context)
+    protected Void visitCube(Cube node, C context)
     {
         return null;
     }
 
     @Override
-    protected R visitRollup(Rollup node, C context)
+    protected Void visitRollup(Rollup node, C context)
     {
         return null;
     }
 
     @Override
-    protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
+    protected Void visitSimpleGroupBy(SimpleGroupBy node, C context)
     {
         for (Expression expression : node.getExpressions()) {
             process(expression, context);
@@ -510,13 +521,13 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitGroupingSets(GroupingSets node, C context)
+    protected Void visitGroupingSets(GroupingSets node, C context)
     {
         return null;
     }
 
     @Override
-    protected R visitInsert(Insert node, C context)
+    protected Void visitInsert(Insert node, C context)
     {
         process(node.getQuery(), context);
 
@@ -524,7 +535,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitDelete(Delete node, C context)
+    protected Void visitDelete(Delete node, C context)
     {
         process(node.getTable(), context);
         node.getWhere().ifPresent(where -> process(where, context));
@@ -533,7 +544,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
+    protected Void visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {
         process(node.getQuery(), context);
         for (Property property : node.getProperties()) {
@@ -544,7 +555,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitProperty(Property node, C context)
+    protected Void visitProperty(Property node, C context)
     {
         process(node.getName(), context);
         process(node.getValue(), context);
@@ -553,7 +564,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitAnalyze(Analyze node, C context)
+    protected Void visitAnalyze(Analyze node, C context)
     {
         for (Property property : node.getProperties()) {
             process(property, context);
@@ -562,7 +573,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitCreateView(CreateView node, C context)
+    protected Void visitCreateView(CreateView node, C context)
     {
         process(node.getQuery(), context);
 
@@ -570,7 +581,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSetSession(SetSession node, C context)
+    protected Void visitSetSession(SetSession node, C context)
     {
         process(node.getValue(), context);
 
@@ -578,7 +589,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitAddColumn(AddColumn node, C context)
+    protected Void visitAddColumn(AddColumn node, C context)
     {
         process(node.getColumn(), context);
 
@@ -586,7 +597,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitCreateTable(CreateTable node, C context)
+    protected Void visitCreateTable(CreateTable node, C context)
     {
         for (TableElement tableElement : node.getElements()) {
             process(tableElement, context);
@@ -599,7 +610,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitStartTransaction(StartTransaction node, C context)
+    protected Void visitStartTransaction(StartTransaction node, C context)
     {
         for (TransactionMode transactionMode : node.getTransactionModes()) {
             process(transactionMode, context);
@@ -609,7 +620,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitExplain(Explain node, C context)
+    protected Void visitExplain(Explain node, C context)
     {
         process(node.getStatement(), context);
 
@@ -621,7 +632,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
+    protected Void visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
     {
         process(node.getValue(), context);
         process(node.getSubquery(), context);
@@ -630,7 +641,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitExists(ExistsPredicate node, C context)
+    protected Void visitExists(ExistsPredicate node, C context)
     {
         process(node.getSubquery(), context);
 
@@ -638,7 +649,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitLateral(Lateral node, C context)
+    protected Void visitLateral(Lateral node, C context)
     {
         process(node.getQuery(), context);
 

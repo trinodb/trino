@@ -53,7 +53,7 @@ public final class DeterminismEvaluator
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, AtomicBoolean>
+            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
     {
         private final Function<FunctionCall, FunctionMetadata> functionMetadataSupplier;
 

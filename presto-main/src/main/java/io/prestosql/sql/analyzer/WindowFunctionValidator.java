@@ -24,7 +24,7 @@ import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 class WindowFunctionValidator
-        extends DefaultExpressionTraversalVisitor<Void, Analysis>
+        extends DefaultExpressionTraversalVisitor<Analysis>
 {
     private final Metadata metadata;
 

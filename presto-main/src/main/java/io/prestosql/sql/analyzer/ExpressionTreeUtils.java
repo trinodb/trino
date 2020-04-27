@@ -86,7 +86,7 @@ public final class ExpressionTreeUtils
     private static List<Node> linearizeNodes(Node node)
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        new DefaultExpressionTraversalVisitor<Void, Void>()
+        new DefaultExpressionTraversalVisitor<Void>()
         {
             @Override
             public Void process(Node node, Void context)
