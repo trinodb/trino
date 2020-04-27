@@ -203,6 +203,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
     private final TypeCoercion typeCoercion;
+    private final CorrelationSupport correlationSupport;
 
     public ExpressionAnalyzer(
             Metadata metadata,
@@ -212,7 +213,8 @@ public class ExpressionAnalyzer
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            CorrelationSupport correlationSupport)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -223,6 +225,7 @@ public class ExpressionAnalyzer
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.correlationSupport = requireNonNull(correlationSupport, "correlation is null");
     }
 
     public Map<NodeRef<FunctionCall>, ResolvedFunction> getResolvedFunctions()
@@ -411,6 +414,10 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
         {
+            if (!resolvedField.isLocal() && correlationSupport != CorrelationSupport.ALLOWED) {
+                throw semanticException(NOT_SUPPORTED, node, "Reference to column '%s' from outer scope not allowed in this context", node);
+            }
+
             return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getField(), context);
         }
 
@@ -991,7 +998,8 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         warningCollector,
-                                        isDescribe);
+                                        isDescribe,
+                                        correlationSupport);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration lambdaArgument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(lambdaArgument, getExpressionType(lambdaArgument));
@@ -1586,9 +1594,10 @@ public class ExpressionAnalyzer
             Scope scope,
             Analysis analysis,
             Expression expression,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1629,15 +1638,29 @@ public class ExpressionAnalyzer
             TypeProvider types,
             WarningCollector warningCollector)
     {
+        return create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector, CorrelationSupport.ALLOWED);
+    }
+
+    public static ExpressionAnalyzer create(
+            Analysis analysis,
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            TypeProvider types,
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
+    {
         return new ExpressionAnalyzer(
                 metadata,
                 accessControl,
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, correlationSupport),
                 session,
                 types,
                 analysis.getParameters(),
                 warningCollector,
-                analysis.isDescribe());
+                analysis.isDescribe(),
+                correlationSupport);
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(
@@ -1718,6 +1741,7 @@ public class ExpressionAnalyzer
                 symbolTypes,
                 parameters,
                 warningCollector,
-                isDescribe);
+                isDescribe,
+                CorrelationSupport.ALLOWED);
     }
 }
