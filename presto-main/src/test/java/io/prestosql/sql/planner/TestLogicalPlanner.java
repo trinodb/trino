@@ -742,7 +742,7 @@ public class TestLogicalPlanner
                 OPTIMIZED,
                 anyTree(
                         filter("OUTER_FILTER",
-                                apply(ImmutableList.of("C", "O"),
+                                apply(ImmutableList.of("O", "C"),
                                         ImmutableMap.of("OUTER_FILTER", expression("THREE IN (C)")),
                                         project(ImmutableMap.of("THREE", expression("BIGINT '3'")),
                                                 tableScan("orders", ImmutableMap.of(

@@ -30,15 +30,16 @@ import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Parameter;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -168,12 +169,26 @@ class TranslationMap
         }
 
         Expression translated = translateNamesToSymbols(expression);
-        if (!expressionToSymbols.containsKey(translated)) {
-            checkArgument(expressionToExpressions.containsKey(translated), "No mapping for expression: %s", expression);
+        if (expressionToSymbols.containsKey(translated)) {
+            return expressionToSymbols.get(translated);
+        }
+
+        if (expressionToExpressions.containsKey(translated)) {
             return get(expressionToExpressions.get(translated));
         }
 
-        return expressionToSymbols.get(translated);
+        // When resolving from outer context, the rewrite may add a coercion.
+        // This is a side-effect of how translateNamesToSymbols works, but
+        // is unnecessary in this case. TODO: untangle this behavior
+        if (translated instanceof Cast) {
+            translated = ((Cast) translated).getExpression();
+        }
+
+        if (translated instanceof SymbolReference) {
+            return Symbol.from(translated);
+        }
+
+        throw new IllegalStateException(format("No mapping for expression: %s", expression));
     }
 
     public void put(Expression expression, Expression rewritten)
@@ -213,7 +228,7 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                return getSymbol(rewriteBase, node)
+                return rewriteBase.getSymbol(node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                         .orElse(coerceIfNecessary(node, node));
             }
@@ -241,16 +256,9 @@ class TranslationMap
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 if (analysis.isColumnReference(node)) {
-                    Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
-                    if (resolvedField.isPresent()) {
-                        if (resolvedField.get().isLocal()) {
-                            return getSymbol(rewriteBase, node)
-                                    .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                                    .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
-                        }
-                    }
-                    // do not rewrite outer references, it will be handled in outer scope planner
-                    return node;
+                    return rewriteBase.getSymbol(node)
+                            .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
+                            .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
                 }
                 return rewriteExpression(node, context, treeRewriter);
             }
@@ -289,18 +297,5 @@ class TranslationMap
                 return rewritten;
             }
         }, expression, null);
-    }
-
-    private Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
-    {
-        if (!analysis.isColumnReference(expression)) {
-            // Expression can be a reference to lambda argument (or DereferenceExpression based on lambda argument reference).
-            // In such case, the expression might still be resolvable with plan.getScope() but we should not resolve it.
-            return Optional.empty();
-        }
-        return plan.getScope()
-                .tryResolveField(expression)
-                .filter(ResolvedField::isLocal)
-                .map(field -> requireNonNull(plan.getFieldMappings().get(field.getHierarchyFieldIndex())));
     }
 }

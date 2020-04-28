@@ -114,6 +114,7 @@ class RelationPlanner
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
+    private final Optional<TranslationMap> outerContext;
 
     RelationPlanner(
             Analysis analysis,
@@ -121,7 +122,8 @@ class RelationPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
-            Session session)
+            Session session,
+            Optional<TranslationMap> outerContext)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -129,6 +131,7 @@ class RelationPlanner
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
+        requireNonNull(outerContext, "outerContext is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -138,6 +141,7 @@ class RelationPlanner
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.session = session;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session);
+        this.outerContext = outerContext;
     }
 
     @Override
@@ -161,7 +165,7 @@ class RelationPlanner
             Type[] types = scope.getRelationType().getAllFields().stream().map(Field::getType).toArray(Type[]::new);
             RelationPlan withCoercions = addCoercions(subPlan, types);
 
-            plan = new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
+            plan = new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings(), outerContext, analysis);
         }
         else {
             TableHandle handle = analysis.getTableHandle(node);
@@ -178,7 +182,7 @@ class RelationPlanner
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
             PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
 
-            plan = new RelationPlan(root, scope, outputSymbols);
+            plan = new RelationPlan(root, scope, outputSymbols, outerContext, analysis);
         }
 
         plan = addRowFilters(node, plan);
@@ -200,7 +204,7 @@ class RelationPlanner
                     planBuilder.rewrite(filter)));
         }
 
-        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext, analysis);
     }
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan)
@@ -236,7 +240,7 @@ class RelationPlanner
             }
         }
 
-        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext, analysis);
     }
 
     @Override
@@ -265,7 +269,7 @@ class RelationPlanner
             mappings = newMappings.build();
         }
 
-        return new RelationPlan(root, analysis.getScope(node), mappings);
+        return new RelationPlan(root, analysis.getScope(node), mappings, outerContext, analysis);
     }
 
     @Override
@@ -278,7 +282,7 @@ class RelationPlanner
                 subPlan.getRoot(),
                 ratio,
                 SampleNode.Type.fromType(node.getType()));
-        return new RelationPlan(planNode, analysis.getScope(node), subPlan.getFieldMappings());
+        return new RelationPlan(planNode, analysis.getScope(node), subPlan.getFieldMappings(), outerContext, analysis);
     }
 
     @Override
@@ -464,7 +468,7 @@ class RelationPlanner
             }
         }
 
-        return new RelationPlan(root, analysis.getScope(node), outputSymbols);
+        return new RelationPlan(root, analysis.getScope(node), outputSymbols, outerContext, analysis);
     }
 
     private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right)
@@ -582,7 +586,9 @@ class RelationPlanner
         return new RelationPlan(
                 new ProjectNode(idAllocator.getNextId(), join, assignments.build()),
                 analysis.getScope(node),
-                outputs.build());
+                outputs.build(),
+                outerContext,
+                analysis);
     }
 
     private Optional<Unnest> getUnnest(Relation relation)
@@ -609,8 +615,11 @@ class RelationPlanner
 
     private RelationPlan planCorrelatedJoin(Join join, RelationPlan leftPlan, Lateral lateral)
     {
-        RelationPlan rightPlan = process(lateral.getQuery(), null);
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
+
+        RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session, Optional.of(leftPlanBuilder.getTranslations()))
+                .process(lateral.getQuery(), null);
+
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
         Expression filterExpression;
@@ -643,7 +652,7 @@ class RelationPlanner
                 CorrelatedJoinNode.Type.typeConvert(join.getType()),
                 rewrittenFilterCondition);
 
-        return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputSymbols);
+        return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputSymbols, outerContext, analysis);
     }
 
     private static boolean isEqualComparisonExpression(Expression conjunct)
@@ -711,7 +720,7 @@ class RelationPlanner
         // TODO: Technically, we should derive the field mappings from the layout of fields and how they relate to the output symbols of the Unnest node.
         //       That's tricky to do for a Join+Unnest because the allocations come from the Unnest, but the mappings need to be done based on the Join output fields.
         //       Currently, it works out because, by construction, the order of the output symbols in the UnnestNode will match the order of the fields in the Join node.
-        return new RelationPlan(unnestNode, outputScope, unnestNode.getOutputSymbols());
+        return new RelationPlan(unnestNode, outputScope, unnestNode.getOutputSymbols(), outerContext, analysis);
     }
 
     @Override
@@ -723,14 +732,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session, outerContext)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session, outerContext)
                 .plan(node);
     }
 
@@ -770,7 +779,7 @@ class RelationPlanner
         }
 
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbols, rows.build());
-        return new RelationPlan(valuesNode, scope, outputSymbols);
+        return new RelationPlan(valuesNode, scope, outputSymbols, outerContext, analysis);
     }
 
     @Override
@@ -793,7 +802,7 @@ class RelationPlanner
         parent.ifPresent(scope::withOuterQueryParent);
 
         PlanNode values = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of()));
-        TranslationMap translations = new TranslationMap(new RelationPlan(values, scope.build(), ImmutableList.of()), analysis, lambdaDeclarationToSymbolMap);
+        TranslationMap translations = new TranslationMap(new RelationPlan(values, scope.build(), ImmutableList.of(), outerContext, analysis), analysis, lambdaDeclarationToSymbolMap);
         return new PlanBuilder(translations, values);
     }
 
@@ -804,7 +813,7 @@ class RelationPlanner
                 ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null")),
                 ImmutableList.of());
 
-        RelationPlan dummyRelationPlan = new RelationPlan(dummy, analysis.getScope(node), outputSymbols);
+        RelationPlan dummyRelationPlan = new RelationPlan(dummy, analysis.getScope(node), outputSymbols, outerContext, analysis);
         return new TranslationMap(dummyRelationPlan, analysis, lambdaDeclarationToSymbolMap);
     }
 
@@ -856,7 +865,7 @@ class RelationPlanner
                     oldField.isAliased());
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
-        return new RelationPlan(projectNode, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(newFields)).build(), newSymbols.build());
+        return new RelationPlan(projectNode, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(newFields)).build(), newSymbols.build(), outerContext, analysis);
     }
 
     @Override
@@ -870,7 +879,7 @@ class RelationPlanner
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext, analysis);
     }
 
     @Override
@@ -881,7 +890,7 @@ class RelationPlanner
         SetOperationPlan setOperationPlan = process(node);
 
         PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext, analysis);
     }
 
     @Override
@@ -892,7 +901,7 @@ class RelationPlanner
         SetOperationPlan setOperationPlan = process(node);
 
         PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext, analysis);
     }
 
     private SetOperationPlan process(SetOperation node)

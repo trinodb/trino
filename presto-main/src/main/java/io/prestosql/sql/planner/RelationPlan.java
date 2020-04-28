@@ -14,9 +14,12 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.RelationType;
+import io.prestosql.sql.analyzer.ResolvedField;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
@@ -40,12 +43,16 @@ class RelationPlan
     private final PlanNode root;
     private final List<Symbol> fieldMappings; // for each field in the relation, the corresponding symbol from "root"
     private final Scope scope;
+    private final Optional<TranslationMap> outerContext;
+    private final Analysis analysis;
 
-    public RelationPlan(PlanNode root, Scope scope, List<Symbol> fieldMappings)
+    public RelationPlan(PlanNode root, Scope scope, List<Symbol> fieldMappings, Optional<TranslationMap> outerContext, Analysis analysis)
     {
         requireNonNull(root, "root is null");
         requireNonNull(fieldMappings, "outputSymbols is null");
         requireNonNull(scope, "scope is null");
+        requireNonNull(outerContext, "outerContext is null");
+        requireNonNull(analysis, "analysis is null");
 
         int allFieldCount = getAllFieldCount(scope);
         checkArgument(allFieldCount == fieldMappings.size(),
@@ -56,6 +63,8 @@ class RelationPlan
         this.root = root;
         this.scope = scope;
         this.fieldMappings = ImmutableList.copyOf(fieldMappings);
+        this.outerContext = outerContext;
+        this.analysis = analysis;
     }
 
     public Symbol getSymbol(int fieldIndex)
@@ -93,5 +102,29 @@ class RelationPlan
             current = current.get().getLocalParent();
         }
         return allFieldCount;
+    }
+
+    public Optional<TranslationMap> getOuterContext()
+    {
+        return outerContext;
+    }
+
+    public Optional<Symbol> getSymbol(Expression expression)
+    {
+        if (!analysis.isColumnReference(expression)) {
+            // Expression can be a reference to lambda argument (or DereferenceExpression based on lambda argument reference).
+            // In such case, the expression might still be resolvable with plan.getScope() but we should not resolve it.
+            return Optional.empty();
+        }
+        Optional<Symbol> symbol = getScope()
+                .tryResolveField(expression)
+                .filter(ResolvedField::isLocal)
+                .map(field -> requireNonNull(getFieldMappings().get(field.getHierarchyFieldIndex())));
+
+        if (!symbol.isPresent() && outerContext.isPresent()) {
+            return Optional.ofNullable(outerContext.get().get(expression));
+        }
+
+        return symbol;
     }
 }

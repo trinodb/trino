@@ -104,6 +104,7 @@ class QueryPlanner
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
+    private final Optional<TranslationMap> outerContext;
 
     QueryPlanner(
             Analysis analysis,
@@ -111,7 +112,8 @@ class QueryPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
-            Session session)
+            Session session,
+            Optional<TranslationMap> outerContext)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -119,6 +121,7 @@ class QueryPlanner
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
+        requireNonNull(outerContext, "outerContext is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -128,6 +131,7 @@ class QueryPlanner
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.session = session;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session);
+        this.outerContext = outerContext;
     }
 
     public RelationPlan plan(Query query)
@@ -160,7 +164,9 @@ class QueryPlanner
         return new RelationPlan(
                 builder.getRoot(),
                 analysis.getScope(query),
-                computeOutputs(builder, outputs));
+                computeOutputs(builder, outputs),
+                outerContext,
+                analysis);
     }
 
     public RelationPlan plan(QuerySpecification node)
@@ -235,7 +241,9 @@ class QueryPlanner
         return new RelationPlan(
                 builder.getRoot(),
                 analysis.getScope(node),
-                computeOutputs(builder, outputs));
+                computeOutputs(builder, outputs),
+                outerContext,
+                analysis);
     }
 
     private boolean hasExpressionsToUnfold(List<SelectExpression> selectExpressions)
@@ -287,7 +295,7 @@ class QueryPlanner
         // create table scan
         PlanNode tableScan = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
-        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build());
+        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build(), outerContext, analysis);
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
         translations.setFieldMappings(relationPlan.getFieldMappings());
@@ -318,7 +326,7 @@ class QueryPlanner
 
     private PlanBuilder planQueryBody(Query query)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session, outerContext)
                 .process(query.getQueryBody(), null);
 
         return planBuilderFor(relationPlan);
@@ -329,7 +337,7 @@ class QueryPlanner
         RelationPlan relationPlan;
 
         if (node.getFrom().isPresent()) {
-            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session, outerContext)
                     .process(node.getFrom().get(), null);
         }
         else {
@@ -350,7 +358,7 @@ class QueryPlanner
 
     private PlanBuilder planBuilderFor(PlanBuilder builder, Scope scope)
     {
-        return planBuilderFor(new RelationPlan(builder.getRoot(), scope, builder.getRoot().getOutputSymbols()));
+        return planBuilderFor(new RelationPlan(builder.getRoot(), scope, builder.getRoot().getOutputSymbols(), outerContext, analysis));
     }
 
     private PlanBuilder planBuilderFor(RelationPlan relationPlan)
@@ -371,7 +379,9 @@ class QueryPlanner
         return new RelationPlan(
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow)),
                 scope,
-                ImmutableList.of());
+                ImmutableList.of(),
+                outerContext,
+                analysis);
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)

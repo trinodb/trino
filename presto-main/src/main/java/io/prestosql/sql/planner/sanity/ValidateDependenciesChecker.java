@@ -629,7 +629,6 @@ public final class ValidateDependenciesChecker
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(SymbolsExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getSubquery(), boundSymbols))
@@ -659,10 +658,6 @@ public final class ValidateDependenciesChecker
                     node.getInput().getOutputSymbols(),
                     node.getCorrelation(),
                     "Correlated JOIN input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(
-                    SymbolsExtractor.extractUnique(node.getSubquery()),
-                    node.getCorrelation(),
-                    "not all correlated JOIN correlation symbols are used in subquery");
 
             Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getInput(), boundSymbols))
