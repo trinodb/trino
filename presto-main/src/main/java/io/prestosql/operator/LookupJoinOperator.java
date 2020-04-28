@@ -349,7 +349,7 @@ public class LookupJoinOperator
         /**
          * Produce a row for the current probe position, if it doesn't match any row on lookup side and this is an outer join.
          *
-         * @return whether pageBuilder became full
+         * @return whether pageBuilder can still not fill
          */
         private boolean outerJoinCurrentPosition()
         {
