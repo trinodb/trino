@@ -260,9 +260,10 @@ class SnowflakeQueryRunner
                 .withServer(server)
                 .withAdditionalProperties(impersonationDisabled())
                 .build()) {
-            server.dropSchemaIfExistsCascade(TEST_SCHEMA);
-            server.createSchema(TEST_SCHEMA);
-            copyTpchTables(runner, TpchTable.getTables());
+            // Uncomment below when you need to recreate the data set. Be careful not to delete shared testing resources.
+            //server.dropSchemaIfExistsCascade(TEST_SCHEMA);
+            //server.createSchema(TEST_SCHEMA);
+            //copyTpchTables(runner, TpchTable.getTables());
         }
     }
 }
