@@ -33,6 +33,7 @@ import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SESSION_TOKEN;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 final class HiveUtils
@@ -47,7 +48,10 @@ final class HiveUtils
     private static HiveColumnHandle toHiveColumnHandle(TypeTranslator typeTranslator, JdbcColumnHandle jdbcColumnHandle, int columnIndex)
     {
         return new HiveColumnHandle(
-                jdbcColumnHandle.getColumnName(),
+                // Snowflake supports case-sensitive column names, but does not allow collisions when compared case-insensitively.
+                // The export creates Parquet files with lower-case column names.
+                // TODO lowercasing is a workaround for https://github.com/prestosql/presto/issues/3574. Remove
+                jdbcColumnHandle.getColumnName().toLowerCase(ENGLISH),
                 columnIndex,
                 toHiveType(typeTranslator, jdbcColumnHandle.getColumnType()),
                 jdbcColumnHandle.getColumnType(),

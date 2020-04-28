@@ -35,11 +35,15 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.SYMMETRIC_CIPHER_BLOCK_SIZE;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
@@ -48,6 +52,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 class SnowflakePageSourceProvider
         implements ConnectorPageSourceProvider
@@ -96,7 +101,7 @@ class SnowflakePageSourceProvider
 
         List<HiveColumnHandle> transformedColumns = hiveColumns.stream()
                 .map(column -> {
-                    if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {
+                    if (column.getType() == TIMESTAMP_WITH_TIME_ZONE) {
                         return new HiveColumnHandle(
                                 column.getName(),
                                 column.getBaseHiveColumnIndex(),
@@ -110,13 +115,30 @@ class SnowflakePageSourceProvider
                 })
                 .collect(toImmutableList());
 
+        Map<ColumnHandle, Integer> columnIndex = IntStream.range(0, columns.size()).boxed()
+                .collect(toImmutableMap(columns::get, identity()));
+        TupleDomain<HiveColumnHandle> filePredicate = TupleDomain.withColumnDomains(
+                dynamicFilter.getDomains().orElseThrow(() -> new IllegalArgumentException("NONE dynamic filter should be handled by engine"))
+                        .entrySet().stream()
+                        // TODO use https://github.com/prestosql/presto/pull/3538 APIs
+                        .filter(entry -> {
+                            // We transform the values, so the domain would need to be translated.
+                            return entry.getValue().getType() != TIMESTAMP_WITH_TIME_ZONE;
+                        })
+                        .collect(toImmutableMap(Entry::getKey, Entry::getValue)))
+                .transform(handle -> {
+                    JdbcColumnHandle columnHandle = (JdbcColumnHandle) handle;
+                    int index = requireNonNull(columnIndex.get(columnHandle), () -> "Unexpected column: " + columnHandle);
+                    return transformedColumns.get(index);
+                });
+
         ReaderPageSourceWithProjections pageSource = ParquetPageSourceFactory.createPageSource(
                 path,
                 snowflakeSplit.getStart(),
                 snowflakeSplit.getLength(),
                 unpaddedFileSize,
                 transformedColumns,
-                TupleDomain.all(),
+                filePredicate,
                 true,
                 hdfsEnvironment,
                 configuration,
