@@ -25,11 +25,13 @@ import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Parameter;
+import io.prestosql.sql.tree.RowDataType;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.util.AstUtils;
 
@@ -273,6 +275,20 @@ class TranslationMap
 
                 checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
                 return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null));
+            }
+
+            @Override
+            public Expression rewriteGenericDataType(GenericDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                // do not rewrite identifiers within type parameters
+                return node;
+            }
+
+            @Override
+            public Expression rewriteRowDataType(RowDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                // do not rewrite identifiers in field names
+                return node;
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
