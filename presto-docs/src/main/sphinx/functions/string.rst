@@ -217,3 +217,21 @@ Unicode Functions
     are replaced with ``replace``. The replacement string ``replace`` must either
     be a single character or empty (in which case invalid characters are
     removed).
+
+.. function:: to_charset(charset, string) -> varbinary
+
+    Encodes ``string`` into a ``charset`` varbinary representation.
+
+.. function:: from_charset(charset, binary) -> varchar
+
+    Decodes a ``charset`` encoded string from ``binary``. Invalid sequences
+    are replaced with the Unicode replacement character ``U+FFFD``.
+
+.. function:: from_utf8(charset, binary, replace) -> varchar
+
+    Decodes a ``charset`` encoded string from ``binary``.
+    Invalid sequence are replaced depending on the character set,
+    typically with the Unicode replacement character ``U+FFFD``.
+    The replacement string ``replace`` must either
+    be a single character or empty (in which case invalid characters are
+    removed).

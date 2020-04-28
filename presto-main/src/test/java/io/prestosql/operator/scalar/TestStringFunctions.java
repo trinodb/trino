@@ -1025,6 +1025,39 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testFromCharset()
+    {
+        assertFunction("from_charset('UTF-16BE', from_hex('00680065006C006C006F'))", VARCHAR, "hello");
+        assertFunction("from_charset('UTF-16LE', from_hex('680065006C006C006F00'))", VARCHAR, "hello");
+        assertFunction("from_charset('UTF-16', from_hex('FEFF00680065006C006C006F'))", VARCHAR, "hello");
+        assertFunction("from_charset('UTF-16', from_hex('FFFE680065006C006C006F00'))", VARCHAR, "hello");
+        assertFunction("from_charset('ISO-8859-1', from_hex('68656C6C6F'))", VARCHAR, "hello");
+        assertFunction("from_charset('ASCII', from_hex('68656C6C6F'))", VARCHAR, "hello");
+
+        assertFunction("from_charset('UTF-16BE', to_charset('UTF-16BE', 'hello'))", VARCHAR, "hello");
+        assertFunction("from_charset('UTF-16LE', to_charset('UTF-16LE', 'hello'))", VARCHAR, "hello");
+        assertFunction("from_charset('UTF-16', to_charset('UTF-16', 'hello'))", VARCHAR, "hello");
+        assertFunction("from_charset('ISO-8859-1', to_charset('ISO-8859-1', 'hello'))", VARCHAR, "hello");
+        assertFunction("from_charset('ASCII', to_charset('ASCII', 'hello'))", VARCHAR, "hello");
+
+        assertFunction("from_charset('UTF-8', to_charset('UTF-8', 'hello'))", VARCHAR, "hello");
+        assertFunction("from_charset('UTF-8', from_hex('58BF'))", VARCHAR, "X\uFFFD");
+        assertFunction("from_charset('UTF-8', from_hex('58DF'))", VARCHAR, "X\uFFFD");
+        assertFunction("from_charset('UTF-8', from_hex('58F7'))", VARCHAR, "X\uFFFD");
+
+        assertFunction("from_charset('UTF-8', from_hex('58BF'), '#')", VARCHAR, "X#");
+        assertFunction("from_charset('UTF-8', from_hex('58BF'), '')", VARCHAR, "X");
+
+        assertInvalidFunction("from_charset('UTF-8', from_hex('58BF'), '##')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_charset('UTF-16BE', to_charset('UTF-16BE', 'hello'), 'foo')", INVALID_FUNCTION_ARGUMENT);
+
+        // Unsupported or illegal charsets
+        assertInvalidFunction("from_charset('abc', from_hex('68656C6C6F'))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_charset('%s', from_hex('68656C6C6F'))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_charset('', from_hex('68656C6C6F'))", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
     public void testCharConcat()
     {
         assertFunction("concat('ab ', cast(' ' as char(1)))", createCharType(4), "ab  ");

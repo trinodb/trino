@@ -34,6 +34,10 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.CodePointsType;
 import io.prestosql.type.Constraint;
 
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.text.Normalizer;
 import java.util.OptionalInt;
 
@@ -875,6 +879,60 @@ public final class StringFunctions
     public static Slice toUtf8(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
+    }
+
+    private static Charset lookupCharset(String name)
+    {
+        try {
+            return Charset.forName(name);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid character set: " + name);
+        }
+    }
+
+    @Description("Decodes string with a specific character set")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice fromCharset(@SqlType("varchar") Slice charset, @SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.utf8Slice(slice.toString(lookupCharset(charset.toStringUtf8())));
+    }
+
+    @Description("Decodes string with a specific character set")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice fromCharset(@SqlType("varchar") Slice charset, @SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar") Slice replacementCharacter)
+    {
+        CharsetDecoder charsetDecoder = lookupCharset(charset.toStringUtf8()).newDecoder();
+        CodingErrorAction codingErrorAction = CodingErrorAction.REPLACE;
+
+        try {
+            if (replacementCharacter.length() > 0) {
+                charsetDecoder.replaceWith(replacementCharacter.toStringUtf8());
+            }
+            else {
+                codingErrorAction = CodingErrorAction.IGNORE;
+            }
+
+            charsetDecoder.onMalformedInput(codingErrorAction);
+            charsetDecoder.onUnmappableCharacter(codingErrorAction);
+            return Slices.utf8Slice(charsetDecoder.decode(slice.toByteBuffer()).toString());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character: " + replacementCharacter.toStringUtf8());
+        }
+        catch (CharacterCodingException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid character set: " + charset);
+        }
+    }
+
+    @Description("Encodes string with a specific character set")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toCharset(@SqlType("varchar") Slice charset, @SqlType("varchar") Slice slice)
+    {
+        return Slices.wrappedBuffer(slice.toStringUtf8().getBytes(lookupCharset(charset.toStringUtf8())));
     }
 
     // TODO: implement N arguments char concat
