@@ -251,7 +251,7 @@ public class StripeReader
             throws IOException
     {
         //
-        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
+        // Note: this code does not use the stream APIs to avoid any extra object allocation
         //
 
         // transform ranges to have an absolute offset in file
