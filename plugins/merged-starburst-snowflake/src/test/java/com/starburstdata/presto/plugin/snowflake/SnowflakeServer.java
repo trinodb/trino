@@ -80,8 +80,6 @@ class SnowflakeServer
     void executeOnDatabase(String database, String... sqls)
             throws SQLException
     {
-        DriverManager.getConnection(JDBC_URL, USER, PASSWORD);
-
         try (Connection conn = getConnection();
                 Statement stmt = conn.createStatement()) {
             LOG.info("Using role: %s, warehouse: %s, database: %s", ROLE, TEST_WAREHOUSE, database);
