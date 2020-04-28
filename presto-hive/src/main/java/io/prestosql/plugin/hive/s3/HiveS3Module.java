@@ -21,6 +21,7 @@ import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.ConfigurationInitializer;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
@@ -65,6 +66,7 @@ public class HiveS3Module
     {
         if (buildConfigObject(S3SecurityMappingConfig.class).getConfigFile().isPresent()) {
             checkArgument(!buildConfigObject(HiveConfig.class).isS3SelectPushdownEnabled(), "S3 security mapping is not compatible with S3 Select pushdown");
+            checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "S3 security mapping is not compatible with Hive caching");
 
             newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
                     .to(S3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
