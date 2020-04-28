@@ -266,7 +266,7 @@ public class LocalDispatchQuery
         try {
             return tryGetFutureValue(queryExecutionFuture);
         }
-        catch (Exception ignored) {
+        catch (Throwable ignored) {
             return Optional.empty();
         }
     }
