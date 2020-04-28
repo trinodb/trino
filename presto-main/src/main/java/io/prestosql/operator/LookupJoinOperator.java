@@ -353,7 +353,7 @@ public class LookupJoinOperator
          */
         private boolean outerJoinCurrentPosition()
         {
-            if (probeOnOuterSide && joinPosition < 0) {
+            if (probeOnOuterSide) {
                 pageBuilder.appendNullForBuild(probe);
                 return !pageBuilder.isFull();
             }
