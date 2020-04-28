@@ -188,6 +188,30 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
     }
 
     @Test
+    public void testCaseSensitiveColumnNames()
+            throws SQLException
+    {
+        String tableName = "test_case_sensitive_column_names_" + tableSuffix;
+        server.execute(
+                "USE SCHEMA " + TEST_SCHEMA,
+                "CREATE TABLE " + tableName + "( " +
+                        "  id varchar," +
+                        "  \"lowercase\" varchar," +
+                        "  \"UPPERCASE\" varchar," +
+                        "  \"MixedCase\" varchar)",
+                "INSERT INTO " + tableName + "(id, \"lowercase\", \"UPPERCASE\", \"MixedCase\") VALUES " +
+                        " ('lowercase', 'lowercase value', NULL, NULL), " +
+                        " ('uppercase', NULL, 'uppercase value', NULL), " +
+                        " ('mixedcase', NULL, NULL, 'mixedcase value')");
+        assertQuery(
+                "SELECT id, mixedcase, uppercase, lowercase FROM " + tableName,
+                "VALUES " +
+                        " ('lowercase', NULL, NULL, 'lowercase value'), " +
+                        " ('uppercase', NULL, 'uppercase value', NULL), " +
+                        " ('mixedcase', 'mixedcase value', NULL, NULL)");
+    }
+
+    @Test
     public void testTimestampWithTimezoneValues()
             throws SQLException
     {
