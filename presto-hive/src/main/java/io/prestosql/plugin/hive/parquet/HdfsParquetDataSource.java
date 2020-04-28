@@ -136,7 +136,7 @@ public class HdfsParquetDataSource
         }
 
         //
-        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
+        // Note: this code does not use the stream APIs to avoid any extra object allocation
         //
 
         // split disk ranges into "big" and "small"
