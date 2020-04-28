@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
@@ -49,6 +50,8 @@ public class OraclePoolingConnectionFactory
             poolManager = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
             poolManager.setJmxEnabled(true);
             dataSource = PoolDataSourceFactory.getPoolDataSource();
+            // UCP does not reset autocommit state
+            dataSource.registerConnectionInitializationCallback(this::restoreAutoCommit);
             // generate a unique pool and data source name so that we avoid clashes when tests instantiate a connector
             // for the same catalog more than once (e.g. when running multiple nodes)
             dataSource.setConnectionPoolName(catalogName + "_pool_" + poolUuid);
@@ -73,11 +76,22 @@ public class OraclePoolingConnectionFactory
         }
     }
 
+    private void restoreAutoCommit(Connection connection)
+            throws SQLException
+    {
+        if (!connection.getAutoCommit()) {
+            connection.rollback();
+            connection.setAutoCommit(true);
+        }
+    }
+
     @Override
     public Connection openConnection(JdbcIdentity identity)
             throws SQLException
     {
-        return dataSource.getConnection();
+        Connection connection = dataSource.getConnection();
+        verify(connection.getAutoCommit(), "autoCommit must be enabled");
+        return connection;
     }
 
     @Override
