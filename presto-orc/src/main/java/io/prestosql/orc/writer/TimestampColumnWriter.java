@@ -54,7 +54,7 @@ public class TimestampColumnWriter
         implements ColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
-    private static final int MILLIS_PER_SECOND = 1000;
+    private static final long MILLIS_PER_SECOND = 1000L;
     private static final int MILLIS_TO_NANOS_TRAILING_ZEROS = 5;
 
     private final OrcColumnId columnId;
