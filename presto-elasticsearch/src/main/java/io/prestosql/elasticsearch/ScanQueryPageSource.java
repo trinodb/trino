@@ -75,10 +75,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
 
-public class ElasticsearchPageSource
+public class ScanQueryPageSource
         implements ConnectorPageSource
 {
-    private static final Logger LOG = Logger.get(ElasticsearchPageSource.class);
+    private static final Logger LOG = Logger.get(ScanQueryPageSource.class);
 
     private final List<Decoder> decoders;
 
@@ -87,9 +87,8 @@ public class ElasticsearchPageSource
     private final List<ElasticsearchColumnHandle> columns;
     private long totalBytes;
     private long readTimeNanos;
-    private boolean finished;
 
-    public ElasticsearchPageSource(
+    public ScanQueryPageSource(
             ElasticsearchClient client,
             ConnectorSession session,
             ElasticsearchTableHandle table,
@@ -163,7 +162,7 @@ public class ElasticsearchPageSource
     @Override
     public boolean isFinished()
     {
-        return finished || !iterator.hasNext();
+        return !iterator.hasNext();
     }
 
     @Override
@@ -181,18 +180,6 @@ public class ElasticsearchPageSource
     @Override
     public Page getNextPage()
     {
-        if (columnBuilders.length == 0) {
-            // TODO: emit "count" query against Elasticsearch
-            int count = 0;
-            while (iterator.hasNext()) {
-                iterator.next();
-                count++;
-            }
-
-            finished = true;
-            return new Page(count);
-        }
-
         long size = 0;
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && iterator.hasNext()) {
             SearchHit hit = iterator.next();

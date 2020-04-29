@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
@@ -35,6 +36,8 @@ import io.prestosql.spi.PrestoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -109,6 +112,7 @@ public class ElasticsearchClient
 
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
+    private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
@@ -126,6 +130,7 @@ public class ElasticsearchClient
 
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
+    private final TimeStat countStats = new TimeStat(MILLISECONDS);
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
@@ -600,6 +605,45 @@ public class ElasticsearchClient
         }
     }
 
+    public long count(String index, int shard, QueryBuilder query)
+    {
+        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
+                .query(query);
+
+        LOG.debug("Count: %s:%s, query: %s", index, shard, sourceBuilder);
+
+        long start = System.nanoTime();
+        try {
+            Response response;
+            try {
+                response = client.getLowLevelClient()
+                        .performRequest(
+                                "GET",
+                                format("/%s/_count?preference=_shards:%s", index, shard),
+                                ImmutableMap.of(),
+                                new StringEntity(sourceBuilder.toString()),
+                                new BasicHeader("Content-Type", "application/json"));
+            }
+            catch (ResponseException e) {
+                throw propagate(e);
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            }
+
+            try {
+                return COUNT_RESPONSE_CODEC.fromJson(EntityUtils.toByteArray(response.getEntity()))
+                        .getCount();
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        }
+        finally {
+            countStats.add(Duration.nanosSince(start));
+        }
+    }
+
     public void clearScroll(String scrollId)
     {
         ClearScrollRequest request = new ClearScrollRequest();
@@ -624,6 +668,13 @@ public class ElasticsearchClient
     public TimeStat getNextPageStats()
     {
         return nextPageStats;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getCountStats()
+    {
+        return countStats;
     }
 
     private <T> T doRequest(String path, ResponseHandler<T> handler)
