@@ -25,6 +25,7 @@ import io.prestosql.parquet.ParquetDataSource;
 import io.prestosql.parquet.ParquetEncoding;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -41,12 +42,14 @@ import org.apache.parquet.schema.MessageType;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
@@ -56,6 +59,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static org.apache.parquet.column.Encoding.BIT_PACKED;
 import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
 import static org.apache.parquet.column.Encoding.RLE;
@@ -81,8 +85,26 @@ public final class PredicateUtils
         if (type == BIGINT) {
             return false;
         }
+        if (type instanceof DecimalType && ((DecimalType) type).getScale() == 0) {
+            DecimalType decimalType = (DecimalType) type;
+            if (!decimalType.isShort()) {
+                // Smallest long decimal type with 0 scale has broader range than representable in long, as used in ParquetIntegerStatistics
+                return false;
+            }
+            return BigDecimal.valueOf(min).compareTo(minimalValue(decimalType)) < 0 || BigDecimal.valueOf(max).compareTo(maximalValue(decimalType)) > 0;
+        }
 
         throw new IllegalArgumentException("Unsupported type: " + type);
+    }
+
+    private static BigDecimal minimalValue(DecimalType decimalType)
+    {
+        return new BigDecimal(format("-%s.%s", repeat("9", decimalType.getPrecision() - decimalType.getScale()), repeat("9", decimalType.getScale())));
+    }
+
+    private static BigDecimal maximalValue(DecimalType decimalType)
+    {
+        return new BigDecimal(format("+%s.%s", repeat("9", decimalType.getPrecision() - decimalType.getScale()), repeat("9", decimalType.getScale())));
     }
 
     public static Predicate buildPredicate(MessageType requestedSchema, TupleDomain<ColumnDescriptor> parquetTupleDomain, Map<List<String>, RichColumnDescriptor> descriptorsByPath)

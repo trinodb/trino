@@ -25,6 +25,7 @@ import java.util.Set;
 import static com.google.common.collect.Sets.union;
 import static io.prestosql.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -55,6 +56,14 @@ public class TestPredicateUtils
         assertFalse(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-2_000_000_000L, 2_000_000_000L)));
         assertTrue(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-3_000_000_000L, 2_000_000_000L)));
         assertTrue(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-2_000_000_000L, 3_000_000_000L)));
+
+        // short decimal
+        assertFalse(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-10_000L, 10_000L)));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-100_000L, 10_000L)));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-10_000L, 100_000L)));
+
+        // long decimal
+        assertFalse(isStatisticsOverflow(createDecimalType(19, 0), new ParquetIntegerStatistics(-1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L)));
     }
 
     @Test
