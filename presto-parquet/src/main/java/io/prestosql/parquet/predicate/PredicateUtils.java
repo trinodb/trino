@@ -51,6 +51,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
 import static io.prestosql.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -67,9 +68,21 @@ public final class PredicateUtils
     {
         long min = parquetIntegerStatistics.getMin();
         long max = parquetIntegerStatistics.getMax();
-        return (type.equals(TINYINT) && (min < Byte.MIN_VALUE || max > Byte.MAX_VALUE)) ||
-                (type.equals(SMALLINT) && (min < Short.MIN_VALUE || max > Short.MAX_VALUE)) ||
-                (type.equals(INTEGER) && (min < Integer.MIN_VALUE || max > Integer.MAX_VALUE));
+
+        if (type == TINYINT) {
+            return min < Byte.MIN_VALUE || max > Byte.MAX_VALUE;
+        }
+        if (type == SMALLINT) {
+            return min < Short.MIN_VALUE || max > Short.MAX_VALUE;
+        }
+        if (type == INTEGER) {
+            return min < Integer.MIN_VALUE || max > Integer.MAX_VALUE;
+        }
+        if (type == BIGINT) {
+            return false;
+        }
+
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     public static Predicate buildPredicate(MessageType requestedSchema, TupleDomain<ColumnDescriptor> parquetTupleDomain, Map<List<String>, RichColumnDescriptor> descriptorsByPath)
