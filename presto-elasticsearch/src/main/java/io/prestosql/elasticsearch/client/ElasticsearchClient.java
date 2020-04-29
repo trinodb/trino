@@ -570,20 +570,7 @@ public class ElasticsearchClient
             if (suppressed.length > 0) {
                 Throwable cause = suppressed[0];
                 if (cause instanceof ResponseException) {
-                    HttpEntity entity = ((ResponseException) cause).getResponse().getEntity();
-                    try {
-                        JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
-                                .path("root_cause")
-                                .path(0)
-                                .path("reason");
-
-                        if (!reason.isMissingNode()) {
-                            throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), e);
-                        }
-                    }
-                    catch (IOException ex) {
-                        e.addSuppressed(ex);
-                    }
+                    throw propagate((ResponseException) cause);
                 }
             }
 
@@ -661,6 +648,31 @@ public class ElasticsearchClient
         }
 
         return handler.process(body);
+    }
+
+    private static PrestoException propagate(ResponseException exception)
+    {
+        HttpEntity entity = exception.getResponse().getEntity();
+
+        if (entity != null && entity.getContentType() != null) {
+            try {
+                JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
+                        .path("root_cause")
+                        .path(0)
+                        .path("reason");
+
+                if (!reason.isMissingNode()) {
+                    throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
+                }
+            }
+            catch (IOException e) {
+                PrestoException result = new PrestoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+                result.addSuppressed(e);
+                throw result;
+            }
+        }
+
+        throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, exception);
     }
 
     @VisibleForTesting
