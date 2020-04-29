@@ -62,6 +62,9 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testCountAll()
     {
         assertQuery("SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT count(*) FROM orders WHERE orderkey > 10");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM orders LIMIT 10)");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM orders WHERE orderkey > 10 LIMIT 10)");
     }
 
     @Test
