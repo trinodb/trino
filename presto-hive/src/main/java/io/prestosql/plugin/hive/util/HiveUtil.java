@@ -117,7 +117,9 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.fileSizeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isBucketColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isFileModifiedTimeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isFileSizeColumnHandle;
+import static io.prestosql.plugin.hive.HiveColumnHandle.isPartitionColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isPathColumnHandle;
+import static io.prestosql.plugin.hive.HiveColumnHandle.partitionColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -900,6 +902,9 @@ public final class HiveUtil
         }
         columns.add(fileSizeColumnHandle());
         columns.add(fileModifiedTimeColumnHandle());
+        if (!table.getPartitionColumns().isEmpty()) {
+            columns.add(partitionColumnHandle());
+        }
 
         return columns.build();
     }
@@ -980,7 +985,8 @@ public final class HiveUtil
             OptionalInt bucketNumber,
             long fileSize,
             long fileModifiedTime,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            String partitionName)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
@@ -996,6 +1002,9 @@ public final class HiveUtil
         }
         if (isFileModifiedTimeColumnHandle(columnHandle)) {
             return HIVE_TIMESTAMP_PARSER.withZone(hiveStorageTimeZone).print(fileModifiedTime);
+        }
+        if (isPartitionColumnHandle(columnHandle)) {
+            return partitionName;
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }

@@ -109,6 +109,7 @@ import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -412,6 +413,7 @@ public class TestOrcPageSourceMemoryTracking
         private final Properties schema;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
+        private final String partitonName;
         private final List<HivePartitionKey> partitionKeys;
         private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -442,6 +444,10 @@ public class TestOrcPageSourceMemoryTracking
                     .filter(TestColumn::isPartitionKey)
                     .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                     .collect(toList());
+
+            partitonName = String.join("/", partitionKeys.stream()
+                    .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                    .collect(toImmutableList()));
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -490,6 +496,7 @@ public class TestOrcPageSourceMemoryTracking
                     schema,
                     TupleDomain.all(),
                     columns,
+                    partitonName,
                     partitionKeys,
                     DateTimeZone.UTC,
                     TYPE_MANAGER,
