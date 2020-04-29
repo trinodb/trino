@@ -131,8 +131,6 @@ public abstract class BaseOracleIntegrationSmokeTest
         }
     }
 
-    // TODO: Reuse methods from OracleDataTypes instead of hard-coding data types in the queries.
-
     @Test
     public void testPredicatePushdownForNumerics()
     {
