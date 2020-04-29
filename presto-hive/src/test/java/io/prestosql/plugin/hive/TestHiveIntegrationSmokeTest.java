@@ -94,6 +94,7 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
+import static io.prestosql.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.prestosql.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
@@ -3611,7 +3612,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -3719,7 +3720,7 @@ public class TestHiveIntegrationSmokeTest
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_size");
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -3772,7 +3773,7 @@ public class TestHiveIntegrationSmokeTest
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_modified_time");
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -3804,6 +3805,47 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(fileModifiedTimeMap.size(), 3);
 
         assertUpdate("DROP TABLE test_file_modified_time");
+    }
+
+    @Test
+    public void testPartitionHiddenColumn()
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_partition_hidden_column " +
+                "WITH (" +
+                "partitioned_by = ARRAY['col1', 'col2']" +
+                ") AS " +
+                "SELECT * FROM (VALUES " +
+                "(0, 11, 21), (1, 12, 22), (2, 13, 23), " +
+                "(3, 14, 24), (4, 15, 25), (5, 16, 26), " +
+                "(6, 17, 27), (7, 18, 28), (8, 19, 29)" +
+                " ) t (col0, col1, col2) ";
+        assertUpdate(createTable, 9);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_partition_hidden_column"));
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partition_hidden_column");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("col1", "col2"));
+
+        List<String> columnNames = ImmutableList.of("col0", "col1", "col2", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
+        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        assertEquals(columnMetadatas.size(), columnNames.size());
+        for (int i = 0; i < columnMetadatas.size(); i++) {
+            ColumnMetadata columnMetadata = columnMetadatas.get(i);
+            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            if (columnMetadata.getName().equals(PARTITION_COLUMN_NAME)) {
+                assertTrue(columnMetadata.isHidden());
+            }
+        }
+        assertEquals(getPartitions("test_partition_hidden_column").size(), 9);
+
+        MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_partition_hidden_column", PARTITION_COLUMN_NAME));
+        for (MaterializedRow row : results.getMaterializedRows()) {
+            String actualPartition = (String) row.getField(3);
+            String expectedPartition = format("col1=%s/col2=%s", row.getField(1), row.getField(2));
+            assertEquals(actualPartition, expectedPartition);
+        }
+        assertEquals(results.getRowCount(), 9);
+
+        assertUpdate("DROP TABLE test_partition_hidden_column");
     }
 
     @Test

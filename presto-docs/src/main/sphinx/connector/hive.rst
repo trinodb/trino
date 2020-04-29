@@ -1050,6 +1050,9 @@ directly or used in conditional statements.
 * ``$file_size``
     Size of the file for this row.
 
+* ``$partition``
+    Partition name for this row.
+
 Special Tables
 ----------------
 

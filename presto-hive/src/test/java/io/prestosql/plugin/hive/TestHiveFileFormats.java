@@ -87,6 +87,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCurs
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
 import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -914,6 +915,10 @@ public class TestHiveFileFormats
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
 
+        String partitionName = String.join("/", partitionKeys.stream()
+                .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                .collect(toImmutableList()));
+
         Configuration configuration = new Configuration(false);
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
@@ -930,6 +935,7 @@ public class TestHiveFileFormats
                 splitProperties,
                 TupleDomain.all(),
                 getColumnHandles(testReadColumns),
+                partitionName,
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
@@ -976,6 +982,10 @@ public class TestHiveFileFormats
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
 
+        String partitionName = String.join("/", partitionKeys.stream()
+                .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                .collect(toImmutableList()));
+
         List<HiveColumnHandle> columnHandles = getColumnHandles(testReadColumns);
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
@@ -992,6 +1002,7 @@ public class TestHiveFileFormats
                 splitProperties,
                 TupleDomain.all(),
                 columnHandles,
+                partitionName,
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,

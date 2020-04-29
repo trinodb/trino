@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -55,6 +56,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -187,6 +189,10 @@ public class TestOrcPredicates
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
 
+        String partitionName = String.join("/", partitionKeys.stream()
+                .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                .collect(toImmutableList()));
+
         List<HiveColumnHandle> columnHandles = getColumnHandles(columnsToRead);
 
         TupleDomain<HiveColumnHandle> predicate = effectivePredicate.transform(testColumn -> {
@@ -212,6 +218,7 @@ public class TestOrcPredicates
                 splitProperties,
                 predicate,
                 columnHandles,
+                partitionName,
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,

@@ -116,6 +116,7 @@ public class HivePageSourceProvider
                 hiveSplit.getSchema(),
                 hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast).simplify()),
                 hiveColumns,
+                hiveSplit.getPartitionName(),
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
@@ -143,6 +144,7 @@ public class HivePageSourceProvider
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> columns,
+            String partitionName,
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
@@ -156,6 +158,7 @@ public class HivePageSourceProvider
         }
 
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
+                partitionName,
                 partitionKeys,
                 columns,
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
@@ -344,6 +347,7 @@ public class HivePageSourceProvider
         }
 
         public static List<ColumnMapping> buildColumnMappings(
+                String partitionName,
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
                 List<HiveColumnHandle> requiredInterimColumns,
@@ -388,7 +392,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime, hiveStorageTimeZone),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime, hiveStorageTimeZone, partitionName),
                             baseTypeCoercionFrom));
                 }
             }
