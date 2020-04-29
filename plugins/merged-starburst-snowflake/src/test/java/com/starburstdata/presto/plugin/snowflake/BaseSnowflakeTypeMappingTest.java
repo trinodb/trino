@@ -216,20 +216,20 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         testTypeMapping(
                 DataTypeTest.create()
-                        .addRoundTrip(integerDataType("TINYINT"), new BigDecimal(0))
-                        .addRoundTrip(integerDataType("TINYINT"), null)
-                        .addRoundTrip(integerDataType("SMALLINT"), new BigDecimal(0))
-                        .addRoundTrip(integerDataType("SMALLINT"), new BigDecimal(-32768))
-                        .addRoundTrip(integerDataType("SMALLINT"), new BigDecimal(32767))
-                        .addRoundTrip(integerDataType("SMALLINT"), null)
-                        .addRoundTrip(integerDataType("INTEGER"), new BigDecimal(0))
-                        .addRoundTrip(integerDataType("INTEGER"), new BigDecimal(0x80000000))
-                        .addRoundTrip(integerDataType("INTEGER"), new BigDecimal(0x7fffffff))
-                        .addRoundTrip(integerDataType("INTEGER"), null)
-                        .addRoundTrip(integerDataType("BIGINT"), new BigDecimal(0L))
-                        .addRoundTrip(integerDataType("BIGINT"), new BigDecimal(0x8000000000000000L + 1))
-                        .addRoundTrip(integerDataType("BIGINT"), new BigDecimal(0x7fffffffffffffffL))
-                        .addRoundTrip(integerDataType("BIGINT"), null));
+                        .addRoundTrip(integerDataType("TINYINT", 3), new BigDecimal(0))
+                        .addRoundTrip(integerDataType("TINYINT", 3), null)
+                        .addRoundTrip(integerDataType("SMALLINT", 5), new BigDecimal(0))
+                        .addRoundTrip(integerDataType("SMALLINT", 5), new BigDecimal(-32768))
+                        .addRoundTrip(integerDataType("SMALLINT", 5), new BigDecimal(32767))
+                        .addRoundTrip(integerDataType("SMALLINT", 5), null)
+                        .addRoundTrip(integerDataType("INTEGER", 10), new BigDecimal(0))
+                        .addRoundTrip(integerDataType("INTEGER", 10), new BigDecimal(0x80000000))
+                        .addRoundTrip(integerDataType("INTEGER", 10), new BigDecimal(0x7fffffff))
+                        .addRoundTrip(integerDataType("INTEGER", 10), null)
+                        .addRoundTrip(integerDataType("BIGINT", 19), new BigDecimal(0L))
+                        .addRoundTrip(integerDataType("BIGINT", 19), new BigDecimal(0x8000000000000000L + 1))
+                        .addRoundTrip(integerDataType("BIGINT", 19), new BigDecimal(0x7fffffffffffffffL))
+                        .addRoundTrip(integerDataType("BIGINT", 19), null));
     }
 
     private static DataTypeTest numericTests(BiFunction<Integer, Integer, DataType<BigDecimal>> decimalType)
@@ -620,9 +620,9 @@ public abstract class BaseSnowflakeTypeMappingTest
                 value -> expectedResult);
     }
 
-    private static DataType<BigDecimal> integerDataType(String insertType)
+    private static DataType<BigDecimal> integerDataType(String insertType, int precision)
     {
-        return decimalDataType(insertType, createDecimalType(38, 0));
+        return decimalDataType(insertType, createDecimalType(precision, 0));
     }
 
     private static DataType<BigDecimal> decimalDataType(String typeName, int precision, int scale)

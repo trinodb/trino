@@ -57,11 +57,9 @@ public abstract class BaseSnowflakeDistributedQueries
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         // Real: Snowflake does not have a REAL type, instead they are mapped to double. The round trip test fails because REAL '567.123' != DOUBLE '567.123'
-        // Varbinary: TODO fix is in a separate PR, https://github.com/starburstdata/starburst-presto/pull/414
         // Char: Snowflake does not have a CHAR type. They map it to varchar, which does not have the same fixed width semantics
-        // Double: See https://starburstdata.atlassian.net/browse/PRESTO-3389
         String name = dataMappingTestSetup.getPrestoTypeName();
-        if (name.equals("real") || name.equals("varbinary") || name.equals("char(3)") || name.equals("double")) {
+        if (name.equals("real") || name.startsWith("char")) {
             return Optional.empty();
         }
         return Optional.of(dataMappingTestSetup);

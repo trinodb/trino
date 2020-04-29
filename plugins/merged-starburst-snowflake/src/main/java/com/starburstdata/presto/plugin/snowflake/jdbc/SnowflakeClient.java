@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
@@ -58,29 +59,43 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.sql.Types.BINARY;
+import static java.sql.Types.LONGVARBINARY;
+import static java.sql.Types.VARBINARY;
 import static java.sql.Types.VARCHAR;
 import static java.time.ZoneOffset.UTC;
 
@@ -92,13 +107,18 @@ public class SnowflakeClient
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
-
     private static final UnaryOperator<Domain> SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
         if (domain.getValues().getRanges().getRangeCount() <= SNOWFLAKE_MAX_LIST_EXPRESSIONS) {
             return domain;
         }
         return domain.simplify();
     };
+    private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
+            .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))
+            .put(INTEGER, WriteMapping.longMapping("number(10)", integerWriteFunction()))
+            .put(SMALLINT, WriteMapping.longMapping("number(5)", smallintWriteFunction()))
+            .put(TINYINT, WriteMapping.longMapping("number(3)", tinyintWriteFunction()))
+            .build();
 
     private final TableStatisticsClient tableStatisticsClient;
     private final boolean distributedConnector;
@@ -140,44 +160,33 @@ public class SnowflakeClient
         return true;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
-    {
-        return toPrestoType(session, typeHandle).map(mapping -> new ColumnMapping(
-                mapping.getType(),
-                mapping.getReadFunction(),
-                mapping.getWriteFunction(),
-                SIMPLIFY_UNSUPPORTED_PUSHDOWN));
-    }
-
-    private Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         String typeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         int columnSize = typeHandle.getColumnSize();
 
-        // TODO: Snowflake uses -5 (BIGINT) type for NUMBER data type: https://github.com/snowflakedb/snowflake-jdbc/issues/154
         if (typeName.equals("NUMBER")) {
             int decimalDigits = typeHandle.getDecimalDigits();
             int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
             }
-            return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+            return Optional.of(withSimplifiedPushdownConverter(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY)));
         }
 
         if (typeName.equals("VARIANT")) {
-            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction()));
+            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction(), SIMPLIFY_UNSUPPORTED_PUSHDOWN));
         }
 
         if (typeName.equals("OBJECT") || typeName.equals("ARRAY")) {
             // TODO: better support for OBJECT (Presto MAP/ROW) and ARRAY (Presto ARRAY)
-            return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+            return Optional.of(withSimplifiedPushdownConverter(varcharColumnMapping(createUnboundedVarcharType())));
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {
-            return Optional.of(timeColumnMapping(session));
+            return Optional.of(withSimplifiedPushdownConverter(timeColumnMapping(session)));
         }
 
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
@@ -188,10 +197,24 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
-            return Optional.of(varcharColumnMapping(createVarcharType(min(columnSize, HiveVarchar.MAX_VARCHAR_LENGTH))));
+            return Optional.of(withSimplifiedPushdownConverter(varcharColumnMapping(createVarcharType(min(columnSize, HiveVarchar.MAX_VARCHAR_LENGTH)))));
         }
 
-        return jdbcTypeToPrestoType(session, typeHandle);
+        if (typeHandle.getJdbcType() == VARBINARY || typeHandle.getJdbcType() == BINARY || typeHandle.getJdbcType() == LONGVARBINARY) {
+            return Optional.of(varbinaryColumnMapping());
+        }
+
+        return jdbcTypeToPrestoType(session, typeHandle).map(this::withSimplifiedPushdownConverter);
+    }
+
+    private ColumnMapping withSimplifiedPushdownConverter(ColumnMapping mapping)
+    {
+        verify(mapping.getPushdownConverter() != ColumnMapping.DISABLE_PUSHDOWN);
+        return new ColumnMapping(
+                mapping.getType(),
+                mapping.getReadFunction(),
+                mapping.getWriteFunction(),
+                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
     }
 
     @Override
@@ -212,6 +235,11 @@ public class SnowflakeClient
 
         if (type instanceof TimestampWithTimeZoneType) {
             return WriteMapping.longMapping("timestamp_tz", timestampWithTimezoneWriteFunction());
+        }
+
+        WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
+        if (writeMapping != null) {
+            return writeMapping;
         }
 
         return super.toWriteMapping(session, type);
@@ -268,7 +296,8 @@ public class SnowflakeClient
                             timestamp.toInstant().toEpochMilli(),
                             timestamp.getZone().getId());
                 },
-                timestampWithTimezoneWriteFunction());
+                timestampWithTimezoneWriteFunction(),
+                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
     }
 
     private static LongWriteFunction timestampWithTimezoneWriteFunction()
