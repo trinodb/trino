@@ -21,6 +21,7 @@ import io.prestosql.parquet.predicate.TupleDomainParquetPredicate;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -36,6 +37,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 
@@ -52,6 +54,8 @@ import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -174,6 +178,46 @@ public class TestTupleDomainParquetPredicate
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(TINYINT, 10, longColumnStats(2147483648L, 10), ID, column, true))
                 .withMessage("Corrupted statistics for column \"TinyintColumn\" in Parquet file \"testFile\": [min: 2147483648, max: 10, num_nulls: 0]");
+    }
+
+    @Test
+    public void testShortDecimal()
+            throws Exception
+    {
+        String column = "ShortDecimalColumn";
+        Type type = createDecimalType(5, 0);
+        assertEquals(getDomain(type, 0, null, ID, column, true), all(type));
+
+        assertEquals(getDomain(type, 10, longColumnStats(100L, 100L), ID, column, true), singleValue(type, 100L));
+
+        assertEquals(getDomain(type, 10, longColumnStats(0L, 100L), ID, column, true), create(ValueSet.ofRanges(range(type, 0L, true, 100L, true)), false));
+        // ignore corrupted statistics
+        assertEquals(getDomain(type, 10, longColumnStats(100L, 0L), ID, column, false), create(ValueSet.all(type), false));
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(type, 10, longColumnStats(100L, 10L), ID, column, true))
+                .withMessage("Corrupted statistics for column \"ShortDecimalColumn\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
+    }
+
+    @Test
+    public void testLongDecimal()
+            throws Exception
+    {
+        String column = "LongDecimalColumn";
+        DecimalType type = createDecimalType(20, 0);
+        Slice zero = encodeScaledValue(new BigDecimal("0"), type.getScale());
+        Slice hundred = encodeScaledValue(new BigDecimal("100"), type.getScale());
+        assertEquals(getDomain(type, 0, null, ID, column, true), all(type));
+
+        assertEquals(getDomain(type, 10, longColumnStats(100L, 100L), ID, column, true), singleValue(type, hundred));
+
+        assertEquals(getDomain(type, 10, longColumnStats(0L, 100L), ID, column, true), create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
+        // ignore corrupted statistics
+        assertEquals(getDomain(type, 10, longColumnStats(100L, 0L), ID, column, false), create(ValueSet.all(type), false));
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(type, 10, longColumnStats(100L, 10L), ID, column, true))
+                .withMessage("Corrupted statistics for column \"LongDecimalColumn\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
     }
 
     @Test
