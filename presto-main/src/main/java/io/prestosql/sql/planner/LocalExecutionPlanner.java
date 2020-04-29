@@ -1035,6 +1035,9 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitLimit(LimitNode node, LocalExecutionPlanContext context)
         {
+            // Limit with ties should be rewritten at this point
+            checkState(!node.getTiesResolvingScheme().isPresent(), "Limit with ties not supported");
+
             PhysicalOperation source = node.getSource().accept(this, context);
 
             OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), node.getId(), node.getCount());
