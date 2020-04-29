@@ -18,23 +18,58 @@ import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+
 public class RubixConfig
 {
-    // TODO enable by default again after https://github.com/prestosql/presto/issues/3494 is fixed
-    private boolean parallelWarmupEnabled;
+    public enum ReadMode
+    {
+        READ_THROUGH(false),
+        ASYNC(true);
+
+        private final boolean parallelWarmupEnabled;
+
+        ReadMode(boolean parallelWarmupEnabled)
+        {
+            this.parallelWarmupEnabled = parallelWarmupEnabled;
+        }
+
+        public boolean isParallelWarmupEnabled()
+        {
+            return parallelWarmupEnabled;
+        }
+
+        public static ReadMode fromString(String value)
+        {
+            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+                case "async":
+                    return ASYNC;
+                case "read-through":
+                    return READ_THROUGH;
+            }
+
+            throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+        }
+    }
+
+    // TODO switch back to ASYNC when https://github.com/prestosql/presto/issues/3494 is fixed
+    private ReadMode readMode = ReadMode.READ_THROUGH;
     private String cacheLocation;
     private int bookKeeperServerPort = CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT;
     private int dataTransferServerPort = CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT;
 
-    public boolean isParallelWarmupEnabled()
+    @NotNull
+    public ReadMode getReadMode()
     {
-        return parallelWarmupEnabled;
+        return readMode;
     }
 
-    @Config("hive.cache.parallel-warmup-enabled")
-    public RubixConfig setParallelWarmupEnabled(boolean value)
+    @Config("hive.cache.read-mode")
+    public RubixConfig setReadMode(ReadMode readMode)
     {
-        this.parallelWarmupEnabled = value;
+        this.readMode = readMode;
         return this;
     }
 
