@@ -27,6 +27,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.BinaryStatistics;
@@ -38,6 +39,7 @@ import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +50,7 @@ import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -165,6 +168,19 @@ public class TupleDomainParquetPredicate
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics.get());
+        }
+
+        if (type instanceof DecimalType && ((DecimalType) type).getScale() == 0 && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
+            Optional<ParquetIntegerStatistics> parquetIntegerStatistics = toParquetIntegerStatistics(statistics, id, column, failOnCorruptedParquetStatistics);
+            if (!parquetIntegerStatistics.isPresent() || isStatisticsOverflow(type, parquetIntegerStatistics.get())) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+            return createDomain(type, hasNullValue, parquetIntegerStatistics.get(), statisticsValue -> {
+                if (((DecimalType) type).isShort()) {
+                    return statisticsValue;
+                }
+                return encodeScaledValue(BigDecimal.valueOf(statisticsValue), 0 /* scale */);
+            });
         }
 
         if (type.equals(REAL) && statistics instanceof FloatStatistics) {
@@ -326,7 +342,7 @@ public class TupleDomainParquetPredicate
         return createDomain(type, hasNullValue, rangeStatistics, value -> value);
     }
 
-    private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, ParquetRangeStatistics<F> rangeStatistics, Function<F, T> function)
+    private static <F, T> Domain createDomain(Type type, boolean hasNullValue, ParquetRangeStatistics<F> rangeStatistics, Function<F, T> function)
     {
         F min = rangeStatistics.getMin();
         F max = rangeStatistics.getMax();
