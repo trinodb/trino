@@ -160,27 +160,11 @@ public class TupleDomainParquetPredicate
         }
 
         if ((type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER)) && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
-            ParquetIntegerStatistics parquetIntegerStatistics;
-            if (statistics instanceof LongStatistics) {
-                LongStatistics longStatistics = (LongStatistics) statistics;
-                if (longStatistics.genericGetMin() > longStatistics.genericGetMax()) {
-                    failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, longStatistics);
-                    return Domain.create(ValueSet.all(type), hasNullValue);
-                }
-                parquetIntegerStatistics = new ParquetIntegerStatistics(longStatistics.genericGetMin(), longStatistics.genericGetMax());
-            }
-            else {
-                IntStatistics intStatistics = (IntStatistics) statistics;
-                if (intStatistics.genericGetMin() > intStatistics.genericGetMax()) {
-                    failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, intStatistics);
-                    return Domain.create(ValueSet.all(type), hasNullValue);
-                }
-                parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
-            }
-            if (isStatisticsOverflow(type, parquetIntegerStatistics)) {
+            Optional<ParquetIntegerStatistics> parquetIntegerStatistics = toParquetIntegerStatistics(statistics, id, column, failOnCorruptedParquetStatistics);
+            if (!parquetIntegerStatistics.isPresent() || isStatisticsOverflow(type, parquetIntegerStatistics.get())) {
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
-            return createDomain(type, hasNullValue, parquetIntegerStatistics);
+            return createDomain(type, hasNullValue, parquetIntegerStatistics.get());
         }
 
         if (type.equals(REAL) && statistics instanceof FloatStatistics) {
@@ -230,6 +214,30 @@ public class TupleDomainParquetPredicate
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
+    }
+
+    private static Optional<ParquetIntegerStatistics> toParquetIntegerStatistics(Statistics<?> statistics, ParquetDataSourceId id, String column, boolean failOnCorruptedParquetStatistics)
+            throws ParquetCorruptionException
+    {
+        if (statistics instanceof LongStatistics) {
+            LongStatistics longStatistics = (LongStatistics) statistics;
+            if (longStatistics.genericGetMin() > longStatistics.genericGetMax()) {
+                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, longStatistics);
+                return Optional.empty();
+            }
+            return Optional.of(new ParquetIntegerStatistics(longStatistics.genericGetMin(), longStatistics.genericGetMax()));
+        }
+
+        if (statistics instanceof IntStatistics) {
+            IntStatistics intStatistics = (IntStatistics) statistics;
+            if (intStatistics.genericGetMin() > intStatistics.genericGetMax()) {
+                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, intStatistics);
+                return Optional.empty();
+            }
+            return Optional.of(new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax()));
+        }
+
+        throw new IllegalArgumentException("Cannot convert statistics of type " + statistics.getClass().getName());
     }
 
     @VisibleForTesting
