@@ -22,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRubixConfig
 {
@@ -32,25 +33,32 @@ public class TestRubixConfig
                 .setBookKeeperServerPort(CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT)
                 .setDataTransferServerPort(CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT)
                 .setCacheLocation(null)
-                .setParallelWarmupEnabled(false));
+                .setReadMode(RubixConfig.ReadMode.READ_THROUGH));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.cache.parallel-warmup-enabled", "true")
+                .put("hive.cache.read-mode", "async")
                 .put("hive.cache.location", "/some-directory")
                 .put("hive.cache.bookkeeper-port", "1234")
                 .put("hive.cache.data-transfer-port", "1235")
                 .build();
 
         RubixConfig expected = new RubixConfig()
-                .setParallelWarmupEnabled(true)
+                .setReadMode(RubixConfig.ReadMode.ASYNC)
                 .setCacheLocation("/some-directory")
                 .setBookKeeperServerPort(1234)
                 .setDataTransferServerPort(1235);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testReadModeFromString()
+    {
+        assertThat(RubixConfig.ReadMode.fromString("async")).isEqualTo(RubixConfig.ReadMode.ASYNC);
+        assertThat(RubixConfig.ReadMode.fromString("read-through")).isEqualTo(RubixConfig.ReadMode.READ_THROUGH);
     }
 }

@@ -61,7 +61,7 @@ public class RubixConfigurationInitializer
     @Inject
     public RubixConfigurationInitializer(RubixConfig config)
     {
-        this.parallelWarmupEnabled = config.isParallelWarmupEnabled();
+        this.parallelWarmupEnabled = config.getReadMode().isParallelWarmupEnabled();
         this.cacheLocation = config.getCacheLocation();
         this.bookKeeperServerPort = config.getBookKeeperServerPort();
         this.dataTransferServerPort = config.getDataTransferServerPort();
