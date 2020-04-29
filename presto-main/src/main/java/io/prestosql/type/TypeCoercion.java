@@ -112,6 +112,12 @@ public final class TypeCoercion
         return Optional.of(compatibility.getCommonSuperType());
     }
 
+    public boolean isCompatible(Type fromType, Type toType)
+    {
+        TypeCompatibility typeCompatibility = compatibility(fromType, toType);
+        return typeCompatibility.isCompatible();
+    }
+
     public boolean canCoerce(Type fromType, Type toType)
     {
         TypeCompatibility typeCompatibility = compatibility(fromType, toType);

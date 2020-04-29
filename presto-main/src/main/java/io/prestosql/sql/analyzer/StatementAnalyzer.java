@@ -373,7 +373,7 @@ class StatementAnalyzer
             }
 
             for (int i = 0; i < tableTypes.size(); i++) {
-                if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
+                if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
