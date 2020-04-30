@@ -42,7 +42,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -351,7 +350,7 @@ public class TestDriver
     }
 
     private static class BrokenOperator
-            implements Operator, Closeable
+            implements Operator
     {
         private final OperatorContext operatorContext;
         private final ReentrantLock lock = new ReentrantLock();
