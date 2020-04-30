@@ -378,12 +378,12 @@ Accessors
 
     Returns the cardinality of the collection of interior rings of a polygon.
 
-.. function:: line_interpolate_point(LineString, double) -> double
+.. function:: line_interpolate_point(LineString, double) -> Geometry
 
     Returns a Point interpolated along a LineString at the fraction given. The fraction
     must be between 0 and 1, inclusive.
 
-.. function:: line_interpolate_points(LineString, double, repeated) -> double
+.. function:: line_interpolate_points(LineString, double, repeated) -> array(Geometry)
 
     Returns an array of Points interpolated along a LineString. The fraction must be
     between 0 and 1, inclusive.
