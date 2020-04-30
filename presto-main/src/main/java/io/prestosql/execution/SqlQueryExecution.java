@@ -69,6 +69,8 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +98,7 @@ public class SqlQueryExecution
     private static final Logger log = Logger.get(SqlQueryExecution.class);
 
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final QueryStateMachine stateMachine;
     private final Slug slug;
@@ -353,6 +356,11 @@ public class SqlQueryExecution
                 throwIfInstanceOf(e, Error.class);
             }
         }
+    }
+
+    private static long currentThreadCpuTime()
+    {
+        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
     }
 
     @Override

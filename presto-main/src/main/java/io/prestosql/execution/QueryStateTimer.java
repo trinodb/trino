@@ -17,9 +17,12 @@ import com.google.common.base.Ticker;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -28,6 +31,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 class QueryStateTimer
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
+
     private final Ticker ticker;
 
     private final DateTime createTime = DateTime.now();
@@ -36,6 +41,8 @@ class QueryStateTimer
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginPlanningCpuNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginPlanningThreadId = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
@@ -44,6 +51,7 @@ class QueryStateTimer
     private final AtomicReference<Duration> dispatchingTime = new AtomicReference<>();
     private final AtomicReference<Duration> executionTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningTime = new AtomicReference<>();
+    private final AtomicReference<Duration> planningCpuTime = new AtomicReference<>();
     private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
 
     private final AtomicReference<Long> beginAnalysisNanos = new AtomicReference<>();
@@ -87,25 +95,29 @@ class QueryStateTimer
 
     public void beginPlanning()
     {
-        beginPlanning(tickerNanos());
+        beginPlanning(tickerNanos(), currentThreadCpuTime(), Thread.currentThread().getId());
     }
 
-    private void beginPlanning(long now)
+    private void beginPlanning(long now, long cpuNow, long threadId)
     {
         beginDispatching(now);
         dispatchingTime.compareAndSet(null, nanosSince(beginDispatchingNanos, now));
         beginPlanningNanos.compareAndSet(null, now);
+        beginPlanningCpuNanos.compareAndSet(null, cpuNow);
+        beginPlanningThreadId.compareAndSet(null, threadId);
     }
 
     public void beginStarting()
     {
-        beginStarting(tickerNanos());
+        beginStarting(tickerNanos(), currentThreadCpuTime(), Thread.currentThread().getId());
     }
 
-    private void beginStarting(long now)
+    private void beginStarting(long now, long cpuNow, long threadId)
     {
-        beginPlanning(now);
+        beginPlanning(now, cpuNow, threadId);
+        checkState(beginPlanningThreadId.get().equals(threadId), "The beginStarting caller thread id is different with beginPlanning caller thread id");
         planningTime.compareAndSet(null, nanosSince(beginPlanningNanos, now));
+        planningCpuTime.compareAndSet(null, nanosSince(beginPlanningCpuNanos, cpuNow));
     }
 
     public void beginRunning()
@@ -115,7 +127,7 @@ class QueryStateTimer
 
     private void beginRunning(long now)
     {
-        beginStarting(now);
+        beginStarting(now, currentThreadCpuTime(), Thread.currentThread().getId());
     }
 
     public void beginFinishing()
@@ -223,6 +235,11 @@ class QueryStateTimer
         return getDuration(planningTime, beginPlanningNanos);
     }
 
+    public Duration getPlanningCpuTime()
+    {
+        return getDuration(planningCpuTime, beginPlanningCpuNanos);
+    }
+
     public Duration getFinishingTime()
     {
         return getDuration(finishingTime, beginFinishingNanos);
@@ -297,5 +314,10 @@ class QueryStateTimer
     {
         long millisSinceCreate = NANOSECONDS.toMillis(instantNanos - createNanos);
         return new DateTime(createTime.getMillis() + millisSinceCreate);
+    }
+
+    private static long currentThreadCpuTime()
+    {
+        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
     }
 }
