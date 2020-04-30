@@ -20,7 +20,8 @@ import javax.validation.constraints.NotNull;
 
 public class RubixConfig
 {
-    private boolean parallelWarmupEnabled = true;
+    // TODO enable by default again after https://github.com/prestosql/presto/issues/3494 is fixed
+    private boolean parallelWarmupEnabled;
     private String cacheLocation;
     private int bookKeeperServerPort = CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT;
     private int dataTransferServerPort = CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT;
