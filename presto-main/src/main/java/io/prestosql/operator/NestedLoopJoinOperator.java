@@ -22,7 +22,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import java.io.Closeable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -35,7 +34,7 @@ import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
 public class NestedLoopJoinOperator
-        implements Operator, Closeable
+        implements Operator
 {
     public static class NestedLoopJoinOperatorFactory
             implements OperatorFactory

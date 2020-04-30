@@ -24,7 +24,6 @@ import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import java.io.Closeable;
 import java.net.URI;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -34,7 +33,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
-        implements SourceOperator, Closeable
+        implements SourceOperator
 {
     public static final CatalogName REMOTE_CONNECTOR_ID = new CatalogName("$remote");
 
