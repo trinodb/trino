@@ -61,6 +61,9 @@
                         <excludes combine.children="append">
                             <exclude>src/main/rpm/**</exclude>
                         </excludes>
+                        <mapping>
+                            <groovy>SLASHSTAR_STYLE</groovy>
+                        </mapping>
                     </configuration>
                 </plugin>
             </plugins>
@@ -97,11 +100,31 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>org.codehaus.gmaven</groupId>
+                <artifactId>groovy-maven-plugin</artifactId>
+                <version>2.1.1</version>
+                <executions>
+                    <execution>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>execute</goal>
+                        </goals>
+                        <configuration>
+                            <source>${project.basedir}/src/main/script/symlink.groovy</source>
+                            <properties>
+                                <root>${project.build.outputDirectory}/${server.tar.package}</root>
+                            </properties>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Build presto-server rpm using the untarred artifacts -->
             <plugin>
-                <groupId>com.teradata</groupId>
-                <artifactId>redlinerpm-maven-plugin-td</artifactId>
-                <version>2.1.5</version>
+                <groupId>io.airlift.maven.plugins</groupId>
+                <artifactId>redlinerpm-maven-plugin</artifactId>
+                <version>2.1.6</version>
                 <extensions>true</extensions>
 
                 <configuration>
@@ -175,6 +198,14 @@
                                     <base>dist/etc/init.d</base>
                                     <!-- make sure init.d scripts are executable -->
                                     <fileMode>0755</fileMode>
+                                    <includes>
+                                        <include>*</include>
+                                    </includes>
+                                </rule>
+
+                                <rule>
+                                    <destination>/usr/lib/presto/shared</destination>
+                                    <base>${server.tar.package}/shared</base>
                                     <includes>
                                         <include>*</include>
                                     </includes>
