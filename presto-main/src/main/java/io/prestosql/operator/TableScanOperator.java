@@ -33,7 +33,6 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -46,7 +45,7 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
-        implements SourceOperator, Closeable
+        implements SourceOperator
 {
     public static class TableScanOperatorFactory
             implements SourceOperatorFactory, WorkProcessorSourceOperatorFactory
