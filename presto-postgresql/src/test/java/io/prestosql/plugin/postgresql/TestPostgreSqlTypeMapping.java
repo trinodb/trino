@@ -176,7 +176,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testBasicTypes()
     {
-        DataTypeTest.create()
+        DataTypeTest.create(true)
                 .addRoundTrip(booleanDataType(), true)
                 .addRoundTrip(booleanDataType(), false)
                 .addRoundTrip(bigintDataType(), 123_456_789_012L)
@@ -610,7 +610,7 @@ public class TestPostgreSqlTypeMapping
     public void testArray()
     {
         // basic types
-        DataTypeTest.create()
+        DataTypeTest.create(true)
                 .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
                 .addRoundTrip(arrayDataType(bigintDataType()), asList(123_456_789_012L))
                 .addRoundTrip(arrayDataType(integerDataType()), asList(1, 2, 1_234_567_890))
@@ -853,6 +853,7 @@ public class TestPostgreSqlTypeMapping
                 insertType,
                 new ArrayType(elementType.getPrestoResultType()),
                 valuesList -> "ARRAY" + valuesList.stream().map(elementType::toLiteral).collect(toList()),
+                valuesList -> "ARRAY" + valuesList.stream().map(elementType::toPrestoLiteral).collect(toList()),
                 valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toPrestoQueryResult).collect(toList()));
     }
 
@@ -896,7 +897,7 @@ public class TestPostgreSqlTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        DataTypeTest testCases = DataTypeTest.create()
+        DataTypeTest testCases = DataTypeTest.create(true)
                 .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
@@ -984,7 +985,7 @@ public class TestPostgreSqlTypeMapping
     public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        DataTypeTest tests = DataTypeTest.create()
+        DataTypeTest tests = DataTypeTest.create(true)
                 .addRoundTrip(timestampDataType(), beforeEpoch)
                 .addRoundTrip(timestampDataType(), afterEpoch)
                 .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
@@ -1032,7 +1033,7 @@ public class TestPostgreSqlTypeMapping
             dataType = arrayDataType(timestampDataType(), "timestamp[]");
             dataSetup = postgresCreateAndInsert("tpch.test_array_timestamp");
         }
-        DataTypeTest tests = DataTypeTest.create()
+        DataTypeTest tests = DataTypeTest.create(true)
                 .addRoundTrip(dataType, asList(beforeEpoch))
                 .addRoundTrip(dataType, asList(afterEpoch))
                 .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
@@ -1108,7 +1109,7 @@ public class TestPostgreSqlTypeMapping
             dataSetup = postgresCreateAndInsert("tpch.test_timestamp_with_time_zone");
         }
 
-        DataTypeTest tests = DataTypeTest.create()
+        DataTypeTest tests = DataTypeTest.create(true)
                 .addRoundTrip(dataType, epoch.atZone(UTC))
                 .addRoundTrip(dataType, epoch.atZone(kathmandu))
                 .addRoundTrip(dataType, epoch.atZone(fixedOffsetEast))
@@ -1202,7 +1203,7 @@ public class TestPostgreSqlTypeMapping
 
     private DataTypeTest jsonTestCases(DataType<String> jsonDataType)
     {
-        return DataTypeTest.create()
+        return DataTypeTest.create(true)
                 .addRoundTrip(jsonDataType, "{}")
                 .addRoundTrip(jsonDataType, null)
                 .addRoundTrip(jsonDataType, "null")
@@ -1245,7 +1246,7 @@ public class TestPostgreSqlTypeMapping
 
     private DataTypeTest uuidTestCases(DataType<java.util.UUID> uuidDataType)
     {
-        return DataTypeTest.create()
+        return DataTypeTest.create(true)
                 .addRoundTrip(uuidDataType, java.util.UUID.fromString("00000000-0000-0000-0000-000000000000"))
                 .addRoundTrip(uuidDataType, java.util.UUID.fromString("123e4567-e89b-12d3-a456-426655440000"));
     }
@@ -1253,7 +1254,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testMoney()
     {
-        DataTypeTest.create()
+        DataTypeTest.create(true)
                 .addRoundTrip(moneyDataType(), null)
                 .addRoundTrip(moneyDataType(), 10.)
                 .addRoundTrip(moneyDataType(), 10.54)
@@ -1283,7 +1284,7 @@ public class TestPostgreSqlTypeMapping
 
     private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
     {
-        return DataTypeTest.create()
+        return DataTypeTest.create(true)
                 .addRoundTrip(floatType, 3.14f)
                 .addRoundTrip(floatType, 3.1415927f)
                 .addRoundTrip(floatType, Float.NaN)
@@ -1294,7 +1295,7 @@ public class TestPostgreSqlTypeMapping
 
     private static DataTypeTest doublePrecisionFloatinPointTests(DataType<Double> doubleType)
     {
-        return DataTypeTest.create()
+        return DataTypeTest.create(true)
                 .addRoundTrip(doubleType, 1.0e100d)
                 .addRoundTrip(doubleType, Double.NaN)
                 .addRoundTrip(doubleType, Double.POSITIVE_INFINITY)
@@ -1391,6 +1392,7 @@ public class TestPostgreSqlTypeMapping
                 // PostgreSQL never examines the content of a literal string before determining its type, so `TIMESTAMP '.... {zone}'` won't work.
                 // PostgreSQL does not store zone, only the point in time
                 zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP WITH TIME ZONE '''yyyy-MM-dd HH:mm:ss.SSS VV''").format(zonedDateTime.withZoneSameInstant(UTC)),
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
                 zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
     }
 
@@ -1461,6 +1463,7 @@ public class TestPostgreSqlTypeMapping
                 "bytea",
                 VARBINARY,
                 bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
+                DataType::binaryLiteral,
                 identity());
     }
 
@@ -1470,6 +1473,10 @@ public class TestPostgreSqlTypeMapping
                 "money",
                 VARCHAR,
                 String::valueOf,
+                amount -> {
+                    NumberFormat numberFormat = NumberFormat.getCurrencyInstance(Locale.US);
+                    return "'" + numberFormat.format(amount) + "'";
+                },
                 amount -> {
                     NumberFormat numberFormat = NumberFormat.getCurrencyInstance(Locale.US);
                     return numberFormat.format(amount);
@@ -1546,7 +1553,9 @@ public class TestPostgreSqlTypeMapping
                         return "'NaN'::real";
                     }
                     return format("'%sInfinity'::real", value > 0 ? "+" : "-");
-                });
+                },
+                realDataType()::toPrestoLiteral,
+                Function.identity());
     }
 
     private static DataType<Double> postgreSqlDoubleDataType()
@@ -1560,6 +1569,8 @@ public class TestPostgreSqlTypeMapping
                         return "'NaN'::double precision";
                     }
                     return format("'%sInfinity'::double precision", value > 0 ? "+" : "-");
-                });
+                },
+                doubleDataType()::toPrestoLiteral,
+                Function.identity());
     }
 }
