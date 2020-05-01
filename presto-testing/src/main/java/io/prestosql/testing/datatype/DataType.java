@@ -51,6 +51,7 @@ public class DataType<T>
     private final String insertType;
     private final Type prestoResultType;
     private final Function<T, String> toLiteral;
+    private final Function<T, String> toPrestoLiteral;
     private final Function<T, ?> toPrestoQueryResult;
 
     public static DataType<Boolean> booleanDataType()
@@ -217,24 +218,30 @@ public class DataType<T>
 
     private static <T> DataType<T> dataType(String insertType, Type prestoResultType)
     {
-        return new DataType<>(insertType, prestoResultType, Object::toString, Function.identity());
+        return new DataType<>(insertType, prestoResultType, Object::toString, Object::toString, Function.identity());
     }
 
     public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral)
     {
-        return new DataType<>(insertType, prestoResultType, toLiteral, Function.identity());
+        return new DataType<>(insertType, prestoResultType, toLiteral, toLiteral, Function.identity());
     }
 
     public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, ?> toPrestoQueryResult)
     {
-        return new DataType<>(insertType, prestoResultType, toLiteral, toPrestoQueryResult);
+        return new DataType<>(insertType, prestoResultType, toLiteral, toLiteral, toPrestoQueryResult);
     }
 
-    private DataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, ?> toPrestoQueryResult)
+    public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, String> toPrestoLiteral, Function<T, ?> toPrestoQueryResult)
+    {
+        return new DataType<>(insertType, prestoResultType, toLiteral, toPrestoLiteral, toPrestoQueryResult);
+    }
+
+    private DataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, String> toPrestoLiteral, Function<T, ?> toPrestoQueryResult)
     {
         this.insertType = insertType;
         this.prestoResultType = prestoResultType;
         this.toLiteral = toLiteral;
+        this.toPrestoLiteral = toPrestoLiteral;
         this.toPrestoQueryResult = toPrestoQueryResult;
     }
 
@@ -244,6 +251,14 @@ public class DataType<T>
             return "NULL";
         }
         return toLiteral.apply(inputValue);
+    }
+
+    public String toPrestoLiteral(T inputValue)
+    {
+        if (inputValue == null) {
+            return "NULL";
+        }
+        return toPrestoLiteral.apply(inputValue);
     }
 
     public Object toPrestoQueryResult(T inputValue)
