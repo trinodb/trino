@@ -150,7 +150,8 @@ public class TestKuduDistributedQueries
         }
 
         if (typeName.equals("date") // date gets stored as varchar
-                || typeName.equals("varbinary")) { // TODO (https://github.com/prestosql/presto/issues/3416)
+                || typeName.equals("varbinary") // TODO (https://github.com/prestosql/presto/issues/3416)
+                || (typeName.startsWith("char") && dataMappingTestSetup.getSampleValueLiteral().contains(" "))) { // TODO: https://github.com/prestosql/presto/issues/3597
             // TODO this should either work or fail cleanly
             return Optional.empty();
         }
