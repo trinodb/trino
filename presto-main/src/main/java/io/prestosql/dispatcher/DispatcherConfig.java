@@ -18,7 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 
 public class DispatcherConfig
 {
@@ -40,7 +40,7 @@ public class DispatcherConfig
     }
 
     @Config("dispatcher.forwarded-header")
-    @ConfigDescription("Support for " + X_FORWARDED_PROTO + " header")
+    @ConfigDescription("Support for " + X_FORWARDED_FOR + " header")
     public DispatcherConfig setForwardedHeaderSupport(HeaderSupport forwardedHeaderSupport)
     {
         this.forwardedHeaderSupport = forwardedHeaderSupport;

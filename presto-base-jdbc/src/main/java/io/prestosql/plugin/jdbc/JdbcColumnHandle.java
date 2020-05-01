@@ -21,8 +21,8 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
+import java.util.Optional;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcColumnHandle
@@ -32,18 +32,40 @@ public final class JdbcColumnHandle
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
     private final boolean nullable;
+    private final Optional<String> comment;
 
+    // All and only required fields
+    public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
+    {
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+    }
+
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
+    public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType, boolean nullable)
+    {
+        this(columnName, jdbcTypeHandle, columnType, nullable, Optional.empty());
+    }
+
+    /**
+     * @deprecated This constructor is intended to be used by JSON deserialization only. Use {@link #builder()} instead.
+     */
+    @Deprecated
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
-            @JsonProperty("nullable") boolean nullable)
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     @JsonProperty
@@ -70,9 +92,20 @@ public final class JdbcColumnHandle
         return nullable;
     }
 
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, nullable, null, null, false, emptyMap());
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(columnType)
+                .setNullable(nullable)
+                .setComment(comment)
+                .build();
     }
 
     @Override
@@ -97,9 +130,79 @@ public final class JdbcColumnHandle
     @Override
     public String toString()
     {
-        return Joiner.on(":").join(
+        return Joiner.on(":").skipNulls().join(
                 columnName,
                 columnType.getDisplayName(),
-                jdbcTypeHandle.getJdbcTypeName());
+                jdbcTypeHandle.getJdbcTypeName().orElse(null));
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder builderFrom(JdbcColumnHandle handle)
+    {
+        return new Builder(handle);
+    }
+
+    public static final class Builder
+    {
+        private String columnName;
+        private JdbcTypeHandle jdbcTypeHandle;
+        private Type columnType;
+        private boolean nullable = true;
+        private Optional<String> comment = Optional.empty();
+
+        public Builder() {}
+
+        private Builder(JdbcColumnHandle handle)
+        {
+            this.columnName = handle.getColumnName();
+            this.jdbcTypeHandle = handle.getJdbcTypeHandle();
+            this.columnType = handle.getColumnType();
+            this.nullable = handle.isNullable();
+            this.comment = handle.getComment();
+        }
+
+        public Builder setColumnName(String columnName)
+        {
+            this.columnName = columnName;
+            return this;
+        }
+
+        public Builder setJdbcTypeHandle(JdbcTypeHandle jdbcTypeHandle)
+        {
+            this.jdbcTypeHandle = jdbcTypeHandle;
+            return this;
+        }
+
+        public Builder setColumnType(Type columnType)
+        {
+            this.columnType = columnType;
+            return this;
+        }
+
+        public Builder setNullable(boolean nullable)
+        {
+            this.nullable = nullable;
+            return this;
+        }
+
+        public Builder setComment(Optional<String> comment)
+        {
+            this.comment = comment;
+            return this;
+        }
+
+        public JdbcColumnHandle build()
+        {
+            return new JdbcColumnHandle(
+                    columnName,
+                    jdbcTypeHandle,
+                    columnType,
+                    nullable,
+                    comment);
+        }
     }
 }

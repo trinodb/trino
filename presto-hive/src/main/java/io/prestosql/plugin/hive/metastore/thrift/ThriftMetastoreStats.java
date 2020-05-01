@@ -21,13 +21,18 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats getAllDatabases = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getDatabase = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getAllTables = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats getTablesWithParameter = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getAllViews = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getTable = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getFields = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getTableColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats setTableColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats deleteTableColumnStatistics = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartitionColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats setPartitionColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats deletePartitionColumnStatistics = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartitionNames = new ThriftMetastoreApiStats();
-    private final ThriftMetastoreApiStats getPartitionNamesPs = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats getPartitionNamesByParts = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartition = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartitionsByNames = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats createDatabase = new ThriftMetastoreApiStats();
@@ -48,6 +53,12 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats listRoleGrants = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats createRole = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats dropRole = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats openTransaction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats commitTransaction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats rollbackTransaction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats acquireLock = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats checkLock = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats validWriteIds = new ThriftMetastoreApiStats();
 
     @Managed
     @Nested
@@ -68,6 +79,13 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getGetAllTables()
     {
         return getAllTables;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getGetTablesWithParameter()
+    {
+        return getTablesWithParameter;
     }
 
     @Managed
@@ -100,9 +118,37 @@ public class ThriftMetastoreStats
 
     @Managed
     @Nested
+    public ThriftMetastoreApiStats getSetTableColumnStatistics()
+    {
+        return setTableColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getDeleteTableColumnStatistics()
+    {
+        return deleteTableColumnStatistics;
+    }
+
+    @Managed
+    @Nested
     public ThriftMetastoreApiStats getGetPartitionColumnStatistics()
     {
         return getPartitionColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getSetPartitionColumnStatistics()
+    {
+        return setPartitionColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getDeletePartitionColumnStatistics()
+    {
+        return deletePartitionColumnStatistics;
     }
 
     @Managed
@@ -114,9 +160,9 @@ public class ThriftMetastoreStats
 
     @Managed
     @Nested
-    public ThriftMetastoreApiStats getGetPartitionNamesPs()
+    public ThriftMetastoreApiStats getGetPartitionNamesByParts()
     {
-        return getPartitionNamesPs;
+        return getPartitionNamesByParts;
     }
 
     @Managed
@@ -257,5 +303,47 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getDropRole()
     {
         return dropRole;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getOpenTransaction()
+    {
+        return openTransaction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getCommitTransaction()
+    {
+        return commitTransaction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getRollbackTransaction()
+    {
+        return rollbackTransaction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getAcquireLock()
+    {
+        return acquireLock;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getCheckLock()
+    {
+        return checkLock;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getValidWriteIds()
+    {
+        return validWriteIds;
     }
 }

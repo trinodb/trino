@@ -62,7 +62,7 @@ public class TestTextFileHiveTable
                                 "WITH ( " +
                                 "   format = 'TEXTFILE', " +
                                 "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
-                                "   textfile_skip_header_line_count = 1 " +
+                                "   skip_header_line_count = 1 " +
                                 ")");
         assertThat(query("SELECT * FROM test_create_textfile_skip_header")).containsOnly(row("value"), row("footer"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header");
@@ -74,7 +74,7 @@ public class TestTextFileHiveTable
                                 "WITH ( " +
                                 "   format = 'TEXTFILE', " +
                                 "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
-                                "   textfile_skip_footer_line_count = 1 " +
+                                "   skip_footer_line_count = 1 " +
                                 ")");
         assertThat(query("SELECT * FROM test_create_textfile_skip_footer")).containsOnly(row("header"), row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_footer");
@@ -86,8 +86,8 @@ public class TestTextFileHiveTable
                                 "WITH ( " +
                                 "   format = 'TEXTFILE', " +
                                 "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
-                                "   textfile_skip_header_line_count = 1, " +
-                                "   textfile_skip_footer_line_count = 1 " +
+                                "   skip_header_line_count = 1, " +
+                                "   skip_footer_line_count = 1 " +
                                 ")");
         assertThat(query("SELECT * FROM test_create_textfile_skip_header_footer")).containsExactly(row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header_footer");

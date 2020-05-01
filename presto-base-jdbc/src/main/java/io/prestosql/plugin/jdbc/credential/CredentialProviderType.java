@@ -17,5 +17,6 @@ public enum CredentialProviderType
 {
     INLINE,
     FILE,
+    KEYSTORE,
     /**/
 }

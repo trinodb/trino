@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.jdbc.credential;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.Bootstrap;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
@@ -28,78 +27,72 @@ public class TestExtraCredentialProvider
 {
     @Test
     public void testUserNameOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "user-credential-name", "user");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("user", "overwritten_user")));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("user", "overwritten_user")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "overwritten_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "default_password");
     }
 
     @Test
     public void testPasswordOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "password-credential-name", "password");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("password", "overwritten_password")));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("password", "overwritten_password")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "default_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "overwritten_password");
     }
 
     @Test
     public void testCredentialsOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "user-credential-name", "user",
                 "password-credential-name", "password");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("user", "overwritten_user", "password", "overwritten_password")));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("user", "overwritten_user", "password", "overwritten_password")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "overwritten_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "overwritten_password");
     }
 
     @Test
     public void testCredentialsNotOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "user-credential-name", "user",
                 "password-credential-name", "password");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of()));
+        Optional<JdbcIdentity> jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of()));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "default_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "default_password");
 
-        jdbcIdentity = Optional.of(new JdbcIdentity("user", ImmutableMap.of("connection_user", "overwritten_user", "connection_password", "overwritten_password")));
+        jdbcIdentity = Optional.of(new JdbcIdentity("user", Optional.empty(), ImmutableMap.of("connection_user", "overwritten_user", "connection_password", "overwritten_password")));
         assertEquals(credentialProvider.getConnectionUser(jdbcIdentity).get(), "default_user");
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "default_password");
     }
 
-    private CredentialProvider getCredentialProvider(Map<String, String> properties)
-            throws Exception
+    private static CredentialProvider getCredentialProvider(Map<String, String> properties)
     {
-        return new Bootstrap(ImmutableList.of(new CredentialProviderModule()))
+        return new Bootstrap(new CredentialProviderModule())
+                .strictConfig()
+                .doNotInitializeLogging()
+                .quiet()
                 .setRequiredConfigurationProperties(properties)
                 .initialize()
                 .getInstance(CredentialProvider.class);

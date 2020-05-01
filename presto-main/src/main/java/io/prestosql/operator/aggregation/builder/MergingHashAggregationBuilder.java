@@ -91,6 +91,7 @@ public class MergingHashAggregationBuilder
             boolean reset = true;
             long memorySize;
 
+            @Override
             public TransformationState<WorkProcessor<Page>> process(Page inputPage)
             {
                 if (reset) {

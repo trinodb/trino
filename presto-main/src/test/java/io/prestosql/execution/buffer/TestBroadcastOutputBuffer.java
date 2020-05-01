@@ -35,7 +35,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
@@ -99,13 +98,13 @@ public class TestBroadcastOutputBuffer
     public void testInvalidConstructorArg()
     {
         try {
-            createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), new DataSize(0, BYTE));
+            createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
         }
         try {
-            createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), new DataSize(0, BYTE));
+            createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
@@ -952,7 +951,7 @@ public class TestBroadcastOutputBuffer
         long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), new DataSize(pageSize * 2, BYTE), memoryContext, directExecutor());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
         OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
 
         // adding the first page will block as no memory is available (MockMemoryReservationHandler will return a future that is not done)
@@ -983,7 +982,7 @@ public class TestBroadcastOutputBuffer
         long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), new DataSize(pageSize * 2, BYTE), memoryContext, directExecutor());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
         OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
 
         // add two pages to fill up the buffer (memory is available)
@@ -1029,7 +1028,7 @@ public class TestBroadcastOutputBuffer
         long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), new DataSize(pageSize * 2, BYTE), memoryContext, directExecutor());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
         OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
 
         memoryManager.setNoBlockOnFull();
@@ -1120,7 +1119,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testForceFreeMemory()
-            throws Throwable
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)

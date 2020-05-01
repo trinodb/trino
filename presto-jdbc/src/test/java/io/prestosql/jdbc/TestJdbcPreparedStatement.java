@@ -13,7 +13,10 @@
  */
 package io.prestosql.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logging;
+import io.prestosql.client.ClientTypeSignature;
+import io.prestosql.client.ClientTypeSignatureParameter;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
@@ -27,6 +30,7 @@ import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
@@ -36,9 +40,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
+import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
@@ -58,7 +65,7 @@ public class TestJdbcPreparedStatement
             throws Exception
     {
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
         waitForNodeRefresh(server);
@@ -99,6 +106,106 @@ public class TestJdbcPreparedStatement
                 assertFalse(rs.next());
             }
         }
+    }
+
+    @Test
+    public void testGetMetadata()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_get_metadata (" +
+                        "c_boolean boolean, " +
+                        "c_decimal decimal, " +
+                        "c_decimal_2 decimal(10,3)," +
+                        "c_varchar varchar, " +
+                        "c_varchar_2 varchar(10), " +
+                        "c_row row(x integer, y array(integer)), " +
+                        "c_array array(integer), " +
+                        "c_map map(integer, integer))");
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT * FROM test_get_metadata")) {
+                ResultSetMetaData metadata = statement.getMetaData();
+                assertEquals(metadata.getColumnCount(), 8);
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    assertEquals(metadata.getCatalogName(i), "blackhole");
+                    assertEquals(metadata.getSchemaName(i), "blackhole");
+                    assertEquals(metadata.getTableName(i), "test_get_metadata");
+                }
+
+                assertEquals(metadata.getColumnName(1), "c_boolean");
+                assertEquals(metadata.getColumnTypeName(1), "boolean");
+
+                assertEquals(metadata.getColumnName(2), "c_decimal");
+                assertEquals(metadata.getColumnTypeName(2), "decimal(38,0)");
+
+                assertEquals(metadata.getColumnName(3), "c_decimal_2");
+                assertEquals(metadata.getColumnTypeName(3), "decimal(10,3)");
+
+                assertEquals(metadata.getColumnName(4), "c_varchar");
+                assertEquals(metadata.getColumnTypeName(4), "varchar");
+
+                assertEquals(metadata.getColumnName(5), "c_varchar_2");
+                assertEquals(metadata.getColumnTypeName(5), "varchar(10)");
+
+                assertEquals(metadata.getColumnName(6), "c_row");
+                assertEquals(metadata.getColumnTypeName(6), "row");
+
+                assertEquals(metadata.getColumnName(7), "c_array");
+                assertEquals(metadata.getColumnTypeName(7), "array");
+
+                assertEquals(metadata.getColumnName(8), "c_map");
+                assertEquals(metadata.getColumnTypeName(8), "map");
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE test_get_metadata");
+            }
+        }
+    }
+
+    @Test
+    public void testGetClientTypeSignatureFromTypeString()
+    {
+        ClientTypeSignature actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("boolean");
+        ClientTypeSignature expectedClientTypeSignature = new ClientTypeSignature("boolean", ImmutableList.of());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("decimal(10,3)");
+        expectedClientTypeSignature = new ClientTypeSignature("decimal", ImmutableList.of(
+                ClientTypeSignatureParameter.ofLong(10),
+                ClientTypeSignatureParameter.ofLong(3)));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("varchar");
+        expectedClientTypeSignature = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(VARCHAR_UNBOUNDED_LENGTH)));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("varchar(10)");
+        expectedClientTypeSignature = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(10)));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("row(x integer, y array(integer))");
+        expectedClientTypeSignature = new ClientTypeSignature("row", ImmutableList.of());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("array(integer)");
+        expectedClientTypeSignature = new ClientTypeSignature("array", ImmutableList.of());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("map(integer, integer)");
+        expectedClientTypeSignature = new ClientTypeSignature("map", ImmutableList.of());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("timestamp(12) with time zone");
+        expectedClientTypeSignature = new ClientTypeSignature("timestamp with time zone", ImmutableList.of(ClientTypeSignatureParameter.ofLong(12)));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("time(13) with time zone");
+        expectedClientTypeSignature = new ClientTypeSignature("time with time zone", ImmutableList.of(ClientTypeSignatureParameter.ofLong(13)));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
     }
 
     @Test
@@ -174,6 +281,20 @@ public class TestJdbcPreparedStatement
                 assertEquals(rs.getLong(1), 456);
                 assertFalse(rs.next());
             }
+        }
+    }
+
+    @Test
+    public void testPrepareLarge()
+            throws Exception
+    {
+        String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
+        try (Connection connection = createConnection();
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet rs = statement.executeQuery()) {
+            assertTrue(rs.next());
+            assertFalse(rs.getBoolean(1));
+            assertFalse(rs.next());
         }
     }
 
@@ -490,9 +611,13 @@ public class TestJdbcPreparedStatement
         Date sqlDate = Date.valueOf(dateTime.toLocalDate());
         Time sqlTime = Time.valueOf(dateTime.toLocalTime());
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
+        Timestamp sameInstantInWarsawZone = Timestamp.valueOf(dateTime.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of("Europe/Warsaw")).toLocalDateTime());
         java.util.Date javaDate = java.util.Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
 
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp));
+        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, null));
+        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()));
+        assertParameter(sameInstantInWarsawZone, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone("Europe/Warsaw"))));
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTimestamp));
         assertParameter(new Timestamp(sqlDate.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP));
         assertParameter(new Timestamp(sqlTime.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP));

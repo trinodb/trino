@@ -43,6 +43,7 @@ import static io.prestosql.execution.buffer.PageSplitterUtil.splitPage;
 import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputOperator
@@ -332,7 +333,7 @@ public class PartitionedOutputOperator
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
             int partitionCount = partitionFunction.getPartitionCount();
-            int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionCount);
+            int pageSize = toIntExact(min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxMemory.toBytes() / partitionCount));
             pageSize = max(1, pageSize);
 
             this.pageBuilders = new PageBuilder[partitionCount];

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -30,7 +29,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -43,11 +41,7 @@ public class TestSphericalGeoFunctions
     @BeforeClass
     protected void registerFunctions()
     {
-        GeoPlugin plugin = new GeoPlugin();
-        for (Type type : plugin.getTypes()) {
-            functionAssertions.addType(type);
-        }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.installPlugin(new GeoPlugin());
     }
 
     @Test

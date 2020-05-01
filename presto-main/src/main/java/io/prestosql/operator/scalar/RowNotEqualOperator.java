@@ -20,7 +20,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -29,7 +29,7 @@ import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class RowNotEqualOperator
@@ -43,8 +43,9 @@ public class RowNotEqualOperator
         super(NOT_EQUAL,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+                true);
     }
 
     @Override
@@ -58,8 +59,7 @@ public class RowNotEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)),
-                isDeterministic());
+                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)));
     }
 
     @UsedByGeneratedCode

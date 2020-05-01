@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.Symbol;
@@ -34,7 +35,11 @@ import java.util.stream.Collectors;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.sql.ExpressionUtils.binaryExpression;
 import static io.prestosql.sql.ExpressionUtils.extractPredicates;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -117,8 +122,9 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(String expression, String expected)
     {
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
-        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
+        ParsingOptions parsingOptions = new ParsingOptions();
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
         Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), METADATA, LITERAL_ENCODER, new TypeAnalyzer(SQL_PARSER, METADATA));
         assertEquals(
                 normalize(rewritten),
@@ -129,6 +135,90 @@ public class TestSimplifyExpressions
     {
         return SymbolsExtractor.extractUnique(expression).stream()
                 .collect(Collectors.toMap(symbol -> symbol, symbol -> BOOLEAN));
+    }
+
+    @Test
+    public void testPushesDownNegationsNumericTypes()
+    {
+        assertSimplifiesNumericTypes("NOT (I1 = I2)", "I1 <> I2");
+        assertSimplifiesNumericTypes("NOT (I1 > I2)", "I1 <= I2");
+        assertSimplifiesNumericTypes("NOT ((I1 = I2) OR (I3 > I4))", "I1 <> I2 AND I3 <= I4");
+        assertSimplifiesNumericTypes("NOT NOT NOT (NOT NOT (I1 = I2) OR NOT(I3 > I4))", "I1 <> I2 AND I3 > I4");
+        assertSimplifiesNumericTypes("NOT ((I1 = I2) OR (B1 AND B2) OR NOT (B3 OR B4))", "I1 <> I2 AND (NOT B1 OR NOT B2) AND (B3 OR B4)");
+        assertSimplifiesNumericTypes("NOT (I1 IS DISTINCT FROM I2)", "NOT (I1 IS DISTINCT FROM I2)");
+
+        /*
+         Restricted rewrite for types having NaN
+         */
+        assertSimplifiesNumericTypes("NOT (D1 = D2)", "D1 <> D2");
+        assertSimplifiesNumericTypes("NOT (D1 <> D2)", "D1 = D2");
+        assertSimplifiesNumericTypes("NOT (R1 = R2)", "R1 <> R2");
+        assertSimplifiesNumericTypes("NOT (R1 <> R2)", "R1 = R2");
+        assertSimplifiesNumericTypes("NOT (D1 IS DISTINCT FROM D2)", "NOT (D1 IS DISTINCT FROM D2)");
+        assertSimplifiesNumericTypes("NOT (R1 IS DISTINCT FROM R2)", "NOT (R1 IS DISTINCT FROM R2)");
+
+        // DOUBLE: no negation pushdown for inequalities
+        assertSimplifiesNumericTypes("NOT (D1 > D2)", "NOT (D1 > D2)");
+        assertSimplifiesNumericTypes("NOT (D1 >= D2)", "NOT (D1 >= D2)");
+        assertSimplifiesNumericTypes("NOT (D1 < D2)", "NOT (D1 < D2)");
+        assertSimplifiesNumericTypes("NOT (D1 <= D2)", "NOT (D1 <= D2)");
+
+        // REAL: no negation pushdown for inequalities
+        assertSimplifiesNumericTypes("NOT (R1 > R2)", "NOT (R1 > R2)");
+        assertSimplifiesNumericTypes("NOT (R1 >= R2)", "NOT (R1 >= R2)");
+        assertSimplifiesNumericTypes("NOT (R1 < R2)", "NOT (R1 < R2)");
+        assertSimplifiesNumericTypes("NOT (R1 <= R2)", "NOT (R1 <= R2)");
+
+        // Multiple negations
+        assertSimplifiesNumericTypes("NOT NOT NOT (D1 <= D2)", "NOT (D1 <= D2)");
+        assertSimplifiesNumericTypes("NOT NOT NOT NOT (D1 <= D2)", "D1 <= D2");
+        assertSimplifiesNumericTypes("NOT NOT NOT (R1 > R2)", "NOT (R1 > R2)");
+        assertSimplifiesNumericTypes("NOT NOT NOT NOT (R1 > R2)", "R1 > R2");
+
+        // Nested comparisons
+        assertSimplifiesNumericTypes("NOT ((I1 = I2) OR (D1 > D2))", "I1 <> I2 AND NOT (D1 > D2)");
+        assertSimplifiesNumericTypes("NOT NOT NOT (NOT NOT (R1 < R2) OR NOT(I1 > I2))", "NOT (R1 < R2) AND I1 > I2");
+        assertSimplifiesNumericTypes("NOT ((D1 > D2) OR (B1 AND B2) OR NOT (B3 OR B4))", "NOT (D1 > D2) AND (NOT B1 OR NOT B2) AND (B3 OR B4)");
+        assertSimplifiesNumericTypes("NOT (((D1 > D2) AND (I1 < I2)) OR ((B1 AND B2) AND (R1 > R2)))", "(NOT (D1 > D2) OR I1 >= I2) AND ((NOT B1 OR NOT B2) OR NOT (R1 > R2))");
+        assertSimplifiesNumericTypes("IF (NOT (I1 < I2), D1, D2)", "IF (I1 >= I2, D1, D2)");
+
+        // Symbol of type having NaN on either side of comparison
+        assertSimplifiesNumericTypes("NOT (D1 > 1)", "NOT (D1 > 1)");
+        assertSimplifiesNumericTypes("NOT (1 > D2)", "NOT (1 > D2)");
+        assertSimplifiesNumericTypes("NOT (R1 > 1)", "NOT (R1 > 1)");
+        assertSimplifiesNumericTypes("NOT (1 > R2)", "NOT (1 > R2)");
+    }
+
+    private static void assertSimplifiesNumericTypes(String expression, String expected)
+    {
+        ParsingOptions parsingOptions = new ParsingOptions();
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), METADATA, LITERAL_ENCODER, new TypeAnalyzer(SQL_PARSER, METADATA));
+        assertEquals(
+                normalize(rewritten),
+                normalize(expectedExpression));
+    }
+
+    private static Map<Symbol, Type> numericAndBooleanSymbolTypeMapFor(Expression expression)
+    {
+        return SymbolsExtractor.extractUnique(expression).stream()
+            .collect(Collectors.toMap(
+                symbol -> symbol,
+                symbol -> {
+                    switch (symbol.getName().charAt(0)) {
+                        case 'I':
+                            return INTEGER;
+                        case 'D':
+                            return DOUBLE;
+                        case 'R':
+                            return REAL;
+                        case 'B':
+                            return BOOLEAN;
+                        default:
+                            return BIGINT;
+                    }
+                }));
     }
 
     private static Expression normalize(Expression expression)

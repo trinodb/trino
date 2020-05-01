@@ -113,13 +113,23 @@ public final class DateTimeTestingUtils
             int millisOfSecond,
             Session session)
     {
+        return sqlTimeOf(hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, session.toConnectorSession());
+    }
+
+    public static SqlTime sqlTimeOf(
+            int hourOfDay,
+            int minuteOfHour,
+            int secondOfMinute,
+            int millisOfSecond,
+            ConnectorSession session)
+    {
         LocalTime time = LocalTime.of(hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond));
         return sqlTimeOf(time, session);
     }
 
-    public static SqlTime sqlTimeOf(LocalTime time, Session session)
+    public static SqlTime sqlTimeOf(LocalTime time, ConnectorSession session)
     {
-        if (session.toConnectorSession().isLegacyTimestamp()) {
+        if (session.isLegacyTimestamp()) {
             long millisUtc = LocalDate.ofEpochDay(0)
                     .atTime(time)
                     .atZone(UTC)

@@ -15,12 +15,17 @@ package io.prestosql.plugin.hive.authentication;
 
 import org.apache.thrift.transport.TTransport;
 
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class NoHiveMetastoreAuthentication
         implements HiveMetastoreAuthentication
 {
     @Override
-    public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
+    public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> delegationToken)
     {
+        checkArgument(!delegationToken.isPresent(), "delegation token is not supported");
         return rawTransport;
     }
 }

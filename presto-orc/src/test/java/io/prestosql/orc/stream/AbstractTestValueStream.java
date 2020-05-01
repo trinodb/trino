@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.checkpoint.StreamCheckpoint;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 
@@ -49,11 +50,11 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(new OrcColumnId(33));
             streamDataOutput.writeData(sliceOutput);
             Stream stream = streamDataOutput.getStream();
             assertEquals(stream.getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.getColumn(), 33);
+            assertEquals(stream.getColumnId(), new OrcColumnId(33));
             assertEquals(stream.getLength(), sliceOutput.size());
 
             List<C> checkpoints = outputStream.getCheckpoints();

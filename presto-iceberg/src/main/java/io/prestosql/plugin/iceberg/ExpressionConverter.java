@@ -15,7 +15,6 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.EquatableValueSet;
@@ -24,6 +23,14 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.iceberg.expressions.Expression;
 
 import java.util.List;
@@ -34,12 +41,7 @@ import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.StandardTypes.TIME;
-import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
-import static io.prestosql.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.StandardTypes.VARBINARY;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
@@ -58,7 +60,7 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    public static Expression toIcebergExpression(TupleDomain<HiveColumnHandle> tupleDomain, ConnectorSession session)
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorSession session)
     {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
@@ -66,22 +68,18 @@ public final class ExpressionConverter
         if (!tupleDomain.getDomains().isPresent()) {
             return alwaysFalse();
         }
-        Map<HiveColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
+        Map<IcebergColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
         Expression expression = alwaysTrue();
-        for (Map.Entry<HiveColumnHandle, Domain> entry : domainMap.entrySet()) {
-            HiveColumnHandle columnHandle = entry.getKey();
+        for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
+            IcebergColumnHandle columnHandle = entry.getKey();
             Domain domain = entry.getValue();
-            if (!columnHandle.isHidden()) {
-                expression = and(expression, toIcebergExpression(columnHandle, domain, session));
-            }
+            expression = and(expression, toIcebergExpression(columnHandle.getName(), columnHandle.getType(), domain, session));
         }
         return expression;
     }
 
-    private static Expression toIcebergExpression(HiveColumnHandle column, Domain domain, ConnectorSession session)
+    private static Expression toIcebergExpression(String columnName, Type type, Domain domain, ConnectorSession session)
     {
-        String columnName = column.getName();
-
         if (domain.isAll()) {
             return alwaysTrue();
         }
@@ -122,42 +120,42 @@ public final class ExpressionConverter
                 // case col <> 'val' is represented as (col < 'val' or col > 'val')
                 if (lowBound == EXACTLY && highBound == EXACTLY) {
                     // case ==
-                    if (getValue(column, low, session).equals(getValue(column, high, session))) {
-                        expression = or(expression, equal(columnName, getValue(column, low, session)));
+                    if (getValue(type, low, session).equals(getValue(type, high, session))) {
+                        expression = or(expression, equal(columnName, getValue(type, low, session)));
                     }
                     else { // case between
                         Expression between = and(
-                                greaterThanOrEqual(columnName, getValue(column, low, session)),
-                                lessThanOrEqual(columnName, getValue(column, high, session)));
+                                greaterThanOrEqual(columnName, getValue(type, low, session)),
+                                lessThanOrEqual(columnName, getValue(type, high, session)));
                         expression = or(expression, between);
                     }
                 }
                 else {
                     if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
                         // case >=
-                        expression = or(expression, greaterThanOrEqual(columnName, getValue(column, low, session)));
+                        expression = or(expression, greaterThanOrEqual(columnName, getValue(type, low, session)));
                     }
                     else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
                         // case >
-                        expression = or(expression, greaterThan(columnName, getValue(column, low, session)));
+                        expression = or(expression, greaterThan(columnName, getValue(type, low, session)));
                     }
 
                     if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
                         // case <=
                         if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThanOrEqual(columnName, getValue(column, high, session)));
+                            expression = and(expression, lessThanOrEqual(columnName, getValue(type, high, session)));
                         }
                         else {
-                            expression = or(expression, lessThanOrEqual(columnName, getValue(column, high, session)));
+                            expression = or(expression, lessThanOrEqual(columnName, getValue(type, high, session)));
                         }
                     }
                     else if (highBound == BELOW && high.getValueBlock().isPresent()) {
                         // case <
                         if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThan(columnName, getValue(column, high, session)));
+                            expression = and(expression, lessThan(columnName, getValue(type, high, session)));
                         }
                         else {
-                            expression = or(expression, lessThan(columnName, getValue(column, high, session)));
+                            expression = or(expression, lessThan(columnName, getValue(type, high, session)));
                         }
                     }
                 }
@@ -168,20 +166,29 @@ public final class ExpressionConverter
         throw new VerifyException("Did not expect a domain value set other than SortedRangeSet and EquatableValueSet but got " + domainValues.getClass().getSimpleName());
     }
 
-    private static Object getValue(HiveColumnHandle columnHandle, Marker marker, ConnectorSession session)
+    private static Object getValue(Type type, Marker marker, ConnectorSession session)
     {
-        switch (columnHandle.getTypeSignature().getBase()) {
-            case TIMESTAMP_WITH_TIME_ZONE:
-            case TIME_WITH_TIME_ZONE:
-                return MILLISECONDS.toMicros(unpackMillisUtc((Long) marker.getValue()));
-            case TIME:
-            case TIMESTAMP:
-                return MILLISECONDS.toMicros((Long) marker.getValue());
-            case VARCHAR:
-                return ((Slice) marker.getValue()).toStringUtf8();
-            case VARBINARY:
-                return ((Slice) marker.getValue()).getBytes();
+        if (type instanceof TimestampWithTimeZoneType || type instanceof TimeWithTimeZoneType) {
+            return MILLISECONDS.toMicros(unpackMillisUtc((Long) marker.getValue()));
         }
+
+        if (type instanceof TimestampType || type instanceof TimeType) {
+            return MILLISECONDS.toMicros((Long) marker.getValue());
+        }
+
+        // TODO: Remove this conversion once we move to next iceberg version
+        if (type instanceof DateType) {
+            return toIntExact(((Long) marker.getValue()));
+        }
+
+        if (type instanceof VarcharType) {
+            return ((Slice) marker.getValue()).toStringUtf8();
+        }
+
+        if (type instanceof VarbinaryType) {
+            return ((Slice) marker.getValue()).getBytes();
+        }
+
         return marker.getValue();
     }
 }

@@ -23,6 +23,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.MapHashTables;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
@@ -61,6 +62,9 @@ public abstract class AbstractTestBlock
 
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
     {
+        assertBlockSize(block);
+        assertRetainedSize(block);
+
         assertBlockPositions(block, newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaWritePositionTo(block, newBlockBuilder), newBlockBuilder, expectedValues);
@@ -144,6 +148,9 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == DictionaryId.class) {
                     retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                }
+                else if (type == MapHashTables.class) {
+                    retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
                 }
                 else if (type == MethodHandle.class) {
                     // MethodHandles are only used in MapBlock/MapBlockBuilder,

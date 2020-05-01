@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveType.HIVE_BINARY;
 import static io.prestosql.plugin.hive.HiveType.HIVE_BOOLEAN;
 import static io.prestosql.plugin.hive.HiveType.HIVE_BYTE;
@@ -37,9 +38,9 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.HiveType.HIVE_TIMESTAMP;
-import static io.prestosql.plugin.hive.HiveUtil.isArrayType;
-import static io.prestosql.plugin.hive.HiveUtil.isMapType;
-import static io.prestosql.plugin.hive.HiveUtil.isRowType;
+import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
+import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
+import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -49,11 +50,9 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeInfo;
@@ -115,11 +114,6 @@ public class HiveTypeTranslator
         if (TIMESTAMP.equals(type)) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            // Hive does not have TIMESTAMP_WITH_TIME_ZONE, this is just a work around for iceberg, that upstream would not approve
-            // so we probably will need to handle it in iceberg connector but for now this should unblock netflix users.
-            return HIVE_TIMESTAMP.getTypeInfo();
-        }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
@@ -149,7 +143,7 @@ public class HiveTypeTranslator
                     fieldNames.build(),
                     type.getTypeParameters().stream()
                             .map(this::translate)
-                            .collect(toList()));
+                            .collect(toImmutableList()));
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }

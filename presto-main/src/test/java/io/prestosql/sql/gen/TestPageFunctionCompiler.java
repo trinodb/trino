@@ -14,7 +14,7 @@
 package io.prestosql.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
 import io.prestosql.operator.project.PageProjection;
@@ -44,8 +44,9 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageFunctionCompiler
 {
+    private static final Metadata METADATA = createTestMetadataManager();
     private static final CallExpression ADD_10_EXPRESSION = call(
-            Signature.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+            METADATA.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
             BIGINT,
             field(0, BIGINT),
             constant(10L, BIGINT));
@@ -53,7 +54,7 @@ public class TestPageFunctionCompiler
     @Test
     public void testFailureDoesNotCorruptFutureResults()
     {
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
 
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty());
         PageProjection projection = projectionSupplier.get();
@@ -77,7 +78,7 @@ public class TestPageFunctionCompiler
     @Test
     public void testGeneratedClassName()
     {
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
 
         String planNodeId = "7";
         String stageId = "20170707_223500_67496_zguwn.2";
@@ -92,7 +93,7 @@ public class TestPageFunctionCompiler
     @Test
     public void testCache()
     {
-        PageFunctionCompiler cacheCompiler = new PageFunctionCompiler(createTestMetadataManager(), 100);
+        PageFunctionCompiler cacheCompiler = new PageFunctionCompiler(METADATA, 100);
         assertSame(
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
@@ -106,7 +107,7 @@ public class TestPageFunctionCompiler
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
 
-        PageFunctionCompiler noCacheCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+        PageFunctionCompiler noCacheCompiler = new PageFunctionCompiler(METADATA, 0);
         assertNotSame(
                 noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
                 noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));

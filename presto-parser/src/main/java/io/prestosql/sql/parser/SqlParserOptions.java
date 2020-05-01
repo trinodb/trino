@@ -13,44 +13,17 @@
  */
 package io.prestosql.sql.parser;
 
-import com.google.common.collect.Iterables;
-
-import java.util.EnumSet;
-
-import static java.util.Objects.requireNonNull;
-
 public class SqlParserOptions
 {
-    private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols = EnumSet.noneOf(IdentifierSymbol.class);
     private boolean enhancedErrorHandlerEnabled = true;
 
     public SqlParserOptions()
     {
     }
 
-    private SqlParserOptions(EnumSet<IdentifierSymbol> identifierSymbols, boolean enhancedErrorHandlerEnabled)
+    private SqlParserOptions(boolean enhancedErrorHandlerEnabled)
     {
         this.enhancedErrorHandlerEnabled = enhancedErrorHandlerEnabled;
-        this.allowedIdentifierSymbols.addAll(identifierSymbols);
-    }
-
-    public SqlParserOptions allowIdentifierSymbol(Iterable<IdentifierSymbol> identifierSymbols)
-    {
-        Iterables.addAll(allowedIdentifierSymbols, identifierSymbols);
-        return this;
-    }
-
-    public EnumSet<IdentifierSymbol> getAllowedIdentifierSymbols()
-    {
-        return EnumSet.copyOf(allowedIdentifierSymbols);
-    }
-
-    public SqlParserOptions allowIdentifierSymbol(IdentifierSymbol... identifierSymbols)
-    {
-        for (IdentifierSymbol identifierSymbol : identifierSymbols) {
-            allowedIdentifierSymbols.add(requireNonNull(identifierSymbol, "identifierSymbol is null"));
-        }
-        return this;
     }
 
     public SqlParserOptions useEnhancedErrorHandler(boolean enable)
@@ -66,6 +39,6 @@ public class SqlParserOptions
 
     public static SqlParserOptions copyOf(SqlParserOptions other)
     {
-        return new SqlParserOptions(other.allowedIdentifierSymbols, other.enhancedErrorHandlerEnabled);
+        return new SqlParserOptions(other.enhancedErrorHandlerEnabled);
     }
 }

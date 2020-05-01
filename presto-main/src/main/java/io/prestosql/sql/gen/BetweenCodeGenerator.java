@@ -17,10 +17,11 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.SpecialForm;
+import io.prestosql.sql.relational.StandardFunctionResolution;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 import io.prestosql.sql.tree.ComparisonExpression.Operator;
 
@@ -30,32 +31,32 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.prestosql.sql.gen.RowExpressionCompiler.createTempVariableReferenceExpression;
 import static io.prestosql.sql.relational.Expressions.call;
-import static io.prestosql.sql.relational.Signatures.comparisonExpressionSignature;
 import static io.prestosql.sql.relational.SpecialForm.Form.AND;
 
 public class BetweenCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
         RowExpression value = arguments.get(0);
         RowExpression min = arguments.get(1);
         RowExpression max = arguments.get(2);
 
-        Variable firstValue = generatorContext.getScope().createTempVariable(value.getType().getJavaType());
+        Variable firstValue = context.getScope().createTempVariable(value.getType().getJavaType());
         VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.getType());
 
+        StandardFunctionResolution standardFunctionResolution = new StandardFunctionResolution(context.getMetadata());
         SpecialForm newExpression = new SpecialForm(
                 AND,
                 BOOLEAN,
                 call(
-                        comparisonExpressionSignature(Operator.GREATER_THAN_OR_EQUAL, value.getType(), min.getType()),
+                        standardFunctionResolution.comparisonFunction(Operator.GREATER_THAN_OR_EQUAL, value.getType(), min.getType()),
                         BOOLEAN,
                         valueReference,
                         min),
                 call(
-                        comparisonExpressionSignature(Operator.LESS_THAN_OR_EQUAL, value.getType(), max.getType()),
+                        standardFunctionResolution.comparisonFunction(Operator.LESS_THAN_OR_EQUAL, value.getType(), max.getType()),
                         BOOLEAN,
                         valueReference,
                         max));
@@ -65,10 +66,10 @@ public class BetweenCodeGenerator
         // push value arg on the stack
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if value is null")
-                .append(generatorContext.generate(value))
-                .append(ifWasNullPopAndGoto(generatorContext.getScope(), done, boolean.class, value.getType().getJavaType()))
+                .append(context.generate(value))
+                .append(ifWasNullPopAndGoto(context.getScope(), done, boolean.class, value.getType().getJavaType()))
                 .putVariable(firstValue)
-                .append(generatorContext.generate(newExpression))
+                .append(context.generate(newExpression))
                 .visitLabel(done);
 
         return block;

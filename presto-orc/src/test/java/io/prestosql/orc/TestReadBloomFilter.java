@@ -14,10 +14,8 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
-import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.orc.metadata.OrcColumnId;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
@@ -33,15 +31,13 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static io.prestosql.orc.OrcTester.MAX_BLOCK_SIZE;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.writeOrcColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
-import static io.prestosql.spi.predicate.TupleDomain.fromFixedValues;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -55,6 +51,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestReadBloomFilter
 {
@@ -95,37 +92,36 @@ public class TestReadBloomFilter
 
             // without predicate a normal block will be created
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), 1024);
+                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
             }
 
             // predicate for specific value within the min/max range without bloom filter being enabled
-            TupleDomainOrcPredicate<String> noBloomFilterPredicate = new TupleDomainOrcPredicate<>(
-                    fromFixedValues(ImmutableMap.of("test", NullableValue.of(type, notInBloomFilter))),
-                    ImmutableList.of(new ColumnReference<>("test", 0, type)),
-                    false);
+            TupleDomainOrcPredicate noBloomFilterPredicate = TupleDomainOrcPredicate.builder()
+                    .addColumn(new OrcColumnId(1), Domain.singleValue(type, notInBloomFilter))
+                    .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, noBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), 1024);
+                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, but a value not in the bloom filter
-            TupleDomainOrcPredicate<String> notMatchBloomFilterPredicate = new TupleDomainOrcPredicate<>(
-                    fromFixedValues(ImmutableMap.of("test", NullableValue.of(type, notInBloomFilter))),
-                    ImmutableList.of(new ColumnReference<>("test", 0, type)),
-                    true);
+            TupleDomainOrcPredicate notMatchBloomFilterPredicate = TupleDomainOrcPredicate.builder()
+                    .addColumn(new OrcColumnId(1), Domain.singleValue(type, notInBloomFilter))
+                    .setBloomFiltersEnabled(true)
+                    .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, notMatchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), -1);
+                assertNull(recordReader.nextPage());
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, and a value in the bloom filter
-            TupleDomainOrcPredicate<String> matchBloomFilterPredicate = new TupleDomainOrcPredicate<>(
-                    fromFixedValues(ImmutableMap.of("test", NullableValue.of(type, inBloomFilter))),
-                    ImmutableList.of(new ColumnReference<>("test", 0, type)),
-                    true);
+            TupleDomainOrcPredicate matchBloomFilterPredicate = TupleDomainOrcPredicate.builder()
+                    .addColumn(new OrcColumnId(1), Domain.singleValue(type, inBloomFilter))
+                    .setBloomFiltersEnabled(true)
+                    .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, matchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), 1024);
+                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
             }
         }
     }
@@ -133,12 +129,19 @@ public class TestReadBloomFilter
     private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcPredicate predicate, Type type, int initialBatchSize)
             throws IOException
     {
-        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
+        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+        OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
-        assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
+        assertEquals(orcReader.getFooter().getRowsInRowGroup().orElse(0), 10_000);
 
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createRecordReader(
+                orcReader.getRootColumn().getNestedColumns(),
+                ImmutableList.of(type),
+                predicate,
+                HIVE_STORAGE_TIME_ZONE,
+                newSimpleAggregatedMemoryContext(),
+                initialBatchSize,
+                RuntimeException::new);
     }
 }

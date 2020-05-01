@@ -1,3 +1,5 @@
+.. _logical_operators:
+
 =================
 Logical Operators
 =================

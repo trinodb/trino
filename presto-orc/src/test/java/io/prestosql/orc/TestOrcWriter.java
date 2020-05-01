@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.metadata.Footer;
 import io.prestosql.orc.metadata.OrcMetadataReader;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.StripeFooter;
 import io.prestosql.orc.metadata.StripeInformation;
@@ -29,23 +30,27 @@ import io.prestosql.orc.stream.OrcInputStream;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.StripeReader.isIndexStream;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
 
 public class TestOrcWriter
@@ -56,17 +61,22 @@ public class TestOrcWriter
     {
         for (OrcWriteValidationMode validationMode : OrcWriteValidationMode.values()) {
             TempFile tempFile = new TempFile();
+
+            List<String> columnNames = ImmutableList.of("test1", "test2", "test3", "test4", "test5");
+            List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR);
+
             OrcWriter writer = new OrcWriter(
                     new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
                     ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
-                    ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
+                    types,
+                    OrcType.createRootOrcType(columnNames, types),
                     NONE,
                     new OrcWriterOptions()
-                            .withStripeMinSize(new DataSize(0, MEGABYTE))
-                            .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                            .withStripeMinSize(DataSize.of(0, MEGABYTE))
+                            .withStripeMaxSize(DataSize.of(32, MEGABYTE))
                             .withStripeMaxRowCount(ORC_STRIPE_SIZE)
                             .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
-                            .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                            .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE)),
                     false,
                     ImmutableMap.of(),
                     HIVE_STORAGE_TIME_ZONE,
@@ -80,7 +90,7 @@ public class TestOrcWriter
             int entries = 65536;
             BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
             for (int i = 0; i < data.length; i++) {
-                byte[] bytes = data[i].getBytes();
+                byte[] bytes = data[i].getBytes(UTF_8);
                 for (int j = 0; j < entries; j++) {
                     // force to write different data
                     bytes[0] = (byte) ((bytes[0] + 1) % 128);
@@ -95,9 +105,8 @@ public class TestOrcWriter
             writer.close();
 
             // read the footer and verify the streams are ordered by size
-            DataSize dataSize = new DataSize(1, MEGABYTE);
-            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-            Footer footer = new OrcReader(orcDataSource, dataSize, dataSize, dataSize).getFooter();
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+            Footer footer = new OrcReader(orcDataSource, READER_OPTIONS).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer

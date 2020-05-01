@@ -119,7 +119,7 @@ public class TestAddIntermediateAggregations
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), expression("count(*)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), expression("count(*)"), ImmutableList.of())
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))

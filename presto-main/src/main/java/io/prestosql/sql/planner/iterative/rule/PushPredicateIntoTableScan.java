@@ -30,7 +30,6 @@ import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
-import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.LookupSymbolResolver;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -83,7 +82,7 @@ public class PushPredicateIntoTableScan
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata));
+        this.domainTranslator = new DomainTranslator(metadata);
     }
 
     @Override
@@ -132,7 +131,8 @@ public class PushPredicateIntoTableScan
 
         TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
+        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
+                Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());
     }
 
     public static Optional<PlanNode> pushFilterIntoTableScan(
@@ -147,7 +147,8 @@ public class PushPredicateIntoTableScan
             DomainTranslator domainTranslator)
     {
         // don't include non-deterministic predicates
-        Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
+        Expression deterministicPredicate = filterDeterministicConjuncts(metadata, predicate);
+        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(metadata, predicate);
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
@@ -171,11 +172,12 @@ public class PushPredicateIntoTableScan
                     types,
                     node.getAssignments(),
                     combineConjuncts(
+                            metadata,
                             deterministicPredicate,
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
                             domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get))));
-            constraint = new Constraint(newDomain, evaluator::isCandidate);
+            constraint = new Constraint(newDomain, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
             // Currently, invoking the expression interpreter is very expensive.
@@ -186,11 +188,26 @@ public class PushPredicateIntoTableScan
         TableHandle newTable;
         TupleDomain<ColumnHandle> remainingFilter;
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
+            // check if new domain is wider than domain already provided by table scan
+            if (!constraint.predicate().isPresent() && newDomain.contains(node.getEnforcedConstraint())) {
+                Expression resultingPredicate = createResultingPredicate(
+                        metadata,
+                        TRUE_LITERAL,
+                        nonDeterministicPredicate,
+                        decomposedPredicate.getRemainingExpression());
+
+                if (!TRUE_LITERAL.equals(resultingPredicate)) {
+                    return Optional.of(new FilterNode(idAllocator.getNextId(), node, resultingPredicate));
+                }
+
+                return Optional.of(node);
+            }
+
             if (newDomain.isNone()) {
                 // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
                 // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
                 // to turn the subtree into a Values node
-                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
             Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, node.getTable(), constraint);
@@ -202,7 +219,7 @@ public class PushPredicateIntoTableScan
             newTable = result.get().getHandle();
 
             if (metadata.getTableProperties(session, newTable).getPredicate().isNone()) {
-                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
             remainingFilter = result.get().getRemainingFilter();
@@ -217,7 +234,7 @@ public class PushPredicateIntoTableScan
                             .collect(toImmutableSet())));
 
             if (!layout.isPresent() || layout.get().getTableProperties().getPredicate().isNone()) {
-                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
             newTable = layout.get().getNewTableHandle();
@@ -231,6 +248,25 @@ public class PushPredicateIntoTableScan
                 node.getAssignments(),
                 computeEnforced(newDomain, remainingFilter));
 
+        Expression resultingPredicate = createResultingPredicate(
+                metadata,
+                domainTranslator.toPredicate(remainingFilter.transform(assignments::get)),
+                nonDeterministicPredicate,
+                decomposedPredicate.getRemainingExpression());
+
+        if (!TRUE_LITERAL.equals(resultingPredicate)) {
+            return Optional.of(new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate));
+        }
+
+        return Optional.of(tableScan);
+    }
+
+    static Expression createResultingPredicate(
+            Metadata metadata,
+            Expression unenforcedConstraints,
+            Expression nonDeterministicPredicate,
+            Expression remainingDecomposedPredicate)
+    {
         // The order of the arguments to combineConjuncts matters:
         // * Unenforced constraints go first because they can only be simple column references,
         //   which are not prone to logic errors such as out-of-bound access, div-by-zero, etc.
@@ -239,16 +275,7 @@ public class PushPredicateIntoTableScan
         // * Short of implementing the previous bullet point, the current order of non-deterministic expressions
         //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
         //   to failures of previously successful queries.
-        Expression resultingPredicate = combineConjuncts(
-                domainTranslator.toPredicate(remainingFilter.transform(assignments::get)),
-                filterNonDeterministicConjuncts(predicate),
-                decomposedPredicate.getRemainingExpression());
-
-        if (!TRUE_LITERAL.equals(resultingPredicate)) {
-            return Optional.of(new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate));
-        }
-
-        return Optional.of(tableScan);
+        return combineConjuncts(metadata, unenforcedConstraints, nonDeterministicPredicate, remainingDecomposedPredicate);
     }
 
     private static class LayoutConstraintEvaluator
@@ -265,6 +292,11 @@ public class PushPredicateIntoTableScan
             arguments = SymbolsExtractor.extractUnique(expression).stream()
                     .map(assignments::get)
                     .collect(toImmutableSet());
+        }
+
+        public Set<ColumnHandle> getArguments()
+        {
+            return arguments;
         }
 
         private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)

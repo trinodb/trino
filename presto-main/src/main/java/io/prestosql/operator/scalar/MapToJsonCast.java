@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.io.IOException;
@@ -36,12 +37,14 @@ import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.JsonGeneratorWriter;
 import static io.prestosql.util.JsonUtil.ObjectKeyProvider;
@@ -58,10 +61,13 @@ public class MapToJsonCast
     private MapToJsonCast()
     {
         super(OperatorType.CAST,
-                ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                ImmutableList.of(
+                        castableToTypeParameter("K", VARCHAR.getTypeSignature()),
+                        castableToTypeParameter("V", JSON.getTypeSignature())),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.JSON),
-                ImmutableList.of(parseTypeSignature("map(K,V)")));
+                JSON.getTypeSignature(),
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+                false);
     }
 
     @Override
@@ -71,8 +77,8 @@ public class MapToJsonCast
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
         Type mapType = metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
@@ -82,8 +88,7 @@ public class MapToJsonCast
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+                methodHandle);
     }
 
     @UsedByGeneratedCode

@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class HiveColumnStatistics
 {
-    private static final HiveColumnStatistics EMPTY = HiveColumnStatistics.builder().build();
+    private static final HiveColumnStatistics EMPTY = builder().build();
 
     private final Optional<IntegerStatistics> integerStatistics;
     private final Optional<DoubleStatistics> doubleStatistics;

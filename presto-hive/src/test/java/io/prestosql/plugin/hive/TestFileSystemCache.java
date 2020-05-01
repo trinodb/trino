@@ -32,12 +32,10 @@ public class TestFileSystemCache
     public void testFileSystemCache()
             throws IOException
     {
-        ImpersonatingHdfsAuthentication auth = new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication());
-        HdfsEnvironment environment =
-                new HdfsEnvironment(
-                        new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveConfig()), ImmutableSet.of()),
-                        new HiveConfig(),
-                        auth);
+        HdfsEnvironment environment = new HdfsEnvironment(
+                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
+                new HdfsConfig(),
+                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication()));
         FileSystem fs1 = getFileSystem(environment, "user");
         FileSystem fs2 = getFileSystem(environment, "user");
         assertSame(fs1, fs2);

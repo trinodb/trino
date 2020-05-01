@@ -21,9 +21,11 @@ import io.prestosql.sql.planner.Symbol;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -160,6 +162,35 @@ public class IndexJoinNode
         public Symbol getIndex()
         {
             return index;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+
+            if (obj == null || !this.getClass().equals(obj.getClass())) {
+                return false;
+            }
+
+            IndexJoinNode.EquiJoinClause other = (IndexJoinNode.EquiJoinClause) obj;
+
+            return Objects.equals(this.probe, other.probe) &&
+                    Objects.equals(this.index, other.index);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(probe, index);
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s = %s", probe, index);
         }
     }
 }

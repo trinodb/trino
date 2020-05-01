@@ -131,7 +131,7 @@ class ContinuousTaskStatusFetcher
         // outstanding request?
         if (future != null && !future.isDone()) {
             // this should never happen
-            log.error("Can not reschedule update because an update is already running");
+            log.error("Cannot reschedule update because an update is already running");
             return;
         }
 

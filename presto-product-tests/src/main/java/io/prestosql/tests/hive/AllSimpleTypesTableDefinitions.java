@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.fulfillment.table.TableDefinitionsRepository;
 import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 
@@ -30,27 +29,22 @@ public final class AllSimpleTypesTableDefinitions
 
     private static String tableNameFormat = "%s_all_types";
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.of("DELIMITED FIELDS TERMINATED BY '|'"))
             .setDataSource(getTextFileDataSource())
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = parquetTableDefinitionBuilder()
             .setNoData()
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_AVRO = avroTableDefinitionBuilder()
             .setNoData()
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = tableDefinitionBuilder("ORC", Optional.empty())
             .setNoData()
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = tableDefinitionBuilder("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
             .setNoData()
             .build();

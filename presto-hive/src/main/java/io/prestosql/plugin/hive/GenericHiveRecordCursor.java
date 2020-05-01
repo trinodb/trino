@@ -22,7 +22,6 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -56,10 +55,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static io.prestosql.plugin.hive.HiveUtil.closeWithSuppression;
-import static io.prestosql.plugin.hive.HiveUtil.getDeserializer;
-import static io.prestosql.plugin.hive.HiveUtil.getTableObjectInspector;
-import static io.prestosql.plugin.hive.HiveUtil.isStructuralType;
+import static io.prestosql.plugin.hive.util.HiveUtil.closeWithSuppression;
+import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializer;
+import static io.prestosql.plugin.hive.util.HiveUtil.getTableObjectInspector;
+import static io.prestosql.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.prestosql.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -82,7 +81,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class GenericHiveRecordCursor<K, V extends Writable>
+public class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
     private final Path path;
@@ -121,8 +120,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             long totalBytes,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            DateTimeZone hiveStorageTimeZone)
     {
         requireNonNull(path, "path is null");
         requireNonNull(recordReader, "recordReader is null");
@@ -162,7 +160,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             HiveColumnHandle column = columns.get(i);
             checkState(column.getColumnType() == REGULAR, "column type must be regular");
 
-            types[i] = typeManager.getType(column.getTypeSignature());
+            types[i] = column.getType();
             hiveTypes[i] = column.getHiveType();
 
             StructField field = rowInspector.getStructFieldRef(column.getName());
@@ -189,6 +187,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private void updateCompletedBytes()
     {
         try {
+            @SuppressWarnings("NumericCastThatLosesPrecision")
             long newCompletedBytes = (long) (totalBytes * recordReader.getProgress());
             completedBytes = min(totalBytes, max(completedBytes, newCompletedBytes));
         }

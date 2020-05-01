@@ -31,11 +31,10 @@ import java.util.List;
 
 import static io.prestosql.server.ThreadResource.Info.byName;
 
-@Path("/")
+@Path("/v1/thread")
 public class ThreadResource
 {
     @GET
-    @Path("/v1/thread")
     @Produces(MediaType.APPLICATION_JSON)
     public List<Info> getThreadInfo()
     {

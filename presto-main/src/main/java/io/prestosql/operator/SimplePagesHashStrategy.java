@@ -69,9 +69,9 @@ public class SimplePagesHashStrategy
         this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
         requireNonNull(metadata, "metadata is null");
         ImmutableList.Builder<MethodHandle> distinctFromMethodHandlesBuilder = ImmutableList.builder();
-        for (Type type : types) {
+        for (int i = 0; i < hashChannels.size(); i++) {
             distinctFromMethodHandlesBuilder.add(
-                    metadata.getScalarFunctionImplementation(metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type))).getMethodHandle());
+                    metadata.getScalarFunctionImplementation(metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(types.get(i), types.get(i)))).getMethodHandle());
         }
         distinctFromMethodHandles = distinctFromMethodHandlesBuilder.build();
     }
@@ -198,7 +198,7 @@ public class SimplePagesHashStrategy
             int hashChannel = hashChannels.get(i);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
             Block rightBlock = page.getBlock(rightChannels[i]);
-            MethodHandle methodHandle = distinctFromMethodHandles.get(hashChannel);
+            MethodHandle methodHandle = distinctFromMethodHandles.get(i);
             try {
                 if (!(boolean) methodHandle.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition)) {
                     return false;

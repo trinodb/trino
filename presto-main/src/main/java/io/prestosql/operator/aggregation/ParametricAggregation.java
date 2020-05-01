@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
@@ -35,8 +36,10 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -49,16 +52,28 @@ import static java.util.Objects.requireNonNull;
 public class ParametricAggregation
         extends SqlAggregationFunction
 {
-    private final AggregationHeader details;
     private final ParametricImplementationsGroup<AggregationImplementation> implementations;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
-            ParametricImplementationsGroup<AggregationImplementation> implementations)
+            ParametricImplementationsGroup<AggregationImplementation> implementations,
+            boolean deprecated)
     {
-        super(signature, details.isHidden());
-        this.details = requireNonNull(details, "details is null");
+        super(
+                new FunctionMetadata(
+                        signature,
+                        true,
+                        implementations.getArgumentDefinitions(),
+                        details.isHidden(),
+                        true,
+                        details.getDescription().orElse(""),
+                        AGGREGATE,
+                        deprecated),
+                details.isDecomposable(),
+                details.isOrderSensitive());
+        requireNonNull(details, "details is null");
+        checkArgument(implementations.isNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
 
@@ -66,7 +81,8 @@ public class ParametricAggregation
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, Metadata metadata)
     {
         // Bind variables
-        Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
+        Signature signature = getFunctionMetadata().getSignature();
+        Signature boundSignature = applyBoundVariables(signature, variables, arity);
 
         // Find implementation matching arguments
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature, variables, metadata);
@@ -86,6 +102,8 @@ public class ParametricAggregation
 
         // Bind provided dependencies to aggregation method handlers
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, metadata);
+        Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
+                removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), variables, metadata));
         MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, metadata);
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, metadata);
 
@@ -93,13 +111,14 @@ public class ParametricAggregation
         List<ParameterMetadata> parametersMetadata = buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes);
 
         // Generate Aggregation name
-        String aggregationName = generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes));
+        String aggregationName = generateAggregationName(signature.getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes));
 
         // Collect all collected data in Metadata
         AggregationMetadata aggregationMetadata = new AggregationMetadata(
                 aggregationName,
                 parametersMetadata,
                 inputHandle,
+                removeInputHandle,
                 combineHandle,
                 outputHandle,
                 ImmutableList.of(new AccumulatorStateDescriptor(
@@ -109,12 +128,13 @@ public class ParametricAggregation
                 outputType);
 
         // Create specialized InternalAggregregationFunction for Presto
-        return new InternalAggregationFunction(getSignature().getName(),
+        return new InternalAggregationFunction(
+                signature.getName(),
                 inputTypes,
                 ImmutableList.of(stateSerializer.getSerializedType()),
                 outputType,
-                details.isDecomposable(),
-                details.isOrderSensitive(),
+                isDecomposable(),
+                isOrderSensitive(),
                 new LazyAccumulatorFactoryBinder(aggregationMetadata, classLoader));
     }
 
@@ -122,12 +142,6 @@ public class ParametricAggregation
     public ParametricImplementationsGroup<AggregationImplementation> getImplementations()
     {
         return implementations;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return details.getDescription().orElse("");
     }
 
     private AggregationImplementation findMatchingImplementation(Signature boundSignature, BoundVariables variables, Metadata metadata)
@@ -140,7 +154,7 @@ public class ParametricAggregation
             for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
                 if (candidate.areTypesAssignable(boundSignature, variables, metadata)) {
                     if (foundImplementation.isPresent()) {
-                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
+                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getFunctionMetadata().getSignature()));
                     }
                     foundImplementation = Optional.of(candidate);
                 }
@@ -148,7 +162,7 @@ public class ParametricAggregation
         }
 
         if (!foundImplementation.isPresent()) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();
     }

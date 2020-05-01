@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Identifier;
@@ -26,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.ExpressionUtils.normalize;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
@@ -34,6 +36,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils
 {
+    private final Metadata metadata = createTestMetadataManager();
+
     @Test
     public void testAnd()
     {
@@ -48,7 +52,7 @@ public class TestExpressionUtils
                 and(and(and(a, b), and(c, d)), e));
 
         assertEquals(
-                ExpressionUtils.combineConjuncts(a, b, a, c, d, c, e),
+                ExpressionUtils.combineConjuncts(metadata, a, b, a, c, d, c, e),
                 and(and(and(a, b), and(c, d)), e));
     }
 

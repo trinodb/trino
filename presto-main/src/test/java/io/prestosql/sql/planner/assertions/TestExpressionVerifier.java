@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.assertions;
 
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
@@ -123,7 +124,7 @@ public class TestExpressionVerifier
 
     private Expression expression(String sql)
     {
-        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql));
+        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, new ParsingOptions()));
     }
 
     private static void assertThrows(Runnable runnable)

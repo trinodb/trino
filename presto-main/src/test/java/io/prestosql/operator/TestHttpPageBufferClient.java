@@ -28,6 +28,7 @@ import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.operator.HttpPageBufferClient.ClientCallback;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Page;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -93,7 +94,7 @@ public class TestHttpPageBufferClient
     {
         Page expectedPage = new Page(100);
 
-        DataSize expectedMaxSize = new DataSize(11, Unit.MEGABYTE);
+        DataSize expectedMaxSize = DataSize.of(11, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(expectedMaxSize);
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
@@ -101,7 +102,10 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
                 expectedMaxSize,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
@@ -186,8 +190,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -226,8 +233,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -246,7 +256,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
+        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404");
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         // send invalid content type response and verify response was ignored
@@ -294,8 +304,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -348,8 +361,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                DataSize.of(10, Unit.MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
                 location,

@@ -20,6 +20,7 @@ import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
@@ -49,7 +50,7 @@ public class StructColumnWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
-    private final int column;
+    private final OrcColumnId columnId;
     private final boolean compressed;
     private final PresentOutputStream presentStream;
     private final List<ColumnWriter> structFields;
@@ -60,10 +61,9 @@ public class StructColumnWriter
 
     private boolean closed;
 
-    public StructColumnWriter(int column, CompressionKind compression, int bufferSize, List<ColumnWriter> structFields)
+    public StructColumnWriter(OrcColumnId columnId, CompressionKind compression, int bufferSize, List<ColumnWriter> structFields)
     {
-        checkArgument(column >= 0, "column is negative");
-        this.column = column;
+        this.columnId = columnId;
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.structFields = ImmutableList.copyOf(requireNonNull(structFields, "structFields is null"));
         this.presentStream = new PresentOutputStream(compression, bufferSize);
@@ -82,10 +82,10 @@ public class StructColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnEncoding> getColumnEncodings()
+    public Map<OrcColumnId, ColumnEncoding> getColumnEncodings()
     {
-        ImmutableMap.Builder<Integer, ColumnEncoding> encodings = ImmutableMap.builder();
-        encodings.put(column, COLUMN_ENCODING);
+        ImmutableMap.Builder<OrcColumnId, ColumnEncoding> encodings = ImmutableMap.builder();
+        encodings.put(columnId, COLUMN_ENCODING);
         structFields.stream()
                 .map(ColumnWriter::getColumnEncodings)
                 .forEach(encodings::putAll);
@@ -132,15 +132,15 @@ public class StructColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> finishRowGroup()
+    public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
         ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
-        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
-        columnStatistics.put(column, statistics);
+        ImmutableMap.Builder<OrcColumnId, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        columnStatistics.put(columnId, statistics);
         structFields.stream()
                 .map(ColumnWriter::finishRowGroup)
                 .forEach(columnStatistics::putAll);
@@ -156,11 +156,11 @@ public class StructColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
+    public Map<OrcColumnId, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
-        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
-        columnStatistics.put(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
+        ImmutableMap.Builder<OrcColumnId, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        columnStatistics.put(columnId, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
         structFields.stream()
                 .map(ColumnWriter::getColumnStripeStatistics)
                 .forEach(columnStatistics::putAll);
@@ -185,7 +185,7 @@ public class StructColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(columnId, StreamKind.ROW_INDEX, slice.length(), false);
 
         ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
         indexStreams.add(new StreamDataOutput(slice, stream));
@@ -210,7 +210,7 @@ public class StructColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
+        presentStream.getStreamDataOutput(columnId).ifPresent(outputDataStreams::add);
         for (ColumnWriter structField : structFields) {
             outputDataStreams.addAll(structField.getDataStreams());
         }

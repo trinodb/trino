@@ -15,7 +15,6 @@ package io.prestosql.server.remotetask;
 
 import io.airlift.http.server.HttpServerInfo;
 import io.prestosql.execution.LocationFactory;
-import io.prestosql.execution.StageId;
 import io.prestosql.execution.TaskId;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
@@ -54,16 +53,6 @@ public class HttpLocationFactory
         return uriBuilderFrom(baseUri)
                 .appendPath("/v1/query")
                 .appendPath(queryId.toString())
-                .build();
-    }
-
-    @Override
-    public URI createStageLocation(StageId stageId)
-    {
-        requireNonNull(stageId, "stageId is null");
-        return uriBuilderFrom(baseUri)
-                .appendPath("v1/stage")
-                .appendPath(stageId.toString())
                 .build();
     }
 

@@ -28,6 +28,7 @@ public class TableAccessControlRule
 {
     private final Set<TablePrivilege> privileges;
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> schemaRegex;
     private final Optional<Pattern> tableRegex;
 
@@ -35,18 +36,21 @@ public class TableAccessControlRule
     public TableAccessControlRule(
             @JsonProperty("privileges") Set<TablePrivilege> privileges,
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex,
             @JsonProperty("table") Optional<Pattern> tableRegex)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.userRegex = requireNonNull(userRegex, "user is null");
+        this.groupRegex = requireNonNull(groupRegex, "group is null");
         this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
         this.tableRegex = requireNonNull(tableRegex, "tableRegex is null");
     }
 
-    public Optional<Set<TablePrivilege>> match(String user, SchemaTableName table)
+    public Optional<Set<TablePrivilege>> match(String user, Set<String> groups, SchemaTableName table)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
                 schemaRegex.map(regex -> regex.matcher(table.getSchemaName()).matches()).orElse(true) &&
                 tableRegex.map(regex -> regex.matcher(table.getTableName()).matches()).orElse(true)) {
             return Optional.of(privileges);

@@ -22,7 +22,7 @@ import io.prestosql.client.ClientSession;
 import io.prestosql.client.StatementClient;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.QueryId;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 

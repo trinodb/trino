@@ -14,7 +14,7 @@
 package io.prestosql.plugin.hive.gcs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
-import io.prestosql.plugin.hive.s3.ConfigurationInitializer;
+import io.prestosql.plugin.hive.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;

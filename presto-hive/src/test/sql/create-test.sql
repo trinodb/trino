@@ -120,7 +120,7 @@ AS SELECT * FROM presto_test_unpartitioned
 
 DROP TABLE IF EXISTS tmp_presto_test_load;
 CREATE TABLE tmp_presto_test_load (word STRING) STORED AS TEXTFILE;
-LOAD DATA LOCAL INPATH '/usr/share/dict/words'
+LOAD DATA LOCAL INPATH '/docker/files/words'
 INTO TABLE tmp_presto_test_load
 ;
 
@@ -147,14 +147,14 @@ CREATE TABLE tmp_presto_test (
 ;
 INSERT INTO TABLE tmp_presto_test
 SELECT
-  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test' END
-, 1 + n
-, 2 + n
-, 3 + n
-, 4 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
-, 5.1 + n
-, 6.2 + n
-, CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test' END -- t_string
+, 1 + n -- t_tinyint
+, 2 + n -- t_smallint
+, 3 + n -- t_int
+, 4 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END -- t_bigint
+, 5.1 + n -- t_float
+, 6.2 + n -- t_double
+, CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END -- t_boolean
 FROM presto_test_sequence
 LIMIT 100
 ;
@@ -199,8 +199,6 @@ SELECT 'test' FROM presto_test_sequence LIMIT 100;
 INSERT INTO TABLE presto_test_offline_partition PARTITION (ds='2012-12-30')
 SELECT 'test' FROM presto_test_sequence LIMIT 100;
 
-ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') ENABLE OFFLINE;
-
 SET hive.enforce.bucketing = true;
 
 INSERT OVERWRITE TABLE presto_test_bucketed_by_string_int
@@ -237,7 +235,7 @@ ANALYZE TABLE presto_test_bucketed_by_string_int PARTITION(ds) COMPUTE STATISTIC
 ANALYZE TABLE presto_test_bucketed_by_string_int PARTITION(ds) COMPUTE STATISTICS FOR COLUMNS;
 
 
-CREATE TABLE presto_test_types_textfile (
+CREATE TABLE presto_test_types_orc (
   t_string STRING
 , t_tinyint TINYINT
 , t_smallint SMALLINT
@@ -257,10 +255,10 @@ CREATE TABLE presto_test_types_textfile (
 , t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
 , t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
 )
-STORED AS TEXTFILE
+STORED AS ORC
 ;
 
-INSERT INTO TABLE presto_test_types_textfile
+INSERT INTO TABLE presto_test_types_orc
 SELECT
   CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test' END
 , 1 + n
@@ -278,59 +276,38 @@ SELECT
 , CASE WHEN n % 27 = 0 THEN NULL ELSE map('test key', 'test value') END
 , CASE WHEN n % 29 = 0 THEN NULL ELSE array('abc', 'xyz', 'data') END
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
-     array(named_struct('s_string', 'test abc', 's_double', 0.1),
-           named_struct('s_string' , 'test xyz', 's_double', 0.2)) END
+     array(named_struct('s_string', 'test abc', 's_double', 1e-1),
+           named_struct('s_string' , 'test xyz', 's_double', 2e-1)) END
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
-     named_struct('s_string', 'test abc', 's_double', 0.1) END
+     named_struct('s_string', 'test abc', 's_double', 1e-1) END
 , CASE WHEN n % 33 = 0 THEN NULL ELSE
-     map(1, array(named_struct('s_string', 'test abc', 's_double', 0.1),
-                  named_struct('s_string' , 'test xyz', 's_double', 0.2))) END
+     map(1, array(named_struct('s_string', 'test abc', 's_double', 1e-1),
+                  named_struct('s_string' , 'test xyz', 's_double', 2e-1))) END
 FROM presto_test_sequence
 LIMIT 100
 ;
 
+CREATE TABLE presto_test_types_sequencefile
+STORED AS SEQUENCEFILE
+AS SELECT * FROM presto_test_types_orc;
 
-CREATE TABLE presto_test_types_sequencefile LIKE presto_test_types_textfile;
-ALTER TABLE presto_test_types_sequencefile SET FILEFORMAT SEQUENCEFILE;
+CREATE TABLE presto_test_types_rctext
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'
+STORED AS RCFILE
+AS SELECT * FROM presto_test_types_orc;
 
-INSERT INTO TABLE presto_test_types_sequencefile
-SELECT * FROM presto_test_types_textfile
-;
+CREATE TABLE presto_test_types_rcbinary
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe'
+STORED AS RCFILE
+AS SELECT * FROM presto_test_types_orc;
 
+CREATE TABLE presto_test_types_textfile
+STORED AS TEXTFILE
+AS SELECT * FROM presto_test_types_orc;
 
-CREATE TABLE presto_test_types_rctext LIKE presto_test_types_textfile;
-ALTER TABLE presto_test_types_rctext SET FILEFORMAT RCFILE;
-ALTER TABLE presto_test_types_rctext SET SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe';
-
-INSERT INTO TABLE presto_test_types_rctext
-SELECT * FROM presto_test_types_textfile
-;
-
-
-CREATE TABLE presto_test_types_rcbinary LIKE presto_test_types_textfile;
-ALTER TABLE presto_test_types_rcbinary SET FILEFORMAT RCFILE;
-ALTER TABLE presto_test_types_rcbinary SET SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe';
-
-INSERT INTO TABLE presto_test_types_rcbinary
-SELECT * FROM presto_test_types_textfile
-;
-
-
-CREATE TABLE presto_test_types_orc LIKE presto_test_types_textfile;
-ALTER TABLE presto_test_types_orc SET FILEFORMAT ORC;
-
-INSERT INTO TABLE presto_test_types_orc
-SELECT * FROM presto_test_types_textfile
-;
-
-
-CREATE TABLE presto_test_types_parquet LIKE presto_test_types_textfile;
-ALTER TABLE presto_test_types_parquet SET FILEFORMAT PARQUET;
-
-INSERT INTO TABLE presto_test_types_parquet
-SELECT * FROM presto_test_types_textfile
-;
-
+CREATE TABLE presto_test_types_parquet
+STORED AS PARQUET
+AS SELECT * FROM presto_test_types_orc;
 
 ALTER TABLE presto_test_types_textfile ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_sequencefile ADD COLUMNS (new_column INT);

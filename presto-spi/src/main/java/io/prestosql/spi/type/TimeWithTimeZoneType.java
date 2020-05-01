@@ -17,7 +17,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class TimeWithTimeZoneType
         extends AbstractLongType
@@ -26,7 +25,7 @@ public final class TimeWithTimeZoneType
 
     private TimeWithTimeZoneType()
     {
-        super(parseTypeSignature(StandardTypes.TIME_WITH_TIME_ZONE));
+        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE));
     }
 
     @Override
@@ -47,6 +46,7 @@ public final class TimeWithTimeZoneType
         return leftValue == rightValue;
     }
 
+    @Override
     public long hash(Block block, int position)
     {
         return AbstractLongType.hash(unpackMillisUtc(block.getLong(position, 0)));

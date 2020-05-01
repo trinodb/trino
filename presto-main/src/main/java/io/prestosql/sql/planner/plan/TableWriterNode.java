@@ -23,6 +23,7 @@ import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.OutputTableHandle;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -257,15 +258,22 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final TableHandle handle;
+        private final List<ColumnHandle> columns;
 
-        public InsertReference(TableHandle handle)
+        public InsertReference(TableHandle handle, List<ColumnHandle> columns)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
 
         public TableHandle getHandle()
         {
             return handle;
+        }
+
+        public List<ColumnHandle> getColumns()
+        {
+            return columns;
         }
 
         @Override

@@ -15,13 +15,13 @@
 package io.prestosql.plugin.tpcds.statistics;
 
 import com.google.common.collect.ImmutableList;
-import com.teradata.tpcds.Results;
-import com.teradata.tpcds.Session;
-import com.teradata.tpcds.Table;
-import com.teradata.tpcds.column.Column;
-import com.teradata.tpcds.column.ColumnType;
 import io.prestosql.plugin.tpcds.TpcdsRecordSet;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.tpcds.Results;
+import io.prestosql.tpcds.Session;
+import io.prestosql.tpcds.Table;
+import io.prestosql.tpcds.column.Column;
+import io.prestosql.tpcds.column.ColumnType;
 
 import java.util.List;
 import java.util.Map;

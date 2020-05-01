@@ -14,31 +14,19 @@
 package io.prestosql.operator.aggregation;
 
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestApproximateCountDistinctVarchar
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    protected InternalAggregationFunction getAggregationFunction()
-    {
-        return metadata.getAggregateFunctionImplementation(
-                new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), parseTypeSignature("varchar"), DOUBLE.getTypeSignature()));
-    }
-
-    @Override
     protected Type getValueType()
     {
-        return VarcharType.VARCHAR;
+        return VARCHAR;
     }
 
     @Override

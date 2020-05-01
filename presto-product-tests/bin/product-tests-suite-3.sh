@@ -2,28 +2,22 @@
 
 set -xeuo pipefail
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-mysql \
-    -g mysql_connector,mysql
+suite_exit_code=0
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-postgresql \
-    -g postgresql_connector
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment multinode-tls \
+    -- -g smoke,cli,group-by,join,tls \
+    || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-cassandra \
-    -g cassandra
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment multinode-tls-kerberos \
+    -- -g cli,group-by,join,tls \
+    || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kerberos-hdfs-impersonation-with-wire-encryption \
-    -g storage_formats,cli,hdfs_impersonation,authorization
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-kerberos-hdfs-impersonation-with-wire-encryption \
+    -- -g storage_formats,cli,hdfs_impersonation,authorization -x iceberg \
+    || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kerberos-kms-hdfs-no-impersonation \
-    -g storage_formats
-
-# TODO enable avro when adding Metastore impersonation
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kerberos-kms-hdfs-impersonation \
-    -g storage_formats \
-    -x avro
+echo "$0: exiting with ${suite_exit_code}"
+exit "${suite_exit_code}"

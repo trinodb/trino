@@ -19,14 +19,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.FunctionType;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -69,6 +71,7 @@ public class AggregationNode
 
         this.source = source;
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        aggregations.values().forEach(aggregation -> aggregation.verifyArguments(step));
 
         requireNonNull(groupingSets, "groupingSets is null");
         groupIdSymbol.ifPresent(symbol -> checkArgument(groupingSets.getGroupingKeys().contains(symbol), "Grouping columns does not contain groupId column"));
@@ -117,7 +120,7 @@ public class AggregationNode
      */
     public boolean hasDefaultOutput()
     {
-        return hasEmptyGroupingSet() && (step.isOutputPartial() || step.equals(SINGLE));
+        return hasEmptyGroupingSet() && (step.isOutputPartial() || step == SINGLE);
     }
 
     public boolean hasEmptyGroupingSet()
@@ -225,9 +228,10 @@ public class AggregationNode
                 .anyMatch(Aggregation::isDistinct);
 
         boolean decomposableFunctions = getAggregations().values().stream()
-                .map(Aggregation::getSignature)
-                .map(metadata::getAggregateFunctionImplementation)
-                .allMatch(InternalAggregationFunction::isDecomposable);
+                .map(Aggregation::getResolvedFunction)
+                .map(metadata::getAggregationFunctionMetadata)
+                .map(AggregationFunctionMetadata::getIntermediateType)
+                .allMatch(Optional::isPresent);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
@@ -243,13 +247,15 @@ public class AggregationNode
         // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
         // since all input have to be aggregated into one line output.
         //
-        // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
+        // 2. aggregations that must produce default output and are not decomposable, we cannot distribute them.
         return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(metadata));
     }
 
     public boolean isStreamable()
     {
-        return !preGroupedSymbols.isEmpty() && groupingSets.getGroupingSetCount() == 1 && groupingSets.getGlobalGroupingSets().isEmpty();
+        return ImmutableSet.copyOf(preGroupedSymbols).equals(ImmutableSet.copyOf(groupingSets.getGroupingKeys()))
+                && groupingSets.getGroupingSetCount() == 1
+                && groupingSets.getGlobalGroupingSets().isEmpty();
     }
 
     public static GroupingSetDescriptor globalAggregation()
@@ -349,9 +355,7 @@ public class AggregationNode
             if (step.isInputRaw()) {
                 return Step.PARTIAL;
             }
-            else {
-                return Step.INTERMEDIATE;
-            }
+            return Step.INTERMEDIATE;
         }
 
         public static Step partialInput(Step step)
@@ -359,15 +363,13 @@ public class AggregationNode
             if (step.isOutputPartial()) {
                 return Step.INTERMEDIATE;
             }
-            else {
-                return Step.FINAL;
-            }
+            return Step.FINAL;
         }
     }
 
     public static class Aggregation
     {
-        private final Signature signature;
+        private final ResolvedFunction resolvedFunction;
         private final List<Expression> arguments;
         private final boolean distinct;
         private final Optional<Symbol> filter;
@@ -376,14 +378,14 @@ public class AggregationNode
 
         @JsonCreator
         public Aggregation(
-                @JsonProperty("signature") Signature signature,
+                @JsonProperty("resolvedFunction") ResolvedFunction resolvedFunction,
                 @JsonProperty("arguments") List<Expression> arguments,
                 @JsonProperty("distinct") boolean distinct,
                 @JsonProperty("filter") Optional<Symbol> filter,
                 @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.signature = requireNonNull(signature, "signature is null");
+            this.resolvedFunction = requireNonNull(resolvedFunction, "signature is null");
             this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
             for (Expression argument : arguments) {
                 checkArgument(argument instanceof SymbolReference || argument instanceof LambdaExpression,
@@ -396,9 +398,9 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Signature getSignature()
+        public ResolvedFunction getResolvedFunction()
         {
-            return signature;
+            return resolvedFunction;
         }
 
         @JsonProperty
@@ -442,7 +444,7 @@ public class AggregationNode
             }
             Aggregation that = (Aggregation) o;
             return distinct == that.distinct &&
-                    Objects.equals(signature, that.signature) &&
+                    Objects.equals(resolvedFunction, that.resolvedFunction) &&
                     Objects.equals(arguments, that.arguments) &&
                     Objects.equals(filter, that.filter) &&
                     Objects.equals(orderingScheme, that.orderingScheme) &&
@@ -452,7 +454,30 @@ public class AggregationNode
         @Override
         public int hashCode()
         {
-            return Objects.hash(signature, arguments, distinct, filter, orderingScheme, mask);
+            return Objects.hash(resolvedFunction, arguments, distinct, filter, orderingScheme, mask);
+        }
+
+        private void verifyArguments(Step step)
+        {
+            int expectedArgumentCount;
+            if (step == SINGLE || step == Step.PARTIAL) {
+                expectedArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size();
+            }
+            else {
+                // Intermediate and final steps get the intermediate value and the lambda functions
+                expectedArgumentCount = 1 + (int) resolvedFunction.getSignature().getArgumentTypes().stream()
+                        .map(TypeSignature::getBase)
+                        .filter(FunctionType.NAME::equals)
+                        .count();
+            }
+
+            checkArgument(
+                    expectedArgumentCount == arguments.size(),
+                    "%s aggregation function %s has %s arguments, but %s arguments were provided to function call",
+                    step,
+                    resolvedFunction.getSignature(),
+                    expectedArgumentCount,
+                    arguments.size());
         }
     }
 }

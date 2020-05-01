@@ -83,6 +83,9 @@ public class ClientOptions
     @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
     public String truststorePassword;
 
+    @Option(name = "--insecure", title = "trust all certificates", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
+    public boolean insecure;
+
     @Option(name = "--access-token", title = "access token", description = "Access token")
     public String accessToken;
 
@@ -149,6 +152,9 @@ public class ClientOptions
     @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
     public boolean ignoreErrors;
 
+    @Option(name = "--timezone", title = "timezone", description = "Session time zone (default: system time zone)")
+    public String timeZone = ZoneId.systemDefault().getId();
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -175,7 +181,7 @@ public class ClientOptions
                 catalog,
                 schema,
                 null,
-                ZoneId.systemDefault(),
+                ZoneId.of(timeZone),
                 Locale.getDefault(),
                 toResourceEstimates(resourceEstimates),
                 toProperties(sessionProperties),

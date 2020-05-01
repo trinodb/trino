@@ -80,7 +80,7 @@ public final class OperatorValidator
     private static void validateOperatorSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, int expectedArgumentCount)
     {
         String signature = formatSignature(operatorType, returnType, argumentTypes);
-        checkArgument(!returnType.getBase().equals(UnknownType.NAME), "%s operator return type can not be NULL: %s", operatorType, signature);
+        checkArgument(!returnType.getBase().equals(UnknownType.NAME), "%s operator return type cannot be NULL: %s", operatorType, signature);
         checkArgument(argumentTypes.size() == expectedArgumentCount, "%s operator must have exactly %s argument: %s", operatorType, expectedArgumentCount, signature);
     }
 

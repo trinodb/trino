@@ -14,21 +14,32 @@
 package io.prestosql.spi.connector;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorNewTableLayout
 {
-    private final ConnectorPartitioningHandle partitioning;
+    private final Optional<ConnectorPartitioningHandle> partitioning;
     private final List<String> partitionColumns;
 
     public ConnectorNewTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
     {
-        this.partitioning = requireNonNull(partitioning, "partitioning is null");
+        this.partitioning = Optional.of(requireNonNull(partitioning, "partitioning is null"));
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
     }
 
-    public ConnectorPartitioningHandle getPartitioning()
+    /**
+     * Creates a preferred table layout that is evenly partitioned on given columns by the engine.
+     * Such layout might be ignored by Presto planner.
+     */
+    public ConnectorNewTableLayout(List<String> partitionColumns)
+    {
+        this.partitioning = Optional.empty();
+        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+    }
+
+    public Optional<ConnectorPartitioningHandle> getPartitioning()
     {
         return partitioning;
     }

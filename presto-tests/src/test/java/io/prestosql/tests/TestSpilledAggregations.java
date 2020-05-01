@@ -13,11 +13,16 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestAggregations;
+import io.prestosql.testing.QueryRunner;
+
 public class TestSpilledAggregations
         extends AbstractTestAggregations
 {
-    public TestSpilledAggregations()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        return TestDistributedSpilledQueries.createSpillingQueryRunner();
     }
 }

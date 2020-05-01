@@ -38,6 +38,6 @@ public class JdbcPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JdbcConnectorFactory(name, module, JdbcPlugin.class.getClassLoader()));
+        return ImmutableList.of(new JdbcConnectorFactory(name, module));
     }
 }

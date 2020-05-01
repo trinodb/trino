@@ -15,7 +15,6 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorStateFactory;
@@ -25,6 +24,7 @@ import io.prestosql.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,12 +38,13 @@ import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = ImmutableSet.of(Block.class, long.class, double.class, boolean.class, Slice.class);
+    private static final Set<Class<?>> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(long.class, double.class, boolean.class);
 
     private final String name;
     private final List<ParameterMetadata> valueInputMetadata;
     private final List<Class<?>> lambdaInterfaces;
     private final MethodHandle inputFunction;
+    private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor> accumulatorStateDescriptors;
@@ -53,6 +54,7 @@ public class AggregationMetadata
             String name,
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
+            Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
@@ -62,6 +64,7 @@ public class AggregationMetadata
                 name,
                 valueInputMetadata,
                 inputFunction,
+                removeInputFunction,
                 combineFunction,
                 outputFunction,
                 accumulatorStateDescriptors,
@@ -73,6 +76,7 @@ public class AggregationMetadata
             String name,
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
+            Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
@@ -83,6 +87,7 @@ public class AggregationMetadata
         this.valueInputMetadata = ImmutableList.copyOf(requireNonNull(valueInputMetadata, "valueInputMetadata is null"));
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
+        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
@@ -116,6 +121,11 @@ public class AggregationMetadata
     public MethodHandle getInputFunction()
     {
         return inputFunction;
+    }
+
+    public Optional<MethodHandle> getRemoveInputFunction()
+    {
+        return removeInputFunction;
     }
 
     public MethodHandle getCombineFunction()
@@ -155,7 +165,7 @@ public class AggregationMetadata
                     checkArgument(parameters[i] == Block.class, "Parameter must be Block if it has @BlockPosition");
                     break;
                 case INPUT_CHANNEL:
-                    checkArgument(SUPPORTED_PARAMETER_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
+                    checkArgument(!parameters[i].isPrimitive() || SUPPORTED_PRIMITIVE_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
                     verifyMethodParameterType(method, i, metadata.getSqlType().getJavaType(), metadata.getSqlType().getDisplayName());
                     break;
                 case BLOCK_INDEX:
@@ -207,7 +217,7 @@ public class AggregationMetadata
 
     private static void verifyMethodParameterType(MethodHandle method, int index, Class<?> javaType, String sqlTypeDisplayName)
     {
-        checkArgument(method.type().parameterArray()[index] == javaType,
+        checkArgument(method.type().parameterType(index).isAssignableFrom(javaType),
                 "Expected method %s parameter %s type to be %s (%s)",
                 method,
                 index,

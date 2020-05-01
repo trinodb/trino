@@ -16,6 +16,7 @@ package io.prestosql.orc.writer;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.stream.StreamDataOutput;
 import io.prestosql.spi.block.Block;
@@ -31,17 +32,17 @@ public interface ColumnWriter
         return ImmutableList.of();
     }
 
-    Map<Integer, ColumnEncoding> getColumnEncodings();
+    Map<OrcColumnId, ColumnEncoding> getColumnEncodings();
 
     void beginRowGroup();
 
     void writeBlock(Block block);
 
-    Map<Integer, ColumnStatistics> finishRowGroup();
+    Map<OrcColumnId, ColumnStatistics> finishRowGroup();
 
     void close();
 
-    Map<Integer, ColumnStatistics> getColumnStripeStatistics();
+    Map<OrcColumnId, ColumnStatistics> getColumnStripeStatistics();
 
     /**
      * Write index streams to the output and return the streams in the

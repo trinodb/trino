@@ -40,6 +40,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
@@ -231,7 +232,7 @@ public class PageProcessor
                     // 2. lazy Page can be materialized only before fetching next page from PageProcessor
                     outputPagePositions = resultPage.getPositionCount();
                     outputPageSizeInBytes = 0;
-                    resultPage = recordMaterializedBytes(resultPage, sizeInBytes -> outputPageSizeInBytes += sizeInBytes);
+                    recordMaterializedBytes(resultPage, sizeInBytes -> outputPageSizeInBytes += sizeInBytes);
                 }
 
                 // remove batch from selectedPositions and previouslyComputedResults
@@ -413,9 +414,8 @@ public class PageProcessor
 
         public Page getPage()
         {
-            verify(page != null);
             verify(state == ProcessBatchState.SUCCESS);
-            return page;
+            return verifyNotNull(page);
         }
 
         private enum ProcessBatchState

@@ -63,6 +63,12 @@ public class SingleRowBlockWriter
     }
 
     @Override
+    Block[] getRawFieldBlocks()
+    {
+        return fieldBlockBuilders;
+    }
+
+    @Override
     protected Block getRawFieldBlock(int fieldIndex)
     {
         return fieldBlockBuilders[fieldIndex];

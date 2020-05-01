@@ -1,0 +1,31 @@
+{
+    "catalogs": [
+        {
+            "allow": true
+        }
+    ],
+    "impersonation": [
+        {
+            "originalUser": "alice",
+            "newUser": "bob|charlie"
+        },
+        {
+            "originalUser": "admin-test",
+            "newUser": ".*",
+            "allow": false
+        },
+        {
+            "originalUser": "admin(-.*)?",
+            "newUser": ".*"
+        },
+        {
+            "originalUser": "invalid(-.*)?",
+            "newUser": ".*",
+            "allow": false
+        },
+        {
+            "originalUser": ".*",
+            "newUser": "test"
+        }
+    ]
+}

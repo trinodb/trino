@@ -33,7 +33,7 @@ public class TestExchangeClientConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExchangeClientConfig.class)
-                .setMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
+                .setMaxBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
                 .setMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
@@ -58,11 +58,11 @@ public class TestExchangeClientConfig
                 .build();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
-                .setMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
+                .setMaxBufferSize(DataSize.of(1, Unit.GIGABYTE))
                 .setConcurrentRequestMultiplier(13)
                 .setMinErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
-                .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
+                .setMaxResponseSize(DataSize.of(1, Unit.MEGABYTE))
                 .setClientThreads(2)
                 .setPageBufferClientMaxCallbackThreads(16)
                 .setAcknowledgePages(false);

@@ -54,7 +54,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
 import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
@@ -105,7 +104,7 @@ public class PagesIndex
         this.valueAddresses = new LongArrayList(expectedPositions);
         this.eagerCompact = eagerCompact;
 
-        //noinspection rawtypes
+        //noinspection unchecked
         channels = (ObjectArrayList<Block>[]) new ObjectArrayList[types.size()];
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
@@ -226,7 +225,7 @@ public class PagesIndex
 
     public DataSize getEstimatedSize()
     {
-        return new DataSize(estimatedSize, BYTE);
+        return DataSize.ofBytes(estimatedSize);
     }
 
     public void compact()

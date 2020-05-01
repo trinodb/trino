@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.joni.Regex;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.Re2JRegexp;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -72,7 +72,7 @@ public class BenchmarkRegexpFunctions
         @Param({"1024", "32768"})
         private int sourceLength;
 
-        private Regex joniPattern;
+        private JoniRegexp joniPattern;
         private Re2JRegexp re2JPattern;
         private Slice source;
 
@@ -119,7 +119,7 @@ public class BenchmarkRegexpFunctions
             return source;
         }
 
-        public Regex getJoniPattern()
+        public JoniRegexp getJoniPattern()
         {
             return joniPattern;
         }

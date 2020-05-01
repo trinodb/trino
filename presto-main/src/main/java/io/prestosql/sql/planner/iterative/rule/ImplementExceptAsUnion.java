@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.ExceptNode;
@@ -29,6 +30,7 @@ import java.util.List;
 import static com.google.common.collect.Iterables.getFirst;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.planner.plan.Patterns.except;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Converts EXCEPT queries into UNION ALL..GROUP BY...WHERE
@@ -63,6 +65,12 @@ public class ImplementExceptAsUnion
         implements Rule<ExceptNode>
 {
     private static final Pattern<ExceptNode> PATTERN = except();
+    private final Metadata metadata;
+
+    public ImplementExceptAsUnion(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
 
     @Override
     public Pattern<ExceptNode> getPattern()
@@ -73,7 +81,7 @@ public class ImplementExceptAsUnion
     @Override
     public Result apply(ExceptNode node, Captures captures, Context context)
     {
-        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(context.getSymbolAllocator(), context.getIdAllocator());
+        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlan(node);
 
         ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();

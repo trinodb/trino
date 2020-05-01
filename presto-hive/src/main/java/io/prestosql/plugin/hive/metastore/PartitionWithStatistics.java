@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.metastore;
 import io.prestosql.plugin.hive.PartitionStatistics;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionWithStatistics

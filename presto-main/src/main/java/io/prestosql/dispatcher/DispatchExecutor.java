@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.prestosql.execution.QueryManagerConfig;
+import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -25,6 +26,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -37,6 +39,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class DispatchExecutor
 {
+    @SuppressWarnings("resource")
     private final Closer closer = Closer.create();
 
     private final ListeningExecutorService executor;
@@ -45,11 +48,26 @@ public class DispatchExecutor
     private final DispatchExecutorMBeans mbeans;
 
     @Inject
-    public DispatchExecutor(QueryManagerConfig config)
+    public DispatchExecutor(QueryManagerConfig config, EmbedVersion embedVersion)
     {
         ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("dispatcher-query-%s"));
         closer.register(coreExecutor::shutdownNow);
-        executor = listeningDecorator(coreExecutor);
+        executor = new DecoratingListeningExecutorService(
+                listeningDecorator(coreExecutor),
+                new DecoratingListeningExecutorService.TaskDecorator()
+                {
+                    @Override
+                    public Runnable decorate(Runnable command)
+                    {
+                        return embedVersion.embedVersion(command);
+                    }
+
+                    @Override
+                    public <T> Callable<T> decorate(Callable<T> task)
+                    {
+                        return embedVersion.embedVersion(task);
+                    }
+                });
 
         ScheduledExecutorService coreScheduledExecutor = newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), daemonThreadsNamed("dispatch-executor-%s"));
         closer.register(coreScheduledExecutor::shutdownNow);
@@ -82,7 +100,7 @@ public class DispatchExecutor
         closer.close();
     }
 
-    public class DispatchExecutorMBeans
+    public static class DispatchExecutorMBeans
     {
         private final ThreadPoolExecutorMBean executor;
         private final ThreadPoolExecutorMBean scheduledExecutor;

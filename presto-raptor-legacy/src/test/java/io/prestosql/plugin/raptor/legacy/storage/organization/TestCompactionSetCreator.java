@@ -39,7 +39,7 @@ import static org.testng.Assert.assertTrue;
 public class TestCompactionSetCreator
 {
     private static final long MAX_SHARD_ROWS = 100;
-    private static final DataSize MAX_SHARD_SIZE = new DataSize(100, DataSize.Unit.BYTE);
+    private static final DataSize MAX_SHARD_SIZE = DataSize.ofBytes(100);
     private static final Table tableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), false);
     private static final Table temporalTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), false);
     private static final Table bucketedTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), false);

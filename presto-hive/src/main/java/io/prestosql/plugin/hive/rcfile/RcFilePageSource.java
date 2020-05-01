@@ -28,7 +28,6 @@ import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import java.io.IOException;
 import java.util.List;
@@ -43,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 public class RcFilePageSource
         implements ConnectorPageSource
 {
-    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
+    private static final long GUESSED_MEMORY_USAGE = DataSize.of(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private static final int NULL_ENTRY_SIZE = 0;
     private final RcFileReader rcFileReader;
@@ -58,11 +57,10 @@ public class RcFilePageSource
 
     private boolean closed;
 
-    public RcFilePageSource(RcFileReader rcFileReader, List<HiveColumnHandle> columns, TypeManager typeManager)
+    public RcFilePageSource(RcFileReader rcFileReader, List<HiveColumnHandle> columns)
     {
         requireNonNull(rcFileReader, "rcReader is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(typeManager, "typeManager is null");
 
         this.rcFileReader = rcFileReader;
 
@@ -77,19 +75,16 @@ public class RcFilePageSource
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
 
-            String name = column.getName();
-            Type type = typeManager.getType(column.getTypeSignature());
-
-            namesBuilder.add(name);
-            typesBuilder.add(type);
+            namesBuilder.add(column.getName());
+            typesBuilder.add(column.getType());
             hiveTypesBuilder.add(column.getHiveType());
 
-            hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
+            hiveColumnIndexes[columnIndex] = column.getBaseHiveColumnIndex();
 
             if (hiveColumnIndexes[columnIndex] >= rcFileReader.getColumnCount()) {
                 // this file may contain fewer fields than what's declared in the schema
                 // this happens when additional columns are added to the hive table after files have been created
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1, NULL_ENTRY_SIZE);
+                BlockBuilder blockBuilder = column.getType().createBlockBuilder(null, 1, NULL_ENTRY_SIZE);
                 blockBuilder.appendNull();
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
@@ -140,9 +135,7 @@ public class RcFilePageSource
                 }
             }
 
-            Page page = new Page(currentPageSize, blocks);
-
-            return page;
+            return new Page(currentPageSize, blocks);
         }
         catch (PrestoException e) {
             closeWithSuppression(e);
@@ -209,7 +202,7 @@ public class RcFilePageSource
     }
 
     private final class RcFileBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+            implements LazyBlockLoader
     {
         private final int expectedBatchId = pageId;
         private final int columnIndex;
@@ -221,17 +214,14 @@ public class RcFilePageSource
         }
 
         @Override
-        public final void load(LazyBlock lazyBlock)
+        public final Block load()
         {
-            if (loaded) {
-                return;
-            }
-
+            checkState(!loaded, "Already loaded");
             checkState(pageId == expectedBatchId);
 
+            Block block;
             try {
-                Block block = rcFileReader.readBlock(columnIndex);
-                lazyBlock.setBlock(block);
+                block = rcFileReader.readBlock(columnIndex);
             }
             catch (RcFileCorruptionException e) {
                 throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
@@ -241,6 +231,7 @@ public class RcFilePageSource
             }
 
             loaded = true;
+            return block;
         }
     }
 }

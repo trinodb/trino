@@ -105,7 +105,6 @@ public final class SqlStageExecution
 
     public static SqlStageExecution createSqlStageExecution(
             StageId stageId,
-            URI location,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
             RemoteTaskFactory remoteTaskFactory,
@@ -117,7 +116,6 @@ public final class SqlStageExecution
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
-        requireNonNull(location, "location is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(tables, "tables is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -128,7 +126,7 @@ public final class SqlStageExecution
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
-                new StageStateMachine(stageId, location, session, fragment, tables, executor, schedulerStats),
+                new StageStateMachine(stageId, session, fragment, tables, executor, schedulerStats),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
@@ -367,7 +365,7 @@ public final class SqlStageExecution
         if (stateMachine.getState().isDone()) {
             return Optional.empty();
         }
-        checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
+        checkState(!splitsScheduled.get(), "scheduleTask cannot be called once splits have been scheduled");
         return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of(), totalPartitions));
     }
 

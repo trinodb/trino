@@ -1,0 +1,5 @@
+192.168.0.1       /region1/rack1/machine1
+    192.168.0.2  /region1/rack1/machine2
+hdfs01.example.com /region2/rack2/machine3   
+
+2001:db8:3c4d:15::1a2f:1a2b /region2/rack2/machine4

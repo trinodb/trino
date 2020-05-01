@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.planprinter;
 
 import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsAndCostSummary;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
@@ -38,6 +39,7 @@ public class NodeRepresentation
     private final Optional<PlanNodeStats> stats;
     private final List<PlanNodeStatsEstimate> estimatedStats;
     private final List<PlanCostEstimate> estimatedCost;
+    private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
 
     private final StringBuilder details = new StringBuilder();
 
@@ -50,6 +52,7 @@ public class NodeRepresentation
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
             List<PlanCostEstimate> estimatedCost,
+            Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
             List<PlanNodeId> children,
             List<PlanFragmentId> remoteSources)
     {
@@ -61,6 +64,7 @@ public class NodeRepresentation
         this.stats = requireNonNull(stats, "stats is null");
         this.estimatedStats = requireNonNull(estimatedStats, "estimatedStats is null");
         this.estimatedCost = requireNonNull(estimatedCost, "estimatedCost is null");
+        this.reorderJoinStatsAndCost = requireNonNull(reorderJoinStatsAndCost, "reorderJoinStatsAndCost is null");
         this.children = requireNonNull(children, "children is null");
         this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
 
@@ -136,6 +140,11 @@ public class NodeRepresentation
     public List<PlanCostEstimate> getEstimatedCost()
     {
         return estimatedCost;
+    }
+
+    public Optional<PlanNodeStatsAndCostSummary> getReorderJoinStatsAndCost()
+    {
+        return reorderJoinStatsAndCost;
     }
 
     public static class TypedSymbol

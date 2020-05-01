@@ -14,12 +14,17 @@
 package io.prestosql.client;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Splitter;
+import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
+import okhttp3.Request;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -38,6 +43,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
@@ -46,6 +52,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -90,6 +97,16 @@ public final class OkHttpUtil
                 .build());
     }
 
+    public static Interceptor interceptRequest(Consumer<Request> consumer)
+    {
+        requireNonNull(consumer, "consumer is null");
+
+        return chain -> {
+            consumer.accept(chain.request());
+            return chain.proceed(chain.request());
+        };
+    }
+
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)
     {
         clientBuilder
@@ -123,6 +140,41 @@ public final class OkHttpUtil
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)
     {
         return InetSocketAddress.createUnresolved(address.getHost(), address.getPort());
+    }
+
+    public static void setupInsecureSsl(OkHttpClient.Builder clientBuilder)
+    {
+        try {
+            X509TrustManager trustAllCerts = new X509TrustManager()
+            {
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType)
+                {
+                    throw new UnsupportedOperationException("checkClientTrusted should not be called");
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType)
+                {
+                    // skip validation of server certificate
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers()
+                {
+                    return new X509Certificate[0];
+                }
+            };
+
+            SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, new TrustManager[] {trustAllCerts}, new SecureRandom());
+
+            clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustAllCerts);
+            clientBuilder.hostnameVerifier((hostname, session) -> true);
+        }
+        catch (GeneralSecurityException e) {
+            throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
     }
 
     public static void setupSsl(
@@ -174,7 +226,7 @@ public final class OkHttpUtil
 
             // get X509TrustManager
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if ((trustManagers.length != 1) || !(trustManagers[0] instanceof X509TrustManager)) {
+            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
                 throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
             }
             X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
@@ -187,6 +239,26 @@ public final class OkHttpUtil
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
+    }
+
+    public static void setupChannelSocket(OkHttpClient.Builder clientBuilder)
+    {
+        // Enable socket factory only for pre JDK 11
+        if (!isAtLeastJava11()) {
+            clientBuilder.socketFactory(new SocketChannelSocketFactory());
+            clientBuilder.protocols(ImmutableList.of(Protocol.HTTP_1_1));
+        }
+    }
+
+    private static boolean isAtLeastJava11()
+    {
+        String feature = Splitter.on(".").split(StandardSystemProperty.JAVA_VERSION.value()).iterator().next();
+        try {
+            return Integer.parseInt(feature) >= 11;
+        }
+        catch (NumberFormatException e) {
+            return false;
         }
     }
 

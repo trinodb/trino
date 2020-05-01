@@ -3,8 +3,8 @@ PostgreSQL Connector
 ====================
 
 The PostgreSQL connector allows querying and creating tables in an
-external PostgreSQL database. This can be used to join data between
-different systems like PostgreSQL and Hive, or between two different
+external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used to join data between
+different systems like PostgreSQL and Hive, or between different
 PostgreSQL instances.
 
 Configuration
@@ -32,9 +32,36 @@ or want to connect to multiple PostgreSQL servers, you must configure
 multiple instances of the PostgreSQL connector.
 
 To add another catalog, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For example,
-if you name the property file ``sales.properties``, Presto will create a
+with a different name, making sure it ends in ``.properties``. For example,
+if you name the property file ``sales.properties``, Presto creates a
 catalog named ``sales`` using the configured connector.
+
+Decimal Type Handling
+---------------------
+
+``DECIMAL`` types with precision larger than 38 can be mapped to a Presto ``DECIMAL``
+by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
+``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
+configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
+
+By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
+is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
+property, which can be set to ``UNNECESSARY`` (the default),
+``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+
+Array Type Handling
+-------------------
+
+The PostgreSQL array implementation does not support fixed dimensions whereas Presto
+support only arrays with fixed dimensions.
+You can configure how the PostgreSQL connector handles arrays with the ``postgresql.array-mapping`` configuration property in your catalog file
+or the ``array_mapping`` session property.
+The following values are accepted for this property:
+
+* ``DISABLED`` (default): array columns are skipped.
+* ``AS_ARRAY``: array columns are interpreted as Presto ``ARRAY`` type, for array columns with fixed dimensions.
+* ``AS_JSON``: array columns are interpreted as Presto ``JSON`` type, with no constraint on dimensions.
 
 Querying PostgreSQL
 -------------------

@@ -23,10 +23,12 @@ import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationBuilder;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.OrcWriterStats.FlushReason;
 import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.Footer;
 import io.prestosql.orc.metadata.Metadata;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.OrcMetadataWriter;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.Stream;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -69,6 +72,7 @@ import static io.prestosql.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
 import static io.prestosql.orc.OrcWriterStats.FlushReason.MAX_BYTES;
 import static io.prestosql.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.orc.metadata.PostScript.MAGIC;
 import static io.prestosql.orc.stream.OrcDataOutput.createDataOutput;
 import static io.prestosql.orc.writer.ColumnWriters.createColumnWriter;
@@ -104,7 +108,7 @@ public final class OrcWriter
     private final DateTimeZone hiveStorageTimeZone;
 
     private final List<ClosedStripe> closedStripes = new ArrayList<>();
-    private final List<OrcType> orcTypes;
+    private final ColumnMetadata<OrcType> orcTypes;
 
     private final List<ColumnWriter> columnWriters;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
@@ -123,6 +127,7 @@ public final class OrcWriter
             OrcDataSink orcDataSink,
             List<String> columnNames,
             List<Type> types,
+            ColumnMetadata<OrcType> orcTypes,
             CompressionKind compression,
             OrcWriterOptions options,
             boolean writeLegacyVersion,
@@ -160,16 +165,16 @@ public final class OrcWriter
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(columnNames, "columnNames is null");
-        this.orcTypes = OrcType.createOrcRowType(0, columnNames, types);
+        this.orcTypes = requireNonNull(orcTypes, "orcTypes is null");
         recordValidation(validation -> validation.setColumnNames(columnNames));
 
         // create column writers
-        OrcType rootType = orcTypes.get(0);
+        OrcType rootType = orcTypes.get(ROOT_COLUMN);
         checkArgument(rootType.getFieldCount() == types.size());
         ImmutableList.Builder<ColumnWriter> columnWriters = ImmutableList.builder();
         ImmutableSet.Builder<SliceDictionaryColumnWriter> sliceColumnWriters = ImmutableSet.builder();
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
-            int fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
+            OrcColumnId fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
             Type fieldType = types.get(fieldId);
             ColumnWriter columnWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, maxCompressionBufferSize, hiveStorageTimeZone, options.getMaxStringStatisticsLimit());
             columnWriters.add(columnWriter);
@@ -311,7 +316,7 @@ public final class OrcWriter
 
     private void finishRowGroup()
     {
-        Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
+        Map<OrcColumnId, ColumnStatistics> columnStatistics = new HashMap<>();
         columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.finishRowGroup()));
         recordValidation(validation -> validation.addRowGroupStatistics(columnStatistics));
         rowGroupRowCount = 0;
@@ -401,24 +406,24 @@ public final class OrcWriter
             allStreams.add(dataStream.getStream());
         }
 
-        Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
+        Map<OrcColumnId, ColumnEncoding> columnEncodings = new HashMap<>();
         columnWriters.forEach(columnWriter -> columnEncodings.putAll(columnWriter.getColumnEncodings()));
 
-        Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
+        Map<OrcColumnId, ColumnStatistics> columnStatistics = new HashMap<>();
         columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.getColumnStripeStatistics()));
 
         // the 0th column is a struct column for the whole row
-        columnEncodings.put(0, new ColumnEncoding(DIRECT, 0));
-        columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
+        columnEncodings.put(ROOT_COLUMN, new ColumnEncoding(DIRECT, 0));
+        columnStatistics.put(ROOT_COLUMN, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
 
         // add footer
         Optional<ZoneId> timeZone = Optional.of(hiveStorageTimeZone.toTimeZone().toZoneId());
-        StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()), timeZone);
+        StripeFooter stripeFooter = new StripeFooter(allStreams, toColumnMetadata(columnEncodings, orcTypes.size()), timeZone);
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
         outputData.add(createDataOutput(footer));
 
         // create final stripe statistics
-        StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
+        StripeStatistics statistics = new StripeStatistics(toColumnMetadata(columnStatistics, orcTypes.size()));
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
         StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length());
         ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
@@ -441,9 +446,9 @@ public final class OrcWriter
         stats.updateSizeInBytes(-previouslyRecordedSizeInBytes);
         previouslyRecordedSizeInBytes = 0;
 
-        flushStripe(CLOSED);
-
-        orcDataSink.close();
+        try (Closeable ignored = orcDataSink) {
+            flushStripe(CLOSED);
+        }
     }
 
     /**
@@ -457,6 +462,7 @@ public final class OrcWriter
 
         Metadata metadata = new Metadata(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)
+                .map(Optional::of)
                 .collect(toList()));
         Slice metadataSlice = metadataWriter.writeMetadata(metadata);
         outputData.add(createDataOutput(metadataSlice));
@@ -465,11 +471,10 @@ public final class OrcWriter
                 .mapToLong(stripe -> stripe.getStripeInformation().getNumberOfRows())
                 .sum();
 
-        List<ColumnStatistics> fileStats = toFileStats(
-                closedStripes.stream()
-                        .map(ClosedStripe::getStatistics)
-                        .map(StripeStatistics::getColumnStatistics)
-                        .collect(toList()));
+        Optional<ColumnMetadata<ColumnStatistics>> fileStats = toFileStats(closedStripes.stream()
+                .map(ClosedStripe::getStatistics)
+                .map(StripeStatistics::getColumnStatistics)
+                .collect(toList()));
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
@@ -477,7 +482,7 @@ public final class OrcWriter
 
         Footer footer = new Footer(
                 numberOfRows,
-                rowGroupMaxRowCount,
+                rowGroupMaxRowCount == 0 ? OptionalInt.empty() : OptionalInt.of(rowGroupMaxRowCount),
                 closedStripes.stream()
                         .map(ClosedStripe::getStripeInformation)
                         .collect(toImmutableList()),
@@ -512,32 +517,32 @@ public final class OrcWriter
         validateFile(validationBuilder.build(), input, types, hiveStorageTimeZone);
     }
 
-    private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)
+    private static <T> ColumnMetadata<T> toColumnMetadata(Map<OrcColumnId, T> data, int expectedSize)
     {
         checkArgument(data.size() == expectedSize);
         List<T> list = new ArrayList<>(expectedSize);
         for (int i = 0; i < expectedSize; i++) {
-            list.add(data.get(i));
+            list.add(data.get(new OrcColumnId(i)));
         }
-        return ImmutableList.copyOf(list);
+        return new ColumnMetadata<>(ImmutableList.copyOf(list));
     }
 
-    private static List<ColumnStatistics> toFileStats(List<List<ColumnStatistics>> stripes)
+    private static Optional<ColumnMetadata<ColumnStatistics>> toFileStats(List<ColumnMetadata<ColumnStatistics>> stripes)
     {
         if (stripes.isEmpty()) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
         int columnCount = stripes.get(0).size();
         checkArgument(stripes.stream().allMatch(stripe -> columnCount == stripe.size()));
 
         ImmutableList.Builder<ColumnStatistics> fileStats = ImmutableList.builder();
         for (int i = 0; i < columnCount; i++) {
-            int column = i;
+            OrcColumnId columnId = new OrcColumnId(i);
             fileStats.add(ColumnStatistics.mergeColumnStatistics(stripes.stream()
-                    .map(stripe -> stripe.get(column))
+                    .map(stripe -> stripe.get(columnId))
                     .collect(toList())));
         }
-        return fileStats.build();
+        return Optional.of(new ColumnMetadata<>(fileStats.build()));
     }
 
     private static class ClosedStripe

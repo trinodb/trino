@@ -682,12 +682,25 @@ public final class PropertyDerivations
         {
             Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> {
+            ActualProperties translatedProperties = Iterables.getOnlyElement(inputProperties).translate(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }
                 return Optional.empty();
             });
+
+            switch (node.getJoinType()) {
+                case INNER:
+                case LEFT:
+                    return translatedProperties;
+                case RIGHT:
+                case FULL:
+                    return ActualProperties.builderFrom(translatedProperties)
+                            .local(ImmutableList.of())
+                            .build();
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            }
         }
 
         @Override

@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -34,7 +35,7 @@ public class TestStatsCalculator
 
     public TestStatsCalculator()
     {
-        this.queryRunner = new LocalQueryRunner(testSessionBuilder()
+        this.queryRunner = LocalQueryRunner.create(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
@@ -58,7 +59,7 @@ public class TestStatsCalculator
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+        assertPlan(sql, OPTIMIZED_AND_VALIDATED, pattern);
     }
 
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)

@@ -39,7 +39,7 @@ public class ThriftMetastoreModule
         binder.bind(ThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
-        configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
+        configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
 
         binder.bind(ThriftMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ThriftMetastore.class)

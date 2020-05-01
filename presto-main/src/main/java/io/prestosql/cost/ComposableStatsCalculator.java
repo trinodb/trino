@@ -77,7 +77,9 @@ public class ComposableStatsCalculator
 
     private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculateStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
-        return rule.calculate((T) node, sourceStats, lookup, session, types);
+        @SuppressWarnings("unchecked")
+        T typedNode = (T) node;
+        return rule.calculate(typedNode, sourceStats, lookup, session, types);
     }
 
     public interface Rule<T extends PlanNode>

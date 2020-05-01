@@ -16,23 +16,27 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
 import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -45,32 +49,28 @@ public final class ArrayReduceFunction
 
     private ArrayReduceFunction()
     {
-        super(new Signature(
-                "reduce",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
-                ImmutableList.of(),
-                parseTypeSignature("R"),
-                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("S"), parseTypeSignature("function(S,T,S)"), parseTypeSignature("function(S,R)")),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Reduce elements of the array into a single value";
+        super(new FunctionMetadata(
+                new Signature(
+                        "reduce",
+                        ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
+                        ImmutableList.of(),
+                        new TypeSignature("R"),
+                        ImmutableList.of(
+                                arrayType(new TypeSignature("T")),
+                                new TypeSignature("S"),
+                                functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
+                                functionType(new TypeSignature("S"), new TypeSignature("R"))),
+                        false),
+                true,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(true),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
+                false,
+                false,
+                "Reduce elements of the array into a single value",
+                SCALAR));
     }
 
     @Override
@@ -90,8 +90,7 @@ public final class ArrayReduceFunction
                 methodHandle.asType(
                         methodHandle.type()
                                 .changeParameterType(1, Primitives.wrap(intermediateType.getJavaType()))
-                                .changeReturnType(Primitives.wrap(outputType.getJavaType()))),
-                isDeterministic());
+                                .changeReturnType(Primitives.wrap(outputType.getJavaType()))));
     }
 
     public static Object reduce(

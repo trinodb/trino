@@ -65,7 +65,7 @@ public class BenchmarkGeometryAggregations
         public void setUp()
                 throws IOException
         {
-            queryRunner = new LocalQueryRunner(testSessionBuilder()
+            queryRunner = LocalQueryRunner.create(testSessionBuilder()
                     .setCatalog("memory")
                     .setSchema("default")
                     .build());

@@ -85,9 +85,9 @@ public class TestJdbcMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR, true),
-                "text_short", new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true),
-                "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT, true)));
+                "text", new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
+                "text_short", new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
+                "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
@@ -172,7 +172,7 @@ public class TestJdbcMetadata
     public void getColumnMetadata()
     {
         assertEquals(
-                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true)),
+                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)),
                 new ColumnMetadata("text", VARCHAR));
     }
 
@@ -195,7 +195,7 @@ public class TestJdbcMetadata
         assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
         assertEquals(layout.getColumns().get(1), new ColumnMetadata("x", VARCHAR));
 
-        JdbcColumnHandle columnHandle = new JdbcColumnHandle("x", JDBC_VARCHAR, VARCHAR, true);
+        JdbcColumnHandle columnHandle = new JdbcColumnHandle("x", JDBC_VARCHAR, VARCHAR);
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getColumns().size(), 1);

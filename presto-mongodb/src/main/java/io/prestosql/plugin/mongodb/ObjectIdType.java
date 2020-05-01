@@ -23,11 +23,10 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractVariableWidthType;
 import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.spi.type.TypeSignature;
 import org.bson.types.ObjectId;
 
 import java.io.IOException;
-
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class ObjectIdType
         extends AbstractVariableWidthType
@@ -37,7 +36,7 @@ public class ObjectIdType
     @JsonCreator
     public ObjectIdType()
     {
-        super(parseTypeSignature("ObjectId"), Slice.class);
+        super(new TypeSignature("ObjectId"), Slice.class);
     }
 
     @Override

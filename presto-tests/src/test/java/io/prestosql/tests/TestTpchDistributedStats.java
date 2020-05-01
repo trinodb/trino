@@ -14,22 +14,24 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.tpch.ColumnNaming;
-import io.prestosql.tests.statistics.StatisticsAssertion;
+import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.statistics.StatisticsAssertion;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.prestosql.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.absoluteError;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.defaultTolerance;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.noError;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.relativeError;
-import static io.prestosql.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
-import static io.prestosql.tests.statistics.Metrics.distinctValuesCount;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.absoluteError;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.defaultTolerance;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.noError;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.relativeError;
+import static io.prestosql.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static io.prestosql.testing.statistics.Metrics.distinctValuesCount;
 
 public class TestTpchDistributedStats
 {
@@ -40,8 +42,11 @@ public class TestTpchDistributedStats
             throws Exception
     {
         DistributedQueryRunner runner = TpchQueryRunnerBuilder.builder()
-                // We are not able to calculate stats for PARTIAL aggregations
-                .amendSession(builder -> builder.setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false"))
+                .amendSession(builder -> builder
+                        // We are not able to calculate stats for PARTIAL aggregations
+                        .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
+                        // Stats for non-EXPLAIN queries are not collected by default
+                        .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true"))
                 .buildWithoutCatalogs();
         runner.createCatalog(
                 "tpch",

@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
@@ -249,6 +250,14 @@ public abstract class TestDateTimeOperatorsBase
         assertFunction("DATE '2013-10-27' IS DISTINCT FROM TIMESTAMP '2013-10-28 00:00:00'", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM DATE '2013-10-27'", BOOLEAN, true);
         assertFunction("DATE '2013-10-27' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testDateCastFromVarchar()
+    {
+        assertFunction("DATE '2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertInvalidFunction("DATE '5881580-07-12'", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 5881580-07-12");
+        assertInvalidFunction("DATE '392251590-07-12'", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 392251590-07-12");
     }
 
     private static SqlDate toDate(DateTime dateTime)

@@ -99,30 +99,35 @@ public final class DecoderTestColumnHandle
         return ordinalPosition;
     }
 
+    @Override
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @Override
     @JsonProperty
     public Type getType()
     {
         return type;
     }
 
+    @Override
     @JsonProperty
     public String getMapping()
     {
         return mapping;
     }
 
+    @Override
     @JsonProperty
     public String getDataFormat()
     {
         return dataFormat;
     }
 
+    @Override
     @JsonProperty
     public String getFormatHint()
     {
@@ -135,6 +140,7 @@ public final class DecoderTestColumnHandle
         return hidden;
     }
 
+    @Override
     @JsonProperty
     public boolean isInternal()
     {

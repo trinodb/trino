@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.Maps;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -35,7 +34,7 @@ public class PruneAggregationColumns
 
     @Override
     protected Optional<PlanNode> pushDownProjectOff(
-            PlanNodeIdAllocator idAllocator,
+            Context context,
             AggregationNode aggregationNode,
             Set<Symbol> referencedOutputs)
     {

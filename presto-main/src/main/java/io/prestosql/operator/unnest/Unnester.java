@@ -77,6 +77,12 @@ abstract class Unnester
         currentPosition++;
     }
 
+    public final void advance()
+    {
+        checkState(currentPosition >= 0 && currentPosition < getInputEntryCount(), "position out of bounds");
+        currentPosition++;
+    }
+
     /**
      * Build output and flush output state for the @{code unnestBlockBuilders}.
      */
@@ -110,6 +116,8 @@ abstract class Unnester
      * for every output block.
      */
     protected abstract void processCurrentPosition(int requiredOutputCount);
+
+    protected abstract void appendNulls(int count);
 
     protected abstract void resetColumnarStructure(Block block);
 

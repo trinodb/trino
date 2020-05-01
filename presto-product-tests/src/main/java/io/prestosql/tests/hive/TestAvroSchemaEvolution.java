@@ -23,14 +23,14 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.AVRO;
 import static java.lang.String.format;
 
 public class TestAvroSchemaEvolution
         extends ProductTest
 {
     private static final String TABLE_NAME = "product_tests_avro_table";
-    private static final String ORIGINAL_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/original_schema.avsc";
+    // TODO move Avro schema files to classpath and use tempto SshClient to upload them
+    private static final String ORIGINAL_SCHEMA = "file:///docker/presto-product-tests/avro/original_schema.avsc";
     private static final String CREATE_TABLE = format("" +
                     "CREATE TABLE %s (dummy_col VARCHAR)" +
                     "WITH (" +
@@ -39,11 +39,11 @@ public class TestAvroSchemaEvolution
                     ")",
             TABLE_NAME,
             ORIGINAL_SCHEMA);
-    private static final String RENAMED_COLUMN_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/rename_column_schema.avsc";
-    private static final String REMOVED_COLUMN_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/remove_column_schema.avsc";
-    private static final String ADDED_COLUMN_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/add_column_schema.avsc";
-    private static final String CHANGE_COLUMN_TYPE_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/change_column_type_schema.avsc";
-    private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/incompatible_type_schema.avsc";
+    private static final String RENAMED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/rename_column_schema.avsc";
+    private static final String REMOVED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/remove_column_schema.avsc";
+    private static final String ADDED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/add_column_schema.avsc";
+    private static final String CHANGE_COLUMN_TYPE_SCHEMA = "file:///docker/presto-product-tests/avro/change_column_type_schema.avsc";
+    private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/presto-product-tests/avro/incompatible_type_schema.avsc";
     private static final String SELECT_STAR = "SELECT * FROM " + TABLE_NAME;
     private static final String COLUMNS_IN_TABLE = "SHOW COLUMNS IN " + TABLE_NAME;
 
@@ -60,14 +60,14 @@ public class TestAvroSchemaEvolution
         query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
     }
 
-    @Test(groups = {AVRO})
+    @Test
     public void testSelectTable()
     {
         assertThat(query(format("SELECT string_col FROM %s", TABLE_NAME)))
                 .containsExactly(row("string0"));
     }
 
-    @Test(groups = {AVRO})
+    @Test
     public void testInsertAfterSchemaEvolution()
     {
         assertThat(query(SELECT_STAR))
@@ -81,7 +81,7 @@ public class TestAvroSchemaEvolution
                         row("string1", 1, 101));
     }
 
-    @Test(groups = {AVRO})
+    @Test
     public void testSchemaEvolutionWithIncompatibleType()
     {
         assertThat(query(COLUMNS_IN_TABLE))
@@ -96,7 +96,7 @@ public class TestAvroSchemaEvolution
                 .failsWithMessage("Found int, expecting string");
     }
 
-    @Test(groups = {AVRO})
+    @Test
     public void testSchemaEvolution()
     {
         assertThat(query(COLUMNS_IN_TABLE))
@@ -138,7 +138,7 @@ public class TestAvroSchemaEvolution
                 .containsExactly(row("string0", null));
     }
 
-    @Test(groups = {AVRO})
+    @Test
     public void testSchemaWhenUrlIsUnset()
     {
         assertThat(query(COLUMNS_IN_TABLE))
@@ -154,7 +154,7 @@ public class TestAvroSchemaEvolution
                         row("dummy_col", "varchar", "", ""));
     }
 
-    @Test(groups = {AVRO})
+    @Test
     public void testCreateTableLike()
     {
         String createTableLikeName = "test_avro_like";

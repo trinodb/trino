@@ -25,7 +25,6 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTaskContext;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -151,7 +150,8 @@ public class BenchmarkUnnestOperator
                         types.subList(0, 1),
                         channels.subList(1, channels.size()),
                         types.subList(1, types.size()),
-                        true);
+                        true,
+                        false);
         }
 
         public Optional<Type> getType(Metadata metadata, String typeString)
@@ -159,8 +159,7 @@ public class BenchmarkUnnestOperator
             if (typeString.equals("NONE")) {
                 return Optional.empty();
             }
-            TypeSignature signature = TypeSignature.parseTypeSignature(typeString);
-            return Optional.of(metadata.getType(signature));
+            return Optional.of(metadata.fromSqlType(typeString));
         }
 
         @TearDown
@@ -172,7 +171,7 @@ public class BenchmarkUnnestOperator
 
         public TaskContext createTaskContext()
         {
-            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(2, GIGABYTE));
+            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(2, GIGABYTE));
         }
 
         public OperatorFactory getOperatorFactory()
@@ -278,16 +277,16 @@ public class BenchmarkUnnestOperator
             if (type instanceof ArrayType) {
                 return produceArrayBlock((ArrayType) type, entries, primitiveNullsRatio, rowNullsRatio);
             }
-            else if (type instanceof MapType) {
+            if (type instanceof MapType) {
                 return produceMapBlock((MapType) type, entries, primitiveNullsRatio, rowNullsRatio);
             }
-            else if (type instanceof RowType) {
+            if (type instanceof RowType) {
                 return produceRowBlock((RowType) type, entries, primitiveNullsRatio, rowNullsRatio);
             }
-            else if (type == VARCHAR) {
+            if (type == VARCHAR) {
                 return produceStringBlock(entries, primitiveNullsRatio);
             }
-            else if (type == INTEGER) {
+            if (type == INTEGER) {
                 return produceIntBlock(entries, primitiveNullsRatio);
             }
 

@@ -28,7 +28,7 @@ public final class SqlTimestampWithTimeZone
 {
     // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
     public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS VV";
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(JSON_FORMAT);
+    private static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern(JSON_FORMAT);
 
     private final long millisUtc;
     private final TimeZoneKey timeZoneKey;
@@ -85,6 +85,8 @@ public final class SqlTimestampWithTimeZone
     @Override
     public String toString()
     {
-        return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(timeZoneKey.getId())).format(formatter);
+        return Instant.ofEpochMilli(millisUtc)
+                .atZone(ZoneId.of(timeZoneKey.getId()))
+                .format(JSON_FORMATTER);
     }
 }

@@ -14,9 +14,9 @@
 package io.prestosql.plugin.google.sheets;
 
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.google.sheets.TestSheetsConfig.getProperties;
@@ -29,11 +29,6 @@ public class TestGoogleSheets
 {
     protected static final String GOOGLE_SHEETS = "gsheets";
 
-    public TestGoogleSheets()
-    {
-        super(() -> createQueryRunner());
-    }
-
     private static Session createSession()
     {
         return testSessionBuilder()
@@ -42,7 +37,8 @@ public class TestGoogleSheets
                 .build();
     }
 
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
         QueryRunner queryRunner;
         try {
@@ -61,6 +57,7 @@ public class TestGoogleSheets
     public void testListTable()
     {
         assertQuery("show tables", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
+        assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
     }
 
     @Test
@@ -90,7 +87,7 @@ public class TestGoogleSheets
     @Test
     public void testQueryingUnknownSchemaAndTable()
     {
-        assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema foo does not exist");
+        assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema 'foo' does not exist");
         assertQueryFails("select * from gsheets.default.foo_bar_table", "Sheet expression not found for table foo_bar_table");
     }
 

@@ -37,7 +37,7 @@ public class MemoryDataFragment
             @JsonProperty("rows") long rows)
     {
         this.hostAddress = requireNonNull(hostAddress, "hostAddress is null");
-        checkArgument(rows >= 0, "Rows number can not be negative");
+        checkArgument(rows >= 0, "Rows number cannot be negative");
         this.rows = rows;
     }
 
@@ -65,7 +65,7 @@ public class MemoryDataFragment
 
     public static MemoryDataFragment merge(MemoryDataFragment a, MemoryDataFragment b)
     {
-        checkArgument(a.getHostAddress().equals(b.getHostAddress()), "Can not merge fragments from different hosts");
+        checkArgument(a.getHostAddress().equals(b.getHostAddress()), "Cannot merge fragments from different hosts");
         return new MemoryDataFragment(a.getHostAddress(), a.getRows() + b.getRows());
     }
 }

@@ -2,6 +2,8 @@
 Decimal Functions and Operators
 ===============================
 
+.. _decimal_literal:
+
 Decimal Literals
 ----------------
 

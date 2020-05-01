@@ -4,11 +4,18 @@ SQL Statement Syntax
 
 This chapter describes the SQL syntax used in Presto.
 
+A :doc:`reference to the supported SQL data types</language>` and other
+general characteristics is available in a separate chapter.
+
+Advanced users can take it to the next level by :doc:`using numerous SQL
+functions and operators</functions>`.
+
 .. toctree::
     :maxdepth: 1
 
     sql/alter-schema
     sql/alter-table
+    sql/alter-view
     sql/analyze
     sql/call
     sql/comment

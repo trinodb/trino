@@ -14,7 +14,6 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.Plugin;
 import org.objectweb.asm.ClassReader;
 import org.sonatype.aether.artifact.Artifact;
@@ -63,7 +62,7 @@ final class PluginDiscovery
         }
 
         if (new File(file, SERVICES_FILE).exists()) {
-            return ImmutableSet.of();
+            throw new RuntimeException("Unexpected services file in artifact directory: " + file);
         }
 
         return listClasses(file.toPath()).stream()

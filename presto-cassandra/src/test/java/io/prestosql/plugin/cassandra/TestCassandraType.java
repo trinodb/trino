@@ -27,7 +27,7 @@ import static org.testng.Assert.assertTrue;
 public class TestCassandraType
 {
     @Test
-    public void testJsonMapEncoding()
+    public void testJsonArrayEncoding()
     {
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList("one", "two", "three\""), DataType.varchar())));
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList(1, 2, 3), DataType.cint())));

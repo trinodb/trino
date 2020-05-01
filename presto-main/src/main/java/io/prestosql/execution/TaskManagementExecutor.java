@@ -41,6 +41,7 @@ public final class TaskManagementExecutor
     }
 
     @PreDestroy
+    @Override
     public void close()
     {
         taskManagementExecutor.shutdownNow();

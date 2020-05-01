@@ -31,6 +31,7 @@ import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
 import io.prestosql.plugin.accumulo.metadata.ZooKeeperMetadataManager;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -49,7 +50,6 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -117,7 +117,7 @@ public class AccumuloModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            return typeManager.getType(parseTypeSignature(value));
+            return typeManager.getType(TypeId.of(value));
         }
     }
 

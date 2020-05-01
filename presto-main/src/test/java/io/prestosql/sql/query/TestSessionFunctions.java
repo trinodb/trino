@@ -27,7 +27,9 @@ public class TestSessionFunctions
     @Test
     public void testCurrentUser()
     {
-        Session session = testSessionBuilder().setIdentity(new Identity("test_current_user", Optional.empty())).build();
+        Session session = testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_current_user"))
+                .build();
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
             queryAssertions.assertQuery("SELECT CURRENT_USER", "SELECT CAST('" + session.getUser() + "' AS VARCHAR)");
         }

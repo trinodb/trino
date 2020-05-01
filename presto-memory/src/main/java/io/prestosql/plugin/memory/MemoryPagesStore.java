@@ -133,7 +133,7 @@ public class MemoryPagesStore
         // - are missing from activeTableIds set
 
         if (activeTableIds.isEmpty()) {
-            // if activeTableIds is empty, we can not determine latestTableId...
+            // if activeTableIds is empty, we cannot determine latestTableId...
             return;
         }
         long latestTableId = Collections.max(activeTableIds);

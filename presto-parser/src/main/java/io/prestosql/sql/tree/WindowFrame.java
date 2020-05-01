@@ -92,7 +92,7 @@ public class WindowFrame
             return false;
         }
         WindowFrame o = (WindowFrame) obj;
-        return Objects.equals(type, o.type) &&
+        return type == o.type &&
                 Objects.equals(start, o.start) &&
                 Objects.equals(end, o.end);
     }

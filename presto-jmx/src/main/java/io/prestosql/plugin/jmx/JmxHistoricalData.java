@@ -17,6 +17,7 @@ import com.google.common.collect.EvictingQueue;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+import javax.management.MBeanServer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,7 +28,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.stream.Collectors.toSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.plugin.jmx.JmxMetadata.toPattern;
+import static java.util.Locale.ENGLISH;
+import static javax.management.ObjectName.WILDCARD;
 
 public class JmxHistoricalData
 {
@@ -35,16 +39,20 @@ public class JmxHistoricalData
     private final Map<String, EvictingQueue<List<Object>>> tableData = new HashMap<>();
 
     @Inject
-    public JmxHistoricalData(JmxConnectorConfig jmxConfig)
+    public JmxHistoricalData(JmxConnectorConfig jmxConfig, MBeanServer mbeanServer)
     {
-        this(jmxConfig.getMaxEntries(), jmxConfig.getDumpTables());
+        this(jmxConfig.getMaxEntries(), jmxConfig.getDumpTables(), mbeanServer);
     }
 
-    public JmxHistoricalData(int maxEntries, Set<String> tableNames)
+    public JmxHistoricalData(int maxEntries, Set<String> tableNames, MBeanServer mbeanServer)
     {
         tables = tableNames.stream()
-                .map(tableName -> tableName.toLowerCase(Locale.ENGLISH))
-                .collect(toSet());
+                .map(objectNamePattern -> toPattern(objectNamePattern.toLowerCase(ENGLISH)))
+                .flatMap(objectNamePattern -> mbeanServer.queryNames(WILDCARD, null).stream()
+                        .map(objectName -> objectName.getCanonicalName().toLowerCase(ENGLISH))
+                        .filter(name -> name.matches(objectNamePattern)))
+                .collect(toImmutableSet());
+
         for (String tableName : tables) {
             tableData.put(tableName, EvictingQueue.create(maxEntries));
         }

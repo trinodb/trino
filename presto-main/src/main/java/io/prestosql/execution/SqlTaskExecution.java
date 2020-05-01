@@ -161,7 +161,7 @@ public class SqlTaskExecution
                 notificationExecutor);
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
-            // The call back is accessed from another thread, so this code can not be placed in the constructor.
+            // The call back is accessed from another thread, so this code cannot be placed in the constructor.
             task.scheduleDriversForTaskLifeCycle();
             task.addSources(sources);
             return task;
@@ -286,7 +286,7 @@ public class SqlTaskExecution
     public void addSources(List<TaskSource> sources)
     {
         requireNonNull(sources, "sources is null");
-        checkState(!Thread.holdsLock(this), "Can not add sources while holding a lock on the %s", getClass().getSimpleName());
+        checkState(!Thread.holdsLock(this), "Cannot add sources while holding a lock on the %s", getClass().getSimpleName());
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // update our record of sources and schedule drivers for new partitioned splits

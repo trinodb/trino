@@ -21,10 +21,18 @@ import io.prestosql.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigurationModule.installModules;
+import static java.util.Objects.requireNonNull;
 
 public class HiveSecurityModule
         extends AbstractConfigurationAwareModule
 {
+    private final String catalogName;
+
+    public HiveSecurityModule(String catalogName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -36,7 +44,7 @@ public class HiveSecurityModule
         bindSecurityModule(
                 "file",
                 installModules(
-                        new FileBasedAccessControlModule(),
+                        new FileBasedAccessControlModule(catalogName),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
                 "read-only",
@@ -60,7 +68,7 @@ public class HiveSecurityModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {});
+            binder.bind(AccessControlMetadataFactory.class).toInstance((metastore) -> new AccessControlMetadata() {});
         }
     }
 }

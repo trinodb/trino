@@ -177,7 +177,7 @@ public class TestColumnarMap
 
     private static BlockBuilder createMapBuilder(int expectedEntries)
     {
-        MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(MAP, TypeSignatureParameter.of(VARCHAR.getTypeSignature()), TypeSignatureParameter.of(VARCHAR.getTypeSignature())));
+        MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
         return new MapBlockBuilder(mapType, null, expectedEntries);
     }
 

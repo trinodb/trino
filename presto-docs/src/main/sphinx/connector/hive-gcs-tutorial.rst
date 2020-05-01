@@ -7,12 +7,13 @@ Preliminary Steps
 Ensure Access to GCS
 ^^^^^^^^^^^^^^^^^^^^
 
-Access to Cloud Storage data is possible thanks to
+Access to `Google Cloud Storage <https://cloud.google.com/storage/>`_
+data is possible thanks to the
 `Hadoop Cloud Storage connector <https://cloud.google.com/dataproc/docs/concepts/connectors/cloud-storage>`_.
 
 If your data is publicly available, you do not need to do anything here.
 However, in most cases data is not publicly available, and the Presto cluster needs to have access to it.
-This is typically achieved by creating a service account which has permissions to access your data.
+This is typically achieved by creating a service account, which has permissions to access your data.
 You can do this on the
 `service accounts page in GCP <https://console.cloud.google.com/projectselector2/iam-admin/serviceaccounts>`_.
 Once you create a service account, create a key for it and download the key in JSON format.
@@ -57,7 +58,7 @@ The connector uses Hive metastore for data discovery and is not limited to data 
 Hive Metastore configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If your Hive metastore uses StorageBasedAuthorization it will also need to access GCS
+If your Hive metastore uses StorageBasedAuthorization, it needs to access GCS
 to perform POSIX permission checks.
 Configuring GCS access for Hive is outside the scope of this tutorial, but there
 are some excellent guides online:
@@ -72,8 +73,8 @@ GCS connector for Hadoop provides an implementation of a Hadoop FileSystem.
 Unfortunately GCS IAM permissions don't map to POSIX permissions required by Hadoop FileSystem,
 so the GCS connector presents fake POSIX file permissions.
 
-When Hive metastore accesses GCS, it will by default see fake POSIX permissions equal to ``0700``.
-If Presto and Hive metastore are running as different user accounts, this will cause Hive metastore
+When Hive metastore accesses GCS, it see fake POSIX permissions equal to ``0700`` by default.
+If Presto and Hive metastore are running as different user accounts, this causes Hive metastore
 to deny Presto data access.
 There are two possible solutions to this problem:
 
@@ -96,8 +97,7 @@ Accessing Data Not Yet Mapped in the Hive metastore
 
 To access GCS data that is not yet mapped in the Hive metastore you need to provide the
 schema of the data, the file format, and the data location.
-For example, if you have ORC or Parquet files in an GCS bucket ``my_bucket``, you will
-need to execute a query::
+For example, if you have ORC or Parquet files in an GCS bucket ``my_bucket``, you need to execute a query::
 
     -- select schema in which the table will be defined, must already exist
     USE hive.default;
@@ -136,17 +136,17 @@ Create Export Schema
 
 If Hive metastore contains schema(s) mapped to GCS locations, you can use them to
 export data to GCS.
-If you don't want to use existing schemas (or there are no appropriate schemas in
-the Hive metastore), you need to create a new one::
+If you don't want to use existing schemas, or there are no appropriate schemas in
+the Hive metastore, you need to create a new one::
 
     CREATE SCHEMA hive.gcs_export WITH (location = 'gs://my_bucket/some/path');
 
 Export Data to GCS
 ^^^^^^^^^^^^^^^^^^
 
-Once you have a schema pointing to a location where you want to export the data, you can issue
+Once you have a schema pointing to a location, where you want to export the data, you can issue
 the export using a ``CREATE TABLE AS`` statement and select your desired file format. The data
-will be written to one or more files within the ``gs://my_bucket/some/path/my_table`` namespace.
+is written to one or more files within the ``gs://my_bucket/some/path/my_table`` namespace.
 Example::
 
     CREATE TABLE hive.gcs_export.orders_export

@@ -47,7 +47,8 @@ public final class WindowPartition
 
     private int currentPosition;
 
-    public WindowPartition(PagesIndex pagesIndex,
+    public WindowPartition(
+            PagesIndex pagesIndex,
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,

@@ -66,7 +66,6 @@ public class StorageModule
         binder.bind(ShardEjector.class).in(Scopes.SINGLETON);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
         binder.bind(BucketBalancer.class).in(Scopes.SINGLETON);
-        binder.bind(ReaderAttributes.class).in(Scopes.SINGLETON);
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
         binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
 

@@ -28,10 +28,11 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.prestosql.operator.GroupByHash.createGroupByHash;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DistinctLimitOperator
@@ -126,7 +127,7 @@ public class DistinctLimitOperator
                 distinctTypes,
                 Ints.toArray(distinctChannels),
                 hashChannel,
-                Math.min((int) limit, 10_000),
+                toIntExact(Math.min(limit, 10_000)),
                 isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
                 this::updateMemoryReservation);
@@ -179,7 +180,7 @@ public class DistinctLimitOperator
             return null;
         }
 
-        verify(inputPage != null);
+        verifyNotNull(inputPage);
         int distinctCount = 0;
         int[] distinctPositions = new int[inputPage.getPositionCount()];
         for (int position = 0; position < groupByIds.getPositionCount(); position++) {
@@ -218,7 +219,7 @@ public class DistinctLimitOperator
 
     private boolean processUnfinishedWork()
     {
-        verify(unfinishedWork != null);
+        verifyNotNull(unfinishedWork);
         if (!unfinishedWork.process()) {
             return false;
         }

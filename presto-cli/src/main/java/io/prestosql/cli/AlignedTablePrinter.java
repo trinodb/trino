@@ -18,12 +18,12 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.client.Column;
-import org.fusesource.jansi.AnsiString;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -42,7 +42,9 @@ import static io.prestosql.client.ClientStandardTypes.TINYINT;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static jline.console.WCWidth.wcwidth;
+import static java.util.stream.Collectors.joining;
+import static org.jline.utils.AttributedString.stripAnsi;
+import static org.jline.utils.WCWidth.wcwidth;
 
 public class AlignedTablePrinter
         implements OutputPrinter
@@ -159,6 +161,14 @@ public class AlignedTablePrinter
             return "NULL";
         }
 
+        if (o instanceof Map) {
+            return formatMap((Map<?, ?>) o);
+        }
+
+        if (o instanceof List) {
+            return formatList((List<?>) o);
+        }
+
         if (o instanceof byte[]) {
             return formatHexDump((byte[]) o, 16);
         }
@@ -195,6 +205,20 @@ public class AlignedTablePrinter
         return HEX_SPLITTER.split(hexDump);
     }
 
+    static String formatList(List<? extends Object> list)
+    {
+        return list.stream()
+                .map(AlignedTablePrinter::formatValue)
+                .collect(joining(", ", "[", "]"));
+    }
+
+    static String formatMap(Map<? extends Object, ? extends Object> map)
+    {
+        return map.entrySet().stream()
+                .map(entry -> format("%s=%s", formatValue(entry.getKey()), formatValue(entry.getValue())))
+                .collect(joining(", ", "{", "}"));
+    }
+
     private static String center(String s, int maxWidth, int padding)
     {
         int width = consoleWidth(s);
@@ -224,12 +248,7 @@ public class AlignedTablePrinter
 
     static int consoleWidth(String s)
     {
-        return consoleWidth(new AnsiString(s));
-    }
-
-    private static int consoleWidth(AnsiString s)
-    {
-        CharSequence plain = s.getPlain();
+        CharSequence plain = stripAnsi(s);
         int n = 0;
         for (int i = 0; i < plain.length(); i++) {
             n += max(wcwidth(plain.charAt(i)), 0);

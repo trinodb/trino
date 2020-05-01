@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.orc.OrcOutputBuffer;
 import io.prestosql.orc.checkpoint.FloatStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -69,9 +70,9 @@ public class FloatOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(OrcColumnId columnId)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(columnId, DATA, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

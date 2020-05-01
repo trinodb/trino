@@ -19,9 +19,6 @@ import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePartition;
-import io.prestosql.plugin.hive.HiveSessionProperties;
-import io.prestosql.plugin.hive.OrcFileWriterConfig;
-import io.prestosql.plugin.hive.ParquetFileWriterConfig;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.metastore.DateStatistics;
 import io.prestosql.plugin.hive.metastore.DecimalStatistics;
@@ -29,6 +26,7 @@ import io.prestosql.plugin.hive.metastore.DoubleStatistics;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.IntegerStatistics;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
@@ -36,7 +34,6 @@ import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.testing.TestingConnectorSession;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
@@ -48,12 +45,14 @@ import java.util.OptionalLong;
 
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.prestosql.plugin.hive.HivePartitionManager.parsePartition;
+import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
-import static io.prestosql.plugin.hive.HiveUtil.parsePartitionValue;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
@@ -72,6 +71,7 @@ import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvide
 import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.createDataColumnStatistics;
 import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
 import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.validatePartitionStatistics;
+import static io.prestosql.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -94,8 +94,8 @@ public class TestMetastoreHiveStatisticsProvider
     private static final String COLUMN = "column";
     private static final DecimalType DECIMAL = createDecimalType(5, 3);
 
-    private static final HiveColumnHandle PARTITION_COLUMN_1 = new HiveColumnHandle("p1", HIVE_STRING, VARCHAR.getTypeSignature(), 0, PARTITION_KEY, Optional.empty());
-    private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT.getTypeSignature(), 1, PARTITION_KEY, Optional.empty());
+    private static final HiveColumnHandle PARTITION_COLUMN_1 = createBaseColumn("p1", 0, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
+    private static final HiveColumnHandle PARTITION_COLUMN_2 = createBaseColumn("p2", 1, HIVE_LONG, BIGINT, PARTITION_KEY, Optional.empty());
 
     @Test
     public void testGetPartitionsSample()
@@ -464,7 +464,7 @@ public class TestMetastoreHiveStatisticsProvider
         assertConvertPartitionValueToDouble(SMALLINT, "1234", 1234);
         assertConvertPartitionValueToDouble(TINYINT, "123", 123);
         assertConvertPartitionValueToDouble(DOUBLE, "0.1", 0.1);
-        assertConvertPartitionValueToDouble(REAL, "0.2", (double) (float) 0.2);
+        assertConvertPartitionValueToDouble(REAL, "0.2", 0.2f);
         assertConvertPartitionValueToDouble(createDecimalType(5, 2), "123.45", 123.45);
         assertConvertPartitionValueToDouble(createDecimalType(25, 5), "12345678901234567890.12345", 12345678901234567890.12345);
         assertConvertPartitionValueToDouble(DATE, "1970-01-02", 1);
@@ -473,7 +473,7 @@ public class TestMetastoreHiveStatisticsProvider
     private static void assertConvertPartitionValueToDouble(Type type, String value, double expected)
     {
         Object prestoValue = parsePartitionValue(format("p=%s", value), value, type, DateTimeZone.getDefault()).getValue();
-        assertEquals(convertPartitionValueToDouble(type, prestoValue), expected);
+        assertEquals(convertPartitionValueToDouble(type, prestoValue), OptionalDouble.of(expected));
     }
 
     @Test
@@ -609,9 +609,8 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(partitionName, statistics));
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty());
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, statistics));
+        HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
                 .setColumnStatistics(
@@ -638,7 +637,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .build();
         assertEquals(
                 statisticsProvider.getTableStatistics(
-                        session,
+                        SESSION,
                         TABLE,
                         ImmutableMap.of(
                                 "p1", PARTITION_COLUMN_1,
@@ -659,9 +658,10 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty());
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
+
+        HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
+
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
                 .setColumnStatistics(
@@ -674,7 +674,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .build();
         assertEquals(
                 statisticsProvider.getTableStatistics(
-                        session,
+                        SESSION,
                         TABLE,
                         ImmutableMap.of(COLUMN, columnHandle),
                         ImmutableMap.of(COLUMN, BIGINT),
@@ -686,11 +686,10 @@ public class TestMetastoreHiveStatisticsProvider
     public void testGetTableStatisticsEmpty()
     {
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(partitionName, PartitionStatistics.empty()));
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, PartitionStatistics.empty()));
         assertEquals(
                 statisticsProvider.getTableStatistics(
-                        session,
+                        SESSION,
                         TABLE,
                         ImmutableMap.of(),
                         ImmutableMap.of(),
@@ -701,16 +700,13 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testGetTableStatisticsSampling()
     {
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> {
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> {
             assertEquals(table, TABLE);
             assertEquals(hivePartitions.size(), 1);
             return ImmutableMap.of();
         });
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
-                new HiveConfig().setPartitionStatisticsSampleSize(1),
-                new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig())
-                .getSessionProperties());
+        ConnectorSession session = getHiveSession(new HiveConfig()
+                .setPartitionStatisticsSampleSize(1));
         statisticsProvider.getTableStatistics(
                 session,
                 TABLE,
@@ -726,28 +722,18 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(-1, 0, 0, 0))
                 .build();
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(partitionName, corruptedStatistics));
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
-                new HiveConfig().setIgnoreCorruptedStatistics(false),
-                new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig())
-                .getSessionProperties());
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, corruptedStatistics));
         assertThatThrownBy(() -> statisticsProvider.getTableStatistics(
-                session,
+                getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(false)),
                 TABLE,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(partition(partitionName))))
                 .isInstanceOf(PrestoException.class)
                 .hasFieldOrPropertyWithValue("errorCode", HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode());
-        TestingConnectorSession ignoreSession = new TestingConnectorSession(new HiveSessionProperties(
-                new HiveConfig().setIgnoreCorruptedStatistics(true),
-                new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig())
-                .getSessionProperties());
         assertEquals(
                 statisticsProvider.getTableStatistics(
-                        ignoreSession,
+                        getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(true)),
                         TABLE,
                         ImmutableMap.of(),
                         ImmutableMap.of(),

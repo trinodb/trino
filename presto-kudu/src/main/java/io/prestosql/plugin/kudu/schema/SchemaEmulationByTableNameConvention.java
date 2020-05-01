@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -263,5 +264,13 @@ public class SchemaEmulationByTableNameConvention
         else {
             return commonPrefix + schemaName + ".";
         }
+    }
+
+    @Override
+    public List<String> filterTablesForDefaultSchema(List<String> rawTables)
+    {
+        return rawTables.stream()
+                .filter(table -> !table.contains("."))
+                .collect(toImmutableList());
     }
 }

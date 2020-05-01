@@ -18,12 +18,14 @@ import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.List;
 import java.util.function.BiConsumer;
 
 import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
 import static io.prestosql.spi.block.BlockUtil.checkValidPosition;
 import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class RunLengthEncodedBlock
@@ -62,6 +64,12 @@ public class RunLengthEncodedBlock
         }
 
         this.positionCount = positionCount;
+    }
+
+    @Override
+    public final List<Block> getChildren()
+    {
+        return singletonList(value);
     }
 
     public Block getValue()

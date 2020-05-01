@@ -30,7 +30,9 @@ import io.prestosql.spi.predicate.TupleDomain;
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.Set;
 
+import static io.prestosql.connector.system.jdbc.FilterUtil.emptyOrEquals;
 import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.stringFilter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
@@ -84,19 +86,22 @@ public class TableJdbcTable
         Optional<String> tableFilter = stringFilter(constraint, 2);
         Optional<String> typeFilter = stringFilter(constraint, 3);
 
+        boolean includeTables = emptyOrEquals(typeFilter, "TABLE");
+        boolean includeViews = emptyOrEquals(typeFilter, "VIEW");
         Builder table = InMemoryRecordSet.builder(METADATA);
+
+        if (!includeTables && !includeViews) {
+            return table.build().cursor();
+        }
+
         for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
-            if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
-                for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
-                    table.addRow(tableRow(catalog, name, "TABLE"));
-                }
-            }
-
-            if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
-                for (SchemaTableName name : listViews(session, metadata, accessControl, prefix)) {
-                    table.addRow(tableRow(catalog, name, "VIEW"));
+            Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+            for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
+                boolean isView = views.contains(name);
+                if ((includeTables && !isView) || (includeViews && isView)) {
+                    table.addRow(tableRow(catalog, name, isView ? "VIEW" : "TABLE"));
                 }
             }
         }

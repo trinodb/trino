@@ -44,8 +44,13 @@ export class PageTitle extends React.Component<Props, State> {
 
     refreshLoop() {
         clearTimeout(this.timeoutId);
-        fetch("/v1/info")
-            .then(response => response.json())
+        fetch("/ui/api/cluster")
+            .then(response => {
+                if (response.status === 401) {
+                    location.reload();
+                }
+                return response.json();
+            })
             .then(info => {
                 this.setState({
                     info: info,
@@ -140,6 +145,13 @@ export class PageTitle extends React.Component<Props, State> {
                                          </span>
                                         &nbsp;
                                         <span className="text" id="uptime">{info.uptime}</span>
+                                    </span>
+                                </li>
+                                <li>
+                                    <span className="navbar-cluster-info">
+                                        <span className="text" id="logout">
+                                            <a className="btn btn-logout" href="logout">Log Out</a>
+                                        </span>
                                     </span>
                                 </li>
                             </ul>

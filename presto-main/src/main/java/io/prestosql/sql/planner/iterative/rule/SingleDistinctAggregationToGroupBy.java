@@ -155,7 +155,7 @@ public class SingleDistinctAggregationToGroupBy
         checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
 
         return new Aggregation(
-                aggregation.getSignature(),
+                aggregation.getResolvedFunction(),
                 aggregation.getArguments(),
                 false,
                 aggregation.getFilter(),

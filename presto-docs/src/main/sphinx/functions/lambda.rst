@@ -1,3 +1,5 @@
+.. _lambda_expressions:
+
 ==================
 Lambda Expressions
 ==================

@@ -42,6 +42,11 @@ public final class Patterns
         return typeOf(AggregationNode.class);
     }
 
+    public static Pattern<GroupIdNode> groupId()
+    {
+        return typeOf(GroupIdNode.class);
+    }
+
     public static Pattern<ApplyNode> applyNode()
     {
         return typeOf(ApplyNode.class);
@@ -65,6 +70,11 @@ public final class Patterns
     public static Pattern<FilterNode> filter()
     {
         return typeOf(FilterNode.class);
+    }
+
+    public static Pattern<IndexJoinNode> indexJoin()
+    {
+        return typeOf(IndexJoinNode.class);
     }
 
     public static Pattern<IndexSourceNode> indexSource()
@@ -250,7 +260,7 @@ public final class Patterns
 
         public static Property<CorrelatedJoinNode, Lookup, PlanNode> subquery()
         {
-            return property("subquery", CorrelatedJoinNode::getSubquery);
+            return property("subquery", (node, context) -> context.resolve(node.getSubquery()));
         }
 
         public static Property<CorrelatedJoinNode, Lookup, Expression> filter()

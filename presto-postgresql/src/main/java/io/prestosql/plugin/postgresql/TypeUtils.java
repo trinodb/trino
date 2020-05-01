@@ -37,6 +37,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -109,6 +110,20 @@ final class TypeUtils
             handleArrayNulls(valuesArray, subArrayLength);
         }
         return valuesArray;
+    }
+
+    public static int arrayDepth(Object jdbcArray)
+    {
+        checkArgument(jdbcArray.getClass().isArray(), "jdbcArray is not an array");
+        int depth = 0;
+        while (jdbcArray != null && jdbcArray.getClass().isArray()) {
+            depth++;
+            if (Array.getLength(jdbcArray) == 0) {
+                return depth;
+            }
+            jdbcArray = Array.get(jdbcArray, 0);
+        }
+        return depth;
     }
 
     private static void handleArrayNulls(Object[] valuesArray, int length)

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -42,6 +43,7 @@ import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.StandardTypes.BIGINT;
 import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.DATE;
@@ -368,6 +370,13 @@ public final class JsonOperators
     public static long hashCode(@SqlType(JSON) Slice value)
     {
         return value.hashCode();
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(BIGINT)
+    public static long xxHash64(@SqlType(JSON) Slice value)
+    {
+        return XxHash64.hash(value);
     }
 
     @ScalarOperator(INDETERMINATE)

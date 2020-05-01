@@ -14,8 +14,6 @@
 package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import de.bwaldvogel.mongo.MongoServer;
-import de.bwaldvogel.mongo.backend.memory.MemoryBackend;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.type.Type;
@@ -24,11 +22,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.InetSocketAddress;
-
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestMongoPlugin
@@ -39,10 +34,8 @@ public class TestMongoPlugin
     @BeforeClass
     public void start()
     {
-        server = new MongoServer(new MemoryBackend());
-
-        InetSocketAddress address = server.bind();
-        seed = format("%s:%d", address.getHostString(), address.getPort());
+        server = new MongoServer();
+        seed = server.getAddress().toString();
     }
 
     @Test
@@ -62,6 +55,6 @@ public class TestMongoPlugin
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        server.shutdown();
+        server.close();
     }
 }

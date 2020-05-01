@@ -18,13 +18,14 @@ import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.VarbinaryType;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.datatype.CreateAndInsertDataSetup;
-import io.prestosql.tests.datatype.CreateAsSelectDataSetup;
-import io.prestosql.tests.datatype.DataSetup;
-import io.prestosql.tests.datatype.DataType;
-import io.prestosql.tests.datatype.DataTypeTest;
-import io.prestosql.tests.sql.PrestoSqlExecutor;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
+import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
+import io.prestosql.testing.datatype.DataSetup;
+import io.prestosql.testing.datatype.DataType;
+import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -45,17 +46,17 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.tests.datatype.DataType.bigintDataType;
-import static io.prestosql.tests.datatype.DataType.booleanDataType;
-import static io.prestosql.tests.datatype.DataType.dataType;
-import static io.prestosql.tests.datatype.DataType.dateDataType;
-import static io.prestosql.tests.datatype.DataType.doubleDataType;
-import static io.prestosql.tests.datatype.DataType.integerDataType;
-import static io.prestosql.tests.datatype.DataType.realDataType;
-import static io.prestosql.tests.datatype.DataType.smallintDataType;
-import static io.prestosql.tests.datatype.DataType.tinyintDataType;
-import static io.prestosql.tests.datatype.DataType.varbinaryDataType;
-import static io.prestosql.tests.datatype.DataType.varcharDataType;
+import static io.prestosql.testing.datatype.DataType.bigintDataType;
+import static io.prestosql.testing.datatype.DataType.booleanDataType;
+import static io.prestosql.testing.datatype.DataType.dataType;
+import static io.prestosql.testing.datatype.DataType.dateDataType;
+import static io.prestosql.testing.datatype.DataType.doubleDataType;
+import static io.prestosql.testing.datatype.DataType.integerDataType;
+import static io.prestosql.testing.datatype.DataType.realDataType;
+import static io.prestosql.testing.datatype.DataType.smallintDataType;
+import static io.prestosql.testing.datatype.DataType.tinyintDataType;
+import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
+import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
@@ -65,21 +66,17 @@ import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
-@Test
 public class TestPhoenixSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private final TestingPhoenixServer phoenixServer;
+    private TestingPhoenixServer phoenixServer;
 
-    public TestPhoenixSqlTypeMapping()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestingPhoenixServer.getInstance());
-    }
-
-    private TestPhoenixSqlTypeMapping(TestingPhoenixServer phoenixServer)
-    {
-        super(() -> createPhoenixQueryRunner(phoenixServer));
-        this.phoenixServer = phoenixServer;
+        phoenixServer = TestingPhoenixServer.getInstance();
+        return createPhoenixQueryRunner(phoenixServer);
     }
 
     @AfterClass(alwaysRun = true)

@@ -23,8 +23,8 @@ public final class Help
                 "Supported commands:\n" +
                 "QUIT\n" +
                 "EXPLAIN [ ( option [, ...] ) ] <query>\n" +
-                "    options: FORMAT { TEXT | GRAPHVIZ }\n" +
-                "             TYPE { LOGICAL | DISTRIBUTED }\n" +
+                "    options: FORMAT { TEXT | GRAPHVIZ | JSON }\n" +
+                "             TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }\n" +
                 "DESCRIBE <table>\n" +
                 "SHOW COLUMNS FROM <table>\n" +
                 "SHOW FUNCTIONS\n" +

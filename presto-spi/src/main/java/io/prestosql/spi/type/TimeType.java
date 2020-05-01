@@ -16,8 +16,6 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 //
 // A time is stored as milliseconds from midnight on 1970-01-01T00:00:00 in the time zone of the session.
 // When performing calculations on a time the client's time zone must be taken into account.
@@ -29,7 +27,7 @@ public final class TimeType
 
     private TimeType()
     {
-        super(parseTypeSignature(StandardTypes.TIME));
+        super(new TypeSignature(StandardTypes.TIME));
     }
 
     @Override

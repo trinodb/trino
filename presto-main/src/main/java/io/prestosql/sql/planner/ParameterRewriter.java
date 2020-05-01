@@ -19,35 +19,36 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Parameter;
 
-import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
 public class ParameterRewriter
         extends ExpressionRewriter<Void>
 {
-    private final List<Expression> parameterValues;
+    private final Map<NodeRef<Parameter>, Expression> parameters;
     private final Analysis analysis;
 
-    public ParameterRewriter(List<Expression> parameterValues)
+    public ParameterRewriter(Map<NodeRef<Parameter>, Expression> parameters)
     {
-        requireNonNull(parameterValues, "parameterValues is null");
-        this.parameterValues = parameterValues;
+        requireNonNull(parameters, "parameterMap is null");
+        this.parameters = parameters;
         this.analysis = null;
     }
 
-    public ParameterRewriter(List<Expression> parameterValues, Analysis analysis)
+    public ParameterRewriter(Analysis analysis)
     {
-        requireNonNull(parameterValues, "parameterValues is null");
-        this.parameterValues = parameterValues;
         this.analysis = analysis;
+        this.parameters = analysis.getParameters();
     }
 
     @Override
-    public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
         return treeRewriter.defaultRewrite(node, context);
     }
@@ -55,8 +56,8 @@ public class ParameterRewriter
     @Override
     public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
-        checkState(parameterValues.size() > node.getPosition(), "Too few parameter values");
-        return coerceIfNecessary(node, parameterValues.get(node.getPosition()));
+        checkState(parameters.size() > node.getPosition(), "Too few parameter values");
+        return coerceIfNecessary(node, parameters.get(NodeRef.of(node)));
     }
 
     private Expression coerceIfNecessary(Expression original, Expression rewritten)
@@ -69,7 +70,7 @@ public class ParameterRewriter
         if (coercion != null) {
             rewritten = new Cast(
                     rewritten,
-                    coercion.getTypeSignature().toString(),
+                    toSqlType(coercion),
                     false,
                     analysis.isTypeOnlyCoercion(original));
         }

@@ -23,6 +23,7 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.transaction.TransactionManager;
@@ -37,8 +38,10 @@ import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -86,14 +89,29 @@ public class TestSetRoleTask
         assertSetRole("SET ROLE bar", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ROLE, Optional.of("bar"))));
     }
 
+    @Test
+    public void testSetRoleInvalidCatalog()
+    {
+        assertPrestoExceptionThrownBy(() -> executeSetRole("invalid", "SET ROLE foo"))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Catalog does not exist: invalid");
+    }
+
     private void assertSetRole(String statement, Map<String, SelectedRole> expected)
     {
-        SetRole setRole = (SetRole) parser.createStatement(statement);
+        QueryStateMachine stateMachine = executeSetRole(CATALOG_NAME, statement);
+        QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
+        assertEquals(queryInfo.getSetRoles(), expected);
+    }
+
+    private QueryStateMachine executeSetRole(String catalog, String statement)
+    {
+        SetRole setRole = (SetRole) parser.createStatement(statement, new ParsingOptions());
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 statement,
                 Optional.empty(),
                 testSessionBuilder()
-                        .setCatalog(CATALOG_NAME)
+                        .setCatalog(catalog)
                         .build(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
@@ -104,7 +122,6 @@ public class TestSetRoleTask
                 metadata,
                 WarningCollector.NOOP);
         new SetRoleTask().execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of());
-        QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
-        assertEquals(queryInfo.getSetRoles(), expected);
+        return stateMachine;
     }
 }

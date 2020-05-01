@@ -17,10 +17,10 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 
 import javax.inject.Inject;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeDeserializer
@@ -38,6 +38,6 @@ public final class TypeDeserializer
     @Override
     protected Type _deserialize(String value, DeserializationContext context)
     {
-        return metadata.getType(parseTypeSignature(value));
+        return metadata.getType(TypeId.of(value));
     }
 }

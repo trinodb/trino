@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -44,7 +44,7 @@ public class TestBooleanOrAggregation
         if (length == 0) {
             return null;
         }
-        return length > 1 ? TRUE : FALSE;
+        return (length > 1 || (start % 2 == 1)) ? TRUE : FALSE;
     }
 
     @Override
@@ -54,8 +54,8 @@ public class TestBooleanOrAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BOOLEAN);
+        return ImmutableList.of(BOOLEAN);
     }
 }

@@ -19,9 +19,6 @@ import io.prestosql.spi.ErrorType;
 
 import static io.prestosql.spi.ErrorType.EXTERNAL;
 
-/**
- * Kafka connector specific error codes.
- */
 public enum KafkaErrorCode
         implements ErrorCodeSupplier
 {

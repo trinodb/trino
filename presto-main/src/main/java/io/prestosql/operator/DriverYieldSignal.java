@@ -79,6 +79,7 @@ public class DriverYieldSignal
         return yield.get();
     }
 
+    @Override
     public synchronized String toString()
     {
         return toStringHelper(this)

@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -45,7 +44,7 @@ public final class BufferTestUtils
     static final PagesSerde PAGES_SERDE = testingPagesSerde();
     static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
     static final Duration MAX_WAIT = new Duration(1, SECONDS);
-    private static final DataSize BUFFERED_PAGE_SIZE = new DataSize(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes(), BYTE);
+    private static final DataSize BUFFERED_PAGE_SIZE = DataSize.ofBytes(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes());
 
     static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
@@ -87,7 +86,7 @@ public final class BufferTestUtils
 
     static DataSize sizeOfPages(int count)
     {
-        return new DataSize(BUFFERED_PAGE_SIZE.toBytes() * count, BYTE);
+        return DataSize.ofBytes(BUFFERED_PAGE_SIZE.toBytes() * count);
     }
 
     static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)

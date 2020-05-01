@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -40,7 +39,6 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.StructuralTestUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -80,22 +78,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
-import static io.prestosql.plugin.hive.HdfsConfigurationInitializer.configureCompression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.prestosql.plugin.hive.HiveColumnProjectionInfo.generatePartialName;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.isDistinctFrom;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
-import static io.prestosql.plugin.hive.HiveUtil.isStructuralType;
+import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
+import static io.prestosql.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.prestosql.plugin.hive.util.SerDeUtils.serializeObject;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -113,11 +111,11 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
-import static io.prestosql.tests.StructuralTestUtil.arrayBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.decimalArrayBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.decimalMapBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.mapBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.rowBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.arrayBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.decimalArrayBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.decimalMapBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.mapBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
 import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
@@ -333,7 +331,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_decimal_precision_2",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_2, DECIMAL_INSPECTOR_PRECISION_2),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_2, WRITE_DECIMAL_PRECISION_2),
-                    StructuralTestUtil.decimalMapBlockOf(DECIMAL_TYPE_PRECISION_2, EXPECTED_DECIMAL_PRECISION_2)))
+                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_2, EXPECTED_DECIMAL_PRECISION_2)))
             .add(new TestColumn("t_map_decimal_precision_4",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_4, DECIMAL_INSPECTOR_PRECISION_4),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_4, WRITE_DECIMAL_PRECISION_4),
@@ -361,7 +359,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_int", getStandardListObjectInspector(javaIntObjectInspector), ImmutableList.of(3), arrayBlockOf(INTEGER, 3)))
             .add(new TestColumn("t_array_bigint", getStandardListObjectInspector(javaLongObjectInspector), ImmutableList.of(4L), arrayBlockOf(BIGINT, 4L)))
             .add(new TestColumn("t_array_float", getStandardListObjectInspector(javaFloatObjectInspector), ImmutableList.of(5.0f), arrayBlockOf(REAL, 5.0f)))
-            .add(new TestColumn("t_array_double", getStandardListObjectInspector(javaDoubleObjectInspector), ImmutableList.of(6.0), StructuralTestUtil.arrayBlockOf(DOUBLE, 6.0)))
+            .add(new TestColumn("t_array_double", getStandardListObjectInspector(javaDoubleObjectInspector), ImmutableList.of(6.0), arrayBlockOf(DOUBLE, 6.0)))
             .add(new TestColumn("t_array_boolean", getStandardListObjectInspector(javaBooleanObjectInspector), ImmutableList.of(true), arrayBlockOf(BOOLEAN, true)))
             .add(new TestColumn(
                     "t_array_varchar",
@@ -380,7 +378,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_timestamp",
                     getStandardListObjectInspector(javaTimestampObjectInspector),
                     ImmutableList.of(new Timestamp(TIMESTAMP)),
-                    StructuralTestUtil.arrayBlockOf(TimestampType.TIMESTAMP, TIMESTAMP)))
+                    arrayBlockOf(TimestampType.TIMESTAMP, TIMESTAMP)))
             .add(new TestColumn("t_array_decimal_precision_2",
                     getStandardListObjectInspector(DECIMAL_INSPECTOR_PRECISION_2),
                     ImmutableList.of(WRITE_DECIMAL_PRECISION_2),
@@ -477,13 +475,47 @@ public abstract class AbstractTestHiveFileFormats
     protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
     {
         List<HiveColumnHandle> columns = new ArrayList<>();
+        Map<String, Integer> hiveColumnIndexes = new HashMap<>();
+
         int nextHiveColumnIndex = 0;
         for (int i = 0; i < testColumns.size(); i++) {
             TestColumn testColumn = testColumns.get(i);
-            int columnIndex = testColumn.isPartitionKey() ? -1 : nextHiveColumnIndex++;
 
-            HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-            columns.add(new HiveColumnHandle(testColumn.getName(), hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+            int columnIndex;
+            if (testColumn.isPartitionKey()) {
+                columnIndex = -1;
+            }
+            else {
+                if (hiveColumnIndexes.get(testColumn.getBaseName()) != null) {
+                    columnIndex = hiveColumnIndexes.get(testColumn.getBaseName());
+                }
+                else {
+                    columnIndex = nextHiveColumnIndex++;
+                    hiveColumnIndexes.put(testColumn.getBaseName(), columnIndex);
+                }
+            }
+
+            if (testColumn.getDereferenceNames().size() == 0) {
+                HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
+                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, hiveType.getType(TYPE_MANAGER), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+            }
+            else {
+                HiveType baseHiveType = HiveType.valueOf(testColumn.getBaseObjectInspector().getTypeName());
+                HiveType partialHiveType = baseHiveType.getHiveTypeForDereferences(testColumn.getDereferenceIndices()).get();
+                HiveColumnHandle hiveColumnHandle = new HiveColumnHandle(
+                        testColumn.getBaseName(),
+                        columnIndex,
+                        baseHiveType,
+                        baseHiveType.getType(TYPE_MANAGER),
+                        Optional.of(new HiveColumnProjectionInfo(
+                                testColumn.getDereferenceIndices(),
+                                testColumn.getDereferenceNames(),
+                                partialHiveType,
+                                partialHiveType.getType(TYPE_MANAGER))),
+                        testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR,
+                        Optional.empty());
+                columns.add(hiveColumnHandle);
+            }
         }
         return columns;
     }
@@ -498,7 +530,9 @@ public abstract class AbstractTestHiveFileFormats
             HiveFileWriterFactory fileWriterFactory)
     {
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
+        testColumns = testColumns.stream()
+                .filter(column -> !column.isPartitionKey())
+                .collect(toImmutableList());
 
         List<Type> types = testColumns.stream()
                 .map(TestColumn::getType)
@@ -525,10 +559,19 @@ public abstract class AbstractTestHiveFileFormats
         configureCompression(jobConf, compressionCodec);
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
+        tableProperties.setProperty(
+                "columns",
+                testColumns.stream()
+                        .map(TestColumn::getName)
+                        .collect(Collectors.joining(",")));
 
-        Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+        tableProperties.setProperty(
+                "columns.types",
+                testColumns.stream()
+                        .map(TestColumn::getType)
+                        .collect(Collectors.joining(",")));
+
+        Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                 new Path(filePath),
                 testColumns.stream()
                         .map(TestColumn::getName)
@@ -538,7 +581,7 @@ public abstract class AbstractTestHiveFileFormats
                 jobConf,
                 session);
 
-        HiveFileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
+        FileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
         hiveFileWriter.appendRows(page);
         hiveFileWriter.commit();
 
@@ -557,12 +600,22 @@ public abstract class AbstractTestHiveFileFormats
         Serializer serializer = newInstance(storageFormat.getSerDe(), Serializer.class);
 
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
+        testColumns = testColumns.stream()
+                .filter(column -> !column.isPartitionKey())
+                .collect(toImmutableList());
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
-        serializer.initialize(new Configuration(), tableProperties);
+        tableProperties.setProperty(
+                "columns",
+                testColumns.stream()
+                        .map(TestColumn::getName)
+                        .collect(Collectors.joining(",")));
+        tableProperties.setProperty(
+                "columns.types",
+                testColumns.stream()
+                        .map(TestColumn::getType)
+                        .collect(Collectors.joining(",")));
+        serializer.initialize(new Configuration(false), tableProperties);
 
         JobConf jobConf = new JobConf();
         configureCompression(jobConf, compressionCodec);
@@ -576,11 +629,15 @@ public abstract class AbstractTestHiveFileFormats
                 () -> {});
 
         try {
-            serializer.initialize(new Configuration(), tableProperties);
+            serializer.initialize(new Configuration(false), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
+                    testColumns.stream()
+                            .map(TestColumn::getName)
+                            .collect(toImmutableList()),
+                    testColumns.stream()
+                            .map(TestColumn::getObjectInspector)
+                            .collect(toImmutableList()));
 
             Object row = objectInspector.create();
 
@@ -605,7 +662,7 @@ public abstract class AbstractTestHiveFileFormats
 
         // todo to test with compression, the file must be renamed with the compression extension
         Path path = new Path(filePath);
-        path.getFileSystem(new Configuration()).setVerifyChecksum(true);
+        path.getFileSystem(new Configuration(false)).setVerifyChecksum(true);
         File file = new File(filePath);
         return new FileSplit(path, 0, file.length(), new String[0]);
     }
@@ -796,6 +853,10 @@ public abstract class AbstractTestHiveFileFormats
 
     public static final class TestColumn
     {
+        private final String baseName;
+        private final ObjectInspector baseObjectInspector;
+        private final List<String> dereferenceNames;
+        private final List<Integer> dereferenceIndices;
         private final String name;
         private final ObjectInspector objectInspector;
         private final Object writeValue;
@@ -809,11 +870,30 @@ public abstract class AbstractTestHiveFileFormats
 
         public TestColumn(String name, ObjectInspector objectInspector, Object writeValue, Object expectedValue, boolean partitionKey)
         {
-            this.name = requireNonNull(name, "name is null");
+            this(name, objectInspector, ImmutableList.of(), ImmutableList.of(), objectInspector, writeValue, expectedValue, partitionKey);
+        }
+
+        public TestColumn(
+                String baseName,
+                ObjectInspector baseObjectInspector,
+                List<String> dereferenceNames,
+                List<Integer> dereferenceIndices,
+                ObjectInspector objectInspector,
+                Object writeValue,
+                Object expectedValue,
+                boolean partitionKey)
+        {
+            this.baseName = requireNonNull(baseName, "baseName is null");
+            this.baseObjectInspector = requireNonNull(baseObjectInspector, "baseObjectInspector is null");
+            this.dereferenceNames = requireNonNull(dereferenceNames, "dereferenceNames is null");
+            this.dereferenceIndices = requireNonNull(dereferenceIndices, "dereferenceIndices is null");
+            checkArgument(dereferenceIndices.size() == dereferenceNames.size(), "dereferenceIndices and dereferenceNames should have the same size");
+            this.name = baseName + generatePartialName(dereferenceNames);
             this.objectInspector = requireNonNull(objectInspector, "objectInspector is null");
             this.writeValue = writeValue;
             this.expectedValue = expectedValue;
             this.partitionKey = partitionKey;
+            checkArgument(dereferenceNames.size() == 0 || partitionKey == false, "partial column cannot be a partition key");
         }
 
         public String getName()
@@ -821,9 +901,29 @@ public abstract class AbstractTestHiveFileFormats
             return name;
         }
 
+        public String getBaseName()
+        {
+            return baseName;
+        }
+
+        public List<String> getDereferenceNames()
+        {
+            return dereferenceNames;
+        }
+
+        public List<Integer> getDereferenceIndices()
+        {
+            return dereferenceIndices;
+        }
+
         public String getType()
         {
             return objectInspector.getTypeName();
+        }
+
+        public ObjectInspector getBaseObjectInspector()
+        {
+            return baseObjectInspector;
         }
 
         public ObjectInspector getObjectInspector()
@@ -850,7 +950,9 @@ public abstract class AbstractTestHiveFileFormats
         public String toString()
         {
             StringBuilder sb = new StringBuilder("TestColumn{");
-            sb.append("name='").append(name).append('\'');
+            sb.append("baseName='").append(baseName).append("'");
+            sb.append("dereferenceNames=").append("[").append(dereferenceNames.stream().collect(Collectors.joining(","))).append("]");
+            sb.append("name=").append(name);
             sb.append(", objectInspector=").append(objectInspector);
             sb.append(", writeValue=").append(writeValue);
             sb.append(", expectedValue=").append(expectedValue);

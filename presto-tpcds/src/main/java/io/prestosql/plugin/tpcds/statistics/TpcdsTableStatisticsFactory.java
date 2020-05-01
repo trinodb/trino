@@ -14,7 +14,6 @@
 
 package io.prestosql.plugin.tpcds.statistics;
 
-import com.teradata.tpcds.Table;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.tpcds.TpcdsColumnHandle;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -27,6 +26,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.tpcds.Table;
 
 import java.time.LocalDate;
 import java.util.Map;

@@ -15,9 +15,11 @@ package io.prestosql.cost;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
@@ -69,7 +71,7 @@ import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -119,9 +121,10 @@ public class FilterStatsCalculator
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata,
+                new AllowAllAccessControl(),
                 session,
                 types,
-                emptyList(),
+                emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),
                 WarningCollector.NOOP,
                 false);
@@ -407,9 +410,10 @@ public class FilterStatsCalculator
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                     metadata,
+                    new AllowAllAccessControl(),
                     session,
                     types,
-                    ImmutableList.of(),
+                    ImmutableMap.of(),
                     // At this stage, there should be no subqueries in the plan.
                     node -> new VerifyException("Unexpected subquery"),
                     WarningCollector.NOOP,

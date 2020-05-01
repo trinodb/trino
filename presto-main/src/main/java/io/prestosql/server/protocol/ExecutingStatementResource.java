@@ -61,7 +61,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
@@ -74,6 +74,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -81,15 +82,15 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
-@Path("/")
+@Path("/v1/statement/executing")
 public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
-    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
-    private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
+    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
+    private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -144,7 +145,7 @@ public class ExecutingStatementResource
     }
 
     @GET
-    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getQueryResults(
             @PathParam("queryId") QueryId queryId,
@@ -156,7 +157,7 @@ public class ExecutingStatementResource
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
-        Query query = getQuery(queryId, slug);
+        Query query = getQuery(queryId, slug, token);
         if (isNullOrEmpty(proto)) {
             proto = uriInfo.getRequestUri().getScheme();
         }
@@ -164,11 +165,11 @@ public class ExecutingStatementResource
         asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, proto, asyncResponse);
     }
 
-    protected Query getQuery(QueryId queryId, String slug)
+    protected Query getQuery(QueryId queryId, String slug, long token)
     {
         Query query = queries.get(queryId);
         if (query != null) {
-            if (!query.isSlugValid(slug)) {
+            if (!query.isSlugValid(slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
             return query;
@@ -176,11 +177,13 @@ public class ExecutingStatementResource
 
         // this is the first time the query has been accessed on this coordinator
         Session session;
+        Slug querySlug;
         try {
-            if (!queryManager.isQuerySlugValid(queryId, slug)) {
+            session = queryManager.getQuerySession(queryId);
+            querySlug = queryManager.getQuerySlug(queryId);
+            if (!querySlug.isValid(EXECUTING_QUERY, slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
-            session = queryManager.getQuerySession(queryId);
         }
         catch (NoSuchElementException e) {
             throw badRequest(NOT_FOUND, "Query not found");
@@ -190,7 +193,7 @@ public class ExecutingStatementResource
             ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), ExecutingStatementResource.class.getSimpleName()));
             return Query.create(
                     session,
-                    slug,
+                    querySlug,
                     queryManager,
                     exchangeClient,
                     responseExecutor,
@@ -268,7 +271,7 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response cancelQuery(
             @PathParam("queryId") QueryId queryId,
@@ -277,7 +280,7 @@ public class ExecutingStatementResource
     {
         Query query = queries.get(queryId);
         if (query != null) {
-            if (!query.isSlugValid(slug)) {
+            if (!query.isSlugValid(slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
             query.cancel();
@@ -286,7 +289,7 @@ public class ExecutingStatementResource
 
         // cancel the query execution directly instead of creating the statement client
         try {
-            if (!queryManager.isQuerySlugValid(queryId, slug)) {
+            if (!queryManager.getQuerySlug(queryId).isValid(EXECUTING_QUERY, slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
             queryManager.cancelQuery(queryId);
@@ -298,13 +301,14 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/partialCancel/{queryId}/{stage}/{slug}")
+    @Path("partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(
             @PathParam("queryId") QueryId queryId,
             @PathParam("stage") int stage,
-            @PathParam("slug") String slug)
+            @PathParam("slug") String slug,
+            @PathParam("token") long token)
     {
-        Query query = getQuery(queryId, slug);
+        Query query = getQuery(queryId, slug, token);
         query.partialCancel(stage);
     }
 

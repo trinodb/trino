@@ -32,13 +32,13 @@ public class TestCsv
 {
     private static final String TPCH_SCHEMA = "tiny";
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testInsertIntoCsvTable()
     {
         testInsertIntoCsvTable("storage_formats_test_insert_into_csv", "");
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testInsertIntoCsvTableWithCustomProperties()
     {
         testInsertIntoCsvTable("storage_formats_test_insert_into_csv_with_custom_properties", ", csv_escape = 'e', csv_separator='s', csv_quote='q'");
@@ -65,13 +65,13 @@ public class TestCsv
         query("DROP TABLE " + tableName);
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testCreateCsvTableAs()
     {
         testCreateCsvTableAs("");
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testCreateCsvTableAsWithCustomProperties()
     {
         testCreateCsvTableAs(", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
@@ -95,21 +95,20 @@ public class TestCsv
         query("DROP TABLE " + tableName);
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testInsertIntoPartitionedCsvTable()
     {
-        testInsertIntoPartitionedCsvTable("");
+        testInsertIntoPartitionedCsvTable("test_partitioned_csv_table", "");
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testInsertIntoPartitionedCsvTableWithCustomProperties()
     {
-        testInsertIntoPartitionedCsvTable(", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
+        testInsertIntoPartitionedCsvTable("test_partitioned_csv_table_with_custom_parameters", ", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
     }
 
-    private void testInsertIntoPartitionedCsvTable(String additionalParameters)
+    private void testInsertIntoPartitionedCsvTable(String tableName, String additionalParameters)
     {
-        String tableName = "test_partitioned_csv_table";
         query("DROP TABLE IF EXISTS " + tableName);
 
         query(format(
@@ -135,13 +134,13 @@ public class TestCsv
         query("DROP TABLE " + tableName);
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testCreatePartitionedCsvTableAs()
     {
         testCreatePartitionedCsvTableAs("storage_formats_test_create_table_as_select_partitioned_csv", "");
     }
 
-    @Test(groups = {STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testCreatePartitionedCsvTableAsWithCustomParamters()
     {
         testCreatePartitionedCsvTableAs(

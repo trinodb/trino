@@ -37,7 +37,7 @@ public class TestPageUtils
         second.getLoadedBlock();
 
         AtomicLong sizeInBytes = new AtomicLong();
-        page = recordMaterializedBytes(page, sizeInBytes::getAndAdd);
+        recordMaterializedBytes(page, sizeInBytes::getAndAdd);
 
         assertEquals(sizeInBytes.get(), first.getSizeInBytes() * 2);
 
@@ -47,6 +47,6 @@ public class TestPageUtils
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(block.getLoadedBlock()));
+        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 }

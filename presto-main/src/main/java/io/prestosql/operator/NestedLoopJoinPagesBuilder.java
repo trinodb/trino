@@ -22,7 +22,6 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
 public class NestedLoopJoinPagesBuilder
@@ -54,7 +53,7 @@ public class NestedLoopJoinPagesBuilder
 
     public DataSize getEstimatedSize()
     {
-        return new DataSize(estimatedSize, BYTE);
+        return DataSize.ofBytes(estimatedSize);
     }
 
     public void compact()

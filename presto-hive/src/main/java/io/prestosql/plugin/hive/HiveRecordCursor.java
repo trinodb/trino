@@ -16,30 +16,31 @@ package io.prestosql.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
+import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPTY;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
-import static io.prestosql.plugin.hive.HiveUtil.bigintPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.booleanPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.charPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.datePartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.doublePartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.floatPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.integerPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.longDecimalPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.shortDecimalPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.smallintPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.timestampPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.tinyintPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.varcharPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.bigintPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.booleanPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.charPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.datePartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.doublePartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.floatPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.integerPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.longDecimalPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.shortDecimalPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.smallintPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.timestampPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.tinyintPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -77,11 +78,9 @@ public class HiveRecordCursor
     public HiveRecordCursor(
             List<ColumnMapping> columnMappings,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager,
             RecordCursor delegate)
     {
         requireNonNull(columnMappings, "columns is null");
-        requireNonNull(typeManager, "typeManager is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -101,12 +100,15 @@ public class HiveRecordCursor
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
+            if (columnMapping.getKind() == EMPTY) {
+                nulls[columnIndex] = true;
+            }
             if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);
 
                 String name = columnMapping.getHiveColumnHandle().getName();
-                Type type = typeManager.getType(columnMapping.getHiveColumnHandle().getTypeSignature());
+                Type type = columnMapping.getHiveColumnHandle().getType();
                 types[columnIndex] = type;
 
                 if (HiveUtil.isHiveNull(bytes)) {

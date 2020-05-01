@@ -18,9 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -57,15 +58,11 @@ import static org.testng.Assert.assertNotNull;
 public class TestRaptorIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    @SuppressWarnings("unused")
-    public TestRaptorIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
-    }
-
-    protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        return createRaptorQueryRunner(ImmutableMap.of(), true, false);
     }
 
     @Test
@@ -395,7 +392,7 @@ public class TestRaptorIntegrationSmokeTest
                 "SELECT min(orderkey), max(orderkey) FROM orders");
 
         // No such table test
-        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*raptor\\.tpch\\.no_table\\$column_ranges does not exist.*");
+        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*'raptor\\.tpch\\.no_table\\$column_ranges' does not exist.*");
 
         // No range column for DOUBLE, INTEGER or VARCHAR
         assertQueryFails("SELECT totalprice_min FROM \"orders$column_ranges\"", ".*Column 'totalprice_min' cannot be resolved.*");
@@ -420,7 +417,7 @@ public class TestRaptorIntegrationSmokeTest
         // Drop table
         assertUpdate("DROP TABLE column_ranges_test");
         assertQueryFails("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"",
-                ".*raptor\\.tpch\\.column_ranges_test\\$column_ranges does not exist.*");
+                ".*'raptor\\.tpch\\.column_ranges_test\\$column_ranges' does not exist.*");
     }
 
     @Test
@@ -495,8 +492,11 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testShowCreateTable()
     {
+        super.testShowCreateTable();
+
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   c1 bigint,\n" +

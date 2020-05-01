@@ -423,7 +423,7 @@ public class TestDictionaryCompressionOptimizer
 
     private static int megabytes(int size)
     {
-        return toIntExact(new DataSize(size, Unit.MEGABYTE).toBytes());
+        return toIntExact(DataSize.of(size, Unit.MEGABYTE).toBytes());
     }
 
     private static class DataSimulator

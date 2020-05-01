@@ -14,13 +14,17 @@
 package io.prestosql.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.Plugin;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 
 public abstract class BaseRuleTest
 {
@@ -35,7 +39,20 @@ public abstract class BaseRuleTest
     @BeforeClass
     public final void setUp()
     {
-        tester = new RuleTester(plugins);
+        Optional<LocalQueryRunner> localQueryRunner = createLocalQueryRunner();
+
+        if (localQueryRunner.isPresent()) {
+            plugins.forEach(plugin -> localQueryRunner.get().installPlugin(plugin));
+            tester = new RuleTester(localQueryRunner.get());
+        }
+        else {
+            tester = defaultRuleTester(plugins, ImmutableMap.of(), Optional.empty());
+        }
+    }
+
+    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    {
+        return Optional.empty();
     }
 
     @AfterClass(alwaysRun = true)

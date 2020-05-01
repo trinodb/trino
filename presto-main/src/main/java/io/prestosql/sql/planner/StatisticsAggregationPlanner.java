@@ -16,7 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.aggregation.MaxDataSizeForStats;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
 import io.prestosql.spi.PrestoException;
@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -90,9 +91,9 @@ public class StatisticsAggregationPlanner
             String columnName = columnStatisticMetadata.getColumnName();
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             Symbol inputSymbol = columnToSymbolMap.get(columnName);
-            verify(inputSymbol != null, "inputSymbol is null");
+            verifyNotNull(inputSymbol, "inputSymbol is null");
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
-            verify(inputType != null, "inputType is null for symbol: %s", inputSymbol);
+            verifyNotNull(inputType, "inputType is null for symbol: %s", inputSymbol);
             ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
             Symbol symbol = symbolAllocator.newSymbol(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(symbol, aggregation.getAggregation());
@@ -127,12 +128,12 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        Signature signature = metadata.resolveFunction(functionName, fromTypes(inputType));
-        Type resolvedType = metadata.getType(getOnlyElement(signature.getArgumentTypes()));
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(functionName, fromTypes(inputType));
+        Type resolvedType = metadata.getType(getOnlyElement(resolvedFunction.getSignature().getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        signature,
+                        resolvedFunction,
                         ImmutableList.of(input),
                         false,
                         Optional.empty(),

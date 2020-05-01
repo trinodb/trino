@@ -330,7 +330,7 @@ public class TestDictionaryAwarePageProjection
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(block.getLoadedBlock()));
+        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static class TestPageProjection

@@ -14,7 +14,6 @@
 package io.prestosql.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.prestosql.operator.Driver;
 import io.prestosql.operator.DriverFactory;
@@ -41,7 +40,6 @@ import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
-import static java.util.Objects.requireNonNull;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
@@ -68,7 +66,6 @@ public class HashBuildBenchmark
                         .map(ordersTypes::get)
                         .collect(toImmutableList()),
                 1,
-                requireNonNull(ImmutableMap.of(), "layout is null"),
                 false));
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                 1,

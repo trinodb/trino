@@ -10,4 +10,3 @@ Installation
     installation/jdbc
     installation/verifier
     installation/benchmark-driver
-    installation/tableau

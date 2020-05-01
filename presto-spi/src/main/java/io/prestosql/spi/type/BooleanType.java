@@ -20,8 +20,6 @@ import io.prestosql.spi.block.ByteArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 public final class BooleanType
         extends AbstractType
         implements FixedWidthType
@@ -30,7 +28,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-        super(parseTypeSignature(StandardTypes.BOOLEAN), boolean.class);
+        super(new TypeSignature(StandardTypes.BOOLEAN), boolean.class);
     }
 
     @Override

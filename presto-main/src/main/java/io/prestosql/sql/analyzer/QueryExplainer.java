@@ -44,6 +44,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.planprinter.IoPlanPrinter.textIoPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -103,7 +105,7 @@ public class QueryExplainer
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector);
         return analyzer.analyze(statement);
     }
 
@@ -177,7 +179,7 @@ public class QueryExplainer
 
         // plan statement
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, warningCollector);
-        return logicalPlanner.plan(analysis);
+        return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
     }
 
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)

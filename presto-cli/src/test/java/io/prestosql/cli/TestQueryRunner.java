@@ -25,6 +25,7 @@ import io.prestosql.client.QueryResults;
 import io.prestosql.client.StatementStats;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.jline.terminal.Terminal;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -43,7 +44,9 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.cli.ClientOptions.OutputFormat.CSV;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestQueryRunner
@@ -69,6 +72,7 @@ public class TestQueryRunner
 
     @Test
     public void testCookie()
+            throws Exception
     {
         server.enqueue(new MockResponse()
                 .setResponseCode(307)
@@ -76,49 +80,51 @@ public class TestQueryRunner
                 .addHeader(SET_COOKIE, "a=apple"));
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
+                .setBody(createResults(server)));
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
+                .setBody(createResults(server)));
 
-        QueryRunner queryRunner = createQueryRunner(
-                new ClientSession(
-                        server.url("/").uri(),
-                        "user",
-                        "source",
-                        Optional.empty(),
-                        ImmutableSet.of(),
-                        "clientInfo",
-                        "catalog",
-                        "schema",
-                        "path",
-                        ZoneId.of("America/Los_Angeles"),
-                        Locale.ENGLISH,
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        null,
-                        new Duration(2, MINUTES)));
-        try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
-            query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
+        QueryRunner queryRunner = createQueryRunner(createClientSession(server), false);
+
+        try (Terminal terminal = terminal()) {
+            try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
+                query.renderOutput(terminal, nullPrintStream(), nullPrintStream(), CSV, false, false);
+            }
+            try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
+                query.renderOutput(terminal, nullPrintStream(), nullPrintStream(), CSV, false, false);
+            }
         }
-        try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
-            query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
-        }
-        try {
-            assertEquals(server.takeRequest().getHeader("Cookie"), null);
-            assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
-            assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
+
+        assertNull(server.takeRequest().getHeader("Cookie"));
+        assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
+        assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
     }
 
-    private String createResults()
+    static ClientSession createClientSession(MockWebServer server)
+    {
+        return new ClientSession(
+                server.url("/").uri(),
+                "user",
+                "source",
+                Optional.empty(),
+                ImmutableSet.of(),
+                "clientInfo",
+                "catalog",
+                "schema",
+                "path",
+                ZoneId.of("America/Los_Angeles"),
+                Locale.ENGLISH,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                null,
+                new Duration(2, MINUTES));
+    }
+
+    static String createResults(MockWebServer server)
     {
         QueryResults queryResults = new QueryResults(
                 "20160128_214710_00012_rk68b",
@@ -136,7 +142,7 @@ public class TestQueryRunner
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
 
-    static QueryRunner createQueryRunner(ClientSession clientSession)
+    static QueryRunner createQueryRunner(ClientSession clientSession, boolean insecureSsl)
     {
         return new QueryRunner(
                 clientSession,
@@ -147,6 +153,7 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                insecureSsl,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -159,7 +166,7 @@ public class TestQueryRunner
                 false);
     }
 
-    private static PrintStream nullPrintStream()
+    static PrintStream nullPrintStream()
     {
         return new PrintStream(nullOutputStream());
     }

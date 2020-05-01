@@ -18,8 +18,10 @@ import io.prestosql.parquet.Field;
 import io.prestosql.parquet.GroupField;
 import io.prestosql.parquet.PrimitiveField;
 import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import org.apache.parquet.io.ColumnIO;
@@ -33,14 +35,11 @@ import java.util.Optional;
 import static io.prestosql.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.prestosql.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.prestosql.parquet.ParquetTypeUtils.lookupColumnByName;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
 import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
-final class ParquetColumnIOConverter
+public final class ParquetColumnIOConverter
 {
     private ParquetColumnIOConverter() {}
 
@@ -52,7 +51,7 @@ final class ParquetColumnIOConverter
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnRepetitionLevel(columnIO);
         int definitionLevel = columnDefinitionLevel(columnIO);
-        if (ROW.equals(type.getTypeSignature().getBase())) {
+        if (type instanceof RowType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> parameters = type.getTypeParameters();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
@@ -70,7 +69,7 @@ final class ParquetColumnIOConverter
             }
             return Optional.empty();
         }
-        if (MAP.equals(type.getTypeSignature().getBase())) {
+        if (type instanceof MapType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             MapType mapType = (MapType) type;
             GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
@@ -81,7 +80,7 @@ final class ParquetColumnIOConverter
             Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
-        if (ARRAY.equals(type.getTypeSignature().getBase())) {
+        if (type instanceof ArrayType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> types = type.getTypeParameters();
             if (groupColumnIO.getChildrenCount() != 1) {

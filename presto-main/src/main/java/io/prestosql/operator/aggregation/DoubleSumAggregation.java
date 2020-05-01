@@ -13,13 +13,14 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.prestosql.operator.aggregation.state.NullableDoubleState;
+import io.prestosql.operator.aggregation.minmaxby.LongDoubleState;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AggregationFunction;
 import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.RemoveInputFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.StandardTypes;
@@ -30,27 +31,34 @@ public final class DoubleSumAggregation
     private DoubleSumAggregation() {}
 
     @InputFunction
-    public static void sum(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void sum(@AggregationState LongDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        state.setNull(false);
-        state.setDouble(state.getDouble() + value);
+        state.setFirst(state.getFirst() + 1);
+        state.setSecond(state.getSecond() + value);
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        state.setFirst(state.getFirst() - 1);
+        state.setSecond(state.getSecond() - value);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState NullableDoubleState state, @AggregationState NullableDoubleState otherState)
+    public static void combine(@AggregationState LongDoubleState state, @AggregationState LongDoubleState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(otherState.getDouble());
-            return;
-        }
-
-        state.setDouble(state.getDouble() + otherState.getDouble());
+        state.setFirst(state.getFirst() + otherState.getFirst());
+        state.setSecond(state.getSecond() + otherState.getSecond());
     }
 
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
+    public static void output(@AggregationState LongDoubleState state, BlockBuilder out)
     {
-        NullableDoubleState.write(DoubleType.DOUBLE, state, out);
+        if (state.getFirst() == 0) {
+            out.appendNull();
+        }
+        else {
+            DoubleType.DOUBLE.writeDouble(out, state.getSecond());
+        }
     }
 }

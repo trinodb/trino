@@ -26,7 +26,7 @@ public final class HyperLogLogFunctions
     private HyperLogLogFunctions() {}
 
     @ScalarFunction
-    @Description("compute the cardinality of a HyperLogLog instance")
+    @Description("Compute the cardinality of a HyperLogLog instance")
     @SqlType(StandardTypes.BIGINT)
     public static long cardinality(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
     {
@@ -34,7 +34,7 @@ public final class HyperLogLogFunctions
     }
 
     @ScalarFunction
-    @Description("an empty HyperLogLog instance")
+    @Description("An empty HyperLogLog instance")
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice emptyApproxSet()
     {

@@ -15,26 +15,19 @@ package io.prestosql.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.airlift.tpch.OrderColumn;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchEntity;
-import io.airlift.tpch.TpchTable;
 import io.airlift.units.DataSize;
 import io.prestosql.hadoop.HadoopNative;
-import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
-import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.HiveSessionProperties;
-import io.prestosql.plugin.hive.OrcFileWriterConfig;
-import io.prestosql.plugin.hive.ParquetFileWriterConfig;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.testing.TestingConnectorSession;
+import io.prestosql.tpch.OrderColumn;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchEntity;
+import io.prestosql.tpch.TpchTable;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -65,16 +58,17 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.tpch.TpchTable.LINE_ITEM;
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.tpch.TpchTable.LINE_ITEM;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.stream.Collectors.toList;
@@ -87,18 +81,11 @@ import static java.util.stream.Collectors.toList;
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
 public class BenchmarkHiveFileFormat
 {
-    private static final long MIN_DATA_SIZE = new DataSize(50, MEGABYTE).toBytes();
+    private static final long MIN_DATA_SIZE = DataSize.of(50, MEGABYTE).toBytes();
 
     static {
         HadoopNative.requireHadoopNative();
     }
-
-    private static final HiveConfig CONFIG = new HiveConfig();
-
-    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig())
-            .getSessionProperties());
-
-    private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(CONFIG);
 
     @Param({
             "LINEITEM",
@@ -284,7 +271,7 @@ public class BenchmarkHiveFileFormat
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
                 ImmutableList.Builder<Page> pages = ImmutableList.builder();
 
-                int[] keys = new int[] {1, 2, 3, 4, 5};
+                int[] keys = {1, 2, 3, 4, 5};
 
                 long dataSize = 0;
                 while (dataSize < MIN_DATA_SIZE) {
@@ -358,7 +345,7 @@ public class BenchmarkHiveFileFormat
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
                 ImmutableList.Builder<Page> pages = ImmutableList.builder();
 
-                int[] keys = new int[] {1, 2, 3, 4, 5};
+                int[] keys = {1, 2, 3, 4, 5};
 
                 long dataSize = 0;
                 while (dataSize < MIN_DATA_SIZE) {

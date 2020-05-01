@@ -759,15 +759,11 @@ public class WindowOperator
                 // Save the remaining page, which may contain multiple partitions
                 return groupEnd;
             }
-            else {
-                // Page fully consumed
-                return page.getPositionCount();
-            }
+            // Page fully consumed
+            return page.getPositionCount();
         }
-        else {
-            // We had previous results buffered, but the remaining page starts with new group values
-            return startPosition;
-        }
+        // We had previous results buffered, but the remaining page starts with new group values
+        return startPosition;
     }
 
     private static Page rearrangePage(Page page, int[] channels)

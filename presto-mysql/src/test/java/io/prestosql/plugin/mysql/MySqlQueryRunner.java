@@ -15,20 +15,19 @@ package io.prestosql.plugin.mysql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
 public final class MySqlQueryRunner
 {
@@ -45,27 +44,15 @@ public final class MySqlQueryRunner
     public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
         try {
-            return createMySqlQueryRunner(server.getJdbcUrl(), connectorProperties, tables);
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, server);
-            throw e;
-        }
-    }
-
-    public static QueryRunner createMySqlQueryRunner(String jdbcUrl, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = null;
-        try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
-
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", jdbcUrl);
+            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("connection-user", server.getUsername());
+            connectorProperties.putIfAbsent("connection-password", server.getPassword());
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new MySqlPlugin());
@@ -81,7 +68,7 @@ public final class MySqlQueryRunner
         }
     }
 
-    public static Session createSession()
+    private static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog("mysql")

@@ -13,19 +13,57 @@
  */
 package io.prestosql.operator.annotations;
 
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.metadata.Signature.internalScalarFunction;
+import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static java.util.Objects.requireNonNull;
 
 public final class FunctionImplementationDependency
         extends ScalarImplementationDependency
 {
-    public FunctionImplementationDependency(String name, TypeSignature returnType, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
+    private final QualifiedName name;
+    private final List<TypeSignature> argumentTypes;
+
+    public FunctionImplementationDependency(QualifiedName name, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
     {
-        super(internalScalarFunction(name, returnType, argumentTypes), invocationConvention);
+        super(invocationConvention);
+        this.name = requireNonNull(name, "name is null");
+        this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
+    }
+
+    @Override
+    protected ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata)
+    {
+        return metadata.resolveFunction(name, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        FunctionImplementationDependency that = (FunctionImplementationDependency) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(argumentTypes, that.argumentTypes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, argumentTypes);
     }
 }

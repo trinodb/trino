@@ -26,20 +26,17 @@ public class PermissionMetadata
 {
     private final HivePrivilege permission;
     private final boolean grantOption;
+    private final HivePrincipal grantee;
 
     @JsonCreator
     public PermissionMetadata(
             @JsonProperty("permission") HivePrivilege permission,
-            @JsonProperty("grantOption") boolean grantOption)
+            @JsonProperty("grantOption") boolean grantOption,
+            @JsonProperty("grantee") HivePrincipal grantee)
     {
         this.permission = requireNonNull(permission, "permission is null");
         this.grantOption = grantOption;
-    }
-
-    public PermissionMetadata(HivePrivilegeInfo privilegeInfo)
-    {
-        this.permission = privilegeInfo.getHivePrivilege();
-        this.grantOption = privilegeInfo.isGrantOption();
+        this.grantee = requireNonNull(grantee, "grantee is null");
     }
 
     @JsonProperty
@@ -54,8 +51,14 @@ public class PermissionMetadata
         return grantOption;
     }
 
+    @JsonProperty
+    public HivePrincipal getGrantee()
+    {
+        return grantee;
+    }
+
     public HivePrivilegeInfo toHivePrivilegeInfo()
     {
-        return new HivePrivilegeInfo(permission, grantOption, new HivePrincipal(USER, "admin"), new HivePrincipal(USER, "admin"));
+        return new HivePrivilegeInfo(permission, grantOption, new HivePrincipal(USER, "admin"), grantee);
     }
 }

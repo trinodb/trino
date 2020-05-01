@@ -14,13 +14,12 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.AbstractTestAggregationFunction;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -30,7 +29,7 @@ import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Float.floatToRawIntBits;
 
 @Test(singleThreaded = true)
@@ -43,7 +42,7 @@ public class TestRealAverageAggregation
     public void setUp()
     {
         avgFunction = createTestMetadataManager().getAggregateFunctionImplementation(
-                new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.REAL), parseTypeSignature(StandardTypes.REAL)));
+                metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(REAL)));
     }
 
     @Test
@@ -87,9 +86,9 @@ public class TestRealAverageAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.REAL);
+        return ImmutableList.of(REAL);
     }
 
     @Override

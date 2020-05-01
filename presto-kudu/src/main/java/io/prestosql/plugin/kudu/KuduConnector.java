@@ -15,7 +15,6 @@ package io.prestosql.plugin.kudu;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.kudu.properties.KuduTableProperties;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -39,8 +38,6 @@ import static java.util.Objects.requireNonNull;
 public class KuduConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(KuduConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final KuduMetadata metadata;
     private final ConnectorSplitManager splitManager;
@@ -69,8 +66,7 @@ public class KuduConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel,
-            boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         return KuduTransactionHandle.INSTANCE;
@@ -121,11 +117,6 @@ public class KuduConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

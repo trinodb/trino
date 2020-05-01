@@ -213,7 +213,6 @@ public class TestHttpRemoteTask
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
-            throws Exception
     {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
@@ -258,7 +257,7 @@ public class TestHttpRemoteTask
                 .quiet()
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-        handleResolver.addConnectorName("test", new TestingHandleResolver());
+        handleResolver.addCatalogHandleResolver("test", new TestingHandleResolver());
         return injector.getInstance(HttpRemoteTaskFactory.class);
     }
 

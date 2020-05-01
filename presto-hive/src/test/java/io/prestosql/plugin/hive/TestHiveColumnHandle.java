@@ -13,21 +13,32 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.type.StandardTypes;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RowType.field;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveColumnHandle
 {
-    private final JsonCodec<HiveColumnHandle> codec = JsonCodec.jsonCodec(HiveColumnHandle.class);
-
     @Test
     public void testHiddenColumn()
     {
@@ -38,25 +49,60 @@ public class TestHiveColumnHandle
     @Test
     public void testRegularColumn()
     {
-        HiveColumnHandle expectedPartitionColumn = new HiveColumnHandle("name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, PARTITION_KEY, Optional.empty());
+        HiveColumnHandle expectedPartitionColumn = createBaseColumn("name", 88, HiveType.HIVE_FLOAT, DOUBLE, PARTITION_KEY, Optional.empty());
         testRoundTrip(expectedPartitionColumn);
     }
 
     @Test
     public void testPartitionKeyColumn()
     {
-        HiveColumnHandle expectedRegularColumn = new HiveColumnHandle("name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, REGULAR, Optional.empty());
+        HiveColumnHandle expectedRegularColumn = createBaseColumn("name", 88, HiveType.HIVE_FLOAT, DOUBLE, REGULAR, Optional.empty());
         testRoundTrip(expectedRegularColumn);
+    }
+
+    @Test
+    public void testProjectedColumn()
+    {
+        Type baseType = RowType.from(asList(field("a", VARCHAR), field("b", BIGINT)));
+        HiveType baseHiveType = toHiveType(new HiveTypeTranslator(), baseType);
+
+        HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
+                ImmutableList.of(1),
+                ImmutableList.of("b"),
+                HiveType.HIVE_LONG,
+                BIGINT);
+
+        HiveColumnHandle projectedColumn = new HiveColumnHandle(
+                "struct_col",
+                88,
+                baseHiveType,
+                baseType,
+                Optional.of(columnProjectionInfo),
+                REGULAR,
+                Optional.empty());
+
+        testRoundTrip(projectedColumn);
     }
 
     private void testRoundTrip(HiveColumnHandle expected)
     {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new HiveModule.TypeDeserializer(new InternalTypeManager(createTestMetadataManager()))));
+        JsonCodec<HiveColumnHandle> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveColumnHandle.class);
+
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);
 
+        assertEquals(actual.getBaseColumnName(), expected.getBaseColumnName());
+        assertEquals(actual.getBaseHiveColumnIndex(), expected.getBaseHiveColumnIndex());
+        assertEquals(actual.getBaseType(), expected.getBaseType());
+        assertEquals(actual.getBaseHiveType(), expected.getBaseHiveType());
+
         assertEquals(actual.getName(), expected.getName());
+        assertEquals(actual.getType(), expected.getType());
         assertEquals(actual.getHiveType(), expected.getHiveType());
-        assertEquals(actual.getHiveColumnIndex(), expected.getHiveColumnIndex());
+
+        assertEquals(actual.getHiveColumnProjectionInfo(), expected.getHiveColumnProjectionInfo());
         assertEquals(actual.isPartitionKey(), expected.isPartitionKey());
     }
 }

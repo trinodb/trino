@@ -49,9 +49,10 @@ public class UnnestOperator
         private final List<Integer> unnestChannels;
         private final List<Type> unnestTypes;
         private final boolean withOrdinality;
+        private final boolean outer;
         private boolean closed;
 
-        public UnnestOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
+        public UnnestOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -62,6 +63,7 @@ public class UnnestOperator
             this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
             checkArgument(unnestChannels.size() == unnestTypes.size(), "unnestChannels and unnestTypes do not match");
             this.withOrdinality = withOrdinality;
+            this.outer = outer;
         }
 
         @Override
@@ -69,7 +71,7 @@ public class UnnestOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, UnnestOperator.class.getSimpleName());
-            return new UnnestOperator(operatorContext, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality);
+            return new UnnestOperator(operatorContext, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality, outer);
         }
 
         @Override
@@ -81,7 +83,7 @@ public class UnnestOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new UnnestOperator.UnnestOperatorFactory(operatorId, planNodeId, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality);
+            return new UnnestOperator.UnnestOperatorFactory(operatorId, planNodeId, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality, outer);
         }
     }
 
@@ -100,6 +102,7 @@ public class UnnestOperator
     private final List<Integer> unnestChannels;
     private final List<Type> unnestTypes;
     private final boolean withOrdinality;
+    private final boolean outer;
 
     private boolean finishing;
     private Page currentPage;
@@ -114,7 +117,7 @@ public class UnnestOperator
 
     private int outputChannelCount;
 
-    public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
+    public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
@@ -134,6 +137,7 @@ public class UnnestOperator
         this.unnestOutputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum();
 
         this.withOrdinality = withOrdinality;
+        this.outer = outer;
 
         this.outputChannelCount = unnestOutputChannelCount + replicateTypes.size() + (withOrdinality ? 1 : 0);
     }
@@ -223,6 +227,21 @@ public class UnnestOperator
     {
         // Determine number of output rows for this input position
         int maxEntries = getCurrentMaxEntries();
+
+        // For 'outer' type, in case unnesters produce no output,
+        // append a single row replicating values of replicate channels
+        // and appending nulls for unnested chennels
+        if (outer && maxEntries == 0) {
+            replicatedBlockBuilders.forEach(blockBuilder -> blockBuilder.appendRepeated(currentPosition, 1));
+            unnesters.forEach(unnester -> {
+                unnester.appendNulls(1);
+                unnester.advance();
+            });
+            if (withOrdinality) {
+                ordinalityBlockBuilder.appendNull();
+            }
+            return 1;
+        }
 
         // Append elements repeatedly to replicate output columns
         replicatedBlockBuilders.forEach(blockBuilder -> blockBuilder.appendRepeated(currentPosition, maxEntries));

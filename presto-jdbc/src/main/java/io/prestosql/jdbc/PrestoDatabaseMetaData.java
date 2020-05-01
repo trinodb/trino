@@ -1015,7 +1015,15 @@ public class PrestoDatabaseMetaData
     public ResultSet getPrimaryKeys(String catalog, String schema, String table)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("primary keys not supported");
+        String query = "SELECT " +
+                " CAST(NULL AS varchar) TABLE_CAT, " +
+                " CAST(NULL AS varchar) TABLE_SCHEM, " +
+                " CAST(NULL AS varchar) TABLE_NAME, " +
+                " CAST(NULL AS varchar) COLUMN_NAME, " +
+                " CAST(NULL AS smallint) KEY_SEQ, " +
+                " CAST(NULL AS varchar) PK_NAME " +
+                "WHERE false";
+        return select(query);
     }
 
     @Override

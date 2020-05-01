@@ -15,10 +15,12 @@ package io.prestosql.orc;
 
 import io.prestosql.orc.stream.OrcDataOutput;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
 public interface OrcDataSink
+        extends Closeable
 {
     /**
      * Number of bytes written to this sink so far.
@@ -39,6 +41,7 @@ public interface OrcDataSink
     /**
      * ORC file is complete
      */
+    @Override
     void close()
             throws IOException;
 }

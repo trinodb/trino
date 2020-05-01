@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.Iterables;
-import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -27,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -54,7 +54,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT suppkey FROM supplier UNION ALL SELECT nationkey FROM nation",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
 
         List<PlanNode> remotes = searchFrom(plan.getRoot())
@@ -76,7 +76,7 @@ public class TestUnion
                         "   SELECT nationkey FROM nation" +
                         ") t(a) " +
                         "ORDER BY a LIMIT 1",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
 
         List<PlanNode> remotes = searchFrom(plan.getRoot())
@@ -87,7 +87,7 @@ public class TestUnion
         assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
 
         int numberOfpartialTopN = searchFrom(plan.getRoot())
-                .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep().equals(TopNNode.Step.PARTIAL))
+                .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep() == TopNNode.Step.PARTIAL)
                 .count();
         assertEquals(numberOfpartialTopN, 2, "There should be exactly two partial TopN nodes");
         assertPlanIsFullyDistributed(plan);
@@ -103,7 +103,7 @@ public class TestUnion
                         "   SELECT 1 FROM nation " +
                         "   UNION ALL " +
                         "   SELECT 1 FROM nation))",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
 
         List<PlanNode> remotes = searchFrom(plan.getRoot())
@@ -120,7 +120,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT orderstatus, sum(orderkey) FROM (SELECT orderkey, orderstatus FROM orders UNION ALL SELECT orderkey, orderstatus FROM orders) x GROUP BY (orderstatus)",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
         assertPlanIsFullyDistributed(plan);
@@ -131,7 +131,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT orderstatus, sum(orderkey) FROM (SELECT orderkey, orderstatus FROM orders UNION ALL SELECT orderkey, orderstatus FROM orders) x GROUP BY ROLLUP (orderstatus)",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
         assertPlanIsFullyDistributed(plan);
@@ -142,7 +142,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT regionkey, count(*) FROM (SELECT regionkey FROM nation UNION ALL SELECT * FROM (VALUES 2, 100) t(regionkey)) GROUP BY regionkey",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
         // TODO: Enable this check once distributed UNION can handle both partitioned and single node sources at the same time
@@ -154,7 +154,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT * FROM (SELECT * FROM nation UNION ALL SELECT * from nation) n, region r WHERE n.regionkey=r.regionkey",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
 
         assertPlanIsFullyDistributed(plan);
@@ -224,7 +224,7 @@ public class TestUnion
 
     private static boolean isRemoteGatheringExchange(PlanNode planNode)
     {
-        return isRemoteExchange(planNode) && ((ExchangeNode) planNode).getType().equals(GATHER);
+        return isRemoteExchange(planNode) && ((ExchangeNode) planNode).getType() == GATHER;
     }
 
     private static boolean isNotRemoteExchange(PlanNode planNode)
@@ -234,6 +234,6 @@ public class TestUnion
 
     private static boolean isRemoteExchange(PlanNode planNode)
     {
-        return (planNode instanceof ExchangeNode) && ((ExchangeNode) planNode).getScope().equals(REMOTE);
+        return (planNode instanceof ExchangeNode) && ((ExchangeNode) planNode).getScope() == REMOTE;
     }
 }

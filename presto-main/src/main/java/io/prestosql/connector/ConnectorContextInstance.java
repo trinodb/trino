@@ -20,6 +20,8 @@ import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.type.TypeManager;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorContextInstance
@@ -30,19 +32,22 @@ public class ConnectorContextInstance
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
+    private final Supplier<ClassLoader> duplicatePluginClassLoaderFactory;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
             PageSorter pageSorter,
-            PageIndexerFactory pageIndexerFactory)
+            PageIndexerFactory pageIndexerFactory,
+            Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.duplicatePluginClassLoaderFactory = requireNonNull(duplicatePluginClassLoaderFactory, "duplicatePluginClassLoaderFactory is null");
     }
 
     @Override
@@ -73,5 +78,11 @@ public class ConnectorContextInstance
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public ClassLoader duplicatePluginClassLoader()
+    {
+        return duplicatePluginClassLoaderFactory.get();
     }
 }

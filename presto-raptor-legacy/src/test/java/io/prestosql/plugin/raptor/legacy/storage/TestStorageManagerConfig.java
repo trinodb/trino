@@ -28,7 +28,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -46,12 +45,13 @@ public class TestStorageManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(null)
-                .setMinAvailableSpace(new DataSize(0, BYTE))
-                .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
-                .setOrcMaxReadSize(new DataSize(8, MEGABYTE))
-                .setOrcStreamBufferSize(new DataSize(8, MEGABYTE))
-                .setOrcTinyStripeThreshold(new DataSize(8, MEGABYTE))
+                .setMinAvailableSpace(DataSize.ofBytes(0))
+                .setOrcMaxMergeDistance(DataSize.of(1, MEGABYTE))
+                .setOrcMaxReadSize(DataSize.of(8, MEGABYTE))
+                .setOrcStreamBufferSize(DataSize.of(8, MEGABYTE))
+                .setOrcTinyStripeThreshold(DataSize.of(8, MEGABYTE))
                 .setOrcLazyReadSmallRanges(true)
+                .setOrcNestedLazy(true)
                 .setDeletionThreads(max(1, getRuntime().availableProcessors() / 2))
                 .setShardRecoveryTimeout(new Duration(30, SECONDS))
                 .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
@@ -64,8 +64,8 @@ public class TestStorageManagerConfig
                 .setOrganizationInterval(new Duration(7, DAYS))
                 .setOrganizationDiscoveryInterval(new Duration(6, HOURS))
                 .setMaxShardRows(1_000_000)
-                .setMaxShardSize(new DataSize(256, MEGABYTE))
-                .setMaxBufferSize(new DataSize(256, MEGABYTE))
+                .setMaxShardSize(DataSize.of(256, MEGABYTE))
+                .setMaxBufferSize(DataSize.of(256, MEGABYTE))
                 .setOneSplitPerBucketThreshold(0)
                 .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId()));
     }
@@ -81,6 +81,7 @@ public class TestStorageManagerConfig
                 .put("storage.orc.stream-buffer-size", "16kB")
                 .put("storage.orc.tiny-stripe-threshold", "15kB")
                 .put("storage.orc.lazy-read-small-ranges", "false")
+                .put("storage.orc.nested-lazy", "false")
                 .put("storage.max-deletion-threads", "999")
                 .put("storage.shard-recovery-timeout", "1m")
                 .put("storage.missing-shard-discovery-interval", "4m")
@@ -101,12 +102,13 @@ public class TestStorageManagerConfig
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))
-                .setMinAvailableSpace(new DataSize(123, GIGABYTE))
-                .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))
-                .setOrcMaxReadSize(new DataSize(16, KILOBYTE))
-                .setOrcStreamBufferSize(new DataSize(16, KILOBYTE))
-                .setOrcTinyStripeThreshold(new DataSize(15, KILOBYTE))
+                .setMinAvailableSpace(DataSize.of(123, GIGABYTE))
+                .setOrcMaxMergeDistance(DataSize.of(16, KILOBYTE))
+                .setOrcMaxReadSize(DataSize.of(16, KILOBYTE))
+                .setOrcStreamBufferSize(DataSize.of(16, KILOBYTE))
+                .setOrcTinyStripeThreshold(DataSize.of(15, KILOBYTE))
                 .setOrcLazyReadSmallRanges(false)
+                .setOrcNestedLazy(false)
                 .setDeletionThreads(999)
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
@@ -119,8 +121,8 @@ public class TestStorageManagerConfig
                 .setRecoveryThreads(12)
                 .setOrganizationThreads(12)
                 .setMaxShardRows(10_000)
-                .setMaxShardSize(new DataSize(10, MEGABYTE))
-                .setMaxBufferSize(new DataSize(512, MEGABYTE))
+                .setMaxShardSize(DataSize.of(10, MEGABYTE))
+                .setMaxBufferSize(DataSize.of(512, MEGABYTE))
                 .setOneSplitPerBucketThreshold(4)
                 .setShardDayBoundaryTimeZone("PST");
 

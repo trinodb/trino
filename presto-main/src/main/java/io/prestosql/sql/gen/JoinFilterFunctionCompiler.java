@@ -276,7 +276,7 @@ public class JoinFilterFunctionCompiler
 
         public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize)
         {
-            this.filter = requireNonNull(filter, "filter can not be null");
+            this.filter = requireNonNull(filter, "filter cannot be null");
             this.leftBlocksSize = leftBlocksSize;
         }
 

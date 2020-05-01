@@ -18,13 +18,15 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.ErrorType;
 
 import static io.prestosql.spi.ErrorType.EXTERNAL;
+import static io.prestosql.spi.ErrorType.USER_ERROR;
 
 public enum ElasticsearchErrorCode
         implements ErrorCodeSupplier
 {
     ELASTICSEARCH_CONNECTION_ERROR(0, EXTERNAL),
-    ELASTICSEARCH_CORRUPTED_MAPPING_METADATA(1, EXTERNAL),
-    ELASTICSEARCH_MAX_HITS_EXCEEDED(2, EXTERNAL);
+    ELASTICSEARCH_INVALID_RESPONSE(1, EXTERNAL),
+    ELASTICSEARCH_SSL_INITIALIZATION_FAILURE(2, EXTERNAL),
+    ELASTICSEARCH_QUERY_FAILURE(3, USER_ERROR);
 
     private final ErrorCode errorCode;
 

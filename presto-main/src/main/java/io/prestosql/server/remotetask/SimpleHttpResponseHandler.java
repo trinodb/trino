@@ -59,11 +59,10 @@ public class SimpleHttpResponseHandler<T>
                         cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
                     }
                     else {
-                        cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s: %s%n%s",
+                        cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s%n%s",
                                 uri,
                                 HttpStatus.OK.code(),
                                 response.getStatusCode(),
-                                response.getStatusMessage(),
                                 response.getResponseBody()));
                     }
                 }

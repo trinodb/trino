@@ -59,13 +59,6 @@ public final class Partitioning
                 .collect(toImmutableList()));
     }
 
-    public static Partitioning createWithExpressions(PartitioningHandle handle, List<Expression> expressions)
-    {
-        return new Partitioning(handle, expressions.stream()
-                .map(ArgumentBinding::expressionBinding)
-                .collect(toImmutableList()));
-    }
-
     // Factory method for JSON serde only!
     @JsonCreator
     public static Partitioning jsonCreate(

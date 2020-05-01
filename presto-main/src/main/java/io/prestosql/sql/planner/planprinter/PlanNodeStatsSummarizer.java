@@ -33,8 +33,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctDataSize;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.util.MoreMaps.mergeMaps;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -183,9 +182,9 @@ public final class PlanNodeStatsSummarizer
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
-                        succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                        succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
-                        succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         operatorInputStats.get(planNodeId),
                         operatorHashCollisionsStats.get(planNodeId));
             }
@@ -195,9 +194,9 @@ public final class PlanNodeStatsSummarizer
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
-                        succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                        succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
-                        succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         operatorInputStats.get(planNodeId),
                         windowNodeStats.get(planNodeId));
             }
@@ -207,9 +206,9 @@ public final class PlanNodeStatsSummarizer
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
-                        succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                        succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
-                        succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         operatorInputStats.get(planNodeId));
             }
 

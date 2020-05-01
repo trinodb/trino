@@ -34,6 +34,7 @@ import io.airlift.units.Duration;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.server.remotetask.Backoff;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -70,10 +71,14 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static io.prestosql.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static io.prestosql.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
+import static io.prestosql.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static io.prestosql.spi.HostAddress.fromUri;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.prestosql.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
@@ -109,7 +114,9 @@ public final class HttpPageBufferClient
         void clientFailed(HttpPageBufferClient client, Throwable cause);
     }
 
+    private final String selfAddress;
     private final HttpClient httpClient;
+    private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
     private final URI location;
@@ -145,7 +152,9 @@ public final class HttpPageBufferClient
     private final Executor pageBufferClientCallbackExecutor;
 
     public HttpPageBufferClient(
+            String selfAddress,
             HttpClient httpClient,
+            DataIntegrityVerification dataIntegrityVerification,
             DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
@@ -154,11 +163,24 @@ public final class HttpPageBufferClient
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(
+                selfAddress,
+                httpClient,
+                dataIntegrityVerification,
+                maxResponseSize,
+                maxErrorDuration,
+                acknowledgePages,
+                location,
+                clientCallback,
+                scheduler,
+                Ticker.systemTicker(),
+                pageBufferClientCallbackExecutor);
     }
 
     public HttpPageBufferClient(
+            String selfAddress,
             HttpClient httpClient,
+            DataIntegrityVerification dataIntegrityVerification,
             DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
@@ -168,7 +190,9 @@ public final class HttpPageBufferClient
             Ticker ticker,
             Executor pageBufferClientCallbackExecutor)
     {
+        this.selfAddress = requireNonNull(selfAddress, "selfAddress is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
@@ -301,7 +325,7 @@ public final class HttpPageBufferClient
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
-                new PageResponseHandler());
+                new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
 
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<PagesResponse>()
@@ -322,8 +346,11 @@ public final class HttpPageBufferClient
                         }
 
                         if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            // TODO: update error message
-                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(uri)));
+                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                                    REMOTE_TASK_MISMATCH_ERROR,
+                                    fromUri(uri),
+                                    taskInstanceId,
+                                    result.getTaskInstanceId()));
                         }
 
                         if (result.getToken() == token) {
@@ -400,6 +427,22 @@ public final class HttpPageBufferClient
                 log.debug("Request to %s failed %s", uri, t);
                 checkNotHoldsLock(this);
 
+                if (t instanceof ChecksumVerificationException) {
+                    switch (dataIntegrityVerification) {
+                        case NONE:
+                            // In case of NONE, failure is possible in case of inconsistent cluster configuration, so we should not retry.
+                        case ABORT:
+                            // PrestoException will not be retried
+                            t = new PrestoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
+                            break;
+                        case RETRY:
+                            log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
+                            break;
+                        default:
+                            throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
+                    }
+                }
+
                 t = rewriteException(t);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
                     String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
@@ -463,7 +506,7 @@ public final class HttpPageBufferClient
 
     private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
     {
-        // Can not delegate to other callback while holding a lock on this
+        // Cannot delegate to other callback while holding a lock on this
         checkNotHoldsLock(this);
 
         requestsFailed.incrementAndGet();
@@ -539,6 +582,13 @@ public final class HttpPageBufferClient
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
+        private final boolean dataIntegrityVerificationEnabled;
+
+        private PageResponseHandler(boolean dataIntegrityVerificationEnabled)
+        {
+            this.dataIntegrityVerificationEnabled = dataIntegrityVerificationEnabled;
+        }
+
         @Override
         public PagesResponse handleException(Request request, Exception exception)
         {
@@ -572,7 +622,7 @@ public final class HttpPageBufferClient
                     catch (RuntimeException | IOException e) {
                         // Ignored. Just return whatever message we were able to decode
                     }
-                    throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s:%n%s", response.getStatusCode(), response.getStatusMessage(), body.toString()));
+                    throw new PageTransportErrorException(format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body.toString()));
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200
@@ -590,7 +640,15 @@ public final class HttpPageBufferClient
                 boolean complete = getComplete(response);
 
                 try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                    int magic = input.readInt();
+                    if (magic != SERIALIZED_PAGES_MAGIC) {
+                        throw new IllegalStateException(format("Invalid stream header, expected 0x%08x, but was 0x%08x", SERIALIZED_PAGES_MAGIC, magic));
+                    }
+                    long checksum = input.readLong();
+                    int pagesCount = input.readInt();
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
+                    verifyChecksum(checksum, pages);
+                    checkState(pages.size() == pagesCount, "Wrong number of pages, expected %s, but read %s", pagesCount, pages.size());
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
                 }
                 catch (IOException e) {
@@ -599,6 +657,21 @@ public final class HttpPageBufferClient
             }
             catch (PageTransportErrorException e) {
                 throw new PageTransportErrorException(format("Error fetching %s: %s", request.getUri().toASCIIString(), e.getMessage()), e);
+            }
+        }
+
+        private void verifyChecksum(long readChecksum, List<SerializedPage> pages)
+        {
+            if (dataIntegrityVerificationEnabled) {
+                long calculatedChecksum = calculateChecksum(pages);
+                if (readChecksum != calculatedChecksum) {
+                    throw new ChecksumVerificationException(format("Data corruption, read checksum: 0x%08x, calculated checksum: 0x%08x", readChecksum, calculatedChecksum));
+                }
+            }
+            else {
+                if (readChecksum != NO_CHECKSUM) {
+                    throw new ChecksumVerificationException(format("Expected checksum to be NO_CHECKSUM (0x%08x) but is 0x%08x", NO_CHECKSUM, readChecksum));
+                }
             }
         }
 
@@ -710,6 +783,15 @@ public final class HttpPageBufferClient
                     .add("pagesSize", pages.size())
                     .add("clientComplete", clientComplete)
                     .toString();
+        }
+    }
+
+    private static class ChecksumVerificationException
+            extends RuntimeException
+    {
+        public ChecksumVerificationException(String message)
+        {
+            super(requireNonNull(message, "message is null"));
         }
     }
 }

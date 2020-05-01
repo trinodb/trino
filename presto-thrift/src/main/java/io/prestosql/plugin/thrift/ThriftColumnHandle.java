@@ -22,6 +22,7 @@ import io.prestosql.spi.type.Type;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -78,7 +79,12 @@ public final class ThriftColumnHandle
 
     public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, comment, hidden);
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(columnType)
+                .setComment(Optional.ofNullable(comment))
+                .setHidden(hidden)
+                .build();
     }
 
     @Override

@@ -13,37 +13,43 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.Session;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
+import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
-import org.intellij.lang.annotations.Language;
+import io.prestosql.type.TypeDeserializer;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestTpchDistributedQueries
         extends AbstractTestQueries
 {
-    public TestTpchDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
     }
 
     @Test
-    public void testIOExplain()
+    public void testIoExplain()
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
@@ -54,7 +60,7 @@ public class TestTpchDistributedQueries
                 ImmutableSet.of(
                         new IoPlanPrinter.ColumnConstraint(
                                 "orderstatus",
-                                createVarcharType(1).getTypeSignature(),
+                                createVarcharType(1),
                                 new IoPlanPrinter.FormattedDomain(
                                         false,
                                         ImmutableSet.of(
@@ -68,17 +74,14 @@ public class TestTpchDistributedQueries
                                                         new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY),
                                                         new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY)))))),
                 scanEstimate);
-        assertEquals(
-                jsonCodec(IoPlanPrinter.IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlanPrinter.IoPlan(ImmutableSet.of(input), Optional.empty(), totalEstimate));
-    }
 
-    @Test
-    public void testTooLongQuery()
-    {
-        //  Generate a super-long query: SELECT x,x,x,x,x,... FROM (VALUES 1,2,3,4,5) t(x)
-        @Language("SQL") String longQuery = "SELECT x" + Strings.repeat(",x", 500_000) + " FROM (VALUES 1,2,3,4,5) t(x)";
-        assertQueryFails(longQuery, "Query text length \\(1000037\\) exceeds the maximum length \\(1000000\\)");
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getMetadata())));
+        JsonCodec<IoPlanPrinter.IoPlan> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlanPrinter.IoPlan.class);
+
+        assertEquals(
+                codec.fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlanPrinter.IoPlan(ImmutableSet.of(input), Optional.empty(), totalEstimate));
     }
 
     @Test
@@ -95,34 +98,7 @@ public class TestTpchDistributedQueries
     }
 
     @Test
-    public void testTooManyStages()
-    {
-        @Language("SQL") String query = "WITH\n" +
-                "  t1 AS (SELECT nationkey AS x FROM nation where name='UNITED STATES'),\n" +
-                "  t2 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t1 a, t1 b, t1 c, t1 d),\n" +
-                "  t3 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t2 a, t2 b, t2 c, t2 d),\n" +
-                "  t4 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t3 a, t3 b, t3 c, t3 d),\n" +
-                "  t5 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t4 a, t4 b, t4 c, t4 d)\n" +
-                "SELECT x FROM t5\n";
-        assertQueryFails(query, "Number of stages in the query \\([0-9]+\\) exceeds the allowed maximum \\([0-9]+\\).*");
-    }
-
-    @Test
-    public void testTableSampleSystem()
-    {
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
-
-        boolean sampleSizeFound = false;
-        for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
-            if (sampleSize > 0 && sampleSize < total) {
-                sampleSizeFound = true;
-                break;
-            }
-        }
-        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
-    }
-
+    @Override
     public void testShowTables()
     {
         assertQuerySucceeds(createSession("sf1"), "SHOW TABLES");

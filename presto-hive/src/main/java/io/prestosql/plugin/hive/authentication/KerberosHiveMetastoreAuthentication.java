@@ -15,21 +15,31 @@ package io.prestosql.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.ForHiveMetastore;
+import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
+import org.apache.hadoop.security.token.Token;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 
 import javax.inject.Inject;
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.CallbackHandler;
+import javax.security.auth.callback.NameCallback;
+import javax.security.auth.callback.PasswordCallback;
+import javax.security.sasl.RealmCallback;
 import javax.security.sasl.Sasl;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.KERBEROS;
+import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.TOKEN;
 import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 
 public class KerberosHiveMetastoreAuthentication
@@ -53,7 +63,7 @@ public class KerberosHiveMetastoreAuthentication
     }
 
     @Override
-    public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
+    public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> delegationToken)
     {
         try {
             String serverPrincipal = getServerPrincipal(hiveMetastoreServicePrincipal, hiveMetastoreHost);
@@ -65,19 +75,70 @@ public class KerberosHiveMetastoreAuthentication
                     Sasl.QOP, "auth-conf,auth",
                     Sasl.SERVER_AUTH, "true");
 
-            TTransport saslTransport = new TSaslClientTransport(
-                    KERBEROS.getMechanismName(),
-                    null,
-                    names[0],
-                    names[1],
-                    saslProps,
-                    null,
-                    rawTransport);
+            TTransport saslTransport;
+            if (delegationToken.isPresent()) {
+                saslTransport = new TSaslClientTransport(
+                        TOKEN.getMechanismName(),
+                        null,
+                        null,
+                        "default",
+                        saslProps,
+                        new SaslClientCallbackHandler(decodeDelegationToken(delegationToken.get())),
+                        rawTransport);
+            }
+            else {
+                saslTransport = new TSaslClientTransport(
+                        KERBEROS.getMechanismName(),
+                        null,
+                        names[0],
+                        names[1],
+                        saslProps,
+                        null,
+                        rawTransport);
+            }
 
             return new TUGIAssumingTransport(saslTransport, authentication.getUserGroupInformation());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private static Token<DelegationTokenIdentifier> decodeDelegationToken(String tokenValue)
+            throws IOException
+    {
+        Token<DelegationTokenIdentifier> token = new Token<>();
+        token.decodeFromUrlString(tokenValue);
+        return token;
+    }
+
+    private static class SaslClientCallbackHandler
+            implements CallbackHandler
+    {
+        private final String username;
+        private final String password;
+
+        SaslClientCallbackHandler(Token<DelegationTokenIdentifier> token)
+        {
+            this.username = Base64.getEncoder().encodeToString(token.getIdentifier());
+            this.password = Base64.getEncoder().encodeToString(token.getPassword());
+        }
+
+        @Override
+        public void handle(Callback[] callbacks)
+        {
+            for (Callback callback : callbacks) {
+                if (callback instanceof NameCallback) {
+                    ((NameCallback) callback).setName(username);
+                }
+                if (callback instanceof PasswordCallback) {
+                    ((PasswordCallback) callback).setPassword(password.toCharArray());
+                }
+                if (callback instanceof RealmCallback) {
+                    RealmCallback realmCallback = (RealmCallback) callback;
+                    realmCallback.setText(realmCallback.getDefaultText());
+                }
+            }
         }
     }
 }

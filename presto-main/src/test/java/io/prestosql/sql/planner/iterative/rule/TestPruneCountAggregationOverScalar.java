@@ -43,7 +43,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testDoesNotFireOnNonNestedAggregate()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .globalGrouping()
@@ -52,7 +52,7 @@ public class TestPruneCountAggregationOverScalar
                                         new FunctionCallBuilder(tester().getMetadata())
                                                 .setName(QualifiedName.of("count"))
                                                 .build(),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of())
                                 .source(
                                         p.tableScan(ImmutableList.of(), ImmutableMap.of())))
                 ).doesNotFire();
@@ -61,7 +61,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnNestedCountAggregate()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -69,7 +69,7 @@ public class TestPruneCountAggregationOverScalar
                                         new FunctionCallBuilder(tester().getMetadata())
                                                 .setName(QualifiedName.of("count"))
                                                 .build(),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of())
                                 .globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
                                 .source(
@@ -83,7 +83,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnCountAggregateOverValues()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -91,7 +91,7 @@ public class TestPruneCountAggregationOverScalar
                                         new FunctionCallBuilder(tester().getMetadata())
                                                 .setName(QualifiedName.of("count"))
                                                 .build(),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
                                 .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(p.expressions("1"))))))
@@ -101,7 +101,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnCountAggregateOverEnforceSingleRow()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -109,7 +109,7 @@ public class TestPruneCountAggregationOverScalar
                                         new FunctionCallBuilder(tester().getMetadata())
                                                 .setName(QualifiedName.of("count"))
                                                 .build(),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
                                 .source(p.enforceSingleRow(p.tableScan(ImmutableList.of(), ImmutableMap.of())))))
@@ -119,7 +119,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testDoesNotFireOnNestedCountAggregateWithNonEmptyGroupBy()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -127,15 +127,14 @@ public class TestPruneCountAggregationOverScalar
                                         new FunctionCallBuilder(tester().getMetadata())
                                                 .setName(QualifiedName.of("count"))
                                                 .build(),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
                                 .source(
                                         p.aggregation(aggregationBuilder -> {
                                             aggregationBuilder
-                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.symbol("orderkey"))));
-                                            aggregationBuilder
-                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()));
+                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
+                                                    .groupingSets(singleGroupingSet(ImmutableList.of(p.symbol("orderkey"))));
                                         }))))
                 .doesNotFire();
     }
@@ -143,7 +142,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testDoesNotFireOnNestedNonCountAggregate()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p -> {
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a

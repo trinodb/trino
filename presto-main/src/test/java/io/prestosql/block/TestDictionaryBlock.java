@@ -19,10 +19,12 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.VariableWidthBlock;
 import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -154,6 +156,25 @@ public class TestDictionaryBlock
 
         DictionaryBlock reCompactedBlock = compactBlock.compact();
         assertEquals(reCompactedBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
+    }
+
+    @Test
+    public void testNestedCompact()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block valuesBlock = createSlicesBlock(expectedValues);
+        DictionaryBlock nestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
+        DictionaryBlock dictionary = new DictionaryBlock(nestedDictionary, new int[] {2, 3, 2, 0});
+
+        assertEquals(
+                dictionary.getSizeInBytes(),
+                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}) + 4 * Integer.BYTES);
+        assertFalse(dictionary.isCompact());
+
+        DictionaryBlock compactBlock = dictionary.compact();
+        assertBlock(compactBlock.getDictionary(), TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[2], expectedValues[0]});
+        assertDictionaryIds(compactBlock, 0, 0, 0, 1);
+        assertInstanceOf(compactBlock.getDictionary(), VariableWidthBlock.class);
     }
 
     @Test

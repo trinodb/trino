@@ -15,10 +15,7 @@ package io.prestosql.parquet;
 
 import io.airlift.slice.Slice;
 
-import java.util.Arrays;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryPage
@@ -38,8 +35,8 @@ public class DictionaryPage
 
     public DictionaryPage(Slice slice, int uncompressedSize, int dictionarySize, ParquetEncoding encoding)
     {
-        super(requireNonNull(slice, "slice is null").length(), uncompressedSize);
-        this.slice = slice;
+        super(uncompressedSize);
+        this.slice = requireNonNull(slice, "slice is null");
         this.dictionarySize = dictionarySize;
         this.encoding = requireNonNull(encoding, "encoding is null");
     }
@@ -59,11 +56,6 @@ public class DictionaryPage
         return encoding;
     }
 
-    public DictionaryPage copy()
-    {
-        return new DictionaryPage(wrappedBuffer(Arrays.copyOf(slice.getBytes(), slice.length())), getUncompressedSize(), dictionarySize, encoding);
-    }
-
     @Override
     public String toString()
     {
@@ -71,7 +63,6 @@ public class DictionaryPage
                 .add("slice", slice)
                 .add("dictionarySize", dictionarySize)
                 .add("encoding", encoding)
-                .add("compressedSize", compressedSize)
                 .add("uncompressedSize", uncompressedSize)
                 .toString();
     }

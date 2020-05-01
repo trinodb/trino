@@ -145,7 +145,7 @@ public final class CharacterStringCasts
         return codePoints.build();
     }
 
-    private static Slice codePointsToSliceUtf8(List<Integer> codePoints)
+    public static Slice codePointsToSliceUtf8(List<Integer> codePoints)
     {
         int length = codePoints.stream()
                 .mapToInt(SliceUtf8::lengthOfCodePoint)

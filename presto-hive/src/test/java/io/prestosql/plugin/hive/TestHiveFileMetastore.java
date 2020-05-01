@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import org.testng.SkipException;
 
 import java.io.File;
+
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 
 public class TestHiveFileMetastore
         extends AbstractTestHiveLocal
@@ -28,11 +28,7 @@ public class TestHiveFileMetastore
     protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
-        HiveConfig hiveConfig = new HiveConfig();
-        HdfsConfigurationInitializer updator = new HdfsConfigurationInitializer(hiveConfig);
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator, ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
     }
 
     @Override

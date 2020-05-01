@@ -14,6 +14,8 @@ sed -i "s/\$(uuid-generated-nodeid)/$(uuidgen)/g" /etc/presto/node.properties
 if [ -e /tmp/presto_env.sh ]
 then
     mv /tmp/presto_env.sh /etc/presto/env.sh
+else
+    echo "#JAVA_HOME=" > /etc/presto/env.sh
 fi
 
 chown -R presto:presto /var/lib/presto

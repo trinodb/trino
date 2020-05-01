@@ -32,7 +32,7 @@ class AliasPresent
 
     AliasPresent(String alias)
     {
-        this.alias = requireNonNull(alias, "alias can not be null");
+        this.alias = requireNonNull(alias, "alias cannot be null");
     }
 
     @Override

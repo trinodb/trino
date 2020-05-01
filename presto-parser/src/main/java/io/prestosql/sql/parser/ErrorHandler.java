@@ -40,6 +40,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -123,6 +124,26 @@ class ErrorHandler
         }
 
         @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ParsingState that = (ParsingState) o;
+            return tokenIndex == that.tokenIndex &&
+                    state.equals(that.state);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(state, tokenIndex);
+        }
+
+        @Override
         public String toString()
         {
             Token token = parser.getTokenStream().get(tokenIndex);
@@ -158,6 +179,8 @@ class ErrorHandler
 
         private int furthestTokenIndex = -1;
         private final Set<String> candidates = new HashSet<>();
+
+        private final Map<ParsingState, Set<Integer>> memo = new HashMap<>();
 
         public Analyzer(
                 Parser parser,
@@ -226,7 +249,12 @@ class ErrorHandler
 
         private Set<Integer> process(ParsingState start, int precedence)
         {
-            Set<Integer> endTokens = new HashSet<>();
+            Set<Integer> result = memo.get(start);
+            if (result != null) {
+                return result;
+            }
+
+            ImmutableSet.Builder<Integer> endTokens = ImmutableSet.builder();
 
             // Simulates the ATN by consuming input tokens and walking transitions.
             // The ATN can be in multiple states (similar to an NFA)
@@ -293,7 +321,11 @@ class ErrorHandler
                             labels = labels.complement(IntervalSet.of(Token.MIN_USER_TOKEN_TYPE, atn.maxTokenType));
                         }
 
-                        if (labels.contains(currentToken)) {
+                        // Surprisingly, TokenStream (i.e. BufferedTokenStream) may not have loaded all the tokens from the
+                        // underlying stream. TokenStream.get() does not force tokens to be buffered -- it just returns what's
+                        // in the current buffer, or fail with an IndexOutOfBoundsError. Since Antlr decided the error occurred
+                        // within the current set of buffered tokens, stop when we reach the end of the buffer.
+                        if (labels.contains(currentToken) && tokenIndex < stream.size() - 1) {
                             activeStates.push(new ParsingState(transition.target, tokenIndex + 1, false, parser));
                         }
                         else {
@@ -305,7 +337,9 @@ class ErrorHandler
                 }
             }
 
-            return endTokens;
+            result = endTokens.build();
+            memo.put(start, result);
+            return result;
         }
 
         private void record(int tokenIndex, String label)

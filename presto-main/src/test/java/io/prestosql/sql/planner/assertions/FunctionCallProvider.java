@@ -84,6 +84,7 @@ class FunctionCallProvider
                 frame.isPresent() ? frame.get().toString() : "");
     }
 
+    @Override
     public FunctionCall getExpectedValue(SymbolAliases aliases)
     {
         List<Expression> symbolReferences = toSymbolReferences(args, aliases);
@@ -103,7 +104,7 @@ class FunctionCallProvider
                     .collect(Collectors.toList())));
         }
 
-        return new FunctionCall(Optional.empty(), name, Optional.empty(), Optional.empty(), orderByClause, distinct, symbolReferences);
+        return new FunctionCall(Optional.empty(), name, Optional.empty(), Optional.empty(), orderByClause, distinct, Optional.empty(), symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall

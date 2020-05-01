@@ -23,8 +23,8 @@ import io.prestosql.type.TypeCalculationParser.NullLiteralContext;
 import io.prestosql.type.TypeCalculationParser.NumericLiteralContext;
 import io.prestosql.type.TypeCalculationParser.ParenthesizedExpressionContext;
 import io.prestosql.type.TypeCalculationParser.TypeCalculationContext;
-import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
@@ -74,7 +74,7 @@ public final class TypeCalculation
 
     private static ParserRuleContext parseTypeCalculation(String calculation)
     {
-        TypeCalculationLexer lexer = new TypeCalculationLexer(new CaseInsensitiveStream(new ANTLRInputStream(calculation)));
+        TypeCalculationLexer lexer = new TypeCalculationLexer(new CaseInsensitiveStream(CharStreams.fromString(calculation)));
         CommonTokenStream tokenStream = new CommonTokenStream(lexer);
         TypeCalculationParser parser = new TypeCalculationParser(tokenStream);
 
@@ -92,7 +92,7 @@ public final class TypeCalculation
         }
         catch (ParseCancellationException ex) {
             // if we fail, parse with LL mode
-            tokenStream.reset(); // rewind input stream
+            tokenStream.seek(0); // rewind input stream
             parser.reset();
 
             parser.getInterpreter().setPredictionMode(PredictionMode.LL);

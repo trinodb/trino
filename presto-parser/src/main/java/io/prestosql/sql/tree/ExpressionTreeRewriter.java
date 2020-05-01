@@ -27,7 +27,7 @@ public final class ExpressionTreeRewriter<C>
     private final ExpressionRewriter<C> rewriter;
     private final AstVisitor<Expression, ExpressionTreeRewriter.Context<C>> visitor;
 
-    public static <C, T extends Expression> T rewriteWith(ExpressionRewriter<C> rewriter, T node)
+    public static <T extends Expression> T rewriteWith(ExpressionRewriter<Void> rewriter, T node)
     {
         return new ExpressionTreeRewriter<>(rewriter).rewrite(node, null);
     }
@@ -73,14 +73,9 @@ public final class ExpressionTreeRewriter<C>
         @Override
         protected Expression visitExpression(Expression node, Context<C> context)
         {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteExpression(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            throw new UnsupportedOperationException("not yet implemented: " + getClass().getSimpleName() + " for " + node.getClass().getName());
+            // RewritingVisitor must have explicit support for each expression type, with a dedicated visit method,
+            // so visitExpression() should never be called.
+            throw new UnsupportedOperationException("visit() not implemented for " + node.getClass().getName());
         }
 
         @Override
@@ -539,7 +534,7 @@ public final class ExpressionTreeRewriter<C>
 
             if (!sameElements(node.getArguments(), arguments) || !sameElements(rewrittenWindow, node.getWindow())
                     || !sameElements(filter, node.getFilter())) {
-                return new FunctionCall(node.getLocation(), node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), arguments);
+                return new FunctionCall(node.getLocation(), node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), node.getNullTreatment(), arguments);
             }
             return node;
         }

@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
@@ -70,5 +71,15 @@ public class LimitMatcher
             return match();
         }
         return NO_MATCH;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("limit", limit)
+                .add("tiesResolvers", tiesResolvers)
+                .add("partial", partial)
+                .toString();
     }
 }

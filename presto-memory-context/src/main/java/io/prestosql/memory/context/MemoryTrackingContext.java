@@ -20,7 +20,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -81,19 +81,19 @@ public final class MemoryTrackingContext
 
     public LocalMemoryContext localUserMemoryContext()
     {
-        verify(userLocalMemoryContext != null, "local memory contexts are not initialized");
+        verifyNotNull(userLocalMemoryContext, "local memory contexts are not initialized");
         return userLocalMemoryContext;
     }
 
     public LocalMemoryContext localSystemMemoryContext()
     {
-        verify(systemLocalMemoryContext != null, "local memory contexts are not initialized");
+        verifyNotNull(systemLocalMemoryContext, "local memory contexts are not initialized");
         return systemLocalMemoryContext;
     }
 
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        verify(revocableLocalMemoryContext != null, "local memory contexts are not initialized");
+        verifyNotNull(revocableLocalMemoryContext, "local memory contexts are not initialized");
         return revocableLocalMemoryContext;
     }
 

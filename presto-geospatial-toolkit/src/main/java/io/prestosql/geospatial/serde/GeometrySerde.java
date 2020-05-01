@@ -69,10 +69,7 @@ public final class GeometrySerde
         verify(!envelope.isEmpty());
         DynamicSliceOutput output = new DynamicSliceOutput(100);
         output.appendByte(GeometrySerializationType.ENVELOPE.code());
-        output.appendDouble(envelope.getXMin());
-        output.appendDouble(envelope.getYMin());
-        output.appendDouble(envelope.getXMax());
-        output.appendDouble(envelope.getYMax());
+        writeEnvelopeCoordinates(output, envelope);
         return output.slice();
     }
 
@@ -307,7 +304,7 @@ public final class GeometrySerde
 
     private static Envelope getGeometryCollectionOverallEnvelope(BasicSliceInput input)
     {
-        Envelope overallEnvelope = null;
+        Envelope overallEnvelope = new Envelope();
         while (input.available() > 0) {
             int length = input.readInt() - 1;
             GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
@@ -322,19 +319,12 @@ public final class GeometrySerde
         // skip type injected by esri
         input.readInt();
 
-        double xMin = input.readDouble();
-        double yMin = input.readDouble();
-        double xMax = input.readDouble();
-        double yMax = input.readDouble();
+        Envelope envelope = readEnvelope(input);
 
         int skipLength = length - (4 * Double.BYTES) - Integer.BYTES;
         verify(input.skip(skipLength) == skipLength);
 
-        if (isEsriNaN(xMin) || isEsriNaN(yMin) || isEsriNaN(xMax) || isEsriNaN(yMax)) {
-            // TODO: isn't it better to return empty envelope instead?
-            return null;
-        }
-        return new Envelope(xMin, yMin, xMax, yMax);
+        return envelope;
     }
 
     private static Envelope getPointEnvelope(BasicSliceInput input)
@@ -342,8 +332,7 @@ public final class GeometrySerde
         double x = input.readDouble();
         double y = input.readDouble();
         if (isNaN(x) || isNaN(y)) {
-            // TODO: isn't it better to return empty envelope instead?
-            return null;
+            return new Envelope();
         }
         return new Envelope(x, y, x, y);
     }
@@ -355,7 +344,26 @@ public final class GeometrySerde
         double yMin = input.readDouble();
         double xMax = input.readDouble();
         double yMax = input.readDouble();
+        if (isEsriNaN(xMin) || isEsriNaN(yMin) || isEsriNaN(xMax) || isEsriNaN(yMax)) {
+            return new Envelope();
+        }
         return new Envelope(xMin, yMin, xMax, yMax);
+    }
+
+    private static void writeEnvelopeCoordinates(DynamicSliceOutput output, Envelope envelope)
+    {
+        if (envelope.isEmpty()) {
+            output.appendDouble(NaN);
+            output.appendDouble(NaN);
+            output.appendDouble(NaN);
+            output.appendDouble(NaN);
+        }
+        else {
+            output.appendDouble(envelope.getXMin());
+            output.appendDouble(envelope.getYMin());
+            output.appendDouble(envelope.getXMax());
+            output.appendDouble(envelope.getYMax());
+        }
     }
 
     @Nullable

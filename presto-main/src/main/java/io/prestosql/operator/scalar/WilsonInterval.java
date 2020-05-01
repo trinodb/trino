@@ -26,7 +26,7 @@ public final class WilsonInterval
     private WilsonInterval() {}
 
     @ScalarFunction
-    @Description("binomial confidence interval lower bound using Wilson score")
+    @Description("Binomial confidence interval lower bound using Wilson score")
     @SqlType(StandardTypes.DOUBLE)
     public static double wilsonIntervalLower(@SqlType(StandardTypes.BIGINT) long successes, @SqlType(StandardTypes.BIGINT) long trials, @SqlType(StandardTypes.DOUBLE) double z)
     {
@@ -34,7 +34,7 @@ public final class WilsonInterval
     }
 
     @ScalarFunction
-    @Description("binomial confidence interval upper bound using Wilson score")
+    @Description("Binomial confidence interval upper bound using Wilson score")
     @SqlType(StandardTypes.DOUBLE)
     public static double wilsonIntervalUpper(@SqlType(StandardTypes.BIGINT) long successes, @SqlType(StandardTypes.BIGINT) long trials, @SqlType(StandardTypes.DOUBLE) double z)
     {

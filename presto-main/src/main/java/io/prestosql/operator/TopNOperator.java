@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
@@ -28,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -36,8 +36,19 @@ import static java.util.Objects.requireNonNull;
 public class TopNOperator
         implements AdapterWorkProcessorOperator
 {
-    public static class TopNOperatorFactory
-            implements OperatorFactory, AdapterWorkProcessorOperatorFactory
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            List<? extends Type> types,
+            int n,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrders)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, sortOrders));
+    }
+
+    private static class Factory
+            implements AdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -47,7 +58,7 @@ public class TopNOperator
         private final List<SortOrder> sortOrders;
         private boolean closed;
 
-        public TopNOperatorFactory(
+        private Factory(
                 int operatorId,
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
@@ -61,6 +72,34 @@ public class TopNOperator
             this.n = n;
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
+        }
+
+        @Override
+        public WorkProcessorOperator create(
+                ProcessorContext processorContext,
+                WorkProcessor<Page> sourcePages)
+        {
+            checkState(!closed, "Factory is already closed");
+            return new TopNOperator(
+                    processorContext.getMemoryTrackingContext(),
+                    Optional.of(sourcePages),
+                    sourceTypes,
+                    n,
+                    sortChannels,
+                    sortOrders);
+        }
+
+        @Override
+        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
+        {
+            checkState(!closed, "Factory is already closed");
+            return new TopNOperator(
+                    processorContext.getMemoryTrackingContext(),
+                    Optional.empty(),
+                    sourceTypes,
+                    n,
+                    sortChannels,
+                    sortOrders);
         }
 
         @Override
@@ -82,54 +121,15 @@ public class TopNOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, getOperatorType());
-            return new WorkProcessorOperatorAdapter(operatorContext, this);
-        }
-
-        @Override
-        public void noMoreOperators()
+        public void close()
         {
             closed = true;
         }
 
         @Override
-        public OperatorFactory duplicate()
+        public Factory duplicate()
         {
-            return new TopNOperatorFactory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders);
-        }
-
-        @Override
-        public WorkProcessorOperator create(
-                Session session,
-                MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
-                WorkProcessor<Page> sourcePages)
-        {
-            return new TopNOperator(
-                    memoryTrackingContext,
-                    Optional.of(sourcePages),
-                    sourceTypes,
-                    n,
-                    sortChannels,
-                    sortOrders);
-        }
-
-        @Override
-        public AdapterWorkProcessorOperator create(
-                Session session,
-                MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal)
-        {
-            return new TopNOperator(
-                    memoryTrackingContext,
-                    Optional.empty(),
-                    sourceTypes,
-                    n,
-                    sortChannels,
-                    sortOrders);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders);
         }
     }
 
@@ -137,7 +137,7 @@ public class TopNOperator
     private final WorkProcessor<Page> pages;
     private final PageBuffer pageBuffer = new PageBuffer();
 
-    public TopNOperator(
+    private TopNOperator(
             MemoryTrackingContext memoryTrackingContext,
             Optional<WorkProcessor<Page>> sourcePages,
             List<Type> types,
@@ -183,11 +183,6 @@ public class TopNOperator
     {
         pageBuffer.finish();
     }
-
-    @Override
-    public void close()
-            throws Exception
-    {}
 
     private void addPage(Page page)
     {

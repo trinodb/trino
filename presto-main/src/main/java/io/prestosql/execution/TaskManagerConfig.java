@@ -44,9 +44,9 @@ public class TaskManagerConfig
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
-    private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
-    private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
+    private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
+    private DataSize maxLocalExchangeBufferSize = DataSize.of(32, Unit.MEGABYTE);
+    private DataSize maxIndexMemoryUsage = DataSize.of(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
@@ -55,8 +55,8 @@ public class TaskManagerConfig
     private int maxDriversPerTask = Integer.MAX_VALUE;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
-    private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
+    private DataSize sinkMaxBufferSize = DataSize.of(32, Unit.MEGABYTE);
+    private DataSize maxPagePartitioningBufferSize = DataSize.of(32, Unit.MEGABYTE);
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
@@ -194,6 +194,7 @@ public class TaskManagerConfig
         return this;
     }
 
+    @Min(0)
     public BigDecimal getLevelTimeMultiplier()
     {
         return levelTimeMultiplier;
@@ -201,7 +202,6 @@ public class TaskManagerConfig
 
     @Config("task.level-time-multiplier")
     @ConfigDescription("Factor that determines the target scheduled time for a level relative to the next")
-    @Min(0)
     public TaskManagerConfig setLevelTimeMultiplier(BigDecimal levelTimeMultiplier)
     {
         this.levelTimeMultiplier = levelTimeMultiplier;

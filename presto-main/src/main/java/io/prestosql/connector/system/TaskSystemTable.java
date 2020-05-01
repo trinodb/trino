@@ -70,6 +70,7 @@ public class TaskSystemTable
             .column("output_bytes", BIGINT)
             .column("output_rows", BIGINT)
 
+            .column("physical_input_bytes", BIGINT)
             .column("physical_written_bytes", BIGINT)
 
             .column("created", TIMESTAMP)
@@ -133,6 +134,7 @@ public class TaskSystemTable
                     toBytes(stats.getOutputDataSize()),
                     stats.getOutputPositions(),
 
+                    toBytes(stats.getPhysicalInputDataSize()),
                     toBytes(stats.getPhysicalWrittenDataSize()),
 
                     toTimeStamp(stats.getCreateTime()),

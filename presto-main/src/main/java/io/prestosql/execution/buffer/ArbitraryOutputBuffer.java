@@ -70,6 +70,9 @@ public class ArbitraryOutputBuffer
     @GuardedBy("this")
     private final ConcurrentMap<OutputBufferId, ClientBuffer> buffers = new ConcurrentHashMap<>();
 
+    //  The index of the first client buffer that should be polled
+    private final AtomicInteger nextClientBufferIndex = new AtomicInteger(0);
+
     private final StateMachine<BufferState> state;
     private final String taskInstanceId;
 
@@ -158,7 +161,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        checkState(!Thread.holdsLock(this), "Can not set output buffers while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot set output buffers while holding a lock on this");
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
 
         synchronized (this) {
@@ -177,6 +180,8 @@ public class ArbitraryOutputBuffer
             for (OutputBufferId outputBufferId : outputBuffers.getBuffers().keySet()) {
                 getBuffer(outputBufferId);
             }
+            // Reset resume from position
+            nextClientBufferIndex.set(0);
 
             // update state if no more buffers is set
             if (outputBuffers.isNoMoreBufferIds()) {
@@ -201,7 +206,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void enqueue(List<SerializedPage> pages)
     {
-        checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot enqueue pages while holding a lock on this");
         requireNonNull(pages, "page is null");
 
         // ignore pages after "no more pages" is set
@@ -228,11 +233,20 @@ public class ArbitraryOutputBuffer
         masterBuffer.addPages(serializedPageReferences);
 
         // process any pending reads from the client buffers
-        for (ClientBuffer clientBuffer : safeGetBuffersSnapshot()) {
+        List<ClientBuffer> buffers = safeGetBuffersSnapshot();
+        if (buffers.isEmpty()) {
+            return;
+        }
+        // handle potential for racy update of next index and client buffers present
+        int index = nextClientBufferIndex.get() % buffers.size();
+        for (int i = 0; i < buffers.size(); i++) {
+            buffers.get(index).loadPagesIfNecessary(masterBuffer);
+            index = (index + 1) % buffers.size();
             if (masterBuffer.isEmpty()) {
+                // Resume from the next client buffer on the next iteration
+                nextClientBufferIndex.set(index);
                 break;
             }
-            clientBuffer.loadPagesIfNecessary(masterBuffer);
         }
     }
 
@@ -246,7 +260,7 @@ public class ArbitraryOutputBuffer
     @Override
     public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
-        checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
@@ -256,7 +270,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void acknowledge(OutputBufferId bufferId, long sequenceId)
     {
-        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot acknowledge pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
 
         getBuffer(bufferId).acknowledgePages(sequenceId);
@@ -265,7 +279,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void abort(OutputBufferId bufferId)
     {
-        checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot abort while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
 
         getBuffer(bufferId).destroy();
@@ -276,7 +290,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void setNoMorePages()
     {
-        checkState(!Thread.holdsLock(this), "Can not set no more pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot set no more pages while holding a lock on this");
         state.compareAndSet(OPEN, NO_MORE_PAGES);
         state.compareAndSet(NO_MORE_BUFFERS, FLUSHING);
         memoryManager.setNoBlockOnFull();
@@ -294,7 +308,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void destroy()
     {
-        checkState(!Thread.holdsLock(this), "Can not destroy while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot destroy while holding a lock on this");
 
         // ignore destroy if the buffer already in a terminal state.
         if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
@@ -357,7 +371,7 @@ public class ArbitraryOutputBuffer
         return buffer;
     }
 
-    private synchronized Collection<ClientBuffer> safeGetBuffersSnapshot()
+    private synchronized List<ClientBuffer> safeGetBuffersSnapshot()
     {
         return ImmutableList.copyOf(this.buffers.values());
     }
@@ -371,7 +385,6 @@ public class ArbitraryOutputBuffer
         }
     }
 
-    @GuardedBy("this")
     private void checkFlushComplete()
     {
         // This buffer type assigns each page to a single, arbitrary reader,
@@ -448,7 +461,7 @@ public class ArbitraryOutputBuffer
 
         public void destroy()
         {
-            checkState(!Thread.holdsLock(this), "Can not destroy master buffer while holding a lock on this");
+            checkState(!Thread.holdsLock(this), "Cannot destroy master buffer while holding a lock on this");
             List<SerializedPageReference> pages;
             synchronized (this) {
                 pages = ImmutableList.copyOf(masterBuffer);

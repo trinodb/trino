@@ -33,6 +33,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,7 +75,7 @@ public class TestProxyServer
         Files.write(sharedSecretFile, sharedSecret);
 
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());
@@ -107,7 +108,7 @@ public class TestProxyServer
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
-            throws Exception
+            throws IOException
     {
         server.close();
         lifeCycleManager.stop();

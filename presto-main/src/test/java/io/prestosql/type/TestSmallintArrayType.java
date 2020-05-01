@@ -22,7 +22,7 @@ import java.util.List;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestSmallintArrayType
@@ -35,7 +35,7 @@ public class TestSmallintArrayType
 
     private TestSmallintArrayType(Metadata metadata)
     {
-        super(metadata.getType(parseTypeSignature("array(smallint)")), List.class, createTestBlock(metadata.getType(parseTypeSignature("array(smallint)"))));
+        super(metadata.getType(arrayType(SMALLINT.getTypeSignature())), List.class, createTestBlock(metadata.getType(arrayType(SMALLINT.getTypeSignature()))));
     }
 
     public static Block createTestBlock(Type arrayType)

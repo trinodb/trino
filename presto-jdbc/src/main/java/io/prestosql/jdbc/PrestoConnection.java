@@ -93,7 +93,6 @@ public class PrestoConnection
     private final Map<String, ClientSelectedRole> roles = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
-    private final WarningsManager warningsManager = new WarningsManager();
 
     PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
@@ -107,9 +106,14 @@ public class PrestoConnection
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        uri.getClientInfo().ifPresent(tags -> clientInfo.put("ClientInfo", tags));
+        uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
+        uri.getTraceToken().ifPresent(tags -> clientInfo.put("TraceToken", tags));
 
+        roles.putAll(uri.getRoles());
         timeZoneId.set(ZoneId.systemDefault());
         locale.set(Locale.getDefault());
+        sessionProperties.putAll(uri.getSessionProperties());
     }
 
     @Override
@@ -149,10 +153,10 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        boolean wasAutoCommit = this.autoCommit.getAndSet(autoCommit);
-        if (autoCommit && !wasAutoCommit) {
+        if (autoCommit && !getAutoCommit()) {
             commit();
         }
+        this.autoCommit.set(autoCommit);
     }
 
     @Override
@@ -171,6 +175,10 @@ public class PrestoConnection
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
         }
+        if (transactionId.get() == null) {
+            // empty transaction
+            return;
+        }
         try (PrestoStatement statement = new PrestoStatement(this)) {
             statement.internalExecute("COMMIT");
         }
@@ -183,6 +191,10 @@ public class PrestoConnection
         checkOpen();
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
+        }
+        if (transactionId.get() == null) {
+            // empty transaction
+            return;
         }
         try (PrestoStatement statement = new PrestoStatement(this)) {
             statement.internalExecute("ROLLBACK");
@@ -542,7 +554,7 @@ public class PrestoConnection
     }
 
     /**
-     * Adds a session property (experimental).
+     * Adds a session property.
      */
     public void setSessionProperty(String name, String value)
     {
@@ -624,6 +636,12 @@ public class PrestoConnection
         return ImmutableMap.copyOf(extraCredentials);
     }
 
+    @VisibleForTesting
+    Map<String, String> getSessionProperties()
+    {
+        return ImmutableMap.copyOf(sessionProperties);
+    }
+
     ServerInfo getServerInfo()
             throws SQLException
     {
@@ -666,7 +684,6 @@ public class PrestoConnection
             source = applicationName;
         }
 
-        Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
                 .split(nullToEmpty(clientInfo.get("ClientTags")));
 
@@ -681,7 +698,7 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
-                traceToken,
+                Optional.ofNullable(clientInfo.get("TraceToken")),
                 ImmutableSet.copyOf(clientTags),
                 clientInfo.get("ClientInfo"),
                 catalog.get(),
@@ -720,11 +737,6 @@ public class PrestoConnection
         if (client.isClearTransactionId()) {
             transactionId.set(null);
         }
-    }
-
-    WarningsManager getWarningsManager()
-    {
-        return warningsManager;
     }
 
     private void checkOpen()

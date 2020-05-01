@@ -36,7 +36,7 @@ public class RowBlock
     private final int[] fieldBlockOffsets;
     private final Block[] fieldBlocks;
 
-    private volatile long sizeInBytes;
+    private volatile long sizeInBytes = -1;
     private final long retainedSizeInBytes;
 
     /**
@@ -108,12 +108,7 @@ public class RowBlock
         this.fieldBlockOffsets = fieldBlockOffsets;
         this.fieldBlocks = fieldBlocks;
 
-        this.sizeInBytes = -1;
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
-        for (Block fieldBlock : fieldBlocks) {
-            retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
-        }
-        this.retainedSizeInBytes = retainedSizeInBytes;
+        this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
     }
 
     @Override
@@ -150,28 +145,40 @@ public class RowBlock
     @Override
     public long getSizeInBytes()
     {
-        if (sizeInBytes < 0) {
-            calculateSize();
+        if (sizeInBytes >= 0) {
+            return sizeInBytes;
         }
-        return sizeInBytes;
-    }
 
-    private void calculateSize()
-    {
+        long sizeInBytes = getBaseSizeInBytes();
+        boolean hasUnloadedBlocks = false;
+
         int startFieldBlockOffset = fieldBlockOffsets[startOffset];
         int endFieldBlockOffset = fieldBlockOffsets[startOffset + positionCount];
         int fieldBlockLength = endFieldBlockOffset - startFieldBlockOffset;
 
-        long sizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
-        for (int i = 0; i < numFields; i++) {
-            sizeInBytes += fieldBlocks[i].getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
+        for (Block fieldBlock : fieldBlocks) {
+            sizeInBytes += fieldBlock.getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
+            hasUnloadedBlocks = hasUnloadedBlocks || !fieldBlock.isLoaded();
         }
-        this.sizeInBytes = sizeInBytes;
+
+        if (!hasUnloadedBlocks) {
+            this.sizeInBytes = sizeInBytes;
+        }
+        return sizeInBytes;
+    }
+
+    private long getBaseSizeInBytes()
+    {
+        return (Integer.BYTES + Byte.BYTES) * (long) positionCount;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
+        long retainedSizeInBytes = this.retainedSizeInBytes;
+        for (Block fieldBlock : fieldBlocks) {
+            retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
+        }
         return retainedSizeInBytes;
     }
 

@@ -17,12 +17,15 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
 public class EventListenerModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(EventListenerConfig.class);
         binder.bind(EventListenerManager.class).in(Scopes.SINGLETON);
     }
 }

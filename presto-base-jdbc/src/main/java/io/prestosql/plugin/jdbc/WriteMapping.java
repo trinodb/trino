@@ -18,67 +18,38 @@ import static java.util.Objects.requireNonNull;
 
 public final class WriteMapping
 {
-    public static final WriteNullFunction DEFAULT_WRITE_NULL_FUNCTION = (statement, index) -> statement.setObject(index, null);
-
     public static WriteMapping booleanMapping(String dataType, BooleanWriteFunction writeFunction)
     {
-        return booleanMapping(dataType, writeFunction, DEFAULT_WRITE_NULL_FUNCTION);
-    }
-
-    public static WriteMapping booleanMapping(String dataType, BooleanWriteFunction writeFunction, WriteNullFunction writeNullFunction)
-    {
-        return new WriteMapping(dataType, writeFunction, writeNullFunction);
+        return new WriteMapping(dataType, writeFunction);
     }
 
     public static WriteMapping longMapping(String dataType, LongWriteFunction writeFunction)
     {
-        return longMapping(dataType, writeFunction, DEFAULT_WRITE_NULL_FUNCTION);
-    }
-
-    public static WriteMapping longMapping(String dataType, LongWriteFunction writeFunction, WriteNullFunction writeNullFunction)
-    {
-        return new WriteMapping(dataType, writeFunction, writeNullFunction);
+        return new WriteMapping(dataType, writeFunction);
     }
 
     public static WriteMapping doubleMapping(String dataType, DoubleWriteFunction writeFunction)
     {
-        return doubleMapping(dataType, writeFunction, DEFAULT_WRITE_NULL_FUNCTION);
-    }
-
-    public static WriteMapping doubleMapping(String dataType, DoubleWriteFunction writeFunction, WriteNullFunction writeNullFunction)
-    {
-        return new WriteMapping(dataType, writeFunction, writeNullFunction);
+        return new WriteMapping(dataType, writeFunction);
     }
 
     public static WriteMapping sliceMapping(String dataType, SliceWriteFunction writeFunction)
     {
-        return sliceMapping(dataType, writeFunction, DEFAULT_WRITE_NULL_FUNCTION);
-    }
-
-    public static WriteMapping sliceMapping(String dataType, SliceWriteFunction writeFunction, WriteNullFunction writeNullFunction)
-    {
-        return new WriteMapping(dataType, writeFunction, writeNullFunction);
+        return new WriteMapping(dataType, writeFunction);
     }
 
     public static WriteMapping blockMapping(String dataType, BlockWriteFunction writeFunction)
     {
-        return blockMapping(dataType, writeFunction, DEFAULT_WRITE_NULL_FUNCTION);
-    }
-
-    public static WriteMapping blockMapping(String dataType, BlockWriteFunction writeFunction, WriteNullFunction defaultWriteNullFunction)
-    {
-        return new WriteMapping(dataType, writeFunction, defaultWriteNullFunction);
+        return new WriteMapping(dataType, writeFunction);
     }
 
     private final String dataType;
     private final WriteFunction writeFunction;
-    private final WriteNullFunction writeNullFunction;
 
-    private WriteMapping(String dataType, WriteFunction writeFunction, WriteNullFunction writeNullFunction)
+    private WriteMapping(String dataType, WriteFunction writeFunction)
     {
         this.dataType = requireNonNull(dataType, "dataType is null");
         this.writeFunction = requireNonNull(writeFunction, "writeFunction is null");
-        this.writeNullFunction = requireNonNull(writeNullFunction, "writeNullFunction is null");
     }
 
     /**
@@ -92,11 +63,6 @@ public final class WriteMapping
     public WriteFunction getWriteFunction()
     {
         return writeFunction;
-    }
-
-    public WriteNullFunction getWriteNullFunction()
-    {
-        return writeNullFunction;
     }
 
     @Override

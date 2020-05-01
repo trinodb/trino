@@ -16,8 +16,6 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 //
 // A date is stored as days from 1970-01-01.
 //
@@ -33,7 +31,7 @@ public final class DateType
 
     private DateType()
     {
-        super(parseTypeSignature(StandardTypes.DATE));
+        super(new TypeSignature(StandardTypes.DATE));
     }
 
     @Override

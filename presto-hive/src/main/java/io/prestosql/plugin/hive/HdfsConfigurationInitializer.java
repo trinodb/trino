@@ -19,15 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.prestosql.hadoop.SocksSocketFactory;
-import io.prestosql.plugin.hive.s3.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
-import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.net.DNSToSwitchMapping;
-import org.apache.orc.OrcConf;
-import org.apache.parquet.hadoop.ParquetOutputFormat;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
@@ -37,6 +31,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.readConfiguration;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_PING_INTERVAL_KEY;
@@ -46,11 +41,9 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SOCKS_SE
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS;
+import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 
 public class HdfsConfigurationInitializer
 {
@@ -62,26 +55,22 @@ public class HdfsConfigurationInitializer
     private final int dfsKeyProviderCacheTtlMillis;
     private final String domainSocketPath;
     private final Configuration resourcesConfiguration;
-    private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
     private final Set<ConfigurationInitializer> configurationInitializers;
-    private final boolean isHdfsWireEncryptionEnabled;
-    private int textMaxLineLength;
+    private final boolean wireEncryptionEnabled;
 
     @VisibleForTesting
-    public HdfsConfigurationInitializer(HiveConfig config)
+    public HdfsConfigurationInitializer(HdfsConfig hdfsConfig)
     {
-        this(config, ImmutableSet.of());
+        this(hdfsConfig, ImmutableSet.of());
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveConfig config, Set<ConfigurationInitializer> configurationInitializers)
+    public HdfsConfigurationInitializer(HdfsConfig config, Set<ConfigurationInitializer> configurationInitializers)
     {
-        requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
-        checkArgument(toIntExact(config.getTextMaxLineLength().toBytes()) >= 1, "textMaxLineLength must be at least 1 byte");
 
-        this.socksProxy = config.getMetastoreSocksProxy();
+        this.socksProxy = config.getSocksProxy();
         this.ipcPingInterval = config.getIpcPingInterval();
         this.dfsTimeout = config.getDfsTimeout();
         this.dfsConnectTimeout = config.getDfsConnectTimeout();
@@ -89,25 +78,10 @@ public class HdfsConfigurationInitializer
         this.dfsKeyProviderCacheTtlMillis = toIntExact(config.getDfsKeyProviderCacheTtl().toMillis());
         this.domainSocketPath = config.getDomainSocketPath();
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
-        this.compressionCodec = config.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
-        this.isHdfsWireEncryptionEnabled = config.isHdfsWireEncryptionEnabled();
-        this.textMaxLineLength = toIntExact(config.getTextMaxLineLength().toBytes());
+        this.wireEncryptionEnabled = config.isWireEncryptionEnabled();
 
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
-    }
-
-    private static Configuration readConfiguration(List<String> resourcePaths)
-    {
-        Configuration result = new Configuration(false);
-
-        for (String resourcePath : resourcePaths) {
-            Configuration resourceProperties = new Configuration(false);
-            resourceProperties.addResource(new Path(resourcePath));
-            copy(resourceProperties, result);
-        }
-
-        return result;
     }
 
     public void initializeConfiguration(Configuration config)
@@ -135,43 +109,16 @@ public class HdfsConfigurationInitializer
         config.setInt(IPC_PING_INTERVAL_KEY, toIntExact(ipcPingInterval.toMillis()));
         config.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, toIntExact(dfsConnectTimeout.toMillis()));
         config.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, dfsConnectMaxRetries);
+        config.setInt(DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS, dfsKeyProviderCacheTtlMillis);
 
-        if (isHdfsWireEncryptionEnabled) {
+        if (wireEncryptionEnabled) {
             config.set(HADOOP_RPC_PROTECTION, "privacy");
             config.setBoolean("dfs.encrypt.data.transfer", true);
         }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
 
-        config.setInt(DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS, dfsKeyProviderCacheTtlMillis);
-        config.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLength);
-
-        configureCompression(config, compressionCodec);
-
         configurationInitializers.forEach(configurationInitializer -> configurationInitializer.initializeConfiguration(config));
-    }
-
-    public static void configureCompression(Configuration config, HiveCompressionCodec compressionCodec)
-    {
-        boolean compression = compressionCodec != HiveCompressionCodec.NONE;
-        config.setBoolean(COMPRESSRESULT.varname, compression);
-        config.setBoolean("mapred.output.compress", compression);
-        config.setBoolean(FileOutputFormat.COMPRESS, compression);
-        // For ORC
-        OrcConf.COMPRESS.setString(config, compressionCodec.getOrcCompressionKind().name());
-        // For RCFile and Text
-        if (compressionCodec.getCodec().isPresent()) {
-            config.set("mapred.output.compression.codec", compressionCodec.getCodec().get().getName());
-            config.set(FileOutputFormat.COMPRESS_CODEC, compressionCodec.getCodec().get().getName());
-        }
-        else {
-            config.unset("mapred.output.compression.codec");
-            config.unset(FileOutputFormat.COMPRESS_CODEC);
-        }
-        // For Parquet
-        config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
-        // For SequenceFile
-        config.set(FileOutputFormat.COMPRESS_TYPE, BLOCK.toString());
     }
 
     public static class NoOpDNSToSwitchMapping

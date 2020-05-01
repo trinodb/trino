@@ -16,10 +16,8 @@ package io.prestosql.type;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlVarbinary;
 import org.testng.annotations.Test;
 
-import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
@@ -27,6 +25,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static io.prestosql.type.UuidOperators.castFromVarcharToUuid;
 import static io.prestosql.type.UuidType.UUID;
 
@@ -74,8 +73,8 @@ public class TestUuidOperators
     @Test
     public void testUUIDToVarbinaryCast()
     {
-        assertFunction("CAST(UUID '00000000-0000-0000-0000-000000000000' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("00000000000000000000000000000000")));
-        assertFunction("CAST(UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("B043E467655B5F6BA0589FD46C58E38E")));
+        assertFunction("CAST(UUID '00000000-0000-0000-0000-000000000000' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("00000000000000000000000000000000"));
+        assertFunction("CAST(UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("B043E467655B5F6BA0589FD46C58E38E"));
     }
 
     @Test

@@ -56,7 +56,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -74,7 +73,6 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.util.DateTimeUtils.parseDate;
 import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -89,7 +87,6 @@ public class TestRaptorConnector
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
@@ -217,16 +214,10 @@ public class TestRaptorConnector
     private void assertSplitShard(Type temporalType, String min, String max, String userTimeZone, int expectedSplits)
             throws Exception
     {
-        ConnectorSession session = new TestingConnectorSession(
-                "user",
-                Optional.of("test"),
-                Optional.empty(),
-                getTimeZoneKey(userTimeZone),
-                ENGLISH,
-                System.currentTimeMillis(),
-                new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties(),
-                ImmutableMap.of(),
-                true);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setTimeZoneKey(getTimeZoneKey(userTimeZone))
+                .setPropertyMetadata(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties())
+                .build();
 
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_COMMITTED, false);
         connector.getMetadata(transaction).createTable(

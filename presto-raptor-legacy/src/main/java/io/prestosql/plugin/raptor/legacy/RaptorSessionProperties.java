@@ -24,8 +24,8 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 

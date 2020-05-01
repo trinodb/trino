@@ -23,8 +23,8 @@ import java.util.Arrays;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.block.ColumnarTestUtils.assertBlock;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.createSimpleBlock;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.toSlices;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.createSimpleBlock;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.toSlices;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

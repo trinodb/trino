@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -105,7 +106,7 @@ public class TestPrepareTask
                 new ResourceGroupId("test"),
                 false,
                 transactionManager,
-                new AccessControlManager(transactionManager),
+                new AccessControlManager(transactionManager, new AccessControlConfig()),
                 executor,
                 metadata,
                 WarningCollector.NOOP);

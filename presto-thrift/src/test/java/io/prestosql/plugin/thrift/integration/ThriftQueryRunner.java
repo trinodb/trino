@@ -29,6 +29,7 @@ import io.prestosql.Session;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.plugin.thrift.ThriftPlugin;
 import io.prestosql.plugin.thrift.server.ThriftIndexedTpchService;
 import io.prestosql.plugin.thrift.server.ThriftTpchService;
@@ -37,10 +38,10 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingAccessControlManager;
-import io.prestosql.tests.DistributedQueryRunner;
 import io.prestosql.transaction.TransactionManager;
 
 import java.util.ArrayList;
@@ -59,14 +60,14 @@ public final class ThriftQueryRunner
 
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, int nodeCount, boolean enableIndexJoin, Map<String, String> properties)
+    public static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> properties)
             throws Exception
     {
         List<DriftServer> servers = null;
         DistributedQueryRunner runner = null;
         try {
             servers = startThriftServers(thriftServers, enableIndexJoin);
-            runner = createThriftQueryRunnerInternal(servers, nodeCount, properties);
+            runner = createThriftQueryRunnerInternal(servers, properties);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
         catch (Throwable t) {
@@ -86,14 +87,14 @@ public final class ThriftQueryRunner
     {
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true, properties);
+        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, true, properties);
         Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    private static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
     {
         List<DriftServer> servers = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
@@ -110,7 +111,7 @@ public final class ThriftQueryRunner
         return servers;
     }
 
-    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, int nodeCount, Map<String, String> properties)
+    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> properties)
             throws Exception
     {
         String addresses = servers.stream()
@@ -123,7 +124,6 @@ public final class ThriftQueryRunner
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setNodeCount(nodeCount)
                 .setExtraProperties(properties)
                 .build();
 
@@ -138,7 +138,7 @@ public final class ThriftQueryRunner
         return queryRunner;
     }
 
-    private static int driftServerPort(DriftServer server)
+    static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
@@ -260,6 +260,12 @@ public final class ThriftQueryRunner
         public void installPlugin(Plugin plugin)
         {
             source.installPlugin(plugin);
+        }
+
+        @Override
+        public void addFunctions(List<? extends SqlFunction> functions)
+        {
+            source.getMetadata().addFunctions(functions);
         }
 
         @Override

@@ -15,8 +15,6 @@ package io.prestosql.operator.spiller;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.airlift.tpch.LineItem;
-import io.airlift.tpch.LineItemGenerator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -26,6 +24,8 @@ import io.prestosql.spiller.GenericSpillerFactory;
 import io.prestosql.spiller.Spiller;
 import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.spiller.SpillerStats;
+import io.prestosql.tpch.LineItem;
+import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;

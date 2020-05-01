@@ -32,7 +32,7 @@ public abstract class AbstractTestWindowFunction
     @BeforeClass
     public final void initTestWindowFunction()
     {
-        queryRunner = new LocalQueryRunner(TEST_SESSION);
+        queryRunner = LocalQueryRunner.create(TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)

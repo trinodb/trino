@@ -47,10 +47,10 @@ public class VariableWidthBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
 
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
 
     private boolean initialized;
-    private int initialEntryCount;
+    private final int initialEntryCount;
     private int initialSliceOutputSize;
 
     private SliceOutput sliceOutput = new DynamicSliceOutput(0);

@@ -16,6 +16,7 @@ package io.prestosql.plugin.phoenix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
+import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
@@ -32,9 +33,10 @@ public class PhoenixOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
             @JsonProperty("hadUUIDRowkey") boolean hasUUIDRowkey)
     {
-        super("", schemaName.orElse(null), tableName, columnNames, columnTypes, "");
+        super("", schemaName.orElse(null), tableName, columnNames, columnTypes, jdbcColumnTypes, "");
         this.hasUuidRowKey = hasUUIDRowkey;
     }
 

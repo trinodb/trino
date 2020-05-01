@@ -27,7 +27,7 @@ import io.prestosql.spi.type.Type;
 import static java.lang.Boolean.TRUE;
 
 @Description("Returns true if the array contains one or more elements that match the given predicate")
-@ScalarFunction(value = "any_match")
+@ScalarFunction("any_match")
 public final class ArrayAnyMatchFunction
 {
     private ArrayAnyMatchFunction() {}

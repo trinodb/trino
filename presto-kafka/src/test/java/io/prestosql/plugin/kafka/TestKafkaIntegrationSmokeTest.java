@@ -13,39 +13,33 @@
  */
 package io.prestosql.plugin.kafka;
 
-import io.prestosql.plugin.kafka.util.EmbeddedKafka;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.plugin.kafka.util.TestingKafka;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
-import java.io.IOException;
-
-import static io.airlift.tpch.TpchTable.ORDERS;
-import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
-import static io.prestosql.plugin.kafka.util.EmbeddedKafka.createEmbeddedKafka;
-
-@Test
 public class TestKafkaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedKafka embeddedKafka;
+    private TestingKafka testingKafka;
 
-    public TestKafkaIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedKafka());
-    }
-
-    public TestKafkaIntegrationSmokeTest(EmbeddedKafka embeddedKafka)
-    {
-        super(() -> createKafkaQueryRunner(embeddedKafka, ORDERS));
-        this.embeddedKafka = embeddedKafka;
+        testingKafka = new TestingKafka();
+        return KafkaQueryRunner.builder(testingKafka)
+                .setTables(TpchTable.getTables())
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws IOException
     {
-        embeddedKafka.close();
+        if (testingKafka != null) {
+            testingKafka.close();
+            testingKafka = null;
+        }
     }
 }

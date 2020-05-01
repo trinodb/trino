@@ -16,6 +16,7 @@ package io.prestosql.plugin.google.sheets;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 
@@ -76,6 +77,10 @@ public class SheetsSplit
     @Override
     public Object getInfo()
     {
-        return this;
+        return ImmutableMap.builder()
+                .put("schemaName", schemaName)
+                .put("tableName", tableName)
+                .put("hostAddresses", hostAddresses)
+                .build();
     }
 }

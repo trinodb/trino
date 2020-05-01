@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.prestosql.operator.GroupByHash.createGroupByHash;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -265,7 +266,7 @@ public class RowNumberOperator
 
     private boolean processUnfinishedWork()
     {
-        verify(unfinishedWork != null);
+        verifyNotNull(unfinishedWork);
         if (!unfinishedWork.process()) {
             return false;
         }

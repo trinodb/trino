@@ -45,4 +45,11 @@ public final class CustomFunctions
     {
         return value == null;
     }
+
+    @ScalarFunction(value = "identity.function", alias = "identity&function")
+    @SqlType(StandardTypes.BIGINT)
+    public static long customIdentityFunction(@SqlType(StandardTypes.BIGINT) long x)
+    {
+        return x;
+    }
 }

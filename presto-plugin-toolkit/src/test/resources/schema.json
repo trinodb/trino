@@ -10,6 +10,16 @@
       "owner": true
     },
     {
+      "group": "staff",
+      "schema": "staff",
+      "owner": true
+    },
+    {
+      "group": "staff|guests",
+      "schema": "authenticated",
+      "owner": true
+    },
+    {
       "user": "bob",
       "schema": "bob",
       "owner": true

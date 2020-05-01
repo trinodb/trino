@@ -68,7 +68,7 @@ class ReplicatedBlockBuilder
     {
         Block outputBlock = new DictionaryBlock(positionCount, source, ids);
 
-        // Flush stored state, so that ids can not be modified after the dictionary has been constructed
+        // Flush stored state, so that ids cannot be modified after the dictionary has been constructed
         ids = new int[0];
         positionCount = 0;
 

@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.JoinNode.Type;
+import io.prestosql.sql.tree.Expression;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -37,6 +39,8 @@ public class UnnestNode
     private final List<Symbol> replicateSymbols;
     private final Map<Symbol, List<Symbol>> unnestSymbols;
     private final Optional<Symbol> ordinalitySymbol;
+    private final Type joinType;
+    private final Optional<Expression> filter;
 
     @JsonCreator
     public UnnestNode(
@@ -44,7 +48,9 @@ public class UnnestNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("replicateSymbols") List<Symbol> replicateSymbols,
             @JsonProperty("unnestSymbols") Map<Symbol, List<Symbol>> unnestSymbols,
-            @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol)
+            @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol,
+            @JsonProperty("joinType") Type joinType,
+            @JsonProperty("filter") Optional<Expression> filter)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -58,6 +64,8 @@ public class UnnestNode
         }
         this.unnestSymbols = builder.build();
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
+        this.joinType = requireNonNull(joinType, "type is null");
+        this.filter = requireNonNull(filter, "filter is null");
     }
 
     @Override
@@ -94,6 +102,18 @@ public class UnnestNode
         return ordinalitySymbol;
     }
 
+    @JsonProperty
+    public Type getJoinType()
+    {
+        return joinType;
+    }
+
+    @JsonProperty
+    public Optional<Expression> getFilter()
+    {
+        return filter;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -109,6 +129,6 @@ public class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, unnestSymbols, ordinalitySymbol);
+        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, unnestSymbols, ordinalitySymbol, joinType, filter);
     }
 }

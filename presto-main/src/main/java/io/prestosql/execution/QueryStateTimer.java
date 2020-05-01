@@ -140,6 +140,15 @@ class QueryStateTimer
         finishingTime.compareAndSet(null, nanosSince(beginFinishingNanos, now));
         executionTime.compareAndSet(null, nanosSince(beginPlanningNanos, now));
         endNanos.compareAndSet(null, now);
+
+        // Analysis is run in separate thread and there is no query state for analysis.
+        // In case when analysis thread was canceled the analysis should be marked as finished.
+        if (beginAnalysisNanos.get() == null) {
+            analysisTime.compareAndSet(null, succinctNanos(0));
+        }
+        else {
+            endAnalysis(now);
+        }
     }
 
     //
@@ -153,7 +162,12 @@ class QueryStateTimer
 
     public void endAnalysis()
     {
-        analysisTime.compareAndSet(null, nanosSince(beginAnalysisNanos, tickerNanos()));
+        endAnalysis(tickerNanos());
+    }
+
+    private void endAnalysis(long now)
+    {
+        analysisTime.compareAndSet(null, nanosSince(beginAnalysisNanos, now));
     }
 
     public void recordHeartbeat()

@@ -65,7 +65,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoin()
     {
-        tester().assertThat(new EliminateCrossJoins())
+        tester().assertThat(new EliminateCrossJoins(tester().getMetadata()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
@@ -81,7 +81,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testRetainOutgoingGroupReferences()
     {
-        tester().assertThat(new EliminateCrossJoins())
+        tester().assertThat(new EliminateCrossJoins(tester().getMetadata()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
@@ -95,7 +95,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testDoNotReorderOuterJoin()
     {
-        tester().assertThat(new EliminateCrossJoins())
+        tester().assertThat(new EliminateCrossJoins(tester().getMetadata()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(JoinNode.Type.LEFT))
                 .doesNotFire();
@@ -118,9 +118,9 @@ public class TestEliminateCrossJoins
                                 values("b")),
                         values("c"),
                         "a", "c",
-                        "c", "b");
+                        "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -137,7 +137,7 @@ public class TestEliminateCrossJoins
                                 values("b")),
                         values("c"),
                         "a", "c",
-                        "c", "b");
+                        "b", "c");
 
         PlanNode rightPlan =
                 joinNode(
@@ -146,11 +146,11 @@ public class TestEliminateCrossJoins
                                 values("y")),
                         values("z"),
                         "x", "z",
-                        "z", "y");
+                        "y", "z");
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -167,10 +167,10 @@ public class TestEliminateCrossJoins
                                 values("b1", "b2")),
                         values("c1", "c2"),
                         "a", "c1",
-                        "c1", "b1",
-                        "c2", "b2");
+                        "b1", "c1",
+                        "b2", "c2");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -187,9 +187,9 @@ public class TestEliminateCrossJoins
                                 values("b"),
                                 "a", "b"),
                         values("c"),
-                        "c", "b");
+                        "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -205,9 +205,9 @@ public class TestEliminateCrossJoins
                                 values("a"),
                                 values("b")),
                         values("c"),
-                        "c", "b");
+                        "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -217,7 +217,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoinWithNonIdentityProjections()
     {
-        tester().assertThat(new EliminateCrossJoins())
+        tester().assertThat(new EliminateCrossJoins(tester().getMetadata()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(p -> {
                     Symbol a1 = p.symbol("a1");
@@ -290,9 +290,9 @@ public class TestEliminateCrossJoins
                                 new SymbolReference("b")),
                         values("c"),
                         "a2", "c",
-                        "c", "b");
+                        "b", "c");
 
-        assertEquals(JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator()).size(), 2);
+        assertEquals(JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator()).size(), 2);
     }
 
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
@@ -309,8 +309,8 @@ public class TestEliminateCrossJoins
                             p.values(axSymbol),
                             p.values(bySymbol)),
                     p.values(cxSymbol, cySymbol),
-                    new EquiJoinClause(cxSymbol, axSymbol),
-                    new EquiJoinClause(cySymbol, bySymbol));
+                    new EquiJoinClause(axSymbol, cxSymbol),
+                    new EquiJoinClause(bySymbol, cySymbol));
         };
     }
 
@@ -339,16 +339,15 @@ public class TestEliminateCrossJoins
                 left,
                 right,
                 criteria.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
     }
 
     private ValuesNode values(String... symbols)

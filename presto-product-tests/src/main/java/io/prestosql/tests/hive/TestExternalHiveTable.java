@@ -38,6 +38,7 @@ public class TestExternalHiveTable
 {
     private static final String EXTERNAL_TABLE_NAME = "target_table";
 
+    @Override
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(

@@ -251,7 +251,7 @@ public class LocalExchange
 
     private static void checkNotHoldsLock(Object lock)
     {
-        checkState(!Thread.holdsLock(lock), "Can not execute this method while holding a lock");
+        checkState(!Thread.holdsLock(lock), "Cannot execute this method while holding a lock");
     }
 
     @ThreadSafe

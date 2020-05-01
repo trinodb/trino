@@ -41,3 +41,10 @@ Analyze partitions with complex partition key (``state`` and ``city`` columns) f
 
     ANALYZE hive.default.customers WITH (partitions = ARRAY[ARRAY['CA', 'San Francisco'], ARRAY['NY', 'NY']]);
 
+Analyze only columns ``department`` and ``product_id`` for partitions ``'1992-01-01', '1992-01-02'`` from a Hive partitioned
+table ``sales``::
+
+    ANALYZE hive.default.sales WITH (
+        partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']],
+        columns = ARRAY['department', 'product_id']);
+

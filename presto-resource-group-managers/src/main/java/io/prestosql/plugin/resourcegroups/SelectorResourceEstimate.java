@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class SelectorResourceEstimate
 {
@@ -64,21 +65,24 @@ public final class SelectorResourceEstimate
     boolean match(ResourceEstimates resourceEstimates)
     {
         if (executionTime.isPresent()) {
-            Optional<Duration> executionTimeEstimate = resourceEstimates.getExecutionTime();
+            Optional<Duration> executionTimeEstimate = resourceEstimates.getExecutionTime()
+                    .map(value -> new Duration(value.toMillis(), MILLISECONDS));
             if (!executionTimeEstimate.isPresent() || !executionTime.get().contains(executionTimeEstimate.get())) {
                 return false;
             }
         }
 
         if (cpuTime.isPresent()) {
-            Optional<Duration> cpuTimeEstimate = resourceEstimates.getCpuTime();
+            Optional<Duration> cpuTimeEstimate = resourceEstimates.getCpuTime()
+                    .map(value -> new Duration(value.toMillis(), MILLISECONDS));
             if (!cpuTimeEstimate.isPresent() || !cpuTime.get().contains(cpuTimeEstimate.get())) {
                 return false;
             }
         }
 
         if (peakMemory.isPresent()) {
-            Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemory();
+            Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemoryBytes()
+                    .map(value -> DataSize.ofBytes(value));
             if (!peakMemoryEstimate.isPresent() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
                 return false;
             }

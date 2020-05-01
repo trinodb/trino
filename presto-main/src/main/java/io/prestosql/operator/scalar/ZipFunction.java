@@ -16,7 +16,8 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -26,17 +27,19 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.rowType;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.String.join;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 
@@ -65,32 +68,26 @@ public final class ZipFunction
 
     private ZipFunction(List<String> typeParameters)
     {
-        super(new Signature("zip",
-                FunctionKind.SCALAR,
-                typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
-                ImmutableList.of(),
-                parseTypeSignature("array(row(" + join(",", typeParameters) + "))"),
-                typeParameters.stream().map(name -> "array(" + name + ")").map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
-                false));
+        super(new FunctionMetadata(
+                new Signature(
+                        "zip",
+                        typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
+                        ImmutableList.of(),
+                        arrayType(rowType(typeParameters.stream()
+                                .map(TypeSignature::new)
+                                .map(TypeSignatureParameter::anonymousField)
+                                .collect(toImmutableList()))),
+                        typeParameters.stream()
+                                .map(name -> arrayType(new TypeSignature(name)))
+                                .collect(toImmutableList()),
+                        false),
+                false,
+                nCopies(typeParameters.size(), new FunctionArgumentDefinition(false)),
+                false,
+                true,
+                "Merges the given arrays, element-wise, into a single array of rows.",
+                SCALAR));
         this.typeParameters = typeParameters;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Merges the given arrays, element-wise, into a single array of rows.";
     }
 
     @Override
@@ -100,7 +97,7 @@ public final class ZipFunction
         List<ArgumentProperty> argumentProperties = nCopies(types.size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
         List<Class<?>> javaArgumentTypes = nCopies(types.size(), Block.class);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types).asVarargsCollector(Block[].class).asType(methodType(Block.class, javaArgumentTypes));
-        return new ScalarFunctionImplementation(false, argumentProperties, methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(false, argumentProperties, methodHandle);
     }
 
     @UsedByGeneratedCode

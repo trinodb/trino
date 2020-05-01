@@ -18,10 +18,10 @@ import io.airlift.units.DataSize;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.operator.PagesIndex;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
 import io.prestosql.plugin.raptor.legacy.storage.OrcStorageManager;
-import io.prestosql.plugin.raptor.legacy.storage.ReaderAttributes;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
 import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
 import io.prestosql.spi.Page;
@@ -61,9 +61,9 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -73,7 +73,11 @@ public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
 
     private OrcStorageManager storageManager;
     private ShardCompactor compactor;
@@ -87,7 +91,7 @@ public class TestShardCompactor
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
-        compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
+        compactor = new ShardCompactor(storageManager, READER_OPTIONS);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -257,7 +261,7 @@ public class TestShardCompactor
 
     private ConnectorPageSource getPageSource(List<Long> columnIds, List<Type> columnTypes, UUID uuid)
     {
-        return storageManager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES);
+        return storageManager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_OPTIONS);
     }
 
     private static List<ShardInfo> createSortedShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int shardCount)

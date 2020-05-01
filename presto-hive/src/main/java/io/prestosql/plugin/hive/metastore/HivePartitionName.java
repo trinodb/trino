@@ -24,8 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
-import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -51,14 +50,9 @@ public class HivePartitionName
         return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), Optional.of(partitionName));
     }
 
-    public static HivePartitionName hivePartitionName(String databaseName, String tableName, String partitionName)
+    public static HivePartitionName hivePartitionName(HiveTableName hiveTableName, List<String> partitionValues)
     {
-        return hivePartitionName(hiveTableName(databaseName, tableName), partitionName);
-    }
-
-    public static HivePartitionName hivePartitionName(String databaseName, String tableName, List<String> partitionValues)
-    {
-        return new HivePartitionName(hiveTableName(databaseName, tableName), partitionValues, Optional.empty());
+        return new HivePartitionName(hiveTableName, partitionValues, Optional.empty());
     }
 
     @JsonProperty

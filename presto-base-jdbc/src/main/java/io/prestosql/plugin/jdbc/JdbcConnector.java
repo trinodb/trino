@@ -15,7 +15,6 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorCapabilities;
@@ -47,8 +46,6 @@ import static java.util.Objects.requireNonNull;
 public class JdbcConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(JdbcConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final JdbcMetadataFactory jdbcMetadataFactory;
     private final JdbcSplitManager jdbcSplitManager;
@@ -159,12 +156,7 @@ public class JdbcConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 
     @Override

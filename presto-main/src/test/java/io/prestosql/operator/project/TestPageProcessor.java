@@ -20,6 +20,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.CompletedWork;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
@@ -52,7 +53,6 @@ import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.prestosql.operator.project.PageProcessor.MAX_PAGE_SIZE_IN_BYTES;
@@ -220,7 +220,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(1, BIGINT)));
 
         // if channel 1 is loaded, test will fail
-        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
             throw new AssertionError("Lazy block should not be loaded");
         }));
 
@@ -237,7 +237,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()), OptionalInt.of(MAX_BATCH_SIZE));
 
         // if channel 1 is loaded, test will fail
-        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
             throw new AssertionError("Lazy block should not be loaded");
         }));
 
@@ -421,14 +421,15 @@ public class TestPageProcessor
     @Test
     public void testExpressionProfiler()
     {
+        Metadata metadata = createTestMetadataManager();
         CallExpression add10Expression = call(
-                internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+                metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
                 BIGINT,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
 
         TestingTicker testingTicker = new TestingTicker();
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(metadata, 0);
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10Expression, Optional.empty());
         PageProjection projection = projectionSupplier.get();
         Page page = new Page(createLongSequenceBlock(1, 11));
@@ -553,7 +554,7 @@ public class TestPageProcessor
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(block.getLoadedBlock()));
+        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static class InvocationCountPageProjection

@@ -15,6 +15,7 @@ package io.prestosql.parquet;
 
 import io.prestosql.spi.type.Type;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class PrimitiveField
@@ -38,5 +39,18 @@ public class PrimitiveField
     public int getId()
     {
         return id;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("type", getType())
+                .add("id", id)
+                .add("repetitionLevel", getRepetitionLevel())
+                .add("definitionLevel", getDefinitionLevel())
+                .add("required", isRequired())
+                .add("descriptor", descriptor)
+                .toString();
     }
 }

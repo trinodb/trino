@@ -15,6 +15,10 @@ package io.prestosql.spi.expression;
 
 import io.prestosql.spi.type.Type;
 
+import java.util.List;
+import java.util.Objects;
+
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class Variable
@@ -35,6 +39,33 @@ public class Variable
     public String getName()
     {
         return name;
+    }
+
+    @Override
+    public List<? extends ConnectorExpression> getChildren()
+    {
+        return emptyList();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, getType());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Variable that = (Variable) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(getType(), that.getType());
     }
 
     @Override

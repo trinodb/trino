@@ -14,13 +14,18 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.metastore.BooleanStatistics;
 import io.prestosql.plugin.hive.metastore.DateStatistics;
 import io.prestosql.plugin.hive.metastore.DecimalStatistics;
 import io.prestosql.plugin.hive.metastore.DoubleStatistics;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.IntegerStatistics;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.RoleGrant;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -38,10 +43,13 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.prestosql.spi.security.PrincipalType.ROLE;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
@@ -56,6 +64,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestThriftMetastoreUtil
@@ -391,5 +400,35 @@ public class TestThriftMetastoreUtil
     private static void testBasicStatisticsRoundTrip(HiveBasicStatistics expected)
     {
         assertEquals(getHiveBasicStatistics(updateStatisticsParameters(ImmutableMap.of(), expected)), expected);
+    }
+
+    @Test
+    public void testListApplicableRoles()
+    {
+        PrestoPrincipal admin = new PrestoPrincipal(USER, "admin");
+
+        Multimap<String, String> inheritance = ImmutableMultimap.<String, String>builder()
+                .put("a", "b1")
+                .put("a", "b2")
+                .put("b1", "d")
+                .put("b1", "e")
+                .put("b2", "d")
+                .put("b2", "e")
+                .put("d", "u")
+                .put("e", "w")
+                .build();
+
+        assertThat(ThriftMetastoreUtil.listApplicableRoles(
+                new HivePrincipal(ROLE, "a"),
+                principal -> inheritance.get(principal.getName()).stream()
+                        .map(name -> new RoleGrant(admin, name, false))
+                        .collect(toImmutableSet())))
+                .containsOnly(
+                        new RoleGrant(admin, "b1", false),
+                        new RoleGrant(admin, "b2", false),
+                        new RoleGrant(admin, "d", false),
+                        new RoleGrant(admin, "e", false),
+                        new RoleGrant(admin, "u", false),
+                        new RoleGrant(admin, "w", false));
     }
 }

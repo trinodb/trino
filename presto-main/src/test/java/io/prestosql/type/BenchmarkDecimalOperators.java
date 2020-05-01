@@ -63,12 +63,11 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.ExpressionTestUtils.createExpression;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -79,7 +78,7 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Fork(value = 3)
+@Fork(3)
 @Warmup(iterations = 20, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkDecimalOperators
@@ -614,7 +613,6 @@ public class BenchmarkDecimalOperators
 
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    SCALAR,
                     typeAnalyzer.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
                     metadata,

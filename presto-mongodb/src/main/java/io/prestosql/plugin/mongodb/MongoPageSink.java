@@ -28,12 +28,13 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.NamedTypeSignature;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
@@ -46,8 +47,6 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -63,8 +62,11 @@ import static io.prestosql.plugin.mongodb.TypeUtils.isArrayType;
 import static io.prestosql.plugin.mongodb.TypeUtils.isMapType;
 import static io.prestosql.plugin.mongodb.TypeUtils.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.Decimals.readBigDecimal;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -141,11 +143,17 @@ public class MongoPageSink
         if (type.equals(TinyintType.TINYINT)) {
             return SignedBytes.checkedCast(type.getLong(block, position));
         }
+        if (type.equals(RealType.REAL)) {
+            return intBitsToFloat(toIntExact(type.getLong(block, position)));
+        }
         if (type.equals(DoubleType.DOUBLE)) {
             return type.getDouble(block, position);
         }
         if (isVarcharType(type)) {
             return type.getSlice(block, position).toStringUtf8();
+        }
+        if (type instanceof CharType) {
+            return padSpaces(type.getSlice(block, position), ((CharType) type)).toStringUtf8();
         }
         if (type.equals(VarbinaryType.VARBINARY)) {
             return new Binary(type.getSlice(block, position).getBytes());
@@ -167,17 +175,7 @@ public class MongoPageSink
             return new Date(millisUtc);
         }
         if (type instanceof DecimalType) {
-            // TODO: decimal type might not support yet
-            // TODO: this code is likely wrong and should switch to Decimals.readBigDecimal()
-            DecimalType decimalType = (DecimalType) type;
-            BigInteger unscaledValue;
-            if (decimalType.isShort()) {
-                unscaledValue = BigInteger.valueOf(decimalType.getLong(block, position));
-            }
-            else {
-                unscaledValue = Decimals.decodeUnscaledValue(decimalType.getSlice(block, position));
-            }
-            return new BigDecimal(unscaledValue);
+            return readBigDecimal((DecimalType) type, block, position);
         }
         if (isArrayType(type)) {
             Type elementType = type.getTypeParameters().get(0);

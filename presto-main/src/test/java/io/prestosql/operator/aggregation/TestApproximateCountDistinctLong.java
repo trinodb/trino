@@ -13,25 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
 public class TestApproximateCountDistinctLong
         extends AbstractTestApproximateCountDistinct
 {
-    @Override
-    protected InternalAggregationFunction getAggregationFunction()
-    {
-        return metadata.getAggregateFunctionImplementation(
-                new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
-    }
-
     @Override
     protected Type getValueType()
     {

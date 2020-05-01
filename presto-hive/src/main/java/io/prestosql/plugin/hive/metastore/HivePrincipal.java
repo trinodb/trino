@@ -15,18 +15,44 @@ package io.prestosql.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
+import io.prestosql.spi.security.SelectedRole;
 
 import java.util.Objects;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class HivePrincipal
 {
+    public static HivePrincipal from(ConnectorIdentity identity)
+    {
+        if (!identity.getRole().isPresent()) {
+            return ofUser(identity.getUser());
+        }
+        SelectedRole.Type type = identity.getRole().get().getType();
+        if (type == SelectedRole.Type.ALL) {
+            return ofUser(identity.getUser());
+        }
+        checkArgument(type == SelectedRole.Type.ROLE, "Expected role type to be ALL or ROLE, but got: %s", type);
+        return ofRole(identity.getRole().get().getRole().get());
+    }
+
+    private static HivePrincipal ofUser(String user)
+    {
+        return new HivePrincipal(PrincipalType.USER, user);
+    }
+
+    private static HivePrincipal ofRole(String role)
+    {
+        return new HivePrincipal(PrincipalType.ROLE, role);
+    }
+
     public static Set<HivePrincipal> from(Set<PrestoPrincipal> prestoPrincipals)
     {
         return prestoPrincipals.stream()

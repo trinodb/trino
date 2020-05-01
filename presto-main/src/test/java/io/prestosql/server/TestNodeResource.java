@@ -36,9 +36,8 @@ public class TestNodeResource
 
     @BeforeClass
     public void setup()
-            throws Exception
     {
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         client = new JettyHttpClient();
     }
 

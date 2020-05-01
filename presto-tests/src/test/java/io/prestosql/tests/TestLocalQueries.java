@@ -15,14 +15,14 @@ package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -35,9 +35,10 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public class TestLocalQueries
         extends AbstractTestQueries
 {
-    public TestLocalQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        return createLocalQueryRunner();
     }
 
     public static LocalQueryRunner createLocalQueryRunner()
@@ -46,10 +47,11 @@ public class TestLocalQueries
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
+                .withDefaultSessionProperties(ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES))
+                .build();
 
         // add the tpch catalog
         // local queries run directly against the generator
@@ -62,7 +64,6 @@ public class TestLocalQueries
 
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
 
         return localQueryRunner;
     }
@@ -111,5 +112,15 @@ public class TestLocalQueries
 
         // https://github.com/cloudera/hue/blob/b49e98c1250c502be596667ce1f0fe118983b432/desktop/libs/notebook/src/notebook/connectors/jdbc.py#L213
         assertQuerySucceeds(getSession(), "SELECT column_name, data_type, column_comment FROM information_schema.columns WHERE table_schema='local' AND TABLE_NAME='nation'");
+    }
+
+    @Test
+    public void testTransformValuesInTry()
+    {
+        // Test resetting of transform_values internal state after recovery from try()
+        assertQuery(
+                "SELECT json_format(CAST(try(transform_values(m, (k, v) -> k / v)) AS json)) " +
+                        "FROM (VALUES map(ARRAY[1, 2], ARRAY[0, 0]),  map(ARRAY[28], ARRAY[2]), map(ARRAY[18], ARRAY[2]), map(ARRAY[4, 5], ARRAY[1, 0]),  map(ARRAY[12], ARRAY[3])) AS t(m)",
+                "VALUES NULL, '{\"28\":14}', '{\"18\":9}', NULL, '{\"12\":4}'");
     }
 }

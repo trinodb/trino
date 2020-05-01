@@ -17,8 +17,6 @@ import io.prestosql.spi.HostAddress;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
-
 /**
  * Implementations of this interface must be thread safe.
  */
@@ -26,10 +24,4 @@ import java.util.List;
 public interface NetworkTopology
 {
     NetworkLocation locate(HostAddress address);
-
-    /**
-     * Strings describing the meaning of each segment of a NetworkLocation returned from locate().
-     * This method must return a constant.
-     */
-    List<String> getLocationSegmentNames();
 }

@@ -15,6 +15,5 @@ package io.prestosql.plugin.hive.s3;
 
 public enum PrestoS3SseType
 {
-    KMS,
-    S3;
+    KMS, S3
 }

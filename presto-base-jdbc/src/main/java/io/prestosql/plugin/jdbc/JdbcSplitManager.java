@@ -29,7 +29,7 @@ public class JdbcSplitManager
     private final JdbcClient jdbcClient;
 
     @Inject
-    public JdbcSplitManager(@InternalBaseJdbc JdbcClient jdbcClient)
+    public JdbcSplitManager(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
     }
@@ -37,6 +37,6 @@ public class JdbcSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        return jdbcClient.getSplits(JdbcIdentity.from(session), (JdbcTableHandle) table);
+        return jdbcClient.getSplits(session, (JdbcTableHandle) table);
     }
 }

@@ -67,7 +67,6 @@ public class TestExampleRecordSetProvider
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         exampleHttpServer = new ExampleHttpServer();
         dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
@@ -75,7 +74,6 @@ public class TestExampleRecordSetProvider
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (exampleHttpServer != null) {
             exampleHttpServer.stop();

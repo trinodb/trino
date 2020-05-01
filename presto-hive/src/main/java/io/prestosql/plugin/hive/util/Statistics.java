@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.PartitionStatistics;
@@ -54,7 +55,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Sets.intersection;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
-import static io.prestosql.plugin.hive.HiveWriteUtils.createPartitionValues;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.MAX;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.MIN;
@@ -353,7 +354,8 @@ public final class Statistics
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
     }
 
-    private static HiveColumnStatistics createHiveColumnStatistics(
+    @VisibleForTesting
+    static HiveColumnStatistics createHiveColumnStatistics(
             ConnectorSession session,
             DateTimeZone timeZone,
             Map<ColumnStatisticType, Block> computedStatistics,
@@ -436,7 +438,14 @@ public final class Statistics
 
     private static OptionalDouble getDoubleValue(ConnectorSession session, Type type, Block block)
     {
-        return block.isNull(0) ? OptionalDouble.empty() : OptionalDouble.of(((Number) type.getObjectValue(session, block, 0)).doubleValue());
+        if (block.isNull(0)) {
+            return OptionalDouble.empty();
+        }
+        double value = ((Number) type.getObjectValue(session, block, 0)).doubleValue();
+        if (!Double.isFinite(value)) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(value);
     }
 
     private static Optional<LocalDate> getDateValue(ConnectorSession session, Type type, Block block)
@@ -446,7 +455,7 @@ public final class Statistics
 
     private static OptionalLong getTimestampValue(DateTimeZone timeZone, Block block)
     {
-        // TODO https://github.com/prestodb/presto/issues/7122
+        // TODO https://github.com/prestosql/presto/issues/37
         return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(MILLISECONDS.toSeconds(timeZone.convertUTCToLocal(block.getLong(0, 0))));
     }
 

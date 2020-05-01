@@ -14,8 +14,8 @@
 package io.prestosql.plugin.phoenix;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.JdbcTransactionHandle;
+import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
@@ -26,14 +26,14 @@ import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PhoenixConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(PhoenixConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
@@ -41,6 +41,7 @@ public class PhoenixConnector
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final PhoenixTableProperties tableProperties;
     private final PhoenixColumnProperties columnProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     public PhoenixConnector(
             LifeCycleManager lifeCycleManager,
@@ -49,7 +50,8 @@ public class PhoenixConnector
             ConnectorRecordSetProvider recordSetProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             PhoenixTableProperties tableProperties,
-            PhoenixColumnProperties columnProperties)
+            PhoenixColumnProperties columnProperties,
+            Set<SessionPropertiesProvider> sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -58,6 +60,9 @@ public class PhoenixConnector
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
+                .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
+                .collect(toImmutableList());
     }
 
     @Override
@@ -103,13 +108,14 @@ public class PhoenixConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
+    }
+
+    @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

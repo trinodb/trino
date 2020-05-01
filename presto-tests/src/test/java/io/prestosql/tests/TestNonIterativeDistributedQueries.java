@@ -13,6 +13,8 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 /**
@@ -21,8 +23,10 @@ import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 public class TestNonIterativeDistributedQueries
         extends AbstractTestQueries
 {
-    public TestNonIterativeDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().setSingleExtraProperty("experimental.iterative-optimizer-enabled", "false").build());
+        return TpchQueryRunnerBuilder.builder().setSingleExtraProperty("iterative-optimizer-enabled", "false").build();
     }
 }

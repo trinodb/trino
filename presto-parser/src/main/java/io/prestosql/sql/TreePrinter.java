@@ -71,7 +71,7 @@ public class TreePrinter
 
     public void print(Node root)
     {
-        AstVisitor<Void, Integer> printer = new DefaultTraversalVisitor<Void, Integer>()
+        AstVisitor<Void, Integer> printer = new DefaultTraversalVisitor<Integer>()
         {
             @Override
             protected Void visitNode(Node node, Integer indentLevel)
@@ -174,6 +174,7 @@ public class TreePrinter
                 return null;
             }
 
+            @Override
             protected Void visitOrderBy(OrderBy node, Integer indentLevel)
             {
                 for (SortItem sortItem : node.getSortItems()) {

@@ -33,7 +33,7 @@ import io.prestosql.type.Re2JRegexpType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
-@Description("replaces substrings matching a regular expression using a lambda function")
+@Description("Replaces substrings matching a regular expression using a lambda function")
 public final class Re2JRegexpReplaceLambdaFunction
 {
     private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
@@ -47,7 +47,7 @@ public final class Re2JRegexpReplaceLambdaFunction
             @SqlType("function(array(varchar), varchar(x))") UnaryFunctionInterface replaceFunction)
     {
         // If there is no match we can simply return the original source without doing copy.
-        Matcher matcher = pattern.re2jPattern.matcher(source);
+        Matcher matcher = pattern.matcher(source);
         if (!matcher.find()) {
             return source;
         }

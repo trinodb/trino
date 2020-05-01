@@ -141,7 +141,6 @@ public class TestInsertIntoCassandraTable
 
     @Test(groups = CASSANDRA)
     public void testInsertIntoValuesToCassandraMaterizedView()
-            throws Exception
     {
         TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();
         onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW));

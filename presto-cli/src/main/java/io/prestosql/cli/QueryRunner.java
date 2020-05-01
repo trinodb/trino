@@ -14,8 +14,9 @@
 package io.prestosql.cli;
 
 import com.google.common.net.HostAndPort;
+import io.airlift.log.Logger;
 import io.prestosql.client.ClientSession;
-import io.prestosql.client.SocketChannelSocketFactory;
+import io.prestosql.client.OkHttpUtil;
 import io.prestosql.client.StatementClient;
 import okhttp3.OkHttpClient;
 
@@ -28,6 +29,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.client.OkHttpUtil.basicAuth;
+import static io.prestosql.client.OkHttpUtil.setupChannelSocket;
 import static io.prestosql.client.OkHttpUtil.setupCookieJar;
 import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
 import static io.prestosql.client.OkHttpUtil.setupKerberos;
@@ -42,6 +44,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class QueryRunner
         implements Closeable
 {
+    private static final Logger log = Logger.get(QueryRunner.class);
+
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
     private final OkHttpClient httpClient;
@@ -56,6 +60,7 @@ public class QueryRunner
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            boolean insecureSsl,
             Optional<String> accessToken,
             Optional<String> user,
             Optional<String> password,
@@ -70,18 +75,23 @@ public class QueryRunner
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
 
-        this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        if (insecureSsl) {
+            this.sslSetup = OkHttpUtil::setupInsecureSsl;
+        }
+        else {
+            this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        }
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
-        builder.socketFactory(new SocketChannelSocketFactory());
-
+        setupChannelSocket(builder);
         setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
         setupBasicAuth(builder, session, user, password);
         setupTokenAuth(builder, session, accessToken);
+        setupNetworkLogging(builder);
 
         if (kerberosRemoteServiceName.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
@@ -164,5 +174,12 @@ public class QueryRunner
                     "Authentication using an access token requires HTTPS to be enabled");
             clientBuilder.addInterceptor(tokenAuth(accessToken.get()));
         }
+    }
+
+    private static void setupNetworkLogging(OkHttpClient.Builder clientBuilder)
+    {
+        clientBuilder.addNetworkInterceptor(OkHttpUtil.interceptRequest(request -> {
+            log.debug("Sending %s request to %s", request.method(), request.url().uri());
+        }));
     }
 }

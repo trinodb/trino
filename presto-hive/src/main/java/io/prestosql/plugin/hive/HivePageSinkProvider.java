@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePageSinkMetadataProvider;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
@@ -67,7 +68,6 @@ public class HivePageSinkProvider
     private final EventClient eventClient;
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
-    private final OrcFileWriterFactory orcFileWriterFactory;
     private final long perTransactionMetastoreCacheMaximumSize;
 
     @Inject
@@ -84,8 +84,7 @@ public class HivePageSinkProvider
             NodeManager nodeManager,
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
-            HiveWriterStats hiveWriterStats,
-            OrcFileWriterFactory orcFileWriterFactory)
+            HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -104,7 +103,6 @@ public class HivePageSinkProvider
         this.eventClient = requireNonNull(eventClient, "eventClient is null");
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
-        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
     }
 
@@ -118,7 +116,7 @@ public class HivePageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
+        HiveWritableTableHandle handle = (HiveInsertTableHandle) tableHandle;
         return createPageSink(handle, false, session, ImmutableMap.of() /* for insert properties are taken from metastore */);
     }
 
@@ -146,7 +144,10 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 session.getQueryId(),
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
+                new HivePageSinkMetadataProvider(
+                        handle.getPageSinkMetadata(),
+                        new HiveMetastoreClosure(memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
+                        new HiveIdentity(session)),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,
@@ -157,15 +158,13 @@ public class HivePageSinkProvider
                 nodeManager,
                 eventClient,
                 hiveSessionProperties,
-                hiveWriterStats,
-                orcFileWriterFactory);
+                hiveWriterStats);
 
         return new HivePageSink(
                 writerFactory,
                 handle.getInputColumns(),
                 handle.getBucketProperty(),
                 pageIndexerFactory,
-                typeManager,
                 hdfsEnvironment,
                 maxOpenPartitions,
                 writeVerificationExecutor,

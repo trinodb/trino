@@ -16,23 +16,17 @@ package io.prestosql.plugin.jdbc;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
-import io.airlift.log.Logger;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
-import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
-import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
+import com.google.inject.multibindings.Multibinder;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.procedure.Procedure;
 
-import static com.google.common.reflect.Reflection.newProxy;
+import javax.inject.Provider;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         implements Module
@@ -47,42 +41,44 @@ public class JdbcModule
     @Override
     public void configure(Binder binder)
     {
+        binder.install(new JdbcDiagnosticModule(catalogName));
+
         newOptionalBinder(binder, ConnectorAccessControl.class);
-        newSetBinder(binder, Procedure.class);
-        newSetBinder(binder, SessionPropertiesProvider.class);
+
+        procedureBinder(binder);
+
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
 
-        newExporter(binder).export(Key.get(JdbcClient.class, InternalBaseJdbc.class))
-                .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
+        configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
+        bindSessionPropertiesProvider(binder, TypeHandlingJdbcPropertiesProvider.class);
+
+        binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
     }
 
-    @Provides
-    @Singleton
-    @InternalBaseJdbc
-    public static JdbcClient createJdbcClientWithStats(JdbcClient client)
+    public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
     {
-        StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
-
-        Logger logger = Logger.get(JdbcClient.class);
-        if (!logger.isDebugEnabled()) {
-            return statisticsAwareJdbcClient;
-        }
-
-        ParameterNamesProvider parameterNamesProvider = new LoggingInvocationHandler.AirliftParameterNamesProvider(JdbcClient.class, StatisticsAwareJdbcClient.class);
-        LoggingInvocationHandler loggingInvocationHandler = new LoggingInvocationHandler(statisticsAwareJdbcClient, parameterNamesProvider, logger::debug);
-        return newProxy(JdbcClient.class, loggingInvocationHandler);
+        return newSetBinder(binder, SessionPropertiesProvider.class);
     }
 
-    @Provides
-    @Singleton
-    @StatsCollecting
-    public static ConnectionFactory createConnectionFactoryWithStats(ConnectionFactory connectionFactory)
+    public static void bindSessionPropertiesProvider(Binder binder, Class<? extends SessionPropertiesProvider> type)
     {
-        return new StatisticsAwareConnectionFactory(connectionFactory);
+        sessionPropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    public static Multibinder<Procedure> procedureBinder(Binder binder)
+    {
+        return newSetBinder(binder, Procedure.class);
+    }
+
+    public static void bindProcedure(Binder binder, Class<? extends Provider<? extends Procedure>> type)
+    {
+        procedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
     }
 }

@@ -40,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -354,22 +353,22 @@ public class DriverContext
             outputPositions = outputOperator.getOutputPositions();
         }
         else {
-            physicalInputDataSize = new DataSize(0, BYTE);
+            physicalInputDataSize = DataSize.ofBytes(0);
             physicalInputPositions = 0;
             physicalInputReadTime = new Duration(0, MILLISECONDS);
 
-            internalNetworkInputDataSize = new DataSize(0, BYTE);
+            internalNetworkInputDataSize = DataSize.ofBytes(0);
             internalNetworkInputPositions = 0;
             internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
 
-            rawInputDataSize = new DataSize(0, BYTE);
+            rawInputDataSize = DataSize.ofBytes(0);
             rawInputPositions = 0;
             rawInputReadTime = new Duration(0, MILLISECONDS);
 
-            processedInputDataSize = new DataSize(0, BYTE);
+            processedInputDataSize = DataSize.ofBytes(0);
             processedInputPositions = 0;
 
-            outputDataSize = new DataSize(0, BYTE);
+            outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
         }
 
@@ -390,7 +389,7 @@ public class DriverContext
             elapsedTime = new Duration(endNanos - createNanos, NANOSECONDS);
         }
         else {
-            elapsedTime = new Duration(0, NANOSECONDS);
+            elapsedTime = new Duration(System.nanoTime() - createNanos, NANOSECONDS);
         }
 
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
@@ -416,18 +415,18 @@ public class DriverContext
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 blockedMonitor != null,
                 builder.build(),
-                physicalInputDataSize.convertToMostSuccinctDataSize(),
+                physicalInputDataSize.succinct(),
                 physicalInputPositions,
                 physicalInputReadTime,
-                internalNetworkInputDataSize.convertToMostSuccinctDataSize(),
+                internalNetworkInputDataSize.succinct(),
                 internalNetworkInputPositions,
                 internalNetworkInputReadTime,
-                rawInputDataSize.convertToMostSuccinctDataSize(),
+                rawInputDataSize.succinct(),
                 rawInputPositions,
                 rawInputReadTime,
-                processedInputDataSize.convertToMostSuccinctDataSize(),
+                processedInputDataSize.succinct(),
                 processedInputPositions,
-                outputDataSize.convertToMostSuccinctDataSize(),
+                outputDataSize.succinct(),
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),
                 operators);

@@ -28,7 +28,6 @@ import java.util.TreeSet;
 import static com.google.common.base.CharMatcher.anyOf;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -93,7 +92,7 @@ public class BenchmarkResultsPrinter
         printRow(ImmutableList.builder()
                 .add(result.getSuite().getName())
                 .add(result.getBenchmarkQuery().getName())
-                .addAll(transform(tagNames, forMap(tags, "")))
+                .addAll(tagNames.stream().map(forMap(tags, "")).iterator())
                 .add(NANOSECONDS.toMillis((long) result.getWallTimeNanos().getMedian()))
                 .add(NANOSECONDS.toMillis((long) result.getWallTimeNanos().getMean()))
                 .add(NANOSECONDS.toMillis((long) result.getWallTimeNanos().getStandardDeviation()))

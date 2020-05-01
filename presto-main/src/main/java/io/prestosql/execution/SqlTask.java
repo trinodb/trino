@@ -56,7 +56,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
@@ -234,10 +233,10 @@ public class SqlTask
 
         int queuedPartitionedDrivers = 0;
         int runningPartitionedDrivers = 0;
-        DataSize physicalWrittenDataSize = new DataSize(0, BYTE);
-        DataSize userMemoryReservation = new DataSize(0, BYTE);
-        DataSize systemMemoryReservation = new DataSize(0, BYTE);
-        DataSize revocableMemoryReservation = new DataSize(0, BYTE);
+        DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
+        DataSize userMemoryReservation = DataSize.ofBytes(0);
+        DataSize systemMemoryReservation = DataSize.ofBytes(0);
+        DataSize revocableMemoryReservation = DataSize.ofBytes(0);
         // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
@@ -351,7 +350,7 @@ public class SqlTask
 
         // If the caller's current state is already done, just return the current
         // state of this task as it will either be done or possibly still running
-        // (due to a bug in the caller), since we can not transition from a done
+        // (due to a bug in the caller), since we cannot transition from a done
         // state.
         if (callersCurrentState.isDone()) {
             return immediateFuture(getTaskInfo());

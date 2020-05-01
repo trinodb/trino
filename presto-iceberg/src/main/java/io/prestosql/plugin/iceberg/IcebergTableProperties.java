@@ -26,6 +26,7 @@ import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
+import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 
@@ -33,18 +34,19 @@ public class IcebergTableProperties
 {
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
+    public static final String LOCATION_PROPERTY = "location";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
-    public IcebergTableProperties()
+    public IcebergTableProperties(IcebergConfig icebergConfig)
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         FILE_FORMAT_PROPERTY,
                         "File format for the table",
                         FileFormat.class,
-                        FileFormat.PARQUET,
+                        icebergConfig.getFileFormat(),
                         false))
                 .add(new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,
@@ -57,6 +59,11 @@ public class IcebergTableProperties
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value))
+                .add(stringProperty(
+                        LOCATION_PROPERTY,
+                        "File system location URI for the table",
+                        null,
+                        false))
                 .build();
     }
 
@@ -75,5 +82,10 @@ public class IcebergTableProperties
     {
         List<String> partitioning = (List<String>) tableProperties.get(PARTITIONING_PROPERTY);
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
+    }
+
+    public static String getTableLocation(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(LOCATION_PROPERTY);
     }
 }

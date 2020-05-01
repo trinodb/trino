@@ -22,7 +22,8 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.BaseEncoding.base16;
+import static java.lang.String.format;
 
 public class StringStatistics
         implements RangeStatistics<Slice>, Hashable
@@ -40,7 +41,14 @@ public class StringStatistics
 
     public StringStatistics(@Nullable Slice minimum, @Nullable Slice maximum, long sum)
     {
-        checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
+        if (minimum != null && maximum != null && minimum.compareTo(maximum) > 0) {
+            throw new IllegalArgumentException(format(
+                    "minimum is not less than or equal to maximum: '%s' [%s], '%s' [%s]",
+                    minimum.toStringUtf8(),
+                    base16().encode(minimum.getBytes()),
+                    maximum.toStringUtf8(),
+                    base16().encode(maximum.getBytes())));
+        }
         this.minimum = minimum;
         this.maximum = maximum;
         this.sum = sum;

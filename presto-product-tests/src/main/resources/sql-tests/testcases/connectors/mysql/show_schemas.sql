@@ -1,4 +1,4 @@
--- database: presto; groups: mysql_connector; queryType: SELECT;
+-- database: presto; groups: mysql; queryType: SELECT;
 --!
 show schemas from mysql
 --!

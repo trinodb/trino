@@ -40,7 +40,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createLongDictionaryBlock;
@@ -58,8 +57,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPartitionedOutputOperator
 {
-    private static final DataSize MAX_MEMORY = new DataSize(50, MEGABYTE);
-    private static final DataSize PARTITION_MAX_MEMORY = new DataSize(5, MEGABYTE);
+    private static final DataSize MAX_MEMORY = DataSize.of(50, MEGABYTE);
+    private static final DataSize PARTITION_MAX_MEMORY = DataSize.of(5, MEGABYTE);
 
     private static final int PAGE_COUNT = 10;
     private static final int POSITIONS_PER_PAGE = 1000;
@@ -197,7 +196,7 @@ public class TestPartitionedOutputOperator
                 "task-instance-id",
                 new StateMachine<>("bufferState", scheduledExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers.withNoMoreBufferIds(),
-                new DataSize(Long.MAX_VALUE, BYTE),
+                DataSize.ofBytes(Long.MAX_VALUE),
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 scheduledExecutor);
 

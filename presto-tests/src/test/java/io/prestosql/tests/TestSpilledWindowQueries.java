@@ -13,11 +13,16 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestWindowQueries;
+import io.prestosql.testing.QueryRunner;
+
 public class TestSpilledWindowQueries
         extends AbstractTestWindowQueries
 {
-    public TestSpilledWindowQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        return TestDistributedSpilledQueries.createSpillingQueryRunner();
     }
 }

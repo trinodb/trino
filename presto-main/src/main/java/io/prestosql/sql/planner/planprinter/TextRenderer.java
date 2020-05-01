@@ -17,6 +17,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsAndCostSummary;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
@@ -30,13 +31,13 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -73,6 +74,11 @@ public class TextRenderer
                 .collect(joining(", "));
 
         output.append(indentMultilineString("Layout: [" + columns + "]\n", indent.detailIndent()));
+
+        String reorderJoinStatsAndCost = printReorderJoinStatsAndCost(node);
+        if (!reorderJoinStatsAndCost.isEmpty()) {
+            output.append(indentMultilineString(reorderJoinStatsAndCost, indent.detailIndent()));
+        }
 
         String estimates = printEstimates(plan, node);
         if (!estimates.isEmpty()) {
@@ -191,7 +197,7 @@ public class TextRenderer
         }
 
         output.append(format("Active Drivers: [ %d / %d ]\n", stats.getActiveDrivers(), stats.getTotalDrivers()));
-        output.append(format("Index size: std.dev.: %s bytes , %s rows\n", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
+        output.append(format("Index size: std.dev.: %s bytes, %s rows\n", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
         output.append(format("Index count per driver: std.dev.: %s\n", formatDouble(stats.getIndexCountPerDriverStdDev())));
         output.append(format("Rows per driver: std.dev.: %s\n", formatDouble(stats.getRowsPerDriverStdDev())));
         output.append(format("Size of partition: std.dev.: %s\n", formatDouble(stats.getPartitionRowsStdDev())));
@@ -212,6 +218,25 @@ public class TextRenderer
         }
 
         return ImmutableMap.of();
+    }
+
+    private String printReorderJoinStatsAndCost(NodeRepresentation node)
+    {
+        if (verbose && node.getReorderJoinStatsAndCost().isPresent()) {
+            return format("Reorder joins cost : %s\n", formatPlanNodeStatsAndCostSummary(node.getReorderJoinStatsAndCost().get()));
+        }
+        return "";
+    }
+
+    private String formatPlanNodeStatsAndCostSummary(PlanNodeStatsAndCostSummary stats)
+    {
+        requireNonNull(stats, "stats is null");
+        return format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+                formatAsLong(stats.getOutputRowCount()),
+                formatAsDataSize(stats.getOutputSizeInBytes()),
+                formatAsCpuCost(stats.getCpuCost()),
+                formatAsDataSize(stats.getMemoryCost()),
+                formatAsDataSize(stats.getNetworkCost()));
     }
 
     private String printEstimates(PlanRepresentation plan, NodeRepresentation node)
@@ -282,7 +307,7 @@ public class TextRenderer
             return "-\u221E";
         }
 
-        return DataSize.succinctDataSize(value, BYTE).toString();
+        return DataSize.succinctBytes(Math.round(value)).toString();
     }
 
     static String formatDouble(double value)

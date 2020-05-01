@@ -14,10 +14,6 @@
 package io.prestosql.plugin.tpcds;
 
 import com.google.common.collect.ImmutableList;
-import com.teradata.tpcds.Results;
-import com.teradata.tpcds.Session;
-import com.teradata.tpcds.Table;
-import com.teradata.tpcds.column.Column;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -25,11 +21,15 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.tpcds.Results;
+import io.prestosql.tpcds.Session;
+import io.prestosql.tpcds.Table;
+import io.prestosql.tpcds.column.Column;
 
 import java.util.List;
 
-import static com.teradata.tpcds.Results.constructResults;
-import static com.teradata.tpcds.Table.getTable;
+import static io.prestosql.tpcds.Results.constructResults;
+import static io.prestosql.tpcds.Table.getTable;
 
 public class TpcdsRecordSetProvider
         implements ConnectorRecordSetProvider

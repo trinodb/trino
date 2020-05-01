@@ -67,6 +67,7 @@ public class Lifespan
         return Lifespan.driverGroup(parseInt(value.substring("Group".length())));
     }
 
+    @Override
     @JsonValue
     public String toString()
     {

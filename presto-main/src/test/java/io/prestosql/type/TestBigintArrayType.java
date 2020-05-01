@@ -22,7 +22,7 @@ import java.util.List;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestBigintArrayType
@@ -35,7 +35,7 @@ public class TestBigintArrayType
 
     private TestBigintArrayType(Metadata metadata)
     {
-        super(metadata.getType(parseTypeSignature("array(bigint)")), List.class, createTestBlock(metadata.getType(parseTypeSignature("array(bigint)"))));
+        super(metadata.getType(arrayType(BIGINT.getTypeSignature())), List.class, createTestBlock(metadata.getType(arrayType(BIGINT.getTypeSignature()))));
     }
 
     public static Block createTestBlock(Type arrayType)

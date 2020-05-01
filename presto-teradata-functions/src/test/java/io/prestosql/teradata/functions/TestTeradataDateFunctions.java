@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -46,7 +45,7 @@ public class TestTeradataDateFunctions
     @BeforeClass
     public void setUp()
     {
-        functionAssertions.addFunctions(extractFunctions(new TeradataFunctionsPlugin().getFunctions()));
+        functionAssertions.installPlugin(new TeradataFunctionsPlugin());
     }
 
     @Test

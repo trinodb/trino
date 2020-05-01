@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
@@ -21,10 +22,7 @@ public class TestJdbcConnectorFactory
     @Test
     public void test()
     {
-        JdbcConnectorFactory connectorFactory = new JdbcConnectorFactory(
-                "test",
-                new TestingH2JdbcModule(),
-                getClass().getClassLoader());
+        ConnectorFactory connectorFactory = new JdbcConnectorFactory("test", new TestingH2JdbcModule());
 
         connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext());
     }

@@ -26,22 +26,22 @@ public final class ColumnDefinition
         extends TableElement
 {
     private final Identifier name;
-    private final String type;
+    private final DataType type;
     private final boolean nullable;
     private final List<Property> properties;
     private final Optional<String> comment;
 
-    public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(Identifier name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         this(Optional.empty(), name, type, nullable, properties, comment);
     }
 
-    public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(NodeLocation location, Identifier name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         this(Optional.of(location), name, type, nullable, properties, comment);
     }
 
-    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
+    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -56,7 +56,7 @@ public final class ColumnDefinition
         return name;
     }
 
-    public String getType()
+    public DataType getType()
     {
         return type;
     }

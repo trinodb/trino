@@ -15,7 +15,7 @@ package io.prestosql.sql.tree;
 
 public class ExpressionRewriter<C>
 {
-    public Expression rewriteExpression(Expression node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    protected Expression rewriteExpression(Expression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return null;
     }

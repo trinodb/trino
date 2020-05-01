@@ -22,6 +22,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.GrantInfo;
 
@@ -73,6 +74,18 @@ public final class MetadataListing
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
         return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
+    }
+
+    public static Map<SchemaTableName, ConnectorViewDefinition> getViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(session, prefix).entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().asSchemaTableName(), Entry::getValue));
+
+        Set<SchemaTableName> accessible = accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), views.keySet());
+
+        return views.entrySet().stream()
+                .filter(entry -> accessible.contains(entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)

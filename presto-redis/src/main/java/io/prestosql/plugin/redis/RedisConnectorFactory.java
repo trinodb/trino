@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -64,34 +63,28 @@ public class RedisConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new RedisConnectorModule(),
-                    binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new RedisConnectorModule(),
+                binder -> {
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
-                        if (tableDescriptionSupplier.isPresent()) {
-                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, RedisTableDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
-                        }
-                        else {
-                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, RedisTableDescription>>>() {})
-                                    .to(RedisTableDescriptionSupplier.class)
-                                    .in(Scopes.SINGLETON);
-                        }
-                    });
+                    if (tableDescriptionSupplier.isPresent()) {
+                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, RedisTableDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
+                    }
+                    else {
+                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, RedisTableDescription>>>() {})
+                                .to(RedisTableDescriptionSupplier.class)
+                                .in(Scopes.SINGLETON);
+                    }
+                });
 
-            Injector injector = app.strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app.strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(RedisConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(RedisConnector.class);
     }
 }

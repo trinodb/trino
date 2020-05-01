@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.orc.OrcOutputBuffer;
 import io.prestosql.orc.checkpoint.ByteArrayStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 import org.openjdk.jol.info.ClassLayout;
@@ -81,9 +82,9 @@ public class ByteArrayOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(OrcColumnId columnId)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(columnId, streamKind, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

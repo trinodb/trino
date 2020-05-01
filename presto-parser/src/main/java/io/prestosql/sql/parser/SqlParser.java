@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.parser;
 
+import io.prestosql.sql.tree.DataType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PathSpecification;
@@ -36,8 +37,8 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.inject.Inject;
 
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -52,6 +53,7 @@ public class SqlParser
             throw new ParsingException(message, e, line, charPositionInLine);
         }
     };
+    private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (SqlBaseLexer lexer, SqlBaseParser parser) -> {};
 
     private static final ErrorHandler PARSER_ERROR_HANDLER = ErrorHandler.builder()
             .specialRule(SqlBaseParser.RULE_expression, "<expression>")
@@ -67,7 +69,7 @@ public class SqlParser
             .ignoredRule(SqlBaseParser.RULE_nonReserved)
             .build();
 
-    private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
+    private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
     private boolean enhancedErrorHandlerEnabled;
 
     public SqlParser()
@@ -78,18 +80,14 @@ public class SqlParser
     @Inject
     public SqlParser(SqlParserOptions options)
     {
-        requireNonNull(options, "options is null");
-        allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
-        enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
+        this(options, DEFAULT_PARSER_INITIALIZER);
     }
 
-    /**
-     * Consider using {@link #createStatement(String, ParsingOptions)}
-     */
-    @Deprecated
-    public Statement createStatement(String sql)
+    public SqlParser(SqlParserOptions options, BiConsumer<SqlBaseLexer, SqlBaseParser> initializer)
     {
-        return createStatement(sql, new ParsingOptions());
+        this.initializer = requireNonNull(initializer, "initializer is null");
+        requireNonNull(options, "options is null");
+        enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
@@ -97,18 +95,14 @@ public class SqlParser
         return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
     }
 
-    /**
-     * Consider using {@link #createExpression(String, ParsingOptions)}
-     */
-    @Deprecated
-    public Expression createExpression(String expression)
-    {
-        return createExpression(expression, new ParsingOptions());
-    }
-
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
         return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
+    }
+
+    public DataType createType(String expression)
+    {
+        return (DataType) invokeParser("type", expression, SqlBaseParser::standaloneType, new ParsingOptions());
     }
 
     public PathSpecification createPathSpecification(String expression)
@@ -122,6 +116,7 @@ public class SqlParser
             SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             SqlBaseParser parser = new SqlBaseParser(tokenStream);
+            initializer.accept(lexer, parser);
 
             // Override the default error strategy to not attempt inserting or deleting a token.
             // Otherwise, it messes up error reporting
@@ -140,7 +135,7 @@ public class SqlParser
                 }
             });
 
-            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
 
             lexer.removeErrorListeners();
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
@@ -162,7 +157,7 @@ public class SqlParser
             }
             catch (ParseCancellationException ex) {
                 // if we fail, parse with LL mode
-                tokenStream.reset(); // rewind input stream
+                tokenStream.seek(0); // rewind input stream
                 parser.reset();
 
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
@@ -176,14 +171,16 @@ public class SqlParser
         }
     }
 
-    private class PostProcessor
+    private static class PostProcessor
             extends SqlBaseBaseListener
     {
         private final List<String> ruleNames;
+        private final SqlBaseParser parser;
 
-        public PostProcessor(List<String> ruleNames)
+        public PostProcessor(List<String> ruleNames, SqlBaseParser parser)
         {
             this.ruleNames = ruleNames;
+            this.parser = parser;
         }
 
         @Override
@@ -192,18 +189,6 @@ public class SqlParser
             Token token = context.QUOTED_IDENTIFIER().getSymbol();
             if (token.getText().length() == 2) { // empty identifier
                 throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine());
-            }
-        }
-
-        @Override
-        public void exitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context)
-        {
-            String identifier = context.IDENTIFIER().getText();
-            for (IdentifierSymbol identifierSymbol : EnumSet.complementOf(allowedIdentifierSymbols)) {
-                char symbol = identifierSymbol.getSymbol();
-                if (identifier.indexOf(symbol) >= 0) {
-                    throw new ParsingException("identifiers must not contain '" + identifierSymbol.getSymbol() + "'", null, context.IDENTIFIER().getSymbol().getLine(), context.IDENTIFIER().getSymbol().getCharPositionInLine());
-                }
             }
         }
 
@@ -243,12 +228,14 @@ public class SqlParser
             context.getParent().removeLastChild();
 
             Token token = (Token) context.getChild(0).getPayload();
-            context.getParent().addChild(new CommonToken(
+            Token newToken = new CommonToken(
                     new Pair<>(token.getTokenSource(), token.getInputStream()),
                     SqlBaseLexer.IDENTIFIER,
                     token.getChannel(),
                     token.getStartIndex(),
-                    token.getStopIndex()));
+                    token.getStopIndex());
+
+            context.getParent().addChild(parser.createTerminalNode(context.getParent(), newToken));
         }
     }
 }

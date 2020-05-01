@@ -15,6 +15,11 @@ package io.prestosql.spi.expression;
 
 import io.prestosql.spi.type.Type;
 
+import java.util.List;
+import java.util.Objects;
+
+import static java.util.Collections.emptyList;
+
 public class Constant
         extends ConnectorExpression
 {
@@ -32,6 +37,33 @@ public class Constant
     public Object getValue()
     {
         return value;
+    }
+
+    @Override
+    public List<? extends ConnectorExpression> getChildren()
+    {
+        return emptyList();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(value, getType());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Constant that = (Constant) o;
+        return Objects.equals(this.value, that.value)
+                && Objects.equals(getType(), that.getType());
     }
 
     @Override

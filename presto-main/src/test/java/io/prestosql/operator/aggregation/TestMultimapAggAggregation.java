@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.primitives.Ints;
 import io.prestosql.RowPageBuilder;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInput;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.prestosql.operator.aggregation.groupby.AggregationTestOutput;
@@ -28,9 +27,9 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -41,13 +40,13 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertTrue;
 
@@ -183,9 +182,7 @@ public class TestMultimapAggAggregation
 
     private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
     {
-        MapType mapType = mapType(keyType, new ArrayType(valueType));
-        Signature signature = new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
-        return metadata.getAggregateFunctionImplementation(signature);
+        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(keyType, valueType)));
     }
 
     private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)

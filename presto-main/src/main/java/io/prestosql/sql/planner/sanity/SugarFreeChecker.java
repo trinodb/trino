@@ -22,12 +22,14 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.AtTimeZone;
 import io.prestosql.sql.tree.CurrentPath;
 import io.prestosql.sql.tree.CurrentUser;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
+import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.TryExpression;
 
@@ -51,7 +53,7 @@ public final class SugarFreeChecker
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, Builder<Symbol>>
+            extends DefaultExpressionTraversalVisitor<Builder<Symbol>>
     {
         @Override
         protected Void visitExtract(Extract node, Builder<Symbol> context)
@@ -79,6 +81,18 @@ public final class SugarFreeChecker
 
         @Override
         protected Void visitCurrentUser(CurrentUser node, Builder<Symbol> context)
+        {
+            throw createIllegalNodeException(node);
+        }
+
+        @Override
+        protected Void visitLikePredicate(LikePredicate node, Builder<Symbol> context)
+        {
+            throw createIllegalNodeException(node);
+        }
+
+        @Override
+        protected Void visitArrayConstructor(ArrayConstructor node, Builder<Symbol> context)
         {
             throw createIllegalNodeException(node);
         }

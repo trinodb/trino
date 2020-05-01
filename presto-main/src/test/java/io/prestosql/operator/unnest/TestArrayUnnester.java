@@ -22,14 +22,14 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 
 import static io.prestosql.block.ColumnarTestUtils.assertBlock;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.array;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.column;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.computeExpectedUnnestedOutput;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.createArrayBlock;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.getFieldElements;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.nullExists;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.toSlices;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.validateTestInput;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.array;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.column;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.computeExpectedUnnestedOutput;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.createArrayBlock;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.getFieldElements;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.nullExists;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.toSlices;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.validateTestInput;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -47,7 +47,7 @@ public class TestArrayUnnester
                 array(toSlices("0.0.0"), toSlices("0.1.0")),
                 array(toSlices("1.0.0")),
                 null,
-                array(toSlices(null)),
+                array(toSlices((String) null)),
                 array());
 
         Block[] blocks = testArrayUnnester(requiredOutputCounts, unnestedLengths, elements);

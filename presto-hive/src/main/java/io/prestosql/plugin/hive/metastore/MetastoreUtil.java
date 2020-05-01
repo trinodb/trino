@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultimap;
 import io.prestosql.plugin.hive.PartitionOfflineException;
 import io.prestosql.plugin.hive.TableOfflineException;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -31,7 +32,9 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
+import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.stream.Collectors.toList;
@@ -177,7 +180,19 @@ public final class MetastoreUtil
         return getProtectMode(table.getParameters());
     }
 
-    public static String makePartName(List<Column> partitionColumns, List<String> values)
+    public static boolean isAvroTableWithSchemaSet(Table table)
+    {
+        return AVRO.getSerDe().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
+                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
+    }
+
+    public static String makePartitionName(Table table, Partition partition)
+    {
+        return makePartitionName(table.getPartitionColumns(), partition.getValues());
+    }
+
+    public static String makePartitionName(List<Column> partitionColumns, List<String> values)
     {
         return toPartitionName(partitionColumns.stream().map(Column::getName).collect(toList()), values);
     }
@@ -250,9 +265,9 @@ public final class MetastoreUtil
         }
     }
 
-    public static void verifyCanDropColumn(HiveMetastore metastore, String databaseName, String tableName, String columnName)
+    public static void verifyCanDropColumn(HiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, String columnName)
     {
-        Table table = metastore.getTable(databaseName, tableName)
+        Table table = metastore.getTable(identity, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {

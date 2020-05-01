@@ -37,10 +37,10 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_FLOAT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
-import static io.prestosql.plugin.hive.HiveUtil.extractStructFieldTypes;
-import static io.prestosql.plugin.hive.HiveUtil.isArrayType;
-import static io.prestosql.plugin.hive.HiveUtil.isMapType;
-import static io.prestosql.plugin.hive.HiveUtil.isRowType;
+import static io.prestosql.plugin.hive.util.HiveUtil.extractStructFieldTypes;
+import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
+import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
+import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.min;
@@ -53,7 +53,6 @@ public class HiveCoercionRecordCursor
     private final RecordCursor delegate;
     private final List<ColumnMapping> columnMappings;
     private final Coercer[] coercers;
-    private final BridgingRecordCursor bridgingRecordCursor;
 
     public HiveCoercionRecordCursor(
             List<ColumnMapping> columnMappings,
@@ -62,7 +61,6 @@ public class HiveCoercionRecordCursor
     {
         requireNonNull(columnMappings, "columns is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.bridgingRecordCursor = new BridgingRecordCursor();
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = ImmutableList.copyOf(columnMappings);
@@ -71,11 +69,13 @@ public class HiveCoercionRecordCursor
 
         this.coercers = new Coercer[size];
 
+        BridgingRecordCursor bridgingRecordCursor = new BridgingRecordCursor();
+
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
-            if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType(), bridgingRecordCursor);
+            if (columnMapping.getBaseTypeCoercionFrom().isPresent()) {
+                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getBaseTypeCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType(), bridgingRecordCursor);
             }
         }
     }

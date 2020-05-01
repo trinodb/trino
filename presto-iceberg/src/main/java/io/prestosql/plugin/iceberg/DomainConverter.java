@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.iceberg;
 
-import io.prestosql.plugin.hive.HiveColumnHandle;
+import com.google.common.collect.Maps;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.EquatableValueSet;
@@ -23,87 +23,83 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class DomainConverter
 {
     private DomainConverter() {}
 
-    public static TupleDomain<HiveColumnHandle> convertTupleDomainTypes(TupleDomain<HiveColumnHandle> tupleDomain)
+    public static TupleDomain<IcebergColumnHandle> convertTupleDomainTypes(TupleDomain<IcebergColumnHandle> tupleDomain)
     {
         if (tupleDomain.isAll() || tupleDomain.isNone()) {
             return tupleDomain;
         }
-        if (!tupleDomain.getDomains().isPresent()) {
-            return tupleDomain;
-        }
 
-        Map<HiveColumnHandle, Domain> transformedMap = new HashMap<>();
-        tupleDomain.getDomains().get().forEach((column, domain) -> {
-            ValueSet valueSet = domain.getValues();
-            ValueSet transformedValueSet = valueSet;
-            Type type = domain.getType();
-            String baseType = type.getTypeSignature().getBase();
-            if (type.equals(TIMESTAMP) || type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME) || type.equals(TIME_WITH_TIME_ZONE)) {
-                if (valueSet instanceof EquatableValueSet) {
-                    EquatableValueSet equatableValueSet = (EquatableValueSet) valueSet;
-                    Set<ValueEntry> values = equatableValueSet.getEntries().stream()
-                            .map(value -> ValueEntry.create(value.getType(), convertToMicros(baseType, (long) value.getValue())))
-                            .collect(toImmutableSet());
-                    transformedValueSet = new EquatableValueSet(equatableValueSet.getType(), equatableValueSet.isWhiteList(), values);
-                }
-                else if (valueSet instanceof SortedRangeSet) {
-                    List<Range> ranges = new ArrayList<>();
-                    for (Range range : valueSet.getRanges().getOrderedRanges()) {
-                        Marker low = range.getLow();
-                        if (low.getValueBlock().isPresent()) {
-                            Block value = nativeValueToBlock(type, convertToMicros(baseType, (long) range.getLow().getValue()));
-                            low = new Marker(range.getType(), Optional.of(value), range.getLow().getBound());
-                        }
-
-                        Marker high = range.getHigh();
-                        if (high.getValueBlock().isPresent()) {
-                            Block value = nativeValueToBlock(type, convertToMicros(baseType, (long) range.getHigh().getValue()));
-                            high = new Marker(range.getType(), Optional.of(value), range.getHigh().getBound());
-                        }
-
-                        ranges.add(new Range(low, high));
-                    }
-                    transformedValueSet = SortedRangeSet.copyOf(valueSet.getType(), ranges);
-                }
-                transformedMap.put(column, Domain.create(transformedValueSet, domain.isNullAllowed()));
-            }
-        });
-        return TupleDomain.withColumnDomains(transformedMap);
+        return TupleDomain.withColumnDomains(Maps.transformValues(
+                tupleDomain.getDomains().get(),
+                DomainConverter::translateDomain));
     }
 
-    private static long convertToMicros(String type, long value)
+    private static Domain translateDomain(Domain domain)
     {
-        switch (type) {
-            case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-            case StandardTypes.TIME_WITH_TIME_ZONE:
-                return MILLISECONDS.toMicros(unpackMillisUtc(value));
-            case StandardTypes.TIME:
-            case StandardTypes.TIMESTAMP:
-                return MILLISECONDS.toMicros(value);
+        ValueSet valueSet = domain.getValues();
+        Type type = domain.getType();
+        if (type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
+            if (valueSet instanceof EquatableValueSet) {
+                EquatableValueSet equatableValueSet = (EquatableValueSet) valueSet;
+                Set<ValueEntry> values = equatableValueSet.getEntries().stream()
+                        .map(value -> ValueEntry.create(value.getType(), convertToMicros(type, (long) value.getValue())))
+                        .collect(toImmutableSet());
+                valueSet = new EquatableValueSet(equatableValueSet.getType(), equatableValueSet.isWhiteList(), values);
+            }
+            else if (valueSet instanceof SortedRangeSet) {
+                List<Range> ranges = new ArrayList<>();
+                for (Range range : valueSet.getRanges().getOrderedRanges()) {
+                    Marker low = range.getLow();
+                    if (low.getValueBlock().isPresent()) {
+                        Block value = nativeValueToBlock(type, convertToMicros(type, (long) range.getLow().getValue()));
+                        low = new Marker(range.getType(), Optional.of(value), range.getLow().getBound());
+                    }
+
+                    Marker high = range.getHigh();
+                    if (high.getValueBlock().isPresent()) {
+                        Block value = nativeValueToBlock(type, convertToMicros(type, (long) range.getHigh().getValue()));
+                        high = new Marker(range.getType(), Optional.of(value), range.getHigh().getBound());
+                    }
+
+                    ranges.add(new Range(low, high));
+                }
+                valueSet = SortedRangeSet.copyOf(valueSet.getType(), ranges);
+            }
+            return Domain.create(valueSet, domain.isNullAllowed());
         }
+        return domain;
+    }
+
+    private static long convertToMicros(Type type, long value)
+    {
+        if (type instanceof TimestampWithTimeZoneType || type instanceof TimeWithTimeZoneType) {
+            return MILLISECONDS.toMicros(unpackMillisUtc(value));
+        }
+
+        if (type instanceof TimestampType || type instanceof TimeType) {
+            return MILLISECONDS.toMicros(value);
+        }
+
         throw new IllegalArgumentException(type + " is unsupported");
     }
 }

@@ -133,10 +133,14 @@ public class SheetsMetadata
         return Optional.empty();
     }
 
+    @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         if (!schemaName.isPresent()) {
             throw new PrestoException(SHEETS_UNKNOWN_SCHEMA_ERROR, "Schema not present - " + schemaName);
+        }
+        if (schemaName.get().equalsIgnoreCase("information_schema")) {
+            return ImmutableList.of();
         }
         Set<String> tables = sheetsClient.getTableNames();
         List<SchemaTableName> schemaTableNames = new ArrayList<>();

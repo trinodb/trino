@@ -11,12 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM centos:centos7 AS dist
-ARG PRESTO_VERSION
-COPY presto-cli-${PRESTO_VERSION}-executable.jar /usr/bin/presto
-COPY presto-server-${PRESTO_VERSION} /usr/lib/presto
-RUN hardlink -cf /usr/lib/presto
-
 FROM centos:centos7
 LABEL maintainer="Presto community <https://prestosql.io/community.html>"
 
@@ -33,9 +27,11 @@ RUN \
     mkdir -p /usr/lib/presto /data/presto && \
     chown -R "presto:presto" /usr/lib/presto /data/presto
 
-COPY --from=dist /usr/bin/presto /usr/bin/presto
-COPY --from=dist --chown=presto:presto /usr/lib/presto /usr/lib/presto
+ARG PRESTO_VERSION
+COPY presto-cli-${PRESTO_VERSION}-executable.jar /usr/bin/presto
+COPY --chown=presto:presto presto-server-${PRESTO_VERSION} /usr/lib/presto
 
 EXPOSE 8080
 USER presto:presto
+ENV LANG en_US.UTF-8
 CMD ["/usr/lib/presto/bin/run-presto"]

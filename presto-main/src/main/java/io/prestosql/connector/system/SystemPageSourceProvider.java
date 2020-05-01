@@ -62,7 +62,8 @@ public class SystemPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
@@ -70,7 +71,7 @@ public class SystemPageSourceProvider
         SchemaTableName tableName = ((SystemTableHandle) table).getSchemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table %s not found", tableName)));
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table '%s' not found", tableName)));
 
         List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
 

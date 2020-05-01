@@ -18,6 +18,8 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
@@ -48,6 +50,9 @@ public interface ThriftMetastoreClient
     List<String> getTableNamesByFilter(String databaseName, String filter)
             throws TException;
 
+    List<String> getTableNamesByType(String databaseName, String tableType)
+            throws TException;
+
     void createDatabase(Database database)
             throws TException;
 
@@ -67,6 +72,9 @@ public interface ThriftMetastoreClient
             throws TException;
 
     Table getTable(String databaseName, String tableName)
+            throws TException;
+
+    Table getTableWithCapabilities(String databaseName, String tableName)
             throws TException;
 
     List<FieldSchema> getFields(String databaseName, String tableName)
@@ -142,5 +150,29 @@ public interface ThriftMetastoreClient
             throws TException;
 
     void setUGI(String userName)
+            throws TException;
+
+    long openTransaction(String user)
+            throws TException;
+
+    void commitTransaction(long transactionId)
+            throws TException;
+
+    void sendTransactionHeartbeat(long transactionId)
+            throws TException;
+
+    LockResponse acquireLock(LockRequest lockRequest)
+            throws TException;
+
+    LockResponse checkLock(long lockId)
+            throws TException;
+
+    String getValidWriteIds(List<String> tableList, long currentTransactionId)
+            throws TException;
+
+    String get_config_value(String name, String defaultValue)
+            throws TException;
+
+    String getDelegationToken(String userName)
             throws TException;
 }

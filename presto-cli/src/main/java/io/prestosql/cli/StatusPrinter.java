@@ -22,14 +22,16 @@ import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StageStats;
 import io.prestosql.client.StatementClient;
 import io.prestosql.client.StatementStats;
+import org.jline.terminal.Attributes;
+import org.jline.terminal.Terminal;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.prestosql.cli.FormatUtils.formatCount;
@@ -39,7 +41,6 @@ import static io.prestosql.cli.FormatUtils.formatDataSize;
 import static io.prestosql.cli.FormatUtils.formatProgressBar;
 import static io.prestosql.cli.FormatUtils.formatTime;
 import static io.prestosql.cli.FormatUtils.pluralize;
-import static io.prestosql.cli.KeyReader.readKey;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -47,7 +48,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.IntStream.range;
 
 public class StatusPrinter
 {
@@ -90,8 +90,9 @@ Spilled: 20GB
 
  */
 
-    public void printInitialStatusUpdates()
+    public void printInitialStatusUpdates(Terminal terminal)
     {
+        Attributes originalAttributes = terminal.enterRawMode();
         long lastPrint = System.nanoTime();
         try {
             WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
@@ -106,7 +107,7 @@ Spilled: 20GB
                     boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
 
                     // check for keyboard input
-                    int key = readKey();
+                    int key = readKey(terminal);
                     if (key == CTRL_P) {
                         client.cancelLeafStage();
                     }
@@ -140,6 +141,8 @@ Spilled: 20GB
         }
         finally {
             console.resetScreen();
+            discardKeys(terminal);
+            terminal.setAttributes(originalAttributes);
         }
     }
 
@@ -383,7 +386,7 @@ Spilled: 20GB
                     stats.getCompletedSplits());
             reprintLine(querySummary);
         }
-        warningsPrinter.print(results.getWarnings(), false, false);
+        warningsPrinter.print(results.getWarnings(), true, false);
     }
 
     private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
@@ -404,7 +407,7 @@ Spilled: 20GB
         String bytesPerSecond;
         String rowsPerSecond;
         if (stage.isDone()) {
-            bytesPerSecond = formatDataRate(new DataSize(0, BYTE), new Duration(0, SECONDS), false);
+            bytesPerSecond = formatDataRate(DataSize.ofBytes(0), new Duration(0, SECONDS), false);
             rowsPerSecond = formatCountRate(0, new Duration(0, SECONDS), false);
         }
         else {
@@ -437,6 +440,23 @@ Spilled: 20GB
         console.reprintLine(line);
     }
 
+    private static int readKey(Terminal terminal)
+    {
+        try {
+            return terminal.reader().read(1L);
+        }
+        catch (IOException e) {
+            return -1;
+        }
+    }
+
+    private static void discardKeys(Terminal terminal)
+    {
+        while (readKey(terminal) >= 0) {
+            // discard input
+        }
+    }
+
     private static char stageStateCharacter(String state)
     {
         return "FAILED".equals(state) ? 'X' : state.charAt(0);
@@ -449,7 +469,7 @@ Spilled: 20GB
 
     private static DataSize bytes(long bytes)
     {
-        return new DataSize(bytes, BYTE);
+        return DataSize.ofBytes(bytes);
     }
 
     private static double percentage(double count, double total)
@@ -475,13 +495,9 @@ Spilled: 20GB
         @Override
         protected void print(List<String> warnings)
         {
-            console.reprintLine("");
-            warnings.stream()
-                    .forEach(console::reprintLine);
-
-            // Remove warnings from previous screen
-            range(0, DISPLAYED_WARNINGS - warnings.size())
-                    .forEach(line -> console.reprintLine(""));
+            for (String warning : warnings) {
+                console.reprintLine(warning);
+            }
         }
 
         @Override

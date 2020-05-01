@@ -13,10 +13,7 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
-
-import java.util.List;
 
 public class FlatNetworkTopology
         implements NetworkTopology
@@ -25,11 +22,5 @@ public class FlatNetworkTopology
     public NetworkLocation locate(HostAddress address)
     {
         return new NetworkLocation(address.getHostText());
-    }
-
-    @Override
-    public List<String> getLocationSegmentNames()
-    {
-        return ImmutableList.of("machine");
     }
 }

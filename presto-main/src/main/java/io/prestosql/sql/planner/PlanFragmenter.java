@@ -131,15 +131,17 @@ public class PlanFragmenter
         int fragmentCount = subPlan.getAllFragments().size();
         if (fragmentCount > maxStageCount) {
             throw new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). " + TOO_MANY_STAGES_MESSAGE,
+                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). %s",
                     fragmentCount,
-                    maxStageCount));
+                    maxStageCount,
+                    TOO_MANY_STAGES_MESSAGE));
         }
         if (fragmentCount > stageCountSoftLimit) {
             warningCollector.add(new PrestoWarning(TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the soft limit (%s). " + TOO_MANY_STAGES_MESSAGE,
+                    "Number of stages in the query (%s) exceeds the soft limit (%s). %s",
                     fragmentCount,
-                    stageCountSoftLimit)));
+                    stageCountSoftLimit,
+                    TOO_MANY_STAGES_MESSAGE)));
         }
     }
 
@@ -674,9 +676,7 @@ public class PlanFragmenter
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
                 return new GroupedExecutionProperties(false, false, ImmutableList.of());
             }
-            else {
-                return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
-            }
+            return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
         }
 
         private GroupedExecutionProperties processChildren(PlanNode node)

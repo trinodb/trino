@@ -103,6 +103,6 @@ public final class SignatureBuilder
 
     public Signature build()
     {
-        return new Signature(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        return new Signature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 }

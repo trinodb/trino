@@ -7,6 +7,7 @@ Administration
 
     admin/web-interface
     admin/tuning
+    admin/jmx
     admin/properties
     admin/spill
     admin/resource-groups

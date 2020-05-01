@@ -13,9 +13,8 @@
  */
 package io.prestosql.orc;
 
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
-
-import java.util.Map;
 
 public interface OrcPredicate
 {
@@ -26,8 +25,7 @@ public interface OrcPredicate
      *
      * @param numberOfRows the number of rows in the segment; this can be used with
      * {@code ColumnStatistics} to determine if a column is only null
-     * @param statisticsByColumnIndex statistics for column by ordinal position
-     * in the file; this will match the field order from the hive metastore
+     * @param allColumnStatistics column statistics
      */
-    boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex);
+    boolean matches(long numberOfRows, ColumnMetadata<ColumnStatistics> allColumnStatistics);
 }

@@ -13,35 +13,45 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 public class TestKuduIntegrationHashPartitioning
         extends AbstractTestQueryFramework
 {
-    private QueryRunner queryRunner;
+    private TestingKuduServer kuduServer;
 
-    public TestKuduIntegrationHashPartitioning()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("hash"));
+        kuduServer = new TestingKuduServer();
+        return createKuduQueryRunner(kuduServer, "hash");
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        kuduServer.close();
     }
 
     @Test
     public void testCreateTableSingleHashPartitionLevel()
     {
-        String dropTable = "DROP TABLE IF EXISTS hashtest1";
-        String createTable = "CREATE TABLE hashtest1 (\n";
-        createTable += "  id INT WITH (primary_key=true,encoding='auto',compression='default'),\n";
-        createTable += "  event_time TIMESTAMP WITH (primary_key=true, encoding='plain', compression='lz4'),\n";
-        createTable += "  value DOUBLE WITH (primary_key=false,nullable=false,compression='no')\n";
-        createTable += ") WITH (\n" +
-                " partition_by_hash_columns = ARRAY['id','event_time'],\n" +
+        String createTable = "" +
+                "CREATE TABLE hashtest1 (\n" +
+                "  id INT WITH (primary_key=true,encoding='auto', compression='default'),\n" +
+                "  event_time TIMESTAMP WITH (primary_key=true, encoding='plain', compression='lz4'),\n" +
+                "  value DOUBLE WITH (primary_key=false, nullable=false, compression='no')\n" +
+                ") WITH (\n" +
+                " partition_by_hash_columns = ARRAY['id', 'event_time'],\n" +
                 " partition_by_hash_buckets = 3\n" +
                 ")";
 
@@ -51,11 +61,12 @@ public class TestKuduIntegrationHashPartitioning
     @Test
     public void testCreateTableDoubleHashPartitionLevel()
     {
-        String createTable = "CREATE TABLE hashtest2 (\n";
-        createTable += "  id INT WITH (primary_key=true, encoding='bitshuffle',compression='zlib'),\n";
-        createTable += "  event_time TIMESTAMP WITH (primary_key=true, encoding='runlength', compression='snappy'),\n";
-        createTable += "  value DOUBLE WITH (nullable=true)\n";
-        createTable += ") WITH (\n" +
+        String createTable = "" +
+                "CREATE TABLE hashtest2 (\n" +
+                "  id INT WITH (primary_key=true, encoding='bitshuffle', compression='zlib'),\n" +
+                "  event_time TIMESTAMP WITH (primary_key=true, encoding='runlength', compression='snappy'),\n" +
+                "  value DOUBLE WITH (nullable=true)\n" +
+                ") WITH (\n" +
                 " partition_by_hash_columns = ARRAY['id'],\n" +
                 " partition_by_hash_buckets = 3\n," +
                 " partition_by_second_hash_columns = ARRAY['event_time'],\n" +
@@ -65,33 +76,18 @@ public class TestKuduIntegrationHashPartitioning
         doTestCreateTable("hashtest2", createTable);
     }
 
-    private void doTestCreateTable(String tableName, String createTable)
+    private void doTestCreateTable(String tableName, @Language("SQL") String createTable)
     {
         String dropTable = "DROP TABLE IF EXISTS " + tableName;
 
-        queryRunner.execute(dropTable);
-        queryRunner.execute(createTable);
+        assertUpdate(dropTable);
+        assertUpdate(createTable);
 
         String insert = "INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2001-08-22 03:04:05.321', 2.5)";
 
-        queryRunner.execute(insert);
+        assertUpdate(insert, 1);
 
-        MaterializedResult result = queryRunner.execute("SELECT id FROM " + tableName);
+        MaterializedResult result = computeActual("SELECT id FROM " + tableName);
         assertEquals(result.getRowCount(), 1);
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
-        }
     }
 }

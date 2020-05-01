@@ -41,7 +41,7 @@ public final class LocalAtopQueryRunner
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()))
                 .build();
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 
         try {
             AtopConnectorFactory connectorFactory = new AtopConnectorFactory(factoryClass, LocalAtopQueryRunner.class.getClassLoader());

@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
@@ -23,11 +24,21 @@ import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
 import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -42,6 +53,10 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.constrainedTa
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.LogicalBinaryExpression.Operator.AND;
+import static io.prestosql.sql.tree.LogicalBinaryExpression.Operator.OR;
 
 public class TestPushPredicateIntoTableScan
         extends BaseRuleTest
@@ -49,14 +64,13 @@ public class TestPushPredicateIntoTableScan
     private PushPredicateIntoTableScan pushPredicateIntoTableScan;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
-    private CatalogName catalogName;
 
     @BeforeClass
     public void setUpBeforeClass()
     {
         pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
 
-        catalogName = tester().getCurrentConnectorId();
+        CatalogName catalogName = tester().getCurrentConnectorId();
 
         TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
         nationTableHandle = new TableHandle(
@@ -103,8 +117,147 @@ public class TestPushPredicateIntoTableScan
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
-                                TupleDomain.none())))
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 45))))))
                 .matches(values("A"));
+    }
+
+    @Test
+    public void consumesDeterministicPredicateIfNewDomainIsSame()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .matches(constrainedTableScanWithTableLayout(
+                        "nation",
+                        ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
+                        ImmutableMap.of("nationkey", "nationkey")));
+    }
+
+    @Test
+    public void consumesDeterministicPredicateIfNewDomainIsWider()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .matches(constrainedTableScanWithTableLayout(
+                        "nation",
+                        ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
+                        ImmutableMap.of("nationkey", "nationkey")));
+    }
+
+    @Test
+    public void consumesDeterministicPredicateIfNewDomainIsNarrower()
+    {
+        Type orderStatusType = createVarcharType(1);
+        ColumnHandle columnHandle = new TpchColumnHandle("orderstatus", orderStatusType);
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("orderstatus", singleValue(orderStatusType, utf8Slice("O")))
+                .build();
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("orderstatus = 'O' OR orderstatus = 'F'"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
+                                ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        columnHandle, Domain.multipleValues(orderStatusType, ImmutableList.of(Slices.utf8Slice("O"), Slices.utf8Slice("P"))))))))
+                .matches(
+                        constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderstatus", "orderstatus")));
+    }
+
+    @Test
+    public void doesNotConsumeRemainingPredicateIfNewDomainIsWider()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(
+                        new LogicalBinaryExpression(
+                                AND,
+                                new LogicalBinaryExpression(
+                                        AND,
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new FunctionCallBuilder(tester().getMetadata())
+                                                        .setName(QualifiedName.of("rand"))
+                                                        .build(),
+                                                new GenericLiteral("BIGINT", "42")),
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new ArithmeticBinaryExpression(
+                                                        MODULUS,
+                                                        new SymbolReference("nationkey"),
+                                                        new GenericLiteral("BIGINT", "17")),
+                                                new GenericLiteral("BIGINT", "44"))),
+                                new LogicalBinaryExpression(
+                                        OR,
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new SymbolReference("nationkey"),
+                                                new GenericLiteral("BIGINT", "44")),
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new SymbolReference("nationkey"),
+                                                new GenericLiteral("BIGINT", "45")))),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .matches(
+                        filter(
+                                new LogicalBinaryExpression(
+                                        AND,
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new FunctionCallBuilder(tester().getMetadata())
+                                                        .setName(QualifiedName.of("rand"))
+                                                        .build(),
+                                                new GenericLiteral("BIGINT", "42")),
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new ArithmeticBinaryExpression(
+                                                        MODULUS,
+                                                        new SymbolReference("nationkey"),
+                                                        new GenericLiteral("BIGINT", "17")),
+                                                new GenericLiteral("BIGINT", "44"))),
+                                constrainedTableScanWithTableLayout(
+                                        "nation",
+                                        ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
+                                        ImmutableMap.of("nationkey", "nationkey"))));
+    }
+
+    @Test
+    public void doesNotFireOnNonDeterministicPredicate()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(
+                        new ComparisonExpression(
+                                EQUAL,
+                                new FunctionCallBuilder(tester().getMetadata())
+                                        .setName(QualifiedName.of("rand"))
+                                        .build(),
+                                new LongLiteral("42")),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.all())))
+                .doesNotFire();
     }
 
     @Test
@@ -127,7 +280,7 @@ public class TestPushPredicateIntoTableScan
                 .put("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")))
                 .build();
         tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("orderstatus = CAST ('F' AS VARCHAR(1))"),
+                .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -137,49 +290,35 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void ruleAddedNewTableLayoutIfTableScanHasEmptyConstraint()
-    {
-        tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("orderstatus = 'F'"),
-                        p.tableScan(
-                                ordersTableHandle,
-                                ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
-                                ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
-                .matches(
-                        constrainedTableScanWithTableLayout(
-                                "orders",
-                                ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F"))),
-                                ImmutableMap.of("orderstatus", "orderstatus")));
-    }
-
-    @Test
-    public void ruleWithPushdownableToTableLayoutPredicate()
-    {
-        Type orderStatusType = createVarcharType(1);
-        tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("orderstatus = 'O'"),
-                        p.tableScan(
-                                ordersTableHandle,
-                                ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
-                                ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)))))
-                .matches(constrainedTableScanWithTableLayout(
-                        "orders",
-                        ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
-                        ImmutableMap.of("orderstatus", "orderstatus")));
-    }
-
-    @Test
     public void nonDeterministicPredicate()
     {
         Type orderStatusType = createVarcharType(1);
         tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("orderstatus = 'O' AND rand() = 0"),
+                .on(p -> p.filter(
+                        new LogicalBinaryExpression(
+                                AND,
+                                new ComparisonExpression(
+                                        EQUAL,
+                                        new SymbolReference("orderstatus"),
+                                        new StringLiteral("O")),
+                                new ComparisonExpression(
+                                        EQUAL,
+                                        new FunctionCallBuilder(tester().getMetadata())
+                                                .setName(QualifiedName.of("rand"))
+                                                .build(),
+                                        new LongLiteral("0"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
                                 ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)))))
                 .matches(
-                        filter("rand() = 0",
+                        filter(
+                                new ComparisonExpression(
+                                        EQUAL,
+                                        new FunctionCallBuilder(tester().getMetadata())
+                                                .setName(QualifiedName.of("rand"))
+                                                .build(),
+                                        new LongLiteral("0")),
                                 constrainedTableScanWithTableLayout(
                                         "orders",
                                         ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),

@@ -44,6 +44,7 @@ import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameTable;
+import io.prestosql.sql.tree.RenameView;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowFunctions;
@@ -95,6 +96,7 @@ public class VerifyCommand
     @Arguments(description = "Config filename")
     public String configFilename;
 
+    @Override
     public void run()
     {
         if (configFilename != null) {
@@ -166,13 +168,7 @@ public class VerifyCommand
             throw new RuntimeException(e);
         }
         finally {
-            try {
-                injector.getInstance(LifeCycleManager.class).stop();
-            }
-            catch (Exception e) {
-                throwIfUnchecked(e);
-                throw new RuntimeException(e);
-            }
+            injector.getInstance(LifeCycleManager.class).stop();
         }
     }
 
@@ -399,6 +395,9 @@ public class VerifyCommand
             return MODIFY;
         }
         if (statement instanceof RenameTable) {
+            return MODIFY;
+        }
+        if (statement instanceof RenameView) {
             return MODIFY;
         }
         if (statement instanceof Comment) {

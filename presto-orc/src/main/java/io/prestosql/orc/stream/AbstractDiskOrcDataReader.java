@@ -24,7 +24,6 @@ import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractDiskOrcDataReader
@@ -74,7 +73,7 @@ public abstract class AbstractDiskOrcDataReader
     public final Slice seekBuffer(int newPosition)
             throws IOException
     {
-        int newBufferSize = toIntExact(min(dataSize - newPosition, maxBufferSize));
+        int newBufferSize = min(dataSize - newPosition, maxBufferSize);
         if (buffer == null || buffer.length < newBufferSize) {
             buffer = new byte[newBufferSize];
         }

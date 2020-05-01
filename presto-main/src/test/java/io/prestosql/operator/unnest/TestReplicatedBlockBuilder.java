@@ -22,9 +22,9 @@ import java.util.Collections;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.block.ColumnarTestUtils.assertBlock;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.createReplicatedOutputSlice;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.createSimpleBlock;
-import static io.prestosql.operator.unnest.TestUnnesterUtil.toSlices;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.createReplicatedOutputSlice;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.createSimpleBlock;
+import static io.prestosql.operator.unnest.TestingUnnesterUtil.toSlices;
 import static io.prestosql.operator.unnest.UnnestOperatorBlockUtil.calculateNewArraySize;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

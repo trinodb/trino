@@ -73,7 +73,7 @@ public class DoubleStatisticsBuilder
 
     private Optional<DoubleStatistics> buildDoubleStatistics()
     {
-        // if there are NaN values we can not say anything about the data
+        // if there are NaN values we cannot say anything about the data
         if (nonNullValueCount == 0 || hasNan) {
             return Optional.empty();
         }
@@ -104,7 +104,7 @@ public class DoubleStatisticsBuilder
             DoubleStatistics partialStatistics = columnStatistics.getDoubleStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 doubleStatisticsBuilder.addDoubleStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

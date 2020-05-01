@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.assertions.PlanAssert;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
@@ -30,10 +31,11 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -52,7 +54,12 @@ class QueryAssertions
 
     public QueryAssertions(Session session)
     {
-        runner = new LocalQueryRunner(session);
+        this(LocalQueryRunner.create(session));
+    }
+
+    public QueryAssertions(QueryRunner runner)
+    {
+        this.runner = requireNonNull(runner, "runner is null");
     }
 
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
@@ -62,9 +69,10 @@ class QueryAssertions
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException exception) {
-            if (!nullToEmpty(exception.getMessage()).matches(expectedMessageRegExp)) {
-                fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), expectedMessageRegExp, sql), exception);
-            }
+            exception.addSuppressed(new Exception("Query: " + sql));
+            assertThat(exception)
+                    .isInstanceOf(PrestoException.class)
+                    .hasMessageMatching(expectedMessageRegExp);
         }
     }
 
@@ -75,21 +83,32 @@ class QueryAssertions
             Consumer<Plan> planValidator)
     {
         assertQuery(actual, expected);
-        Plan plan = runner.createPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP);
+
+        Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
         PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
         planValidator.accept(plan);
     }
 
     public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        assertQuery(actual, expected, false);
+        assertQuery(runner.getDefaultSession(), actual, expected, false);
     }
 
-    public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
+    public void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertQuery(session, actual, expected, false);
+    }
+
+    public void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertQuery(runner.getDefaultSession(), actual, expected, true);
+    }
+
+    public void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
     {
         MaterializedResult actualResults = null;
         try {
-            actualResults = execute(actual);
+            actualResults = execute(session, actual);
         }
         catch (RuntimeException ex) {
             fail("Execution of 'actual' query failed: " + actual, ex);
@@ -118,6 +137,19 @@ class QueryAssertions
         }
     }
 
+    public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)
+    {
+        MaterializedResult actualResults = null;
+        try {
+            actualResults = execute(actual);
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of 'actual' query failed: " + actual, ex);
+        }
+        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        assertEquals(actualRows.size(), 0);
+    }
+
     public static void assertContains(MaterializedResult all, MaterializedResult expectedSubset)
     {
         for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
@@ -134,8 +166,13 @@ class QueryAssertions
 
     public MaterializedResult execute(@Language("SQL") String query)
     {
+        return execute(runner.getDefaultSession(), query);
+    }
+
+    public MaterializedResult execute(Session session, @Language("SQL") String query)
+    {
         MaterializedResult actualResults;
-        actualResults = runner.execute(runner.getDefaultSession(), query).toTestTypes();
+        actualResults = runner.execute(session, query).toTestTypes();
         return actualResults;
     }
 
@@ -143,5 +180,21 @@ class QueryAssertions
     public void close()
     {
         runner.close();
+    }
+
+    public QueryRunner getQueryRunner()
+    {
+        return runner;
+    }
+
+    protected void executeExclusively(Runnable executionBlock)
+    {
+        runner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            runner.getExclusiveLock().unlock();
+        }
     }
 }

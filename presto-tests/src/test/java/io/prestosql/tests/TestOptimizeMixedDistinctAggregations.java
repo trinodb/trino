@@ -13,16 +13,20 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestAggregations;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestOptimizeMixedDistinctAggregations
         extends AbstractTestAggregations
 {
-    public TestOptimizeMixedDistinctAggregations()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunnerBuilder.builder()
                 .setSingleCoordinatorProperty("optimizer.optimize-mixed-distinct-aggregations", "true")
-                .build());
+                .build();
     }
 
     @Override

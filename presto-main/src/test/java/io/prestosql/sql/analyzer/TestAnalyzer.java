@@ -33,6 +33,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -45,6 +46,8 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.testing.TestingMetadata;
@@ -91,6 +94,7 @@ import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.prestosql.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -104,15 +108,24 @@ import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.RowType.anonymousRow;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 
 @Test(singleThreaded = true)
@@ -124,6 +137,8 @@ public class TestAnalyzer
     private static final CatalogName SECOND_CATALOG_NAME = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
     private static final CatalogName THIRD_CATALOG_NAME = new CatalogName(THIRD_CATALOG);
+    private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
+    private static final CatalogName CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME = new CatalogName(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -131,6 +146,10 @@ public class TestAnalyzer
     private static final Session CLIENT_SESSION = testSessionBuilder()
             .setCatalog(TPCH_CATALOG)
             .setSchema("s1")
+            .build();
+    private static final Session CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS = testSessionBuilder()
+            .setCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS)
+            .setSchema("a")
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -181,6 +200,8 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT DISTINCT x FROM (SELECT approx_set(1) x)")
                 .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT DISTINCT ROW(1, approx_set(1)).* from t1")
+                .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test
@@ -201,6 +222,23 @@ public class TestAnalyzer
         analyze("SELECT * FROM t1 WHERE (VALUES 1) IN (VALUES 1)");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) IN (2)");
         analyze("SELECT * FROM (SELECT 1) t1(x) WHERE x IN (SELECT 1)");
+    }
+
+    @Test
+    public void testRowDereferenceInCorrelatedSubquery()
+    {
+        assertFails("WITH " +
+                "    t(b) AS (VALUES row(cast(row(1) AS row(a bigint))))," +
+                "    u(b) AS (VALUES row(cast(row(1, 1) AS row(a bigint, b bigint))))" +
+                "SELECT b " +
+                "FROM t " +
+                "WHERE EXISTS (" +
+                "    SELECT b.a" + // this should be considered group-variant since it references u.b.a
+                "    FROM u" +
+                "    GROUP BY b.b" +
+                ")")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:171: 'b.a' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test
@@ -235,10 +273,34 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testWildcardWithInvalidPrefix()
+    public void testSelectAllColumns()
     {
+        // wildcard without FROM
+        assertFails("SELECT *")
+                .hasErrorCode(COLUMN_NOT_FOUND);
+
+        // wildcard with invalid prefix
         assertFails("SELECT foo.* FROM t1")
                 .hasErrorCode(TABLE_NOT_FOUND);
+
+        assertFails("SELECT a.b.c.d.* FROM t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+
+        // aliases mismatch
+        assertFails("SELECT (1, 2).* AS (a) FROM t1")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES);
+
+        // wildcard with no RowType expression
+        assertFails("SELECT non_row.* FROM (VALUES ('true', 1)) t(non_row, b)")
+                .hasErrorCode(TABLE_NOT_FOUND);
+
+        // wildcard with no RowType expression nested in a row
+        assertFails("SELECT t.row.non_row.* FROM (VALUES (CAST(ROW('true') AS ROW(non_row boolean)), 1)) t(row, b)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // reference to outer scope relation with anonymous field
+        assertFails("SELECT (SELECT outer_relation.* FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation")
+                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test
@@ -248,6 +310,76 @@ public class TestAnalyzer
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
         assertFails("SELECT u1.*, u2.* FROM (select a, b + 1 from t1) u1 JOIN (select a, b + 2 from t1) u2 ON u1.a = u2.a GROUP BY u1.a, u2.a, 3")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+    }
+
+    @Test
+    public void testAsteriskedIdentifierChainResolution()
+    {
+        // identifier chain of length 2; match to table and field in immediate scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM a.b, t1 AS a")
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // identifier chain of length 2; match to table and field in outer scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM a.b, t1 AS a")
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // identifier chain of length 3; match to table and field in immediate scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT cat.a.b.* FROM cat.a.b, t2 AS cat")
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // identifier chain of length 3; match to table and field in outer scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT cat.a.b.* FROM (VALUES 1) v) FROM cat.a.b, t2 AS cat")
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // identifier chain of length 2; no ambiguity: table match in closer scope than field match
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM a.b) FROM t1 AS a");
+
+        // identifier chain of length 2; no ambiguity: field match in closer scope than table match
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM t5 AS a) FROM a.b");
+
+        // identifier chain of length 2; no ambiguity: only field match in outer scope
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM t5 AS a");
+
+        // identifier chain of length 2; no ambiguity: only table match in outer scope
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM a.b");
+
+        // identifier chain of length 1; only table match allowed, no potential ambiguity detection (could match field b from t1)
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM b, t1");
+
+        // identifier chain of length 1; only table match allowed, referencing field not qualified by table alias not allowed
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+
+        // identifier chain of length 3; illegal reference: multi-identifier table reference + field reference
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.t1.b.* FROM a.t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        // the above query fixed by the use of table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT alias.b.* FROM a.t1 as alias");
+
+        // identifier chain of length 4; illegal reference: multi-identifier table reference + field reference
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT cat.a.t1.b.* FROM cat.a.t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        // the above query fixed by the use of table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT alias.b.* FROM cat.a.t1 AS alias");
+
+        // reference to nested row qualified by single-identifier table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT t3.b.f1.* FROM t3");
+
+        // reference to double-nested row qualified by single-identifier table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT t4.b.f1.f11.* FROM t4");
+
+        // table reference by the suffix of table's qualified name
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM cat.a.b");
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM cat.a.b");
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM a.b");
+
+        // ambiguous field references in immediate scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM t4 AS a, t5 AS a")
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // ambiguous field references in outer scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM t4 AS a, t5 AS a")
+                .hasErrorCode(AMBIGUOUS_NAME);
     }
 
     @Test
@@ -327,8 +459,8 @@ public class TestAnalyzer
                 "GROUP BY a");
 
         assertFails("SELECT (SELECT t.a.someField) " +
-                        "FROM (VALUES ROW(CAST(ROW(1) AS ROW(someField BIGINT)), 2)) t(a, b) " +
-                        "GROUP BY b")
+                "FROM (VALUES ROW(CAST(ROW(1) AS ROW(someField BIGINT)), 2)) t(a, b) " +
+                "GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessageMatching("line 1:16: Subquery uses 't.a' which must appear in GROUP BY clause");
     }
@@ -588,8 +720,8 @@ public class TestAnalyzer
         analyze("SELECT a x FROM t1 ORDER BY a + 1");
 
         assertFails("SELECT x.c as x\n" +
-                        "FROM (VALUES 1) x(c)\n" +
-                        "ORDER BY x.c")
+                "FROM (VALUES 1) x(c)\n" +
+                "ORDER BY x.c")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasLocation(3, 10);
     }
@@ -613,7 +745,7 @@ public class TestAnalyzer
         analyze("SELECT a AS b FROM t1 GROUP BY t1.a ORDER BY (SELECT b)");
 
         assertFails("SELECT a AS b FROM t1 GROUP BY t1.a \n" +
-                        "ORDER BY MAX((SELECT b))")
+                "ORDER BY MAX((SELECT b))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 2:22: Invalid reference to output projection attribute from ORDER BY aggregation");
 
@@ -625,9 +757,9 @@ public class TestAnalyzer
                 "ORDER BY (SELECT x.someField)");
 
         assertFails("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
-                        "FROM (VALUES (1, 2)) t(a, b)\n" +
-                        "GROUP BY b\n" +
-                        "ORDER BY MAX((SELECT x.someField))")
+                "FROM (VALUES (1, 2)) t(a, b)\n" +
+                "GROUP BY b\n" +
+                "ORDER BY MAX((SELECT x.someField))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 4:22: Invalid reference to output projection attribute from ORDER BY aggregation");
     }
@@ -646,19 +778,19 @@ public class TestAnalyzer
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
                 "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)");
         assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)" +
-                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
-                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
-                        "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)")
+                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
+                "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
+                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)")
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
                 .hasMessageMatching("line 3:10: GROUP BY has 4096 grouping sets but can contain at most 2048");
         assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
-                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
-                        "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
-                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
-                        "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)")
+                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
+                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
+                "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
+                "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
+                "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)")
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
                 .hasMessageMatching(format("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE));
     }
@@ -741,6 +873,15 @@ public class TestAnalyzer
                 .hasErrorCode(NESTED_WINDOW);
         assertFails("SELECT avg(a) OVER (ORDER BY sum(b) OVER ()) FROM t1")
                 .hasErrorCode(NESTED_WINDOW);
+    }
+
+    @Test
+    public void testWindowAttributesForLagLeadFunctions()
+    {
+        assertFails("SELECT lag(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(MISSING_ORDER_BY);
+        assertFails("SELECT lag(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
     }
 
     @Test
@@ -917,20 +1058,41 @@ public class TestAnalyzer
         assertFails("INSERT INTO t6 (a, A) SELECT * FROM t6")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME);
 
-        // b is bigint, while a is double, coercion from b to a is possible
+        // b is bigint, while a is double, coercion is possible either way
         analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");
-        assertFails("INSERT INTO t7 (a) SELECT (b) FROM t7")
-                .hasErrorCode(TYPE_MISMATCH);
+        analyze("INSERT INTO t7 (a) SELECT (b) FROM t7");
 
-        // d is array of bigints, while c is array of doubles, coercion from d to c is possible
+        // d is array of bigints, while c is array of doubles, coercion is possible either way
         analyze("INSERT INTO t7 (d) SELECT (c) FROM t7 ");
-        assertFails("INSERT INTO t7 (c) SELECT (d) FROM t7 ")
-                .hasErrorCode(TYPE_MISMATCH);
+        analyze("INSERT INTO t7 (c) SELECT (d) FROM t7 ");
 
         analyze("INSERT INTO t7 (d) VALUES (ARRAY[null])");
 
         analyze("INSERT INTO t6 (d) VALUES (1), (2), (3)");
         analyze("INSERT INTO t6 (a,b,c,d) VALUES (1, 'a', 1, 1), (2, 'b', 2, 2), (3, 'c', 3, 3), (4, 'd', 4, 4)");
+
+        // coercion is allowed between compatible types
+        analyze("INSERT INTO t8 (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 1e0, 1e0, 1e0)");
+        analyze("INSERT INTO t8 (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))");
+        analyze("INSERT INTO t8 (tinyint_array_column) SELECT (bigint_array_column) FROM t8");
+        analyze("INSERT INTO t8 (row_column) VALUES (ROW(ROW(1e0, CAST('aa     ' AS varchar))))");
+        analyze("INSERT INTO t8 (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')");
+
+        // coercion is not allowed between incompatible types
+        assertFails("INSERT INTO t8 (integer_column) VALUES ('text')")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (integer_column) VALUES (true)")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (integer_column) VALUES (ROW(ROW(1e0)))")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (integer_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (unbounded_varchar_column) VALUES (1)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // coercion with potential loss is not allowed for nested bounded character string types
+        assertFails("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
+                .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test
@@ -962,8 +1124,8 @@ public class TestAnalyzer
     public void testDuplicateWithQuery()
     {
         assertFails("WITH a AS (SELECT * FROM t1)," +
-                        "     a AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a")
+                "     a AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
                 .hasErrorCode(DUPLICATE_NAMED_QUERY);
     }
 
@@ -971,8 +1133,8 @@ public class TestAnalyzer
     public void testCaseInsensitiveDuplicateWithQuery()
     {
         assertFails("WITH a AS (SELECT * FROM t1)," +
-                        "     A AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a")
+                "     A AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
                 .hasErrorCode(DUPLICATE_NAMED_QUERY);
     }
 
@@ -980,8 +1142,8 @@ public class TestAnalyzer
     public void testWithForwardReference()
     {
         assertFails("WITH a AS (SELECT * FROM b)," +
-                        "     b AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a")
+                "     b AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
                 .hasErrorCode(TABLE_NOT_FOUND);
     }
 
@@ -1596,11 +1758,11 @@ public class TestAnalyzer
 
         // non-GROUP BY column captured in lambda
         assertFails("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
-                        "FROM t1 u GROUP BY b")
+                "FROM t1 u GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessageMatching("line 1:34: Subquery uses 'a' which must appear in GROUP BY clause");
         assertFails("SELECT (SELECT apply(0, x -> x + u.a) from (values 1) x(a)) " +
-                        "FROM t1 u GROUP BY b")
+                "FROM t1 u GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessageMatching("line 1:34: Subquery uses 'u.a' which must appear in GROUP BY clause");
 
@@ -1766,7 +1928,7 @@ public class TestAnalyzer
     }
 
     @Test
-    void testAggregationWithOrderBy()
+    public void testAggregationWithOrderBy()
     {
         analyze("SELECT array_agg(DISTINCT x ORDER BY x) FROM (VALUES (1, 2), (3, 4)) t(x, y)");
         analyze("SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 4)) t(x, y)");
@@ -1813,19 +1975,54 @@ public class TestAnalyzer
     @Test
     public void testJoinUnnest()
     {
+        // Lateral references are only allowed in INNER and LEFT join.
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN UNNEST(x)");
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true");
-        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true");
-        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true");
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        // Join involving UNNEST only supported without condition (cross join) or with condition ON TRUE
+        analyze("SELECT * FROM (VALUES 1), UNNEST(array[2])");
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) b(x) USING (x)")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON 1 = 1")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON false")
+                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test
     public void testJoinLateral()
     {
+        // Lateral references are only allowed in INNER and LEFT join.
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN LATERAL(VALUES x)");
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN LATERAL(VALUES x) ON true");
-        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true");
-        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true");
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        // FULL join involving LATERAL relation only supported with condition ON TRUE
+        analyze("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON true");
+        assertFails("SELECT * FROM (VALUES 1) a(x) FULL OUTER JOIN LATERAL(VALUES 2) b(x) USING (x)")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON 1 = 1")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON false")
+                .hasErrorCode(NOT_SUPPORTED);
+    }
+
+    @Test
+    public void testNullTreatment()
+    {
+        assertFails("SELECT count() RESPECT NULLS OVER ()")
+                .hasErrorCode(NULL_TREATMENT_NOT_ALLOWED);
+
+        assertFails("SELECT count() IGNORE NULLS OVER ()")
+                .hasErrorCode(NULL_TREATMENT_NOT_ALLOWED);
+
+        analyze("SELECT lag(1) RESPECT NULLS OVER (ORDER BY x) FROM (VALUES 1) t(x)");
+        analyze("SELECT lag(1) IGNORE NULLS OVER (ORDER BY x) FROM (VALUES 1) t(x)");
     }
 
     @BeforeClass
@@ -1833,7 +2030,7 @@ public class TestAnalyzer
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager);
+        accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
@@ -1910,7 +2107,8 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
@@ -1920,7 +2118,8 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", parseTypeSignature("varchar"))),
+                ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
@@ -1930,7 +2129,8 @@ public class TestAnalyzer
                 "select a from t4",
                 Optional.of(SECOND_CATALOG),
                 Optional.of("s2"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("owner"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
@@ -1940,7 +2140,8 @@ public class TestAnalyzer
                 "select A from t1",
                 Optional.of("tpch"),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
@@ -1950,10 +2151,74 @@ public class TestAnalyzer
                 "select * from v5",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+
+        // type analysis for INSERT
+        SchemaTableName table8 = new SchemaTableName("s1", "t8");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table8, ImmutableList.of(
+                        new ColumnMetadata("tinyint_column", TINYINT),
+                        new ColumnMetadata("integer_column", INTEGER),
+                        new ColumnMetadata("decimal_column", createDecimalType(5, 3)),
+                        new ColumnMetadata("real_column", REAL),
+                        new ColumnMetadata("char_column", createCharType(3)),
+                        new ColumnMetadata("bounded_varchar_column", createVarcharType(3)),
+                        new ColumnMetadata("unbounded_varchar_column", VARCHAR),
+                        new ColumnMetadata("tinyint_array_column", new ArrayType(TINYINT)),
+                        new ColumnMetadata("bigint_array_column", new ArrayType(BIGINT)),
+                        new ColumnMetadata("nested_bounded_varchar_column", anonymousRow(createVarcharType(3))),
+                        new ColumnMetadata("row_column", anonymousRow(TINYINT, createUnboundedVarcharType())),
+                        new ColumnMetadata("date_column", DATE))),
+                false));
+
+        // for identifier chain resolving tests
+        catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
+        Type singleFieldRowType = metadata.fromSqlType("row(f1 bigint)");
+        Type rowType = metadata.fromSqlType("row(f1 bigint, f2 bigint)");
+        Type nestedRowType = metadata.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
+        Type doubleNestedRowType = metadata.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
+
+        SchemaTableName b = new SchemaTableName("a", "b");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(b, ImmutableList.of(
+                        new ColumnMetadata("x", VARCHAR))),
+                false));
+
+        SchemaTableName t1 = new SchemaTableName("a", "t1");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t1, ImmutableList.of(
+                        new ColumnMetadata("b", rowType))),
+                false));
+
+        SchemaTableName t2 = new SchemaTableName("a", "t2");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t2, ImmutableList.of(
+                        new ColumnMetadata("a", rowType))),
+                false));
+
+        SchemaTableName t3 = new SchemaTableName("a", "t3");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t3, ImmutableList.of(
+                        new ColumnMetadata("b", nestedRowType),
+                        new ColumnMetadata("c", BIGINT))),
+                false));
+
+        SchemaTableName t4 = new SchemaTableName("a", "t4");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t4, ImmutableList.of(
+                        new ColumnMetadata("b", doubleNestedRowType),
+                        new ColumnMetadata("c", BIGINT))),
+                false));
+
+        SchemaTableName t5 = new SchemaTableName("a", "t5");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t5, ImmutableList.of(
+                        new ColumnMetadata("b", singleFieldRowType))),
+                false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -1973,6 +2238,7 @@ public class TestAnalyzer
                 new AllowAllAccessControl(),
                 Optional.empty(),
                 emptyList(),
+                emptyMap(),
                 WarningCollector.NOOP);
     }
 
@@ -1988,7 +2254,7 @@ public class TestAnalyzer
                 .readUncommitted()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata);
-                    Statement statement = SQL_PARSER.createStatement(query);
+                    Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions());
                     analyzer.analyze(statement);
                 });
     }

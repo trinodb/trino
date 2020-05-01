@@ -29,6 +29,7 @@ class EquiJoinClauseProvider
         this.right = requireNonNull(right, "right is null");
     }
 
+    @Override
     public JoinNode.EquiJoinClause getExpectedValue(SymbolAliases aliases)
     {
         return new JoinNode.EquiJoinClause(left.toSymbol(aliases), right.toSymbol(aliases));

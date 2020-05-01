@@ -15,6 +15,8 @@ package io.prestosql.spi.expression;
 
 import io.prestosql.spi.type.Type;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 public abstract class ConnectorExpression
@@ -31,5 +33,14 @@ public abstract class ConnectorExpression
         return type;
     }
 
+    public abstract List<? extends ConnectorExpression> getChildren();
+
+    @Override
+    public abstract int hashCode();
+
+    @Override
+    public abstract boolean equals(Object obj);
+
+    @Override
     public abstract String toString();
 }

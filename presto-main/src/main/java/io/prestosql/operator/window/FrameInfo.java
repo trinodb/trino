@@ -88,10 +88,10 @@ public class FrameInfo
 
         FrameInfo other = (FrameInfo) obj;
 
-        return Objects.equals(this.type, other.type) &&
-                Objects.equals(this.startType, other.startType) &&
+        return this.type == other.type &&
+                this.startType == other.startType &&
                 Objects.equals(this.startChannel, other.startChannel) &&
-                Objects.equals(this.endType, other.endType) &&
+                this.endType == other.endType &&
                 Objects.equals(this.endChannel, other.endChannel);
     }
 

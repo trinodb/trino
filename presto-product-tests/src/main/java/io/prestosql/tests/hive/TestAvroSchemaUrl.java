@@ -13,11 +13,9 @@
  */
 package io.prestosql.tests.hive;
 
-import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.query.QueryExecutionException;
 import io.prestosql.tempto.query.QueryResult;
@@ -27,18 +25,19 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.TestGroups.AVRO;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
+import static java.nio.file.Files.newInputStream;
 
 public class TestAvroSchemaUrl
-        extends ProductTest
+        extends HiveProductTest
 {
     @Inject
     private HdfsClient hdfsClient;
@@ -47,6 +46,8 @@ public class TestAvroSchemaUrl
     public void setup()
             throws Exception
     {
+        // TODO move Avro schema files to classpath
+
         hdfsClient.createDirectory("/user/hive/warehouse/TestAvroSchemaUrl/schemas");
         saveResourceOnHdfs("avro/original_schema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc");
         saveResourceOnHdfs("avro/column_with_long_type_definition_schema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/column_with_long_type_definition_schema.avsc");
@@ -65,7 +66,7 @@ public class TestAvroSchemaUrl
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = Resources.asByteSource(Resources.getResource(resource)).openStream()) {
+        try (InputStream inputStream = newInputStream(Paths.get("/docker/presto-product-tests", resource))) {
             hdfsClient.saveFile(location, inputStream);
         }
     }
@@ -74,14 +75,14 @@ public class TestAvroSchemaUrl
     public Object[][] avroSchemaLocations()
     {
         return new Object[][] {
-                {"file:///docker/volumes/presto-product-tests/avro/original_schema.avsc"}, // mounted in hadoop and presto containers
+                {"file:///docker/presto-product-tests/avro/original_schema.avsc"}, // mounted in hadoop and presto containers
                 {"hdfs://hadoop-master:9000/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"hdfs:///user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"}, // `avro.schema.url` can actually be path on HDFS (not URL)
         };
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, STORAGE_FORMATS})
+    @Test(dataProvider = "avroSchemaLocations", groups = STORAGE_FORMATS)
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
@@ -101,7 +102,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("DROP TABLE test_avro_schema_url_hive");
     }
 
-    @Test(groups = {AVRO})
+    @Test
     public void testAvroSchemaUrlInSerdeProperties()
             throws IOException
     {
@@ -143,7 +144,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("DROP TABLE test_avro_schema_url_in_serde_properties");
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, STORAGE_FORMATS})
+    @Test(dataProvider = "avroSchemaLocations", groups = STORAGE_FORMATS)
     public void testPrestoCreatedTable(String schemaLocation)
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
@@ -156,7 +157,7 @@ public class TestAvroSchemaUrl
         onPresto().executeQuery("DROP TABLE test_avro_schema_url_presto");
     }
 
-    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testTableWithLongColumnType()
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_long_column");
@@ -185,14 +186,14 @@ public class TestAvroSchemaUrl
         onPresto().executeQuery("DROP TABLE test_avro_schema_url_long_column");
     }
 
-    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testPartitionedTableWithLongColumnType()
     {
-        if (isOnHdp()) {
+        if (isOnHdp() && getHiveVersionMajor() < 3) {
             // HDP 2.6 won't allow to define a partitioned table with schema having a column with type definition over 2000 characters.
             // It is possible to create table with simpler schema and then alter the schema, but that results in different end state on CDH.
             // To retain proper test coverage on CDH, this test needs to be disabled on HDP.
-            throw new SkipException("Skipping on HDP");
+            throw new SkipException("Skipping on HDP 2");
         }
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_partitioned_long_column");

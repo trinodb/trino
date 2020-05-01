@@ -19,6 +19,8 @@ public interface AccumulatorFactory
 {
     List<Integer> getInputChannels();
 
+    boolean hasRemoveInput();
+
     Accumulator createAccumulator();
 
     Accumulator createIntermediateAccumulator();

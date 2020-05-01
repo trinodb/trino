@@ -2,8 +2,19 @@
 Functions and Operators
 ***********************
 
+This chapter describes the SQL functions and operators supported by Presto. They
+allow you to implement complex functionality and behavior of the SQL executed by
+Presto operating on the underlying data sources.
+
+Ensure to also consult our reference to the :doc:`supported SQL data
+types</language>` and other general characteristics and a :doc:`full SQL
+statement and syntax reference</sql>` are available.
+
+If you are looking for more information about a specific function or operator,
+:doc:`see our complete list</functions/list>`.
+
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
 
     functions/logical
     functions/comparison
@@ -30,3 +41,4 @@ Functions and Operators
     functions/color
     functions/session
     functions/teradata
+    functions/list

@@ -24,7 +24,9 @@ import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -117,8 +119,14 @@ public class TestWindow
     @Test
     public void testWindowAfterJoin()
     {
+        Session disableCbo = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                .build();
+
         // Window partition key is a super set of join key.
         assertDistributedPlan("SELECT rank() OVER (PARTITION BY o.orderstatus, o.orderkey) FROM orders o JOIN lineitem l ON o.orderstatus = l.linestatus",
+                disableCbo,
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("orderstatus", "orderkey"), ImmutableList.of(), ImmutableMap.of()))
@@ -134,6 +142,7 @@ public class TestWindow
 
         // Window partition key is not a super set of join key.
         assertDistributedPlan("SELECT rank() OVER (PARTITION BY o.orderkey) FROM orders o JOIN lineitem l ON o.orderstatus = l.linestatus",
+                disableCbo,
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("orderkey"), ImmutableList.of(), ImmutableMap.of()))
@@ -148,7 +157,7 @@ public class TestWindow
                                                                         anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus"))))))))))));
 
         // Test broadcast join
-        Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
+        Session broadcastJoin = Session.builder(disableCbo)
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .build();

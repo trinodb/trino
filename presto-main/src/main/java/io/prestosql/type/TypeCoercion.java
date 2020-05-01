@@ -49,8 +49,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.JoniRegexpType.JONI_REGEXP;
 import static io.prestosql.type.JsonPathType.JSON_PATH;
-import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
-import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
+import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
@@ -86,8 +85,8 @@ public final class TypeCoercion
             return sameDecimalSubtype && sameScale && sourcePrecisionIsLessOrEqualToResultPrecision;
         }
 
-        String sourceTypeBase = source.getTypeSignature().getBase();
-        String resultTypeBase = result.getTypeSignature().getBase();
+        String sourceTypeBase = source.getBaseName();
+        String resultTypeBase = result.getBaseName();
 
         if (sourceTypeBase.equals(resultTypeBase) && isCovariantParametrizedType(source)) {
             List<Type> sourceTypeParameters = source.getTypeParameters();
@@ -112,6 +111,12 @@ public final class TypeCoercion
         return Optional.of(compatibility.getCommonSuperType());
     }
 
+    public boolean isCompatible(Type fromType, Type toType)
+    {
+        TypeCompatibility typeCompatibility = compatibility(fromType, toType);
+        return typeCompatibility.isCompatible();
+    }
+
     public boolean canCoerce(Type fromType, Type toType)
     {
         TypeCompatibility typeCompatibility = compatibility(fromType, toType);
@@ -132,8 +137,8 @@ public final class TypeCoercion
             return TypeCompatibility.compatible(fromType, false);
         }
 
-        String fromTypeBaseName = fromType.getTypeSignature().getBase();
-        String toTypeBaseName = toType.getTypeSignature().getBase();
+        String fromTypeBaseName = fromType.getBaseName();
+        String toTypeBaseName = toType.getBaseName();
         if (fromTypeBaseName.equals(toTypeBaseName)) {
             if (fromTypeBaseName.equals(StandardTypes.DECIMAL)) {
                 Type commonSuperType = getCommonSuperTypeForDecimal((DecimalType) fromType, (DecimalType) toType);
@@ -157,12 +162,12 @@ public final class TypeCoercion
             return TypeCompatibility.incompatible();
         }
 
-        Optional<Type> coercedType = coerceTypeBase(fromType, toType.getTypeSignature().getBase());
+        Optional<Type> coercedType = coerceTypeBase(fromType, toType.getBaseName());
         if (coercedType.isPresent()) {
             return compatibility(coercedType.get(), toType);
         }
 
-        coercedType = coerceTypeBase(toType, fromType.getTypeSignature().getBase());
+        coercedType = coerceTypeBase(toType, fromType.getBaseName());
         if (coercedType.isPresent()) {
             TypeCompatibility typeCompatibility = compatibility(fromType, coercedType.get());
             if (!typeCompatibility.isCompatible()) {
@@ -246,9 +251,9 @@ public final class TypeCoercion
                 return TypeCompatibility.incompatible();
             }
             coercible &= compatibility.isCoercible();
-            commonParameterTypes.add(TypeSignatureParameter.of(compatibility.getCommonSuperType().getTypeSignature()));
+            commonParameterTypes.add(TypeSignatureParameter.typeParameter(compatibility.getCommonSuperType().getTypeSignature()));
         }
-        String typeBase = fromType.getTypeSignature().getBase();
+        String typeBase = fromType.getBaseName();
         return TypeCompatibility.compatible(lookupType.apply(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
     }
 
@@ -259,7 +264,7 @@ public final class TypeCoercion
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
-        String sourceTypeName = sourceType.getTypeSignature().getBase();
+        String sourceTypeName = sourceType.getBaseName();
         if (sourceTypeName.equals(resultTypeBase)) {
             return Optional.of(sourceType);
         }
@@ -285,7 +290,6 @@ public final class TypeCoercion
                     case StandardTypes.INTERVAL_YEAR_TO_MONTH:
                     case StandardTypes.INTERVAL_DAY_TO_SECOND:
                     case JoniRegexpType.NAME:
-                    case LikePatternType.NAME:
                     case JsonPathType.NAME:
                     case ColorType.NAME:
                     case CodePointsType.NAME:
@@ -416,9 +420,7 @@ public final class TypeCoercion
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
-                        return Optional.of(RE2J_REGEXP);
-                    case LikePatternType.NAME:
-                        return Optional.of(LIKE_PATTERN);
+                        return Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                     case JsonPathType.NAME:
                         return Optional.of(JSON_PATH);
                     case CodePointsType.NAME:
@@ -434,9 +436,7 @@ public final class TypeCoercion
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
-                        return Optional.of(RE2J_REGEXP);
-                    case LikePatternType.NAME:
-                        return Optional.of(LIKE_PATTERN);
+                        return Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                     case JsonPathType.NAME:
                         return Optional.of(JSON_PATH);
                     case CodePointsType.NAME:

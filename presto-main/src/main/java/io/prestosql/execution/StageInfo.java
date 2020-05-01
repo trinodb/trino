@@ -24,7 +24,6 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +36,6 @@ public class StageInfo
 {
     private final StageId stageId;
     private final StageState state;
-    private final URI self;
     private final PlanFragment plan;
     private final List<Type> types;
     private final StageStats stageStats;
@@ -50,7 +48,6 @@ public class StageInfo
     public StageInfo(
             @JsonProperty("stageId") StageId stageId,
             @JsonProperty("state") StageState state,
-            @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
             @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
@@ -61,7 +58,6 @@ public class StageInfo
     {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(state, "state is null");
-        requireNonNull(self, "self is null");
         requireNonNull(stageStats, "stageStats is null");
         requireNonNull(tasks, "tasks is null");
         requireNonNull(subStages, "subStages is null");
@@ -69,7 +65,6 @@ public class StageInfo
 
         this.stageId = stageId;
         this.state = state;
-        this.self = self;
         this.plan = plan;
         this.types = types;
         this.stageStats = stageStats;
@@ -89,12 +84,6 @@ public class StageInfo
     public StageState getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public URI getSelf()
-    {
-        return self;
     }
 
     @JsonProperty

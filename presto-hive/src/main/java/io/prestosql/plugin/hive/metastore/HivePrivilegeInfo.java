@@ -99,7 +99,7 @@ public class HivePrivilegeInfo
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
     {
-        return (getHivePrivilege().equals(hivePrivilegeInfo.getHivePrivilege()) &&
+        return (getHivePrivilege() == hivePrivilegeInfo.getHivePrivilege() &&
                 (isGrantOption() == hivePrivilegeInfo.isGrantOption() ||
                         (!isGrantOption() && hivePrivilegeInfo.isGrantOption())));
     }
@@ -138,7 +138,7 @@ public class HivePrivilegeInfo
             return false;
         }
         HivePrivilegeInfo hivePrivilegeInfo = (HivePrivilegeInfo) o;
-        return Objects.equals(hivePrivilege, hivePrivilegeInfo.hivePrivilege) &&
+        return hivePrivilege == hivePrivilegeInfo.hivePrivilege &&
                 Objects.equals(grantOption, hivePrivilegeInfo.grantOption) &&
                 Objects.equals(grantor, hivePrivilegeInfo.grantor) &&
                 Objects.equals(grantee, hivePrivilegeInfo.grantee);

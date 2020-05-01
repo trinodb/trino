@@ -78,7 +78,7 @@ public class ExplainType
             return false;
         }
         ExplainType o = (ExplainType) obj;
-        return Objects.equals(type, o.type);
+        return type == o.type;
     }
 
     @Override

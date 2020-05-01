@@ -24,17 +24,17 @@ import static java.util.Objects.requireNonNull;
 public class StripeFooter
 {
     private final List<Stream> streams;
-    private final List<ColumnEncoding> columnEncodings;
+    private final ColumnMetadata<ColumnEncoding> columnEncodings;
     private final Optional<ZoneId> timeZone;
 
-    public StripeFooter(List<Stream> streams, List<ColumnEncoding> columnEncodings, Optional<ZoneId> timeZone)
+    public StripeFooter(List<Stream> streams, ColumnMetadata<ColumnEncoding> columnEncodings, Optional<ZoneId> timeZone)
     {
         this.streams = ImmutableList.copyOf(requireNonNull(streams, "streams is null"));
-        this.columnEncodings = ImmutableList.copyOf(requireNonNull(columnEncodings, "columnEncodings is null"));
+        this.columnEncodings = requireNonNull(columnEncodings, "columnEncodings is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
-    public List<ColumnEncoding> getColumnEncodings()
+    public ColumnMetadata<ColumnEncoding> getColumnEncodings()
     {
         return columnEncodings;
     }

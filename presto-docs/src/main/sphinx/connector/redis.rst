@@ -2,7 +2,7 @@
 Redis Connector
 ===============
 
-The Redis connector allows querying of live data stored in Redis. This can be
+The Redis connector allows querying of live data stored in `Redis <https://redis.io/>`_. This can be
 used to join data between different systems like Redis and Hive.
 
 Each Redis key/value pair is presented as a single row in Presto. Rows can be
@@ -29,9 +29,9 @@ replacing the properties as appropriate:
 Multiple Redis Servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-You can have as many catalogs as you need, so if you have additional
+You can have as many catalogs as you need. If you have additional
 Redis servers, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``).
+with a different name, making sure it ends in ``.properties``.
 
 Configuration Properties
 ------------------------
@@ -57,12 +57,12 @@ Property Name                       Description
 ^^^^^^^^^^^^^^^^^^^^^
 
 Comma-separated list of all tables provided by this catalog. A table name
-can be unqualified (simple name) and will be put into the default schema
-(see below) or qualified with a schema name (``<schema-name>.<table-name>``).
+can be unqualified (simple name) and is placed into the default schema
+(see below), or qualified with a schema name (``<schema-name>.<table-name>``).
 
-For each table defined here, a table description file (see below) may
+For each table defined, a table description file (see below) may
 exist. If no table description file exists, the
-table will only contain internal columns (see below).
+table only contains internal columns (see below).
 
 This property is required; there is no default and at least one table must be
 defined.
@@ -87,7 +87,7 @@ Redis clusters are not supported.
 ``redis.scan-count``
 ^^^^^^^^^^^^^^^^^^^^
 
-The internal COUNT parameter for Redis SCAN command when connector is using
+The internal COUNT parameter for the Redis SCAN command when connector is using
 SCAN to find keys for the data. This parameter can be used to tune performance
 of the Redis connector.
 
@@ -96,8 +96,8 @@ This property is optional; the default is ``100``.
 ``redis.key-prefix-schema-table``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If true, only keys prefixed with the ``schema-name:table-name`` are be scanned
-for a table, and all other keys will be filtered out.  If false, all keys are
+If true, only keys prefixed with the ``schema-name:table-name`` are scanned
+for a table, and all other keys are filtered out.  If false, all keys are
 scanned.
 
 This property is optional; the default is ``false``.
@@ -114,7 +114,7 @@ This property is optional; the default is ``:``.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 References a folder within Presto deployment that holds one or more JSON
-files (must end with ``.json``) which contain table description files.
+files, which must end with ``.json`` and contain table description files.
 
 This property is optional; the default is ``etc/redis``.
 
@@ -123,7 +123,7 @@ This property is optional; the default is ``etc/redis``.
 
 In addition to the data columns defined in a table description file, the
 connector maintains a number of additional columns for each table. If
-these columns are hidden, they can still be used in queries but do not
+these columns are hidden, they can still be used in queries, but they do not
 show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is ``true``.
@@ -160,17 +160,17 @@ Column name             Type      Description
 ======================= ========= =============================
 
 For tables without a table definition file, the ``_key_corrupt`` and
-``_value_corrupt`` columns will always be ``false``.
+``_value_corrupt`` columns are ``false``.
 
 Table Definition Files
 ----------------------
 
 With the Redis connector it's possible to further reduce Redis key/value pairs into
 granular cells provided the key/value sting follow a particular format. This process
-will define new columns that can be further queried from Presto.
+defines new columns that can be further queried from Presto.
 
 A table definition file consists of a JSON definition for a table. The
-name of the file can be arbitrary but must end in ``.json``.
+name of the file can be arbitrary, but must end in ``.json``.
 
 .. code-block:: none
 

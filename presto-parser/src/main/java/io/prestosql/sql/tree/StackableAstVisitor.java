@@ -19,6 +19,7 @@ import java.util.Optional;
 public class StackableAstVisitor<R, C>
         extends AstVisitor<R, StackableAstVisitor.StackableAstVisitorContext<C>>
 {
+    @Override
     public R process(Node node, StackableAstVisitorContext<C> context)
     {
         context.push(node);

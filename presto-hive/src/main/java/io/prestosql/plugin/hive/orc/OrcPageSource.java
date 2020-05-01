@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -28,16 +29,15 @@ import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.lang.String.format;
@@ -46,17 +46,11 @@ import static java.util.Objects.requireNonNull;
 public class OrcPageSource
         implements ConnectorPageSource
 {
-    private static final int NULL_ENTRY_SIZE = 0;
     private final OrcRecordReader recordReader;
+    private final List<ColumnAdaptation> columnAdaptations;
     private final OrcDataSource orcDataSource;
+    private final Optional<OrcDeletedRows> deletedRows;
 
-    private final List<String> columnNames;
-    private final List<Type> types;
-
-    private final Block[] constantBlocks;
-    private final int[] hiveColumnIndexes;
-
-    private int batchId;
     private boolean closed;
 
     private final AggregatedMemoryContext systemMemoryContext;
@@ -65,43 +59,17 @@ public class OrcPageSource
 
     public OrcPageSource(
             OrcRecordReader recordReader,
+            List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
-            List<HiveColumnHandle> columns,
-            TypeManager typeManager,
+            Optional<OrcDeletedRows> deletedRows,
             AggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
+        this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
-
-        int size = requireNonNull(columns, "columns is null").size();
-
+        this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
         this.stats = requireNonNull(stats, "stats is null");
-
-        this.constantBlocks = new Block[size];
-        this.hiveColumnIndexes = new int[size];
-
-        ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
-        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-            HiveColumnHandle column = columns.get(columnIndex);
-            checkState(column.getColumnType() == REGULAR, "column type must be regular");
-
-            String name = column.getName();
-            Type type = typeManager.getType(column.getTypeSignature());
-
-            namesBuilder.add(name);
-            typesBuilder.add(type);
-
-            hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
-
-            if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
-                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_BATCH_SIZE);
-            }
-        }
-        types = typesBuilder.build();
-        columnNames = namesBuilder.build();
-
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
@@ -126,37 +94,39 @@ public class OrcPageSource
     @Override
     public Page getNextPage()
     {
+        Page page;
         try {
-            batchId++;
-            int batchSize = recordReader.nextBatch();
-            if (batchSize <= 0) {
-                close();
-                return null;
-            }
-
-            Block[] blocks = new Block[hiveColumnIndexes.length];
-            for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
-                }
-                else {
-                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
-                }
-            }
-            return new Page(batchSize, blocks);
-        }
-        catch (PrestoException e) {
-            closeWithSuppression(e);
-            throw e;
-        }
-        catch (OrcCorruptionException e) {
-            closeWithSuppression(e);
-            throw new PrestoException(HIVE_BAD_DATA, e);
+            page = recordReader.nextPage();
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", orcDataSource.getId()), e);
+            throw handleException(orcDataSource.getId(), e);
         }
+
+        if (page == null) {
+            close();
+            return null;
+        }
+
+        MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
+                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page))
+                .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
+        Block[] blocks = new Block[columnAdaptations.size()];
+        for (int i = 0; i < columnAdaptations.size(); i++) {
+            blocks[i] = columnAdaptations.get(i).block(page, maskDeletedRowsFunction);
+        }
+        return new Page(maskDeletedRowsFunction.getPositionCount(), blocks);
+    }
+
+    static PrestoException handleException(OrcDataSourceId dataSourceId, Exception exception)
+    {
+        if (exception instanceof PrestoException) {
+            return (PrestoException) exception;
+        }
+        if (exception instanceof OrcCorruptionException) {
+            return new PrestoException(HIVE_BAD_DATA, exception);
+        }
+        return new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
     }
 
     @Override
@@ -181,8 +151,8 @@ public class OrcPageSource
     public String toString()
     {
         return toStringHelper(this)
-                .add("columnNames", columnNames)
-                .add("types", types)
+                .add("orcDataSource", orcDataSource.getId())
+                .add("columns", columnAdaptations)
                 .toString();
     }
 
@@ -192,7 +162,7 @@ public class OrcPageSource
         return systemMemoryContext.getBytes();
     }
 
-    protected void closeWithSuppression(Throwable throwable)
+    private void closeWithSuppression(Throwable throwable)
     {
         requireNonNull(throwable, "throwable is null");
         try {
@@ -206,39 +176,100 @@ public class OrcPageSource
         }
     }
 
-    private final class OrcBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+    public interface ColumnAdaptation
     {
-        private final int expectedBatchId = batchId;
-        private final int columnIndex;
-        private boolean loaded;
+        Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction);
 
-        public OrcBlockLoader(int columnIndex)
+        static ColumnAdaptation nullColumn(Type type)
         {
-            this.columnIndex = columnIndex;
+            return new NullColumn(type);
+        }
+
+        static ColumnAdaptation sourceColumn(int index)
+        {
+            return new SourceColumn(index);
+        }
+    }
+
+    private static class NullColumn
+            implements ColumnAdaptation
+    {
+        private final Type type;
+        private final Block nullBlock;
+
+        public NullColumn(Type type)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.nullBlock = type.createBlockBuilder(null, 1, 0)
+                    .appendNull()
+                    .build();
         }
 
         @Override
-        public final void load(LazyBlock lazyBlock)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction)
         {
-            if (loaded) {
-                return;
+            return new RunLengthEncodedBlock(nullBlock, maskDeletedRowsFunction.getPositionCount());
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("type", type)
+                    .toString();
+        }
+    }
+
+    private static class SourceColumn
+            implements ColumnAdaptation
+    {
+        private final int index;
+
+        public SourceColumn(int index)
+        {
+            checkArgument(index >= 0, "index is negative");
+            this.index = index;
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction)
+        {
+            Block block = sourcePage.getBlock(index);
+            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, block));
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("index", index)
+                    .toString();
+        }
+
+        private static final class MaskingBlockLoader
+                implements LazyBlockLoader
+        {
+            private MaskDeletedRowsFunction maskDeletedRowsFunction;
+            private Block sourceBlock;
+
+            public MaskingBlockLoader(MaskDeletedRowsFunction maskDeletedRowsFunction, Block sourceBlock)
+            {
+                this.maskDeletedRowsFunction = requireNonNull(maskDeletedRowsFunction, "maskDeletedRowsFunction is null");
+                this.sourceBlock = requireNonNull(sourceBlock, "sourceBlock is null");
             }
 
-            checkState(batchId == expectedBatchId);
+            @Override
+            public Block load()
+            {
+                checkState(maskDeletedRowsFunction != null, "Already loaded");
 
-            try {
-                Block block = recordReader.readBlock(columnIndex);
-                lazyBlock.setBlock(block);
-            }
-            catch (OrcCorruptionException e) {
-                throw new PrestoException(HIVE_BAD_DATA, e);
-            }
-            catch (IOException | RuntimeException e) {
-                throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", orcDataSource.getId()), e);
-            }
+                Block resultBlock = maskDeletedRowsFunction.apply(sourceBlock.getLoadedBlock());
 
-            loaded = true;
+                maskDeletedRowsFunction = null;
+                sourceBlock = null;
+
+                return resultBlock;
+            }
         }
     }
 }

@@ -56,14 +56,13 @@ public class TestJdbcResultSet
 
     @BeforeClass
     public void setupServer()
-            throws Exception
     {
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
     }
 
     @AfterClass(alwaysRun = true)
-    public void teardownServer()
+    public void tearDownServer()
     {
         closeQuietly(server);
     }
@@ -135,7 +134,7 @@ public class TestJdbcResultSet
             assertThrows(() -> rs.getTimestamp(column));
         });
 
-        // TODO https://github.com/prestodb/presto/issues/7122
+        // TODO https://github.com/prestosql/presto/issues/37
         // TODO line 1:8: '00:39:05' is not a valid time literal
 //        checkRepresentation("TIME '00:39:05'", Types.TIME, (rs, column) -> {
 //            ...
@@ -179,7 +178,7 @@ public class TestJdbcResultSet
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
         });
 
-        // TODO https://github.com/prestodb/presto/issues/7122
+        // TODO https://github.com/prestosql/presto/issues/37
         // TODO line 1:8: '1970-01-01 00:14:15.123' is not a valid timestamp literal; the expected values will pro
 //        checkRepresentation("TIMESTAMP '1970-01-01 00:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
 //            ...

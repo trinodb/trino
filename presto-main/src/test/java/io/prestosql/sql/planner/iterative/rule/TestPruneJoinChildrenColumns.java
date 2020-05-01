@@ -39,7 +39,7 @@ public class TestPruneJoinChildrenColumns
         extends BaseRuleTest
 {
     @Test
-    public void testNotAllInputsRereferenced()
+    public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, symbol -> symbol.getName().equals("leftValue")))
@@ -65,9 +65,9 @@ public class TestPruneJoinChildrenColumns
     }
 
     @Test
-    public void testCrossJoinDoesNotFire()
+    public void testCrossJoin()
     {
-        tester().assertThat(new PruneJoinColumns())
+        tester().assertThat(new PruneJoinChildrenColumns())
                 .on(p -> {
                     Symbol leftValue = p.symbol("leftValue");
                     Symbol rightValue = p.symbol("rightValue");
@@ -76,12 +76,21 @@ public class TestPruneJoinChildrenColumns
                             p.values(leftValue),
                             p.values(rightValue),
                             ImmutableList.of(),
-                            ImmutableList.of(leftValue, rightValue),
+                            ImmutableList.of(leftValue),
+                            ImmutableList.of(),
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
                 })
-                .doesNotFire();
+                .matches(
+                        join(
+                                JoinNode.Type.INNER,
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                values("leftValue"),
+                                strictProject(
+                                        ImmutableMap.of(),
+                                        values("rightValue"))));
     }
 
     private static PlanNode buildJoin(PlanBuilder p, Predicate<Symbol> joinOutputFilter)
@@ -92,13 +101,17 @@ public class TestPruneJoinChildrenColumns
         Symbol rightKey = p.symbol("rightKey");
         Symbol rightKeyHash = p.symbol("rightKeyHash");
         Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
+        List<Symbol> leftOutputs = ImmutableList.of(leftValue);
+        List<Symbol> rightOutputs = ImmutableList.of(rightValue);
         return p.join(
                 JoinNode.Type.INNER,
                 p.values(leftKey, leftKeyHash, leftValue),
                 p.values(rightKey, rightKeyHash, rightValue),
                 ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
-                outputs.stream()
+                leftOutputs.stream()
+                        .filter(joinOutputFilter)
+                        .collect(toImmutableList()),
+                rightOutputs.stream()
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
                 Optional.of(expression("leftValue > 5")),

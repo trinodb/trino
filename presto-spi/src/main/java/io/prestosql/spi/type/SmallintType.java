@@ -24,7 +24,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
 import static java.lang.String.format;
 
@@ -36,7 +35,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(parseTypeSignature(StandardTypes.SMALLINT), long.class);
+        super(new TypeSignature(StandardTypes.SMALLINT), long.class);
     }
 
     @Override

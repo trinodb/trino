@@ -21,6 +21,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -151,14 +152,24 @@ public final class Decimals
 
     public static long encodeShortScaledValue(BigDecimal value, int scale)
     {
+        return encodeShortScaledValue(value, scale, UNNECESSARY);
+    }
+
+    public static long encodeShortScaledValue(BigDecimal value, int scale, RoundingMode roundingMode)
+    {
         checkArgument(scale >= 0);
-        return value.setScale(scale, UNNECESSARY).unscaledValue().longValueExact();
+        return value.setScale(scale, roundingMode).unscaledValue().longValueExact();
     }
 
     public static Slice encodeScaledValue(BigDecimal value, int scale)
     {
+        return encodeScaledValue(value, scale, UNNECESSARY);
+    }
+
+    public static Slice encodeScaledValue(BigDecimal value, int scale, RoundingMode roundingMode)
+    {
         checkArgument(scale >= 0);
-        return encodeScaledValue(value.setScale(scale, UNNECESSARY));
+        return encodeScaledValue(value.setScale(scale, roundingMode));
     }
 
     /**

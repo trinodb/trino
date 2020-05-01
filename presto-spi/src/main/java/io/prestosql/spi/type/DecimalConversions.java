@@ -229,6 +229,10 @@ public final class DecimalConversions
             long resultPrecision,
             long resultScale)
     {
+        if (sourcePrecision == resultPrecision && sourceScale == resultScale) {
+            return value;
+        }
+
         try {
             Slice result = rescale(value, (int) (resultScale - sourceScale));
             if (UnscaledDecimal128Arithmetic.overflows(result, (int) resultPrecision)) {

@@ -14,7 +14,6 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -23,6 +22,7 @@ import io.prestosql.orc.OrcTester.Format;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.StripeInformation;
 import io.prestosql.orc.stream.OrcDataReader;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -53,6 +53,7 @@ import static io.prestosql.orc.OrcRecordReader.LinearProbeRangeFinder.createTiny
 import static io.prestosql.orc.OrcRecordReader.wrapWithCacheIfTinyStripes;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.writeOrcFileColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.CompressionKind.ZLIB;
@@ -78,7 +79,6 @@ public class TestCachingOrcDataSource
         Iterator<String> iterator = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).iterator();
         writeOrcFileColumnHive(
                 tempFile.getFile(),
-                ORC_12,
                 createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector),
                 VARCHAR,
                 iterator);
@@ -94,8 +94,8 @@ public class TestCachingOrcDataSource
     @Test
     public void testWrapWithCacheIfTinyStripes()
     {
-        DataSize maxMergeDistance = new DataSize(1, Unit.MEGABYTE);
-        DataSize tinyStripeThreshold = new DataSize(8, Unit.MEGABYTE);
+        DataSize maxMergeDistance = DataSize.of(1, Unit.MEGABYTE);
+        DataSize tinyStripeThreshold = DataSize.of(8, Unit.MEGABYTE);
 
         OrcDataSource actual = wrapWithCacheIfTinyStripes(
                 FakeOrcDataSource.INSTANCE,
@@ -137,8 +137,8 @@ public class TestCachingOrcDataSource
     public void testTinyStripesReadCacheAt()
             throws IOException
     {
-        DataSize maxMergeDistance = new DataSize(1, Unit.MEGABYTE);
-        DataSize tinyStripeThreshold = new DataSize(8, Unit.MEGABYTE);
+        DataSize maxMergeDistance = DataSize.of(1, Unit.MEGABYTE);
+        DataSize tinyStripeThreshold = DataSize.of(8, Unit.MEGABYTE);
 
         TestingOrcDataSource testingOrcDataSource = new TestingOrcDataSource(FakeOrcDataSource.INSTANCE);
         CachingOrcDataSource cachingOrcDataSource = new CachingOrcDataSource(
@@ -182,22 +182,24 @@ public class TestCachingOrcDataSource
             throws IOException
     {
         // tiny file
-        TestingOrcDataSource orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
-        doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
+        TestingOrcDataSource orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
+        doIntegration(orcDataSource, DataSize.of(1, Unit.MEGABYTE), DataSize.of(1, Unit.MEGABYTE));
         assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
 
         // tiny stripes
-        orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
-        doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
+        orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
+        doIntegration(orcDataSource, DataSize.of(400, Unit.KILOBYTE), DataSize.of(400, Unit.KILOBYTE));
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
     }
 
     private void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(orcDataSource, maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE));
+        OrcReaderOptions options = new OrcReaderOptions()
+                .withMaxMergeDistance(maxMergeDistance)
+                .withTinyStripeThreshold(tinyStripeThreshold)
+                .withMaxReadBlockSize(DataSize.of(1, Unit.MEGABYTE));
+        OrcReader orcReader = new OrcReader(orcDataSource, options);
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
@@ -207,18 +209,21 @@ public class TestCachingOrcDataSource
         assertInstanceOf(wrapWithCacheIfTinyStripes(orcDataSource, stripes, maxMergeDistance, tinyStripeThreshold), CachingOrcDataSource.class);
 
         OrcRecordReader orcRecordReader = orcReader.createRecordReader(
-                ImmutableMap.of(0, VARCHAR),
+                orcReader.getRootColumn().getNestedColumns(),
+                ImmutableList.of(VARCHAR),
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                RuntimeException::new);
         int positionCount = 0;
         while (true) {
-            int batchSize = orcRecordReader.nextBatch();
-            if (batchSize <= 0) {
+            Page page = orcRecordReader.nextPage();
+            if (page == null) {
                 break;
             }
-            Block block = orcRecordReader.readBlock(0);
+            page = page.getLoadedPage();
+            Block block = page.getBlock(0);
             positionCount += block.getPositionCount();
         }
         assertEquals(positionCount, POSITION_COUNT);

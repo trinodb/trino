@@ -16,8 +16,8 @@ package io.prestosql.plugin.raptor.legacy.metadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignature;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -86,7 +86,7 @@ public class Distribution
                 throws SQLException
         {
             List<Type> types = LIST_CODEC.fromJson(rs.getString("column_types")).stream()
-                    .map(TypeSignature::parseTypeSignature)
+                    .map(TypeId::of)
                     .map(typeManager::getType)
                     .collect(toImmutableList());
 
@@ -101,7 +101,7 @@ public class Distribution
     public static String serializeColumnTypes(List<Type> columnTypes)
     {
         return LIST_CODEC.toJson(columnTypes.stream()
-                .map(type -> type.getTypeSignature().toString())
+                .map(type -> type.getTypeId().getId())
                 .collect(toList()));
     }
 }

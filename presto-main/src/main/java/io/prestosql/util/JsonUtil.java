@@ -29,16 +29,27 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.SingleRowBlockWriter;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
+import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.type.BigintOperators;
 import io.prestosql.type.BooleanOperators;
 import io.prestosql.type.DoubleOperators;
+import io.prestosql.type.JsonType;
 import io.prestosql.type.UnknownType;
 import io.prestosql.type.VarcharOperators;
 
@@ -132,20 +143,19 @@ public final class JsonUtil
 
     public static boolean canCastToJson(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
-        if (baseType.equals(UnknownType.NAME) ||
-                baseType.equals(StandardTypes.BOOLEAN) ||
-                baseType.equals(StandardTypes.TINYINT) ||
-                baseType.equals(StandardTypes.SMALLINT) ||
-                baseType.equals(StandardTypes.INTEGER) ||
-                baseType.equals(StandardTypes.BIGINT) ||
-                baseType.equals(StandardTypes.REAL) ||
-                baseType.equals(StandardTypes.DOUBLE) ||
-                baseType.equals(StandardTypes.DECIMAL) ||
-                baseType.equals(StandardTypes.VARCHAR) ||
-                baseType.equals(StandardTypes.JSON) ||
-                baseType.equals(StandardTypes.TIMESTAMP) ||
-                baseType.equals(StandardTypes.DATE)) {
+        if (type instanceof UnknownType ||
+                type instanceof BooleanType ||
+                type instanceof TinyintType ||
+                type instanceof SmallintType ||
+                type instanceof IntegerType ||
+                type instanceof BigintType ||
+                type instanceof RealType ||
+                type instanceof DoubleType ||
+                type instanceof DecimalType ||
+                type instanceof VarcharType ||
+                type instanceof JsonType ||
+                type instanceof TimestampType ||
+                type instanceof DateType) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -153,7 +163,7 @@ public final class JsonUtil
         }
         if (type instanceof MapType) {
             MapType mapType = (MapType) type;
-            return (mapType.getKeyType().getTypeSignature().getBase().equals(UnknownType.NAME) ||
+            return (mapType.getKeyType() instanceof UnknownType ||
                     isValidJsonObjectKeyType(mapType.getKeyType())) &&
                     canCastToJson(mapType.getValueType());
         }
@@ -165,17 +175,16 @@ public final class JsonUtil
 
     public static boolean canCastFromJson(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
-        if (baseType.equals(StandardTypes.BOOLEAN) ||
-                baseType.equals(StandardTypes.TINYINT) ||
-                baseType.equals(StandardTypes.SMALLINT) ||
-                baseType.equals(StandardTypes.INTEGER) ||
-                baseType.equals(StandardTypes.BIGINT) ||
-                baseType.equals(StandardTypes.REAL) ||
-                baseType.equals(StandardTypes.DOUBLE) ||
-                baseType.equals(StandardTypes.VARCHAR) ||
-                baseType.equals(StandardTypes.DECIMAL) ||
-                baseType.equals(StandardTypes.JSON)) {
+        if (type instanceof BooleanType ||
+                type instanceof TinyintType ||
+                type instanceof SmallintType ||
+                type instanceof IntegerType ||
+                type instanceof BigintType ||
+                type instanceof RealType ||
+                type instanceof DoubleType ||
+                type instanceof DecimalType ||
+                type instanceof VarcharType ||
+                type instanceof JsonType) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -192,16 +201,15 @@ public final class JsonUtil
 
     private static boolean isValidJsonObjectKeyType(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
-        return baseType.equals(StandardTypes.BOOLEAN) ||
-                baseType.equals(StandardTypes.TINYINT) ||
-                baseType.equals(StandardTypes.SMALLINT) ||
-                baseType.equals(StandardTypes.INTEGER) ||
-                baseType.equals(StandardTypes.BIGINT) ||
-                baseType.equals(StandardTypes.REAL) ||
-                baseType.equals(StandardTypes.DOUBLE) ||
-                baseType.equals(StandardTypes.DECIMAL) ||
-                baseType.equals(StandardTypes.VARCHAR);
+        return type instanceof BooleanType ||
+                type instanceof TinyintType ||
+                type instanceof SmallintType ||
+                type instanceof IntegerType ||
+                type instanceof BigintType ||
+                type instanceof RealType ||
+                type instanceof DoubleType ||
+                type instanceof DecimalType ||
+                type instanceof VarcharType;
     }
 
     // transform the map key into string for use as JSON object key
@@ -211,36 +219,35 @@ public final class JsonUtil
 
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
-            String baseType = type.getTypeSignature().getBase();
-            switch (baseType) {
-                case UnknownType.NAME:
-                    return (block, position) -> null;
-                case StandardTypes.BOOLEAN:
-                    return (block, position) -> type.getBoolean(block, position) ? "true" : "false";
-                case StandardTypes.TINYINT:
-                case StandardTypes.SMALLINT:
-                case StandardTypes.INTEGER:
-                case StandardTypes.BIGINT:
-                    return (block, position) -> String.valueOf(type.getLong(block, position));
-                case StandardTypes.REAL:
-                    return (block, position) -> String.valueOf(intBitsToFloat((int) type.getLong(block, position)));
-                case StandardTypes.DOUBLE:
-                    return (block, position) -> String.valueOf(type.getDouble(block, position));
-                case StandardTypes.DECIMAL:
-                    DecimalType decimalType = (DecimalType) type;
-                    if (isShortDecimal(decimalType)) {
-                        return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
-                    }
-                    else {
-                        return (block, position) -> Decimals.toString(
-                                decodeUnscaledValue(type.getSlice(block, position)),
-                                decimalType.getScale());
-                    }
-                case StandardTypes.VARCHAR:
-                    return (block, position) -> type.getSlice(block, position).toStringUtf8();
-                default:
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            if (type instanceof UnknownType) {
+                return (block, position) -> null;
             }
+            if (type instanceof BooleanType) {
+                return (block, position) -> type.getBoolean(block, position) ? "true" : "false";
+            }
+            if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
+                return (block, position) -> String.valueOf(type.getLong(block, position));
+            }
+            if (type instanceof RealType) {
+                return (block, position) -> String.valueOf(intBitsToFloat(toIntExact(type.getLong(block, position))));
+            }
+            if (type instanceof DoubleType) {
+                return (block, position) -> String.valueOf(type.getDouble(block, position));
+            }
+            if (type instanceof DecimalType) {
+                DecimalType decimalType = (DecimalType) type;
+                if (isShortDecimal(decimalType)) {
+                    return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
+                }
+                return (block, position) -> Decimals.toString(
+                        decodeUnscaledValue(type.getSlice(block, position)),
+                        decimalType.getScale());
+            }
+            if (type instanceof VarcharType) {
+                return (block, position) -> type.getSlice(block, position).toStringUtf8();
+            }
+
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
         }
     }
 
@@ -253,57 +260,62 @@ public final class JsonUtil
 
         static JsonGeneratorWriter createJsonGeneratorWriter(Type type)
         {
-            String baseType = type.getTypeSignature().getBase();
-            switch (baseType) {
-                case UnknownType.NAME:
-                    return new UnknownJsonGeneratorWriter();
-                case StandardTypes.BOOLEAN:
-                    return new BooleanJsonGeneratorWriter();
-                case StandardTypes.TINYINT:
-                case StandardTypes.SMALLINT:
-                case StandardTypes.INTEGER:
-                case StandardTypes.BIGINT:
-                    return new LongJsonGeneratorWriter(type);
-                case StandardTypes.REAL:
-                    return new RealJsonGeneratorWriter();
-                case StandardTypes.DOUBLE:
-                    return new DoubleJsonGeneratorWriter();
-                case StandardTypes.DECIMAL:
-                    if (isShortDecimal(type)) {
-                        return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
-                    }
-                    else {
-                        return new LongDeicmalJsonGeneratorWriter((DecimalType) type);
-                    }
-                case StandardTypes.VARCHAR:
-                    return new VarcharJsonGeneratorWriter(type);
-                case StandardTypes.JSON:
-                    return new JsonJsonGeneratorWriter();
-                case StandardTypes.TIMESTAMP:
-                    return new TimestampJsonGeneratorWriter();
-                case StandardTypes.DATE:
-                    return new DateGeneratorWriter();
-                case StandardTypes.ARRAY:
-                    ArrayType arrayType = (ArrayType) type;
-                    return new ArrayJsonGeneratorWriter(
-                            arrayType,
-                            createJsonGeneratorWriter(arrayType.getElementType()));
-                case StandardTypes.MAP:
-                    MapType mapType = (MapType) type;
-                    return new MapJsonGeneratorWriter(
-                            mapType,
-                            createObjectKeyProvider(mapType.getKeyType()),
-                            createJsonGeneratorWriter(mapType.getValueType()));
-                case StandardTypes.ROW:
-                    List<Type> fieldTypes = type.getTypeParameters();
-                    List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
-                    for (int i = 0; i < fieldTypes.size(); i++) {
-                        fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
-                    }
-                    return new RowJsonGeneratorWriter((RowType) type, fieldWriters);
-                default:
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            if (type instanceof UnknownType) {
+                return new UnknownJsonGeneratorWriter();
             }
+            if (type instanceof BooleanType) {
+                return new BooleanJsonGeneratorWriter();
+            }
+            if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
+                return new LongJsonGeneratorWriter(type);
+            }
+            if (type instanceof RealType) {
+                return new RealJsonGeneratorWriter();
+            }
+            if (type instanceof DoubleType) {
+                return new DoubleJsonGeneratorWriter();
+            }
+            if (type instanceof DecimalType) {
+                if (isShortDecimal(type)) {
+                    return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
+                }
+                return new LongDeicmalJsonGeneratorWriter((DecimalType) type);
+            }
+            if (type instanceof VarcharType) {
+                return new VarcharJsonGeneratorWriter(type);
+            }
+            if (type instanceof JsonType) {
+                return new JsonJsonGeneratorWriter();
+            }
+            if (type instanceof TimestampType) {
+                return new TimestampJsonGeneratorWriter();
+            }
+            if (type instanceof DateType) {
+                return new DateGeneratorWriter();
+            }
+            if (type instanceof ArrayType) {
+                ArrayType arrayType = (ArrayType) type;
+                return new ArrayJsonGeneratorWriter(
+                        arrayType,
+                        createJsonGeneratorWriter(arrayType.getElementType()));
+            }
+            if (type instanceof MapType) {
+                MapType mapType = (MapType) type;
+                return new MapJsonGeneratorWriter(
+                        mapType,
+                        createObjectKeyProvider(mapType.getKeyType()),
+                        createJsonGeneratorWriter(mapType.getValueType()));
+            }
+            if (type instanceof RowType) {
+                List<Type> fieldTypes = type.getTypeParameters();
+                List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
+                for (int i = 0; i < fieldTypes.size(); i++) {
+                    fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
+                }
+                return new RowJsonGeneratorWriter((RowType) type, fieldWriters);
+            }
+
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
         }
     }
 
@@ -370,7 +382,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                float value = intBitsToFloat((int) REAL.getLong(block, position));
+                float value = intBitsToFloat(toIntExact(REAL.getLong(block, position)));
                 jsonGenerator.writeNumber(value);
             }
         }
@@ -512,8 +524,8 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                long value = DATE.getLong(block, position);
-                jsonGenerator.writeString(printDate((int) value));
+                int value = toIntExact(DATE.getLong(block, position));
+                jsonGenerator.writeString(printDate(value));
             }
         }
     }
@@ -864,55 +876,64 @@ public final class JsonUtil
 
         static BlockBuilderAppender createBlockBuilderAppender(Type type)
         {
-            String baseType = type.getTypeSignature().getBase();
-            switch (baseType) {
-                case StandardTypes.BOOLEAN:
-                    return new BooleanBlockBuilderAppender();
-                case StandardTypes.TINYINT:
-                    return new TinyintBlockBuilderAppender();
-                case StandardTypes.SMALLINT:
-                    return new SmallintBlockBuilderAppender();
-                case StandardTypes.INTEGER:
-                    return new IntegerBlockBuilderAppender();
-                case StandardTypes.BIGINT:
-                    return new BigintBlockBuilderAppender();
-                case StandardTypes.REAL:
-                    return new RealBlockBuilderAppender();
-                case StandardTypes.DOUBLE:
-                    return new DoubleBlockBuilderAppender();
-                case StandardTypes.DECIMAL:
-                    if (isShortDecimal(type)) {
-                        return new ShortDecimalBlockBuilderAppender((DecimalType) type);
-                    }
-                    else {
-                        return new LongDecimalBlockBuilderAppender((DecimalType) type);
-                    }
-                case StandardTypes.VARCHAR:
-                    return new VarcharBlockBuilderAppender(type);
-                case StandardTypes.JSON:
-                    return (parser, blockBuilder) -> {
-                        String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
-                        JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
-                    };
-                case StandardTypes.ARRAY:
-                    return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
-                case StandardTypes.MAP:
-                    MapType mapType = (MapType) type;
-                    return new MapBlockBuilderAppender(
-                            createBlockBuilderAppender(mapType.getKeyType()),
-                            createBlockBuilderAppender(mapType.getValueType()),
-                            mapType.getKeyType());
-                case StandardTypes.ROW:
-                    RowType rowType = (RowType) type;
-                    List<Field> rowFields = rowType.getFields();
-                    BlockBuilderAppender[] fieldAppenders = new BlockBuilderAppender[rowFields.size()];
-                    for (int i = 0; i < fieldAppenders.length; i++) {
-                        fieldAppenders[i] = createBlockBuilderAppender(rowFields.get(i).getType());
-                    }
-                    return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
-                default:
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            if (type instanceof BooleanType) {
+                return new BooleanBlockBuilderAppender();
             }
+            if (type instanceof TinyintType) {
+                return new TinyintBlockBuilderAppender();
+            }
+            if (type instanceof SmallintType) {
+                return new SmallintBlockBuilderAppender();
+            }
+            if (type instanceof IntegerType) {
+                return new IntegerBlockBuilderAppender();
+            }
+            if (type instanceof BigintType) {
+                return new BigintBlockBuilderAppender();
+            }
+            if (type instanceof RealType) {
+                return new RealBlockBuilderAppender();
+            }
+            if (type instanceof DoubleType) {
+                return new DoubleBlockBuilderAppender();
+            }
+            if (type instanceof DecimalType) {
+                if (isShortDecimal(type)) {
+                    return new ShortDecimalBlockBuilderAppender((DecimalType) type);
+                }
+
+                return new LongDecimalBlockBuilderAppender((DecimalType) type);
+            }
+            if (type instanceof VarcharType) {
+                return new VarcharBlockBuilderAppender(type);
+            }
+            if (type instanceof JsonType) {
+                return (parser, blockBuilder) -> {
+                    String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
+                    JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
+                };
+            }
+            if (type instanceof ArrayType) {
+                return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
+            }
+            if (type instanceof MapType) {
+                MapType mapType = (MapType) type;
+                return new MapBlockBuilderAppender(
+                        createBlockBuilderAppender(mapType.getKeyType()),
+                        createBlockBuilderAppender(mapType.getValueType()),
+                        mapType.getKeyType());
+            }
+            if (type instanceof RowType) {
+                RowType rowType = (RowType) type;
+                List<Field> rowFields = rowType.getFields();
+                BlockBuilderAppender[] fieldAppenders = new BlockBuilderAppender[rowFields.size()];
+                for (int i = 0; i < fieldAppenders.length; i++) {
+                    fieldAppenders[i] = createBlockBuilderAppender(rowFields.get(i).getType());
+                }
+                return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
+            }
+
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
         }
     }
 

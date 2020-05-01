@@ -13,17 +13,15 @@
  */
 package io.prestosql.plugin.iceberg;
 
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitSource;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
@@ -38,12 +36,14 @@ public class IcebergSplitManager
 {
     private final IcebergTransactionManager transactionManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final TypeManager typeManager;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment, TypeManager typeManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -52,14 +52,13 @@ public class IcebergSplitManager
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
         HiveMetastore metastore = transactionManager.get(transaction).getMetastore();
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, table.getSchemaName()), new Path("file:///tmp"));
-        Table icebergTable = getIcebergTable(table.getSchemaName(), table.getTableName(), configuration, metastore);
+        Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
 
         TableScan tableScan = getTableScan(session, table.getPredicate(), table.getSnapshotId(), icebergTable);
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks(), table.getPredicate(), icebergTable.schema());
+        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks(), table.getPredicate());
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

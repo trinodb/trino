@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.optimizations.joins;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.GroupReference;
@@ -36,6 +37,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static java.util.Objects.requireNonNull;
@@ -56,9 +58,9 @@ public class JoinGraph
     /**
      * Builds {@link JoinGraph} containing {@code plan} node.
      */
-    public static JoinGraph buildFrom(PlanNode plan, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
+    public static JoinGraph buildFrom(Metadata metadata, PlanNode plan, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
     {
-        return plan.accept(new Builder(lookup, planNodeIdAllocator), new Context());
+        return plan.accept(new Builder(metadata, lookup, planNodeIdAllocator), new Context());
     }
 
     public JoinGraph(PlanNode node)
@@ -190,11 +192,13 @@ public class JoinGraph
     private static class Builder
             extends PlanVisitor<JoinGraph, Context>
     {
+        private final Metadata metadata;
         private final Lookup lookup;
         private final PlanNodeIdAllocator planNodeIdAllocator;
 
-        private Builder(Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
+        private Builder(Metadata metadata, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
         {
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.lookup = requireNonNull(lookup, "lookup cannot be null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
         }
@@ -237,7 +241,7 @@ public class JoinGraph
         @Override
         public JoinGraph visitProject(ProjectNode node, Context context)
         {
-            Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(node, lookup, planNodeIdAllocator);
+            Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(metadata, node, lookup, planNodeIdAllocator);
             if (rewrittenNode.isPresent()) {
                 return rewrittenNode.get().accept(this, context);
             }
@@ -250,15 +254,10 @@ public class JoinGraph
         {
             PlanNode dereferenced = lookup.resolve(node);
             JoinGraph graph = dereferenced.accept(this, context);
-            if (isTrivialGraph(graph)) {
-                return replacementGraph(dereferenced, node, context);
+            if (graph.nodes.size() == 1) {
+                return replacementGraph(getOnlyElement(graph.nodes), node, context);
             }
             return graph;
-        }
-
-        private boolean isTrivialGraph(JoinGraph graph)
-        {
-            return graph.nodes.size() < 2 && graph.edges.isEmpty() && graph.filters.isEmpty();
         }
 
         private JoinGraph replacementGraph(PlanNode oldNode, PlanNode newNode, Context context)

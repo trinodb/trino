@@ -156,7 +156,8 @@ public final class HttpRemoteTask
 
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
-    public HttpRemoteTask(Session session,
+    public HttpRemoteTask(
+            Session session,
             TaskId taskId,
             String nodeId,
             URI location,

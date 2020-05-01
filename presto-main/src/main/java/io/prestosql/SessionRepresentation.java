@@ -42,6 +42,7 @@ public final class SessionRepresentation
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final String user;
+    private final Set<String> groups;
     private final Optional<String> principal;
     private final Optional<String> source;
     private final Optional<String> catalog;
@@ -69,6 +70,7 @@ public final class SessionRepresentation
             @JsonProperty("transactionId") Optional<TransactionId> transactionId,
             @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
+            @JsonProperty("groups") Set<String> groups,
             @JsonProperty("principal") Optional<String> principal,
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
@@ -94,6 +96,7 @@ public final class SessionRepresentation
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
+        this.groups = requireNonNull(groups, "groups is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -148,6 +151,12 @@ public final class SessionRepresentation
     public String getUser()
     {
         return user;
+    }
+
+    @JsonProperty
+    public Set<String> getGroups()
+    {
+        return groups;
     }
 
     @JsonProperty
@@ -281,7 +290,12 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, principal.map(BasicPrincipal::new), roles, extraCredentials),
+                Identity.forUser(user)
+                        .withGroups(groups)
+                        .withPrincipal(principal.map(BasicPrincipal::new))
+                        .withRoles(roles)
+                        .withExtraCredentials(extraCredentials)
+                        .build(),
                 source,
                 catalog,
                 schema,

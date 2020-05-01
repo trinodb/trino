@@ -43,9 +43,4 @@ public interface DataDefinitionTask<T extends Statement>
 
         return builder.toString();
     }
-
-    default boolean isTransactionControl()
-    {
-        return false;
-    }
 }

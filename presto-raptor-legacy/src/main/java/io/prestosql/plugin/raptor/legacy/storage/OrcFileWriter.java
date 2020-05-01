@@ -25,7 +25,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
@@ -55,11 +55,11 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
-import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.prestosql.plugin.raptor.legacy.storage.Row.extractRow;
@@ -92,7 +92,7 @@ public class OrcFileWriter
         }
     }
 
-    private static final Configuration CONFIGURATION = new Configuration();
+    private static final Configuration CONFIGURATION = new Configuration(false);
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
@@ -122,7 +122,9 @@ public class OrcFileWriter
 
         List<StorageType> storageTypes = ImmutableList.copyOf(toStorageTypes(columnTypes));
         Iterable<String> hiveTypeNames = storageTypes.stream().map(StorageType::getHiveTypeName).collect(toList());
-        List<String> columnNames = ImmutableList.copyOf(transform(columnIds, toStringFunction()));
+        List<String> columnNames = columnIds.stream()
+                .map(Objects::toString)
+                .collect(toImmutableList());
 
         Properties properties = new Properties();
         properties.setProperty(IOConstants.COLUMNS, Joiner.on(',').join(columnNames));
@@ -234,9 +236,9 @@ public class OrcFileWriter
             @Override
             public void preFooterWrite(OrcFile.WriterContext context)
             {
-                ImmutableMap.Builder<Long, TypeSignature> columnTypesMap = ImmutableMap.builder();
+                ImmutableMap.Builder<Long, TypeId> columnTypesMap = ImmutableMap.builder();
                 for (int i = 0; i < columnIds.size(); i++) {
-                    columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeSignature());
+                    columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeId());
                 }
                 byte[] bytes = METADATA_CODEC.toJsonBytes(new OrcFileMetadata(columnTypesMap.build()));
                 context.getWriter().addUserMetadata(OrcFileMetadata.KEY, ByteBuffer.wrap(bytes));

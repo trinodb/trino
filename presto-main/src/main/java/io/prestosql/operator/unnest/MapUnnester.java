@@ -43,15 +43,17 @@ class MapUnnester
         int mapLength = columnarMap.getEntryCount(getCurrentPosition());
         int startingOffset = columnarMap.getOffset(getCurrentPosition());
 
-        // Append elements and nulls for keys Block
+        // Append elements and nulls
         getBlockBuilder(0).appendRange(startingOffset, mapLength);
-        for (int i = 0; i < requiredOutputCount - mapLength; i++) {
-            getBlockBuilder(0).appendNull();
-        }
-
-        // Append elements and nulls for values Block
         getBlockBuilder(1).appendRange(startingOffset, mapLength);
-        for (int i = 0; i < requiredOutputCount - mapLength; i++) {
+        appendNulls(requiredOutputCount - mapLength);
+    }
+
+    @Override
+    protected void appendNulls(int count)
+    {
+        for (int i = 0; i < count; i++) {
+            getBlockBuilder(0).appendNull();
             getBlockBuilder(1).appendNull();
         }
     }

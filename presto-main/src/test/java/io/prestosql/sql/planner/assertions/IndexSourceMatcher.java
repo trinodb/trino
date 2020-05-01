@@ -13,41 +13,27 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableMetadata;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.PlanNode;
-
-import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
-import static io.prestosql.sql.planner.assertions.Util.domainsMatch;
 import static java.util.Objects.requireNonNull;
 
 final class IndexSourceMatcher
         implements Matcher
 {
     private final String expectedTableName;
-    private final Optional<Map<String, Domain>> expectedConstraint;
 
     public IndexSourceMatcher(String expectedTableName)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
-        expectedConstraint = Optional.empty();
-    }
-
-    public IndexSourceMatcher(String expectedTableName, Map<String, Domain> expectedConstraint)
-    {
-        this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
-        this.expectedConstraint = Optional.of(ImmutableMap.copyOf(expectedConstraint));
     }
 
     @Override
@@ -69,16 +55,6 @@ final class IndexSourceMatcher
             return NO_MATCH;
         }
 
-        if (expectedConstraint.isPresent() &&
-                !domainsMatch(
-                        expectedConstraint,
-                        indexSourceNode.getCurrentConstraint(),
-                        indexSourceNode.getTableHandle(),
-                        session,
-                        metadata)) {
-            return NO_MATCH;
-        }
-
         return match();
     }
 
@@ -88,7 +64,6 @@ final class IndexSourceMatcher
         return toStringHelper(this)
                 .omitNullValues()
                 .add("expectedTableName", expectedTableName)
-                .add("expectedConstraint", expectedConstraint.orElse(null))
                 .toString();
     }
 }

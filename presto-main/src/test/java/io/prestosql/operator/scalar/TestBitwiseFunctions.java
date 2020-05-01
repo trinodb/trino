@@ -38,15 +38,15 @@ public class TestBitwiseFunctions
         assertFunction("bit_count(-8, 32)", BIGINT, 29L);
         assertFunction("bit_count(" + Integer.MAX_VALUE + ", 32)", BIGINT, 31L);
         assertFunction("bit_count(" + Integer.MIN_VALUE + ", 32)", BIGINT, 1L);
-        assertInvalidFunction("bit_count(" + (Integer.MAX_VALUE + 1L) + ", 32)", "Number must be representable with the bits specified. 2147483648 can not be represented with 32 bits");
-        assertInvalidFunction("bit_count(" + (Integer.MIN_VALUE - 1L) + ", 32)", "Number must be representable with the bits specified. -2147483649 can not be represented with 32 bits");
+        assertInvalidFunction("bit_count(" + (Integer.MAX_VALUE + 1L) + ", 32)", "Number must be representable with the bits specified. 2147483648 cannot be represented with 32 bits");
+        assertInvalidFunction("bit_count(" + (Integer.MIN_VALUE - 1L) + ", 32)", "Number must be representable with the bits specified. -2147483649 cannot be represented with 32 bits");
 
         assertFunction("bit_count(1152921504598458367, 62)", BIGINT, 59L);
         assertFunction("bit_count(-1, 62)", BIGINT, 62L);
         assertFunction("bit_count(33554132, 26)", BIGINT, 20L);
         assertFunction("bit_count(-1, 26)", BIGINT, 26L);
-        assertInvalidFunction("bit_count(1152921504598458367, 60)", "Number must be representable with the bits specified. 1152921504598458367 can not be represented with 60 bits");
-        assertInvalidFunction("bit_count(33554132, 25)", "Number must be representable with the bits specified. 33554132 can not be represented with 25 bits");
+        assertInvalidFunction("bit_count(1152921504598458367, 60)", "Number must be representable with the bits specified. 1152921504598458367 cannot be represented with 60 bits");
+        assertInvalidFunction("bit_count(33554132, 25)", "Number must be representable with the bits specified. 33554132 cannot be represented with 25 bits");
 
         assertInvalidFunction("bit_count(0, -1)", "Bits specified in bit_count must be between 2 and 64, got -1");
         assertInvalidFunction("bit_count(0, 1)", "Bits specified in bit_count must be between 2 and 64, got 1");

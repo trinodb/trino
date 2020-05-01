@@ -56,8 +56,8 @@ public class MapType
             MethodHandle keyBlockHashCode)
     {
         super(new TypeSignature(StandardTypes.MAP,
-                        TypeSignatureParameter.of(keyType.getTypeSignature()),
-                        TypeSignatureParameter.of(valueType.getTypeSignature())),
+                        TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                        TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
                 Block.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));

@@ -108,6 +108,13 @@ pre {
     padding-bottom: 7px;
 }
 
+.btn-logout {
+    background-color: #19874E;
+    /*border-color: #8c7253;*/
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
 .dropdown-menu > li > .selected {
     font-weight: 500;
     color: #fff;
@@ -178,8 +185,8 @@ pre {
 }
 
 .navbar img {
-    width: 40px;
-    height: auto;
+    width: auto;
+    height: 57px;
     padding-top: 17px;
 }
 
@@ -815,4 +822,19 @@ g .operator-stats:hover {
 
 .stack-traces {
     font-size: 11px;
+}
+
+.reactable-header-sortable::after {
+    font-size: 0.6em;
+    margin-left: 0.5em;
+}
+
+.reactable-header-sort-asc::after {
+    font-family: 'Glyphicons Halflings';
+    content: "\e253";
+}
+
+.reactable-header-sort-desc::after {
+    font-family: 'Glyphicons Halflings';
+    content: "\e252";
 }

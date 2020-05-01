@@ -142,7 +142,7 @@ public class NodePartitioningManager
         }
         else {
             bucketToNode = createArbitraryBucketToNode(
-                    nodeScheduler.createNodeSelector(catalogName).allNodes(),
+                    nodeScheduler.createNodeSelector(Optional.of(catalogName)).allNodes(),
                     connectorBucketNodeMap.getBucketCount());
         }
 
@@ -178,10 +178,12 @@ public class NodePartitioningManager
             return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount());
         }
 
+        Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
+        catalogName.orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
         return new FixedBucketNodeMap(
                 getSplitToBucket(session, partitioningHandle),
                 createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).allNodes()),
+                        new ArrayList<>(nodeScheduler.createNodeSelector(catalogName).allNodes()),
                         connectorBucketNodeMap.getBucketCount()));
     }
 

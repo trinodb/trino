@@ -25,7 +25,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class ThriftConnectorConfig
 {
-    private DataSize maxResponseSize = new DataSize(16, MEGABYTE);
+    private DataSize maxResponseSize = DataSize.of(16, MEGABYTE);
     private int metadataRefreshThreads = 1;
     private int lookupRequestsConcurrency = 1;
 

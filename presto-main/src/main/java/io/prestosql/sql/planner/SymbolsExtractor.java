@@ -105,6 +105,7 @@ public final class SymbolsExtractor
         }
         aggregation.getFilter().ifPresent(builder::add);
         aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.getOrderBy()));
+        aggregation.getMask().ifPresent(builder::add);
         return builder.build();
     }
 
@@ -142,7 +143,7 @@ public final class SymbolsExtractor
     }
 
     private static class SymbolBuilderVisitor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
+            extends DefaultExpressionTraversalVisitor<ImmutableList.Builder<Symbol>>
     {
         @Override
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
@@ -153,7 +154,7 @@ public final class SymbolsExtractor
     }
 
     private static class QualifiedNameBuilderVisitor
-            extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
+            extends DefaultTraversalVisitor<ImmutableSet.Builder<QualifiedName>>
     {
         private final Set<NodeRef<Expression>> columnReferences;
 

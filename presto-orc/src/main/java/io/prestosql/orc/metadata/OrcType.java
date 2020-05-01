@@ -14,15 +14,20 @@
 package io.prestosql.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -35,9 +40,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -75,33 +77,34 @@ public class OrcType
     }
 
     private final OrcTypeKind orcTypeKind;
-    private final List<Integer> fieldTypeIndexes;
+    private final List<OrcColumnId> fieldTypeIndexes;
     private final List<String> fieldNames;
     private final Optional<Integer> length;
     private final Optional<Integer> precision;
     private final Optional<Integer> scale;
+    private final Map<String, String> attributes;
 
     private OrcType(OrcTypeKind orcTypeKind)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
     private OrcType(OrcTypeKind orcTypeKind, int length)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.of(length), Optional.empty(), Optional.empty());
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.of(length), Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
     private OrcType(OrcTypeKind orcTypeKind, int precision, int scale)
     {
-        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(precision), Optional.of(scale));
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(precision), Optional.of(scale), ImmutableMap.of());
     }
 
-    private OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames)
+    private OrcType(OrcTypeKind orcTypeKind, List<OrcColumnId> fieldTypeIndexes, List<String> fieldNames)
     {
-        this(orcTypeKind, fieldTypeIndexes, fieldNames, Optional.empty(), Optional.empty(), Optional.empty());
+        this(orcTypeKind, fieldTypeIndexes, fieldNames, Optional.empty(), Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
-    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale)
+    public OrcType(OrcTypeKind orcTypeKind, List<OrcColumnId> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale, Map<String, String> attributes)
     {
         this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
         this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
@@ -114,7 +117,8 @@ public class OrcType
         }
         this.length = requireNonNull(length, "length is null");
         this.precision = requireNonNull(precision, "precision is null");
-        this.scale = requireNonNull(scale, "scale can not be null");
+        this.scale = requireNonNull(scale, "scale cannot be null");
+        this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
     }
 
     public OrcTypeKind getOrcTypeKind()
@@ -127,12 +131,12 @@ public class OrcType
         return fieldTypeIndexes.size();
     }
 
-    public int getFieldTypeIndex(int field)
+    public OrcColumnId getFieldTypeIndex(int field)
     {
         return fieldTypeIndexes.get(field);
     }
 
-    public List<Integer> getFieldTypeIndexes()
+    public List<OrcColumnId> getFieldTypeIndexes()
     {
         return fieldTypeIndexes;
     }
@@ -160,6 +164,11 @@ public class OrcType
     public Optional<Integer> getScale()
     {
         return scale;
+    }
+
+    public Map<String, String> getAttributes()
+    {
+        return attributes;
     }
 
     @Override
@@ -218,13 +227,13 @@ public class OrcType
             DecimalType decimalType = (DecimalType) type;
             return ImmutableList.of(new OrcType(OrcTypeKind.DECIMAL, decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type instanceof ArrayType) {
             return createOrcArrayType(nextFieldTypeIndex, type.getTypeParameters().get(0));
         }
-        if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type instanceof MapType) {
             return createOrcMapType(nextFieldTypeIndex, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
         }
-        if (type.getTypeSignature().getBase().equals(ROW)) {
+        if (type instanceof RowType) {
             List<String> fieldNames = new ArrayList<>();
             for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
                 TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
@@ -243,7 +252,7 @@ public class OrcType
         List<OrcType> itemTypes = toOrcType(nextFieldTypeIndex, itemType);
 
         List<OrcType> orcTypes = new ArrayList<>();
-        orcTypes.add(new OrcType(OrcTypeKind.LIST, ImmutableList.of(nextFieldTypeIndex), ImmutableList.of("item")));
+        orcTypes.add(new OrcType(OrcTypeKind.LIST, ImmutableList.of(new OrcColumnId(nextFieldTypeIndex)), ImmutableList.of("item")));
         orcTypes.addAll(itemTypes);
         return orcTypes;
     }
@@ -255,19 +264,27 @@ public class OrcType
         List<OrcType> valueTypes = toOrcType(nextFieldTypeIndex + keyTypes.size(), valueType);
 
         List<OrcType> orcTypes = new ArrayList<>();
-        orcTypes.add(new OrcType(OrcTypeKind.MAP, ImmutableList.of(nextFieldTypeIndex, nextFieldTypeIndex + keyTypes.size()), ImmutableList.of("key", "value")));
+        orcTypes.add(new OrcType(
+                OrcTypeKind.MAP,
+                ImmutableList.of(new OrcColumnId(nextFieldTypeIndex), new OrcColumnId(nextFieldTypeIndex + keyTypes.size())),
+                ImmutableList.of("key", "value")));
         orcTypes.addAll(keyTypes);
         orcTypes.addAll(valueTypes);
         return orcTypes;
     }
 
-    public static List<OrcType> createOrcRowType(int nextFieldTypeIndex, List<String> fieldNames, List<Type> fieldTypes)
+    public static ColumnMetadata<OrcType> createRootOrcType(List<String> fieldNames, List<Type> fieldTypes)
+    {
+        return new ColumnMetadata<>(createOrcRowType(0, fieldNames, fieldTypes));
+    }
+
+    private static List<OrcType> createOrcRowType(int nextFieldTypeIndex, List<String> fieldNames, List<Type> fieldTypes)
     {
         nextFieldTypeIndex++;
-        List<Integer> fieldTypeIndexes = new ArrayList<>();
+        List<OrcColumnId> fieldTypeIndexes = new ArrayList<>();
         List<List<OrcType>> fieldTypesList = new ArrayList<>();
         for (Type fieldType : fieldTypes) {
-            fieldTypeIndexes.add(nextFieldTypeIndex);
+            fieldTypeIndexes.add(new OrcColumnId(nextFieldTypeIndex));
             List<OrcType> fieldOrcTypes = toOrcType(nextFieldTypeIndex, fieldType);
             fieldTypesList.add(fieldOrcTypes);
             nextFieldTypeIndex += fieldOrcTypes.size();

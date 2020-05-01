@@ -14,20 +14,21 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.ExpressionAnalyzer;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NodeRef;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
+
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 
 /**
  * This class is to facilitate obtaining the type of an expression and its subexpressions
@@ -48,7 +49,7 @@ public class TypeAnalyzer
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
     {
-        return ExpressionAnalyzer.analyzeExpressions(session, metadata, parser, inputTypes, expressions, ImmutableList.of(), WarningCollector.NOOP, false).getExpressionTypes();
+        return analyzeExpressions(session, metadata, new AllowAllAccessControl(), parser, inputTypes, expressions, ImmutableMap.of(), WarningCollector.NOOP, false).getExpressionTypes();
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Expression expression)
@@ -59,10 +60,5 @@ public class TypeAnalyzer
     public Type getType(Session session, TypeProvider inputTypes, Expression expression)
     {
         return getTypes(session, inputTypes, expression).get(NodeRef.of(expression));
-    }
-
-    public List<TypeSignatureProvider> getCallArgumentTypes(Session session, TypeProvider inputTypes, List<Expression> arguments)
-    {
-        return ExpressionAnalyzer.getCallArgumentTypes(session, metadata, parser, inputTypes, arguments, ImmutableList.of(), WarningCollector.NOOP, false);
     }
 }

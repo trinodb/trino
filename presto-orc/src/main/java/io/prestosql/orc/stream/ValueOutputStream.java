@@ -14,6 +14,7 @@
 package io.prestosql.orc.stream;
 
 import io.prestosql.orc.checkpoint.StreamCheckpoint;
+import io.prestosql.orc.metadata.OrcColumnId;
 
 import java.util.List;
 
@@ -25,7 +26,7 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     List<C> getCheckpoints();
 
-    StreamDataOutput getStreamDataOutput(int column);
+    StreamDataOutput getStreamDataOutput(OrcColumnId columnId);
 
     /**
      * This method returns the size of the flushed data plus any unflushed data.

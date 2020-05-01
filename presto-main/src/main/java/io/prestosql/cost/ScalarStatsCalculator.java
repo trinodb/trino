@@ -13,19 +13,23 @@
  */
 package io.prestosql.cost;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.NoOpSymbolResolver;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -53,17 +57,19 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
 {
     private final Metadata metadata;
+    private final TypeAnalyzer typeAnalyzer;
 
     @Inject
-    public ScalarStatsCalculator(Metadata metadata)
+    public ScalarStatsCalculator(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata can not be null");
+        this.metadata = requireNonNull(metadata, "metadata cannot be null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public SymbolStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, TypeProvider types)
@@ -107,7 +113,7 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
             Object value = evaluate(metadata, session.toConnectorSession(), node);
-            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of(), WarningCollector.NOOP).analyze(node, Scope.create());
+            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP).analyze(node, Scope.create());
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
                     .setNullsFraction(0)
@@ -147,9 +153,10 @@ public class ScalarStatsCalculator
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                     metadata,
+                    new AllowAllAccessControl(),
                     session,
                     types,
-                    emptyList(),
+                    emptyMap(),
                     node -> new IllegalStateException("Unexpected node: %s" + node),
                     WarningCollector.NOOP,
                     false);
@@ -161,14 +168,13 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitCast(Cast node, Void context)
         {
             SymbolStatsEstimate sourceStats = process(node.getExpression());
-            TypeSignature targetType = TypeSignature.parseTypeSignature(node.getType());
 
             // todo - make this general postprocessing rule.
             double distinctValuesCount = sourceStats.getDistinctValuesCount();
             double lowValue = sourceStats.getLowValue();
             double highValue = sourceStats.getHighValue();
 
-            if (isIntegralType(targetType)) {
+            if (isIntegralType(typeAnalyzer.getType(session, types, node))) {
                 // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
                 if (isFinite(lowValue)) {
                     lowValue = Math.round(lowValue);
@@ -192,20 +198,17 @@ public class ScalarStatsCalculator
                     .build();
         }
 
-        private boolean isIntegralType(TypeSignature targetType)
+        private boolean isIntegralType(Type type)
         {
-            switch (targetType.getBase()) {
-                case StandardTypes.BIGINT:
-                case StandardTypes.INTEGER:
-                case StandardTypes.SMALLINT:
-                case StandardTypes.TINYINT:
-                    return true;
-                case StandardTypes.DECIMAL:
-                    DecimalType decimalType = (DecimalType) metadata.getType(targetType);
-                    return decimalType.getScale() == 0;
-                default:
-                    return false;
+            if (type instanceof BigintType || type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType) {
+                return true;
             }
+
+            if (type instanceof DecimalType) {
+                return ((DecimalType) type).getScale() == 0;
+            }
+
+            return false;
         }
 
         @Override

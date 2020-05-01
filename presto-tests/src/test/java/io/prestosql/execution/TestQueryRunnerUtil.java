@@ -19,8 +19,9 @@ import io.prestosql.Session;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.QueryId;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 
 import java.util.Map;
 import java.util.Set;
@@ -37,7 +38,7 @@ public final class TestQueryRunnerUtil
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        getFutureValue(dispatchManager.createQuery(session.getQueryId(), "slug", new TestingSessionContext(session), sql));
+        getFutureValue(dispatchManager.createQuery(session.getQueryId(), Slug.createNew(), new TestingSessionContext(session), sql));
         return session.getQueryId();
     }
 

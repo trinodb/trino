@@ -26,6 +26,7 @@ import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.QueryId;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.tree.Expression;
@@ -44,7 +45,6 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -53,7 +53,7 @@ public class DataDefinitionExecution<T extends Statement>
 {
     private final DataDefinitionTask<T> task;
     private final T statement;
-    private final String slug;
+    private final Slug slug;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -63,7 +63,7 @@ public class DataDefinitionExecution<T extends Statement>
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
-            String slug,
+            Slug slug,
             TransactionManager transactionManager,
             Metadata metadata,
             AccessControl accessControl,
@@ -81,7 +81,7 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public String getSlug()
+    public Slug getSlug()
     {
         return slug;
     }
@@ -107,13 +107,13 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public DataSize getUserMemoryReservation()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     @Override
     public DataSize getTotalMemoryReservation()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     @Override
@@ -241,6 +241,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public boolean shouldWaitForMinWorkers()
+    {
+        return false;
+    }
+
+    @Override
     public void pruneInfo()
     {
         // no-op
@@ -300,7 +306,7 @@ public class DataDefinitionExecution<T extends Statement>
         public DataDefinitionExecution<?> createQueryExecution(
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
-                String slug,
+                Slug slug,
                 WarningCollector warningCollector)
         {
             return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug);
@@ -310,7 +316,7 @@ public class DataDefinitionExecution<T extends Statement>
                 T statement,
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
-                String slug)
+                Slug slug)
         {
             @SuppressWarnings("unchecked")
             DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());

@@ -76,8 +76,8 @@ public class ColumnRangesSystemTable
                 .collect(toImmutableList());
         List<ColumnMetadata> systemTableColumns = indexedRaptorColumns.stream()
                 .flatMap(column -> Stream.of(
-                        new ColumnMetadata(column.getColumnName() + MIN_COLUMN_SUFFIX, column.getDataType(), null, false),
-                        new ColumnMetadata(column.getColumnName() + MAX_COLUMN_SUFFIX, column.getDataType(), null, false)))
+                        new ColumnMetadata(column.getColumnName() + MIN_COLUMN_SUFFIX, column.getDataType()),
+                        new ColumnMetadata(column.getColumnName() + MAX_COLUMN_SUFFIX, column.getDataType())))
                 .collect(toImmutableList());
         SchemaTableName tableName = new SchemaTableName(sourceTable.getSchemaName(), sourceTable.getTableName() + COLUMN_RANGES_TABLE_SUFFIX);
         this.tableMetadata = new ConnectorTableMetadata(tableName, systemTableColumns);

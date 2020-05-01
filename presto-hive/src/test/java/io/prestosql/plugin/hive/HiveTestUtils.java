@@ -16,18 +16,28 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.azure.HiveAzureConfig;
+import io.prestosql.plugin.hive.azure.PrestoAzureConfigurationInitializer;
 import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.prestosql.plugin.hive.gcs.HiveGcsConfig;
+import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
+import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import io.prestosql.plugin.hive.s3select.PrestoS3ClientFactory;
+import io.prestosql.plugin.hive.s3select.S3SelectRecordCursorProvider;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -48,98 +58,128 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
 {
     private HiveTestUtils() {}
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    public static final ConnectorSession SESSION = getHiveSession(new HiveConfig());
 
     private static final Metadata METADATA = createTestMetadataManager();
     public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
 
-    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveConfig());
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
-    public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveConfig hiveConfig)
+    public static ConnectorSession getHiveSession(HiveConfig hiveConfig)
+    {
+        return getHiveSession(hiveConfig, new OrcReaderConfig());
+    }
+
+    public static TestingConnectorSession getHiveSession(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(getHiveSessionProperties(hiveConfig, orcReaderConfig).getSessionProperties())
+                .build();
+    }
+
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
+    {
+        return getHiveSessionProperties(hiveConfig, new OrcReaderConfig());
+    }
+
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
+    {
+        return new HiveSessionProperties(
+                hiveConfig,
+                orcReaderConfig,
+                new OrcWriterConfig(),
+                new ParquetReaderConfig(),
+                new ParquetWriterConfig());
+    }
+
+    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveConfig, testHdfsEnvironment, stats))
-                .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
+                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats))
+                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig()))
                 .build();
     }
 
-    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveConfig hiveConfig)
+    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProviders(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new S3SelectRecordCursorProvider(hdfsEnvironment, new PrestoS3ClientFactory(hiveConfig)))
                 .build();
     }
 
-    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig)
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
-                .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
-                .add(getDefaultOrcFileWriterFactory(hiveConfig))
+                .add(new RcFileFileWriterFactory(hdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
+                .add(getDefaultOrcFileWriterFactory(hiveConfig, hdfsEnvironment))
                 .build();
     }
 
-    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveConfig hiveConfig)
+    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return new OrcFileWriterFactory(
-                testHdfsEnvironment,
+                hdfsEnvironment,
                 TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 hiveConfig,
+                new OrcWriterConfig(),
                 new FileFormatDataSourceStats(),
-                new OrcFileWriterConfig());
+                new OrcWriterConfig());
     }
 
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnHandle columnHandle : columnHandles) {
-            types.add(METADATA.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
+            types.add(((HiveColumnHandle) columnHandle).getType());
         }
         return types.build();
     }
 
-    public static HdfsEnvironment createTestHdfsEnvironment(HiveConfig config)
+    public static HiveRecordCursorProvider createGenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
+    {
+        return new GenericHiveRecordCursorProvider(hdfsEnvironment, DataSize.of(100, MEGABYTE));
+    }
+
+    private static HdfsEnvironment createTestHdfsEnvironment()
     {
         HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(
-                        config,
+                        new HdfsConfig(),
                         ImmutableSet.of(
                                 new PrestoS3ConfigurationInitializer(new HiveS3Config()),
-                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()))),
+                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
+                                new PrestoAzureConfigurationInitializer(new HiveAzureConfig()))),
                 ImmutableSet.of());
-        return new HdfsEnvironment(hdfsConfig, config, new NoHdfsAuthentication());
+        return new HdfsEnvironment(hdfsConfig, new HdfsConfig(), new NoHdfsAuthentication());
     }
 
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static ArrayType arrayType(Type elementType)
     {
         return (ArrayType) METADATA.getParameterizedType(
                 StandardTypes.ARRAY,
-                ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
+                ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
     }
 
     public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)
@@ -147,8 +187,8 @@ public final class HiveTestUtils
         return (RowType) METADATA.getParameterizedType(
                 StandardTypes.ROW,
                 ImmutableList.copyOf(elementTypeSignatures.stream()
-                        .map(TypeSignatureParameter::of)
-                        .collect(toList())));
+                        .map(TypeSignatureParameter::namedTypeParameter)
+                        .collect(toImmutableList())));
     }
 
     public static Long shortDecimal(String value)
@@ -163,8 +203,8 @@ public final class HiveTestUtils
 
     public static MethodHandle distinctFromOperator(Type type)
     {
-        Signature signature = METADATA.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-        return METADATA.getScalarFunctionImplementation(signature).getMethodHandle();
+        ResolvedFunction function = METADATA.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+        return METADATA.getScalarFunctionImplementation(function).getMethodHandle();
     }
 
     public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)

@@ -219,21 +219,25 @@ class StatementClientV1
         return timeZone;
     }
 
+    @Override
     public boolean isRunning()
     {
         return state.get() == State.RUNNING;
     }
 
+    @Override
     public boolean isClientAborted()
     {
         return state.get() == State.CLIENT_ABORTED;
     }
 
+    @Override
     public boolean isClientError()
     {
         return state.get() == State.CLIENT_ERROR;
     }
 
+    @Override
     public boolean isFinished()
     {
         return state.get() == State.FINISHED;
@@ -248,7 +252,6 @@ class StatementClientV1
     @Override
     public QueryStatusInfo currentStatusInfo()
     {
-        checkState(isRunning(), "current position is not valid (cursor past end)");
         return currentResults.get();
     }
 

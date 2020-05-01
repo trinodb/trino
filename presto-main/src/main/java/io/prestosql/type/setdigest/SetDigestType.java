@@ -20,8 +20,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractVariableWidthType;
 import io.prestosql.spi.type.SqlVarbinary;
-
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import io.prestosql.spi.type.TypeSignature;
 
 // Layout is <size>:<digest>, where
 //   size: is an int describing the length of the set digest bytes
@@ -34,7 +33,7 @@ public class SetDigestType
 
     private SetDigestType()
     {
-        super(parseTypeSignature(NAME), Slice.class);
+        super(new TypeSignature(NAME), Slice.class);
     }
 
     @Override

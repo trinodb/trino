@@ -114,6 +114,7 @@ public class TestBlockAndPositionNullConvention
         }
 
         @TypeParameter("E")
+        @SqlNullable
         @SqlType("E")
         public static Slice specializedSlice(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = Slice.class) Block block, @BlockIndex int position)
         {
@@ -124,7 +125,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlType("E") boolean bool)
+        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlNullable @SqlType("E") Boolean bool)
         {
             return bool;
         }
@@ -141,13 +142,15 @@ public class TestBlockAndPositionNullConvention
         // exact
 
         @SqlType(StandardTypes.BIGINT)
-        public static long getLong(@SqlType(StandardTypes.BIGINT) long number)
+        @SqlNullable
+        public static Long getLong(@SqlNullable @SqlType(StandardTypes.BIGINT) Long number)
         {
             return number;
         }
 
         @SqlType(StandardTypes.BIGINT)
-        public static long getBlockPosition(@BlockPosition @SqlType(value = StandardTypes.BIGINT, nativeContainerType = long.class) Block block, @BlockIndex int position)
+        @SqlNullable
+        public static Long getBlockPosition(@BlockPosition @SqlType(value = StandardTypes.BIGINT, nativeContainerType = long.class) Block block, @BlockIndex int position)
         {
             hitBlockPositionBigint.set(true);
             return BIGINT.getLong(block, position);
@@ -155,7 +158,7 @@ public class TestBlockAndPositionNullConvention
 
         @SqlType(StandardTypes.DOUBLE)
         @SqlNullable
-        public static Double getDouble(@SqlType(StandardTypes.DOUBLE) double number)
+        public static Double getDouble(@SqlNullable @SqlType(StandardTypes.DOUBLE) Double number)
         {
             return number;
         }

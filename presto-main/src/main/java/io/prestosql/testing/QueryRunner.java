@@ -18,6 +18,7 @@ import io.prestosql.cost.StatsCalculator;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.spi.Plugin;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
@@ -74,6 +75,8 @@ public interface QueryRunner
     boolean tableExists(Session session, String table);
 
     void installPlugin(Plugin plugin);
+
+    void addFunctions(List<? extends SqlFunction> functions);
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 

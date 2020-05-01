@@ -13,26 +13,21 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
-import io.prestosql.plugin.hive.HdfsConfiguration;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.HivePlugin;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.spi.security.PrincipalType;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -60,34 +55,36 @@ public class TestSpatialJoins
             "(7.1, 7.2, 'z', 3), " +
             "(null, 1.2, 'null', 4)";
 
-    public TestSpatialJoins()
-    {
-        super(() -> createQueryRunner());
-    }
+    private static final String MULTI_POINTS_SQL = "VALUES " +
+            "(-0.1, -0.1, 5.1, 5.1, 'x', 1), " +
+            "(7.1, 7.1, 2.1, 2.1, 'y', 2), " +
+            "(7.1, 7.2, 8, 9, 'z', 3), " +
+            "(null, 1.2, 4, null, 'null', 4)";
 
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder()
+        Session session = testSessionBuilder()
                 .setSource(TestSpatialJoins.class.getSimpleName())
                 .setCatalog("hive")
                 .setSchema("default")
-                .build(), 4);
+                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new GeoPlugin());
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
-        HiveConfig hiveConfig = new HiveConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
+        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
-        FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(Database.builder()
-                .setDatabaseName("default")
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
-                .build());
-        queryRunner.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
+        metastore.createDatabase(
+                new HiveIdentity(SESSION),
+                Database.builder()
+                        .setDatabaseName("default")
+                        .setOwnerName("public")
+                        .setOwnerType(PrincipalType.ROLE)
+                        .build());
+        queryRunner.installPlugin(new TestingHivePlugin(metastore));
 
         queryRunner.createCatalog("hive", "hive");
         return queryRunner;
@@ -304,7 +301,7 @@ public class TestSpatialJoins
                 "VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
 
         // radius expression
-        assertQuery(session, "SELECT a.name, b.name " + "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
+        assertQuery(session, "SELECT a.name, b.name FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
                         "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
                         "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)) <= sqrt(b.x * b.x + b.y * b.y)",
                 "VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('0_0', '3_1'), ('0_0', '10_1'), ('1_0', '1_1'), ('1_0', '3_1'), ('1_0', '10_1'), ('3_0', '3_1'), ('3_0', '10_1'), ('10_0', '10_1')");
@@ -363,5 +360,45 @@ public class TestSpatialJoins
                         "RIGHT JOIN (" + POINTS_SQL + ") AS b (latitude, longitude, name, id) ON a.latitude = b.latitude AND a.longitude = b.longitude AND a.latitude > 0 " +
                         "JOIN (" + POINTS_SQL + ") AS c (latitude, longitude, name, id) ON ST_Distance(ST_Point(a.latitude, b.longitude), ST_Point(c.latitude, c.longitude)) < 1 ",
                 "VALUES ('y', 'y', 'y'), ('z', 'z', 'z')");
+    }
+
+    @Test
+    public void testSpatialJoinOverLeftJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "LEFT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c'), ('z', NULL), ('null', NULL)");
+    }
+
+    @Test
+    public void testSpatialJoinOverRightJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "RIGHT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c'), (NULL, 'd'), (NULL, 'empty'), (NULL, 'null')");
+    }
+
+    @Test
+    public void testSpatialJoinOverInnerJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "INNER JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c')");
+    }
+
+    @Test
+    public void testSpatialJoinOverFullJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "FULL JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b'), ('y', 'c'), (NULL, 'd'), (NULL, 'empty'), ('z', NULL), (NULL, 'null'), ('null', NULL)");
     }
 }

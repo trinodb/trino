@@ -2,6 +2,11 @@
 SELECT
 ======
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
 Synopsis
 --------
 
@@ -117,6 +122,10 @@ Each ``select_expression`` must be in one of the following forms:
 
 .. code-block:: none
 
+    row_expression.* [ AS ( column_alias [, ...] ) ]
+
+.. code-block:: none
+
     relation.*
 
 .. code-block:: none
@@ -126,8 +135,12 @@ Each ``select_expression`` must be in one of the following forms:
 In the case of ``expression [ [ AS ] column_alias ]``, a single output column
 is defined.
 
+In the case of ``row_expression.* [ AS ( column_alias [, ...] ) ]``,
+the ``row_expression`` is an arbitrary expression of type ``ROW``.
+All fields of the row define output columns to be included in the result set.
+
 In the case of ``relation.*``, all columns of ``relation`` are included
-in the result set.
+in the result set. In this case column aliases are not allowed.
 
 In the case of ``*``, all columns of the relation defined by the query
 are included in the result set.
@@ -135,7 +148,42 @@ are included in the result set.
 In the result set, the order of columns is the same as the order of their
 specification by the select expressions. If a select expression returns multiple
 columns, they are ordered the same way they were ordered in the source
-relation.
+relation or row type expression.
+
+If column aliases are specified, they override any preexisting column
+or row field names::
+
+    SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).* AS (alias1, alias2);
+
+.. code-block:: none
+
+     alias1 | alias2
+    --------+--------
+          1 | true
+    (1 row)
+
+Otherwise, the existing names are used::
+
+    SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).*;
+
+.. code-block:: none
+
+     field1 | field2
+    --------+--------
+          1 | true
+    (1 row)
+
+and in their absence, anonymous columns are produced::
+
+    SELECT (ROW(1, true)).*;
+
+.. code-block:: none
+
+     _col0 | _col1
+    -------+-------
+         1 | true
+    (1 row)
+
 
 GROUP BY Clause
 ---------------
@@ -623,11 +671,41 @@ output expressions:
 
     ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
 
-Each expression may be composed of output columns or it may be an ordinal
-number selecting an output column by position (starting at one). The
-``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause
+Each expression may be composed of output columns, or it may be an ordinal
+number selecting an output column by position, starting at one. The
+``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause,
 and before any ``OFFSET``, ``LIMIT`` or ``FETCH FIRST`` clause.
 The default null ordering is ``NULLS LAST``, regardless of the ordering direction.
+
+Note that, following the SQL specification, an ``ORDER BY`` clause only
+affects the order of rows for queries that immediately contain the clause.
+Presto follows that specification, and drops redundant usage of the clause to
+avoid negative performance impacts.
+
+In the following example, the clause only applies to the select statement.
+
+.. code-block:: SQL
+
+    INSERT INTO some_table
+    SELECT * FROM another_table
+    ORDER BY field
+
+Since tables in SQL are inherently unordered, and the ``ORDER BY`` clause in
+this case does not result in any difference, but negatively impacts performance
+of running the overall insert statement, Presto skips the sort operation.
+
+Another example where the ``ORDER BY`` clause is redundant, and does not affect
+the outcome of the overall statement, is a nested query:
+
+.. code-block:: SQL
+
+    SELECT *
+    FROM some_table
+        JOIN (SELECT * FROM another_table ORDER BY field) u
+        ON some_table.key = u.key
+
+More background information and details can be found in
+`a blog post about this optimization <https://prestosql.io/blog/2019/06/03/redundant-order-by.html>`_.
 
 .. _offset-clause:
 

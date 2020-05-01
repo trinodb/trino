@@ -25,10 +25,10 @@ import io.prestosql.execution.QueryExecution.QueryOutputInfo;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.sql.planner.Plan;
-import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -66,7 +66,6 @@ public class SqlQueryManager
 
     private final ClusterMemoryManager memoryManager;
     private final QueryMonitor queryMonitor;
-    private final EmbedVersion embedVersion;
     private final QueryTracker<QueryExecution> queryTracker;
 
     private final Duration maxQueryCpuTime;
@@ -80,11 +79,10 @@ public class SqlQueryManager
     private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
-    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig)
+    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, QueryManagerConfig queryManagerConfig)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
-        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
 
@@ -187,9 +185,9 @@ public class SqlQueryManager
     }
 
     @Override
-    public boolean isQuerySlugValid(QueryId queryId, String slug)
+    public Slug getQuerySlug(QueryId queryId)
     {
-        return queryTracker.getQuery(queryId).getSlug().equals(slug);
+        return queryTracker.getQuery(queryId).getSlug();
     }
 
     public Plan getQueryPlan(QueryId queryId)
@@ -236,7 +234,7 @@ public class SqlQueryManager
 
         stats.trackQueryStats(queryExecution);
 
-        embedVersion.embedVersion(queryExecution::start).run();
+        queryExecution.start();
     }
 
     @Override

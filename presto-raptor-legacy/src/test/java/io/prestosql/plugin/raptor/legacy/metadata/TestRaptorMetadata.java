@@ -60,7 +60,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Ticker.systemTicker;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -76,6 +75,7 @@ import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -89,8 +89,9 @@ public class TestRaptorMetadata
 {
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
     private static final SchemaTableName DEFAULT_TEST_LINEITEMS = new SchemaTableName("test", "lineitems");
-    private static final ConnectorSession SESSION = new TestingConnectorSession(
-            new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties())
+            .build();
 
     private DBI dbi;
     private Handle dummyHandle;
@@ -383,8 +384,9 @@ public class TestRaptorMetadata
 
         ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
         assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
-        assertInstanceOf(layout.getPartitioning(), RaptorPartitioningHandle.class);
-        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning();
+        assertTrue(layout.getPartitioning().isPresent());
+        assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
+        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();
         assertEquals(partitioning.getDistributionId(), 1);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));
@@ -839,7 +841,8 @@ public class TestRaptorMetadata
                 sql,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeSignature())),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                Optional.empty(),
                 Optional.empty(),
                 true);
     }

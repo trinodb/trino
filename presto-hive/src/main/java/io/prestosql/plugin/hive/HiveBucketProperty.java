@@ -17,10 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
+import io.prestosql.plugin.hive.util.HiveBucketing;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -32,21 +35,24 @@ import static java.util.Objects.requireNonNull;
 public class HiveBucketProperty
 {
     private final List<String> bucketedBy;
+    private final BucketingVersion bucketingVersion;
     private final int bucketCount;
     private final List<SortingColumn> sortedBy;
 
     @JsonCreator
     public HiveBucketProperty(
             @JsonProperty("bucketedBy") List<String> bucketedBy,
+            @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("sortedBy") List<SortingColumn> sortedBy)
     {
         this.bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
+        this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.bucketCount = bucketCount;
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
     }
 
-    public static Optional<HiveBucketProperty> fromStorageDescriptor(StorageDescriptor storageDescriptor, String tablePartitionName)
+    public static Optional<HiveBucketProperty> fromStorageDescriptor(Map<String, String> tableParameters, StorageDescriptor storageDescriptor, String tablePartitionName)
     {
         boolean bucketColsSet = storageDescriptor.isSetBucketCols() && !storageDescriptor.getBucketCols().isEmpty();
         boolean numBucketsSet = storageDescriptor.isSetNumBuckets() && storageDescriptor.getNumBuckets() > 0;
@@ -63,13 +69,20 @@ public class HiveBucketProperty
                     .map(order -> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))
                     .collect(toImmutableList());
         }
-        return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), storageDescriptor.getNumBuckets(), sortedBy));
+        BucketingVersion bucketingVersion = HiveBucketing.getBucketingVersion(tableParameters);
+        return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), bucketingVersion, storageDescriptor.getNumBuckets(), sortedBy));
     }
 
     @JsonProperty
     public List<String> getBucketedBy()
     {
         return bucketedBy;
+    }
+
+    @JsonProperty
+    public BucketingVersion getBucketingVersion()
+    {
+        return bucketingVersion;
     }
 
     @JsonProperty
@@ -94,7 +107,8 @@ public class HiveBucketProperty
             return false;
         }
         HiveBucketProperty that = (HiveBucketProperty) o;
-        return bucketCount == that.bucketCount &&
+        return bucketingVersion == that.bucketingVersion &&
+                bucketCount == that.bucketCount &&
                 Objects.equals(bucketedBy, that.bucketedBy) &&
                 Objects.equals(sortedBy, that.sortedBy);
     }
@@ -102,7 +116,7 @@ public class HiveBucketProperty
     @Override
     public int hashCode()
     {
-        return Objects.hash(bucketedBy, bucketCount, sortedBy);
+        return Objects.hash(bucketedBy, bucketingVersion, bucketCount, sortedBy);
     }
 
     @Override
@@ -110,6 +124,7 @@ public class HiveBucketProperty
     {
         return toStringHelper(this)
                 .add("bucketedBy", bucketedBy)
+                .add("bucketingVersion", bucketingVersion)
                 .add("bucketCount", bucketCount)
                 .add("sortedBy", sortedBy)
                 .toString();

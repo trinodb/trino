@@ -25,7 +25,6 @@ import static java.lang.String.format;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ConstantProperty.class, name = "constant"),

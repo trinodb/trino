@@ -33,7 +33,7 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
  * This optimizer can rewrite correlated single row subquery to projection in a way described here:
  * From:
  * <pre>
- * - Lateral(with correlation list: [A, C])
+ * - CorrelatedJoin (with correlation list: [A, C])
  *   - (input) plan which produces symbols: [A, B, C]
  *   - (subquery)
  *     - Project (A + C)

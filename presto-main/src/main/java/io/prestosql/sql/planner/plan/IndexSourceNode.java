@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.IndexHandle;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.Symbol;
 
 import java.util.List;
@@ -39,7 +38,6 @@ public class IndexSourceNode
     private final Set<Symbol> lookupSymbols;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
-    private final TupleDomain<ColumnHandle> currentConstraint; // constraint over the input data the operator will guarantee
 
     @JsonCreator
     public IndexSourceNode(
@@ -48,8 +46,7 @@ public class IndexSourceNode
             @JsonProperty("tableHandle") TableHandle tableHandle,
             @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
+            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
     {
         super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
@@ -57,7 +54,6 @@ public class IndexSourceNode
         this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
         checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
         checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
@@ -93,12 +89,6 @@ public class IndexSourceNode
     public Map<Symbol, ColumnHandle> getAssignments()
     {
         return assignments;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getCurrentConstraint()
-    {
-        return currentConstraint;
     }
 
     @Override

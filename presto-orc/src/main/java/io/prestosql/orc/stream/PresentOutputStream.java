@@ -16,6 +16,7 @@ package io.prestosql.orc.stream;
 import io.prestosql.orc.OrcOutputBuffer;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -101,15 +102,15 @@ public class PresentOutputStream
         return Optional.of(booleanOutputStream.getCheckpoints());
     }
 
-    public Optional<StreamDataOutput> getStreamDataOutput(int column)
+    public Optional<StreamDataOutput> getStreamDataOutput(OrcColumnId columnId)
     {
         checkArgument(closed);
         if (booleanOutputStream == null) {
             return Optional.empty();
         }
-        StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(column);
+        StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(columnId);
         // rewrite the DATA stream created by the boolean output stream to a PRESENT stream
-        Stream stream = new Stream(column, PRESENT, toIntExact(streamDataOutput.size()), streamDataOutput.getStream().isUseVInts());
+        Stream stream = new Stream(columnId, PRESENT, toIntExact(streamDataOutput.size()), streamDataOutput.getStream().isUseVInts());
         return Optional.of(new StreamDataOutput(
                 sliceOutput -> {
                     streamDataOutput.writeData(sliceOutput);

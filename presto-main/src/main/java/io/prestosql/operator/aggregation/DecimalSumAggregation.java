@@ -14,12 +14,13 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowState;
@@ -31,21 +32,25 @@ import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.throwOverflowException;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
@@ -65,25 +70,28 @@ public class DecimalSumAggregation
 
     public DecimalSumAggregation()
     {
-        super(NAME,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                parseTypeSignature("decimal(38,s)", ImmutableSet.of("s")),
-                ImmutableList.of(parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"))),
-                FunctionKind.AGGREGATE);
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Calculates the sum over the input values";
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                new TypeSignature("decimal", numericParameter(38), typeVariable("s")),
+                                ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Calculates the sum over the input values",
+                        AGGREGATE),
+                true,
+                false);
     }
 
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        Type inputType = metadata.getType(getOnlyElement(applyBoundVariables(getSignature().getArgumentTypes(), boundVariables)));
-        Type outputType = metadata.getType(applyBoundVariables(getSignature().getReturnType(), boundVariables));
+        Signature signature = getFunctionMetadata().getSignature();
+        Type inputType = metadata.getType(getOnlyElement(applyBoundVariables(signature.getArgumentTypes(), boundVariables)));
+        Type outputType = metadata.getType(applyBoundVariables(signature.getReturnType(), boundVariables));
         return generateAggregation(inputType, outputType);
     }
 
@@ -107,6 +115,7 @@ public class DecimalSumAggregation
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(inputType),
                 inputFunction.bindTo(inputType),
+                Optional.empty(),
                 COMBINE_FUNCTION,
                 LONG_DECIMAL_OUTPUT_FUNCTION.bindTo(outputType),
                 ImmutableList.of(new AccumulatorStateDescriptor(

@@ -31,12 +31,11 @@ import java.util.Collection;
 import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static java.lang.Boolean.TRUE;
-import static java.lang.Math.toIntExact;
 
 public final class FastutilSetHelper
 {
@@ -117,7 +116,7 @@ public final class FastutilSetHelper
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 // FastutilHashSet is not intended be used for indeterminate values lookup
-                verify(result != null, "result is null");
+                verifyNotNull(result, "result is null");
                 return TRUE.equals(result);
             }
             catch (Throwable t) {
@@ -159,7 +158,7 @@ public final class FastutilSetHelper
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 // FastutilHashSet is not intended be used for indeterminate values lookup
-                verify(result != null, "result is null");
+                verifyNotNull(result, "result is null");
                 return TRUE.equals(result);
             }
             catch (Throwable t) {
@@ -189,8 +188,11 @@ public final class FastutilSetHelper
         @Override
         public int hashCode(Object value)
         {
+            if (value == null) {
+                return 0;
+            }
             try {
-                return toIntExact(Long.hashCode((long) hashCodeHandle.invokeExact(value)));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
@@ -202,10 +204,13 @@ public final class FastutilSetHelper
         @Override
         public boolean equals(Object a, Object b)
         {
+            if (b == null || a == null) {
+                return a == null && b == null;
+            }
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 // FastutilHashSet is not intended be used for indeterminate values lookup
-                verify(result != null, "result is null");
+                verifyNotNull(result, "result is null");
                 return TRUE.equals(result);
             }
             catch (Throwable t) {

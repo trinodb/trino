@@ -16,8 +16,10 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.security.Principal;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -26,21 +28,31 @@ public class JdbcIdentity
 {
     public static JdbcIdentity from(ConnectorSession session)
     {
-        return new JdbcIdentity(session.getIdentity().getUser(), session.getIdentity().getExtraCredentials());
+        return new JdbcIdentity(
+                session.getIdentity().getUser(),
+                session.getIdentity().getPrincipal().map(Principal::getName),
+                session.getIdentity().getExtraCredentials());
     }
 
     private final String user;
+    private final Optional<String> principalName;
     private final Map<String, String> extraCredentials;
 
-    public JdbcIdentity(String user, Map<String, String> extraCredentials)
+    public JdbcIdentity(String user, Optional<String> principalName, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
+        this.principalName = requireNonNull(principalName, "principalName is null");
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
     }
 
     public String getUser()
     {
         return user;
+    }
+
+    public Optional<String> getPrincipalName()
+    {
+        return principalName;
     }
 
     public Map<String, String> getExtraCredentials()
@@ -59,13 +71,14 @@ public class JdbcIdentity
         }
         JdbcIdentity that = (JdbcIdentity) o;
         return Objects.equals(user, that.user) &&
+                Objects.equals(principalName, that.principalName) &&
                 Objects.equals(extraCredentials, that.extraCredentials);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(user, extraCredentials);
+        return Objects.hash(user, principalName, extraCredentials);
     }
 
     @Override
@@ -73,6 +86,7 @@ public class JdbcIdentity
     {
         return toStringHelper(this)
                 .add("user", user)
+                .add("principalName", principalName)
                 .add("extraCredentials", extraCredentials.keySet())
                 .toString();
     }

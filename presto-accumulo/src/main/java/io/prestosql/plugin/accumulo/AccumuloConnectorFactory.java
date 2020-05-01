@@ -23,7 +23,6 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class AccumuloConnectorFactory
@@ -44,19 +43,17 @@ public class AccumuloConnectorFactory
         requireNonNull(config, "requiredConfig is null");
         requireNonNull(context, "context is null");
 
-        try {
-            Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(context.getTypeManager()));
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
-            return injector.getInstance(AccumuloConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new AccumuloModule(context.getTypeManager()));
+
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(AccumuloConnector.class);
     }
 
     @Override

@@ -20,6 +20,7 @@ import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.RemoveInputFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
@@ -42,6 +43,20 @@ public final class AverageAggregations
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
+    {
+        state.setLong(state.getLong() - 1);
+        state.setDouble(state.getDouble() - value);
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        state.setLong(state.getLong() - 1);
+        state.setDouble(state.getDouble() - value);
     }
 
     @CombineFunction

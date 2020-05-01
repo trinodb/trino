@@ -20,7 +20,6 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.type.InternalTypeManager;
 import io.prestosql.util.DateTimeUtils;
@@ -31,6 +30,7 @@ import java.util.Optional;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.longDecimal;
 import static io.prestosql.plugin.hive.HiveTestUtils.shortDecimal;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DATE;
@@ -43,11 +43,9 @@ import static io.prestosql.spi.predicate.ValueSet.ofRanges;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.DECIMAL;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
-import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestIonSqlQueryBuilder
@@ -59,9 +57,9 @@ public class TestIonSqlQueryBuilder
     {
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("n_nationkey", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("n_name", HIVE_STRING, parseTypeSignature(VARCHAR), 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("n_regionkey", HIVE_INT, parseTypeSignature(INTEGER), 2, REGULAR, Optional.empty()));
+                createBaseColumn("n_nationkey", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty()),
+                createBaseColumn("n_name", 1, HIVE_STRING, VARCHAR, REGULAR, Optional.empty()),
+                createBaseColumn("n_regionkey", 2, HIVE_INT, INTEGER, REGULAR, Optional.empty()));
 
         assertEquals("SELECT s._1, s._2, s._3 FROM S3Object s",
                 queryBuilder.buildSql(columns, TupleDomain.all()));
@@ -84,9 +82,9 @@ public class TestIonSqlQueryBuilder
         TypeManager typeManager = this.typeManager;
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("quantity", HiveType.valueOf("decimal(20,0)"), parseTypeSignature(DECIMAL), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("extendedprice", HiveType.valueOf("decimal(20,2)"), parseTypeSignature(DECIMAL), 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("discount", HiveType.valueOf("decimal(10,2)"), parseTypeSignature(DECIMAL), 2, REGULAR, Optional.empty()));
+                createBaseColumn("quantity", 0, HiveType.valueOf("decimal(20,0)"), DecimalType.createDecimalType(), REGULAR, Optional.empty()),
+                createBaseColumn("extendedprice", 1, HiveType.valueOf("decimal(20,2)"), DecimalType.createDecimalType(), REGULAR, Optional.empty()),
+                createBaseColumn("discount", 2, HiveType.valueOf("decimal(10,2)"), DecimalType.createDecimalType(), REGULAR, Optional.empty()));
         DecimalType decimalType = DecimalType.createDecimalType(10, 2);
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(
                 ImmutableMap.of(
@@ -104,8 +102,8 @@ public class TestIonSqlQueryBuilder
     {
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("t1", HIVE_TIMESTAMP, parseTypeSignature(TIMESTAMP), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("t2", HIVE_DATE, parseTypeSignature(StandardTypes.DATE), 1, REGULAR, Optional.empty()));
+                createBaseColumn("t1", 0, HIVE_TIMESTAMP, TIMESTAMP, REGULAR, Optional.empty()),
+                createBaseColumn("t2", 1, HIVE_DATE, DATE, REGULAR, Optional.empty()));
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 columns.get(1), Domain.create(SortedRangeSet.copyOf(DATE, ImmutableList.of(Range.equal(DATE, (long) DateTimeUtils.parseDate("2001-08-22")))), false)));
 
@@ -117,9 +115,9 @@ public class TestIonSqlQueryBuilder
     {
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("quantity", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("extendedprice", HIVE_DOUBLE, parseTypeSignature(StandardTypes.DOUBLE), 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("discount", HIVE_DOUBLE, parseTypeSignature(StandardTypes.DOUBLE), 2, REGULAR, Optional.empty()));
+                createBaseColumn("quantity", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty()),
+                createBaseColumn("extendedprice", 1, HIVE_DOUBLE, DOUBLE, REGULAR, Optional.empty()),
+                createBaseColumn("discount", 2, HIVE_DOUBLE, DOUBLE, REGULAR, Optional.empty()));
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(
                 ImmutableMap.of(
                         columns.get(0), Domain.create(ofRanges(Range.lessThan(BIGINT, 50L)), false),

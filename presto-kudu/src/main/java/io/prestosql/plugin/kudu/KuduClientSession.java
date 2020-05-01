@@ -55,23 +55,30 @@ import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
+import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
+import static java.util.stream.Collectors.toList;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER_EQUAL;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.LESS;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.LESS_EQUAL;
 
 public class KuduClientSession
 {
+    private static final Logger log = Logger.get(KuduClientSession.class);
     public static final String DEFAULT_SCHEMA = "default";
-    private final Logger log = Logger.get(getClass());
     private final KuduClient client;
     private final SchemaEmulation schemaEmulation;
 
@@ -92,9 +99,7 @@ public class KuduClientSession
             if (prefix.isEmpty()) {
                 return client.getTablesList().getTablesList();
             }
-            else {
-                return client.getTablesList(prefix).getTablesList();
-            }
+            return client.getTablesList(prefix).getTablesList();
         }
         catch (KuduException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
@@ -120,6 +125,9 @@ public class KuduClientSession
         final String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaName);
 
         List<String> tables = internalListTables(prefix);
+        if (schemaName.equals(DEFAULT_SCHEMA)) {
+            tables = schemaEmulation.filterTablesForDefaultSchema(tables);
+        }
         return tables.stream()
                 .map(schemaEmulation::fromRawName)
                 .filter(Objects::nonNull)
@@ -138,42 +146,61 @@ public class KuduClientSession
         return KuduTableProperties.toMap(table);
     }
 
-    public List<KuduSplit> buildKuduSplits(KuduTableLayoutHandle layoutHandle)
+    public List<KuduSplit> buildKuduSplits(KuduTableHandle tableHandle)
     {
-        KuduTableHandle tableHandle = layoutHandle.getTableHandle();
         KuduTable table = tableHandle.getTable(this);
         final int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
 
-        TupleDomain<ColumnHandle> constraintSummary = layoutHandle.getConstraintSummary();
-        if (!addConstraintPredicates(table, builder, constraintSummary)) {
+        TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
+        if (constraint.isNone()) {
             return ImmutableList.of();
         }
+        addConstraintPredicates(table, builder, constraint);
+        Optional<List<ColumnHandle>> desiredColumns = tableHandle.getDesiredColumns();
 
-        Optional<Set<ColumnHandle>> desiredColumns = layoutHandle.getDesiredColumns();
-        if (desiredColumns.isPresent()) {
-            if (desiredColumns.get().contains(KuduColumnHandle.ROW_ID_HANDLE)) {
-                List<Integer> columnIndexes = IntStream
+        List<Integer> columnIndexes;
+        if (tableHandle.isDeleteHandle()) {
+            if (desiredColumns.isPresent()) {
+                columnIndexes = IntStream
                         .range(0, primaryKeyColumnCount)
-                        .boxed().collect(Collectors.toList());
-                for (ColumnHandle columnHandle : desiredColumns.get()) {
-                    if (columnHandle instanceof KuduColumnHandle) {
-                        KuduColumnHandle k = (KuduColumnHandle) columnHandle;
-                        int index = k.getOrdinalPosition();
-                        if (index >= primaryKeyColumnCount) {
-                            columnIndexes.add(index);
-                        }
+                        .boxed().collect(toList());
+                for (ColumnHandle column : desiredColumns.get()) {
+                    KuduColumnHandle k = (KuduColumnHandle) column;
+                    int index = k.getOrdinalPosition();
+                    if (index >= primaryKeyColumnCount) {
+                        columnIndexes.add(index);
                     }
                 }
-                builder.setProjectedColumnIndexes(columnIndexes);
+                columnIndexes = ImmutableList.copyOf(columnIndexes);
             }
             else {
-                List<Integer> columnIndexes = desiredColumns.get().stream()
-                        .map(handle -> ((KuduColumnHandle) handle).getOrdinalPosition())
-                        .collect(toImmutableList());
-                builder.setProjectedColumnIndexes(columnIndexes);
+                columnIndexes = IntStream
+                        .range(0, table.getSchema().getColumnCount())
+                        .boxed().collect(toImmutableList());
             }
         }
+        else {
+            if (desiredColumns.isPresent()) {
+                columnIndexes = desiredColumns.get().stream()
+                        .map(handle -> ((KuduColumnHandle) handle).getOrdinalPosition())
+                        .collect(toImmutableList());
+            }
+            else {
+                ImmutableList.Builder<Integer> columnIndexesBuilder = ImmutableList.builder();
+                Schema schema = table.getSchema();
+                for (int ordinal = 0; ordinal < schema.getColumnCount(); ordinal++) {
+                    ColumnSchema column = schema.getColumnByIndex(ordinal);
+                    // Skip hidden "row_uuid" column
+                    if (!column.isKey() || !column.getName().equals(KuduColumnHandle.ROW_ID)) {
+                        columnIndexesBuilder.add(ordinal);
+                    }
+                }
+                columnIndexes = columnIndexesBuilder.build();
+            }
+        }
+
+        builder.setProjectedColumnIndexes(columnIndexes);
 
         List<KuduScanToken> tokens = builder.build();
         return tokens.stream()
@@ -443,69 +470,76 @@ public class KuduClientSession
 
     /**
      * translates TupleDomain to KuduPredicates.
-     *
-     * @return false if TupleDomain or one of its domains is none
      */
-    private boolean addConstraintPredicates(KuduTable table, KuduScanToken.KuduScanTokenBuilder builder,
-            TupleDomain<ColumnHandle> constraintSummary)
+    private void addConstraintPredicates(KuduTable table, KuduScanToken.KuduScanTokenBuilder builder, TupleDomain<ColumnHandle> constraintSummary)
     {
-        if (constraintSummary.isNone()) {
-            return false;
+        verify(!constraintSummary.isNone(), "constraintSummary is none");
+
+        if (constraintSummary.isAll()) {
+            return;
         }
-        if (!constraintSummary.isAll()) {
-            Schema schema = table.getSchema();
-            for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().get()) {
-                int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
-                ColumnSchema columnSchema = schema.getColumnByIndex(position);
-                Domain domain = columnDomain.getDomain();
-                if (domain.isNone()) {
-                    return false;
-                }
-                else if (domain.isAll()) {
-                    // no restriction
-                }
-                else if (domain.isOnlyNull()) {
-                    builder.addPredicate(KuduPredicate.newIsNullPredicate(columnSchema));
-                }
-                else if (domain.getValues().isAll() && domain.isNullAllowed()) {
-                    builder.addPredicate(KuduPredicate.newIsNotNullPredicate(columnSchema));
-                }
-                else if (domain.isSingleValue()) {
-                    KuduPredicate predicate = createEqualsPredicate(columnSchema, domain.getSingleValue());
+
+        Schema schema = table.getSchema();
+        for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().get()) {
+            int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
+            ColumnSchema columnSchema = schema.getColumnByIndex(position);
+            Domain domain = columnDomain.getDomain();
+            verify(!domain.isNone(), "Domain is none");
+            if (domain.isAll()) {
+                // no restriction
+            }
+            else if (domain.isOnlyNull()) {
+                builder.addPredicate(KuduPredicate.newIsNullPredicate(columnSchema));
+            }
+            else if (!domain.getValues().isNone() && domain.isNullAllowed()) {
+                // no restriction
+            }
+            else if (domain.getValues().isAll() && !domain.isNullAllowed()) {
+                builder.addPredicate(KuduPredicate.newIsNotNullPredicate(columnSchema));
+            }
+            else if (domain.isSingleValue()) {
+                KuduPredicate predicate = createEqualsPredicate(columnSchema, domain.getSingleValue());
+                builder.addPredicate(predicate);
+            }
+            else {
+                ValueSet valueSet = domain.getValues();
+                if (valueSet instanceof EquatableValueSet) {
+                    DiscreteValues discreteValues = valueSet.getDiscreteValues();
+                    KuduPredicate predicate = createInListPredicate(columnSchema, discreteValues);
                     builder.addPredicate(predicate);
                 }
-                else {
-                    ValueSet valueSet = domain.getValues();
-                    if (valueSet instanceof EquatableValueSet) {
-                        DiscreteValues discreteValues = valueSet.getDiscreteValues();
-                        KuduPredicate predicate = createInListPredicate(columnSchema, discreteValues);
+                else if (valueSet instanceof SortedRangeSet) {
+                    Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                    List<Range> rangeList = ranges.getOrderedRanges();
+                    if (rangeList.stream().allMatch(Range::isSingleValue)) {
+                        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+                        List<Object> javaValues = rangeList.stream()
+                                .map(range -> TypeHelper.getJavaValue(type, range.getSingleValue()))
+                                .collect(toImmutableList());
+                        KuduPredicate predicate = KuduPredicate.newInListPredicate(columnSchema, javaValues);
                         builder.addPredicate(predicate);
                     }
-                    else if (valueSet instanceof SortedRangeSet) {
-                        Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                    else {
                         Range span = ranges.getSpan();
                         Marker low = span.getLow();
                         if (!low.isLowerUnbounded()) {
-                            KuduPredicate.ComparisonOp op = (low.getBound() == Marker.Bound.ABOVE)
-                                    ? KuduPredicate.ComparisonOp.GREATER : KuduPredicate.ComparisonOp.GREATER_EQUAL;
+                            KuduPredicate.ComparisonOp op = (low.getBound() == ABOVE) ? GREATER : GREATER_EQUAL;
                             KuduPredicate predicate = createComparisonPredicate(columnSchema, op, low.getValue());
                             builder.addPredicate(predicate);
                         }
                         Marker high = span.getHigh();
                         if (!high.isUpperUnbounded()) {
-                            KuduPredicate.ComparisonOp op = (low.getBound() == Marker.Bound.BELOW)
-                                    ? KuduPredicate.ComparisonOp.LESS : KuduPredicate.ComparisonOp.LESS_EQUAL;
+                            KuduPredicate.ComparisonOp op = (high.getBound() == BELOW) ? LESS : LESS_EQUAL;
                             KuduPredicate predicate = createComparisonPredicate(columnSchema, op, high.getValue());
                             builder.addPredicate(predicate);
                         }
                     }
-                    else {
-                        throw new IllegalStateException("Unexpected domain: " + domain);
-                    }
+                }
+                else {
+                    throw new IllegalStateException("Unexpected domain: " + domain);
                 }
             }
         }
-        return true;
     }
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)
@@ -520,46 +554,45 @@ public class KuduClientSession
         return createComparisonPredicate(columnSchema, KuduPredicate.ComparisonOp.EQUAL, value);
     }
 
-    private KuduPredicate createComparisonPredicate(ColumnSchema columnSchema,
-            KuduPredicate.ComparisonOp op,
-            Object value)
+    private KuduPredicate createComparisonPredicate(ColumnSchema columnSchema, KuduPredicate.ComparisonOp op, Object value)
     {
         io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         Object javaValue = TypeHelper.getJavaValue(type, value);
         if (javaValue instanceof Long) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);
         }
-        else if (javaValue instanceof Integer) {
+        if (javaValue instanceof BigDecimal) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, (BigDecimal) javaValue);
+        }
+        if (javaValue instanceof Integer) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Integer) javaValue);
         }
-        else if (javaValue instanceof Short) {
+        if (javaValue instanceof Short) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Short) javaValue);
         }
-        else if (javaValue instanceof Byte) {
+        if (javaValue instanceof Byte) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Byte) javaValue);
         }
-        else if (javaValue instanceof String) {
+        if (javaValue instanceof String) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (String) javaValue);
         }
-        else if (javaValue instanceof Double) {
+        if (javaValue instanceof Double) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Double) javaValue);
         }
-        else if (javaValue instanceof Float) {
+        if (javaValue instanceof Float) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Float) javaValue);
         }
-        else if (javaValue instanceof Boolean) {
+        if (javaValue instanceof Boolean) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Boolean) javaValue);
         }
-        else if (javaValue instanceof byte[]) {
+        if (javaValue instanceof byte[]) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (byte[]) javaValue);
         }
-        else if (javaValue == null) {
+        if (javaValue == null) {
             throw new IllegalStateException("Unexpected null java value for column " + columnSchema.getName());
         }
-        else {
-            throw new IllegalStateException("Unexpected java value for column "
-                    + columnSchema.getName() + ": " + javaValue + "(" + javaValue.getClass() + ")");
-        }
+        throw new IllegalStateException("Unexpected java value for column "
+                + columnSchema.getName() + ": " + javaValue + "(" + javaValue.getClass() + ")");
     }
 
     private KuduSplit toKuduSplit(KuduTableHandle tableHandle, KuduScanToken token,

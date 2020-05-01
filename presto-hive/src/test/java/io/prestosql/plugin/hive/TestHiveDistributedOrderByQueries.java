@@ -13,16 +13,20 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.tests.AbstractTestOrderByQueries;
+import io.prestosql.testing.AbstractTestOrderByQueries;
+import io.prestosql.testing.QueryRunner;
 
-import static io.airlift.tpch.TpchTable.getTables;
-import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
+import static io.prestosql.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedOrderByQueries
         extends AbstractTestOrderByQueries
 {
-    public TestHiveDistributedOrderByQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.builder()
+                .setInitialTables(getTables())
+                .build();
     }
 }

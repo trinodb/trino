@@ -21,15 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.tpch.Distributions;
-import io.airlift.tpch.LineItemColumn;
-import io.airlift.tpch.OrderColumn;
-import io.airlift.tpch.OrderGenerator;
-import io.airlift.tpch.PartColumn;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchColumnType;
-import io.airlift.tpch.TpchEntity;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.tpch.statistics.ColumnStatisticsData;
 import io.prestosql.plugin.tpch.statistics.StatisticsEstimator;
 import io.prestosql.plugin.tpch.statistics.TableStatisticsData;
@@ -40,8 +31,6 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTablePartitioning;
 import io.prestosql.spi.connector.ConnectorTableProperties;
@@ -62,6 +51,15 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.tpch.Distributions;
+import io.prestosql.tpch.LineItemColumn;
+import io.prestosql.tpch.OrderColumn;
+import io.prestosql.tpch.OrderGenerator;
+import io.prestosql.tpch.PartColumn;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchColumnType;
+import io.prestosql.tpch.TpchEntity;
+import io.prestosql.tpch.TpchTable;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -74,7 +72,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
-import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.convertToPredicate;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -83,6 +80,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.tpch.OrderColumn.ORDER_STATUS;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -198,17 +196,6 @@ public class TpchMetadata
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        TpchTableLayoutHandle layout = (TpchTableLayoutHandle) handle;
-
-        // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), new Constraint(layout.getPredicate()), Optional.empty())
-                .get(0)
-                .getTableLayout();
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
@@ -223,9 +210,17 @@ public class TpchMetadata
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(columnNaming.getName(column), getPrestoType(column), false, null, null, false, emptyMap()));
+            columns.add(ColumnMetadata.builder()
+                    .setName(columnNaming.getName(column))
+                    .setType(getPrestoType(column))
+                    .setNullable(false)
+                    .build());
         }
-        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
+        columns.add(ColumnMetadata.builder()
+                .setName(ROW_NUMBER_COLUMN_NAME)
+                .setType(BIGINT)
+                .setHidden(true)
+                .build());
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -395,7 +390,7 @@ public class TpchMetadata
                 return column;
             }
         }
-        throw new IllegalArgumentException(format("Table %s does not have column %s", tableMetadata.getTable(), columnName));
+        throw new IllegalArgumentException(format("Table '%s' does not have column '%s'", tableMetadata.getTable(), columnName));
     }
 
     @Override
@@ -449,14 +444,29 @@ public class TpchMetadata
                     new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
         }
 
+        TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
+        if (predicatePushdownEnabled && constraint.isAll()) {
+            if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
+                constraint = toTupleDomain(ImmutableMap.of(toColumnHandle(OrderColumn.ORDER_STATUS), ORDER_STATUS_NULLABLE_VALUES));
+            }
+            else if (tableHandle.getTableName().equals(TpchTable.PART.getTableName())) {
+                constraint = toTupleDomain(ImmutableMap.of(
+                        toColumnHandle(PartColumn.CONTAINER),
+                        PART_CONTAINER_NULLABLE_VALUES,
+                        toColumnHandle(PartColumn.TYPE),
+                        PART_TYPE_NULLABLE_VALUES));
+            }
+        }
+
         return new ConnectorTableProperties(
-                tableHandle.getConstraint(),
+                constraint,
                 tablePartitioning,
                 partitioningColumns,
                 Optional.empty(),
                 localProperties);
     }
 
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         TpchTableHandle handle = (TpchTableHandle) table;

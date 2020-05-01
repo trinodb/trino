@@ -56,7 +56,7 @@ public class TestJoinEnumerator
     @BeforeClass
     public void setUp()
     {
-        queryRunner = new LocalQueryRunner(testSessionBuilder().build());
+        queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
     }
 
     @AfterClass(alwaysRun = true)
@@ -96,8 +96,10 @@ public class TestJoinEnumerator
         MultiJoinNode multiJoinNode = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(p.values(a1), p.values(b1))),
                 TRUE_LITERAL,
-                ImmutableList.of(a1, b1));
+                ImmutableList.of(a1, b1),
+                false);
         JoinEnumerator joinEnumerator = new JoinEnumerator(
+                queryRunner.getMetadata(),
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
                 createContext());

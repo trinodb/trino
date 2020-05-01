@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution.resourcegroups.db;
 
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.execution.resourcegroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;

@@ -19,13 +19,18 @@ import io.prestosql.client.Column;
 import org.testng.annotations.Test;
 
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
+import static io.prestosql.client.ClientStandardTypes.ARRAY;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
+import static io.prestosql.client.ClientStandardTypes.MAP;
 import static io.prestosql.client.ClientStandardTypes.VARBINARY;
 import static io.prestosql.client.ClientStandardTypes.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
 
 public class TestAlignedTablePrinter
@@ -64,6 +69,106 @@ public class TestAlignedTablePrinter
                 " one line  |       |          \n" +
                 " bye       | done  |      -15 \n" +
                 "(5 rows)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testHexPrintingInLists()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("list", ARRAY))
+                .build();
+
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+
+        byte[] value = "hello".getBytes(UTF_8);
+
+        printer.printRows(rows(row(list(value))), true);
+        printer.finish();
+
+        String expected = "" +
+                "       list       \n" +
+                "------------------\n" +
+                " [68 65 6c 6c 6f] \n" +
+                "(1 row)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testHexPrintingInMaps()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("map", MAP))
+                .build();
+
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+
+        byte[] value = "hello".getBytes(UTF_8);
+
+        printer.printRows(rows(row(map(item("key", value), item("key2", value)))), true);
+        printer.finish();
+
+        String expected = "" +
+                "                    map                    \n" +
+                "-------------------------------------------\n" +
+                " {key2=68 65 6c 6c 6f, key=68 65 6c 6c 6f} \n" +
+                "(1 row)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testHexPrintingInMapKeys()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("map", MAP))
+                .build();
+
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+
+        byte[] value = "hello".getBytes(UTF_8);
+
+        printer.printRows(rows(row(map(item(value, "world")))), true);
+        printer.finish();
+
+        String expected = "" +
+                "          map           \n" +
+                "------------------------\n" +
+                " {68 65 6c 6c 6f=world} \n" +
+                "(1 row)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testHexPrintingInNestedStructures()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("map", MAP))
+                .build();
+
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+
+        byte[] value = "hello".getBytes(UTF_8);
+
+        printer.printRows(rows(row(map(item("key", list(value, null)), item("key2", map(item("nested", value)))))), true);
+        printer.finish();
+
+        String expected = "" +
+                "                            map                             \n" +
+                "------------------------------------------------------------\n" +
+                " {key2={nested=68 65 6c 6c 6f}, key=[68 65 6c 6c 6f, NULL]} \n" +
+                "(1 row)\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }
@@ -188,13 +293,50 @@ public class TestAlignedTablePrinter
         return asList(values);
     }
 
+    static Map<?, ?> map(KeyValue... values)
+    {
+        return Arrays.stream(values).collect(toMap(KeyValue::getKey, KeyValue::getValue));
+    }
+
+    static KeyValue item(Object key, Object value)
+    {
+        return new KeyValue(key, value);
+    }
+
     static List<List<?>> rows(List<?>... rows)
     {
         return asList(rows);
     }
 
+    static List<?> list(Object... objects)
+    {
+        return asList(objects);
+    }
+
     static byte[] bytes(String s)
     {
         return s.getBytes(UTF_8);
+    }
+
+    static class KeyValue
+    {
+        private final Object key;
+        private final Object value;
+
+        KeyValue(Object key, Object value)
+        {
+            this.key = key;
+            this.value = value;
+        }
+
+        public Object getKey()
+        {
+            return key;
+        }
+
+        public Object getValue()
+        {
+            return value;
+        }
     }
 }

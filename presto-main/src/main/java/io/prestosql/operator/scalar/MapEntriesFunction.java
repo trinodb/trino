@@ -28,7 +28,7 @@ import io.prestosql.spi.type.Type;
 import static com.google.common.base.Verify.verify;
 
 @ScalarFunction("map_entries")
-@Description("construct an array of entries from a given map")
+@Description("Construct an array of entries from a given map")
 public class MapEntriesFunction
 {
     private final PageBuilder pageBuilder;

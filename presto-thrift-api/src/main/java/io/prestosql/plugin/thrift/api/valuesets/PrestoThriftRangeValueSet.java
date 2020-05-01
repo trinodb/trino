@@ -172,7 +172,7 @@ public final class PrestoThriftRangeValueSet
             }
             PrestoThriftMarker other = (PrestoThriftMarker) obj;
             return Objects.equals(this.value, other.value) &&
-                    Objects.equals(this.bound, other.bound);
+                    this.bound == other.bound;
         }
 
         @Override

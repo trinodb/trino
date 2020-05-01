@@ -23,7 +23,6 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileConnectorFactory
@@ -46,22 +45,16 @@ public class LocalFileConnectorFactory
     {
         requireNonNull(config, "config is null");
 
-        try {
-            Bootstrap app = new Bootstrap(
-                    binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
-                    new LocalFileModule());
+        Bootstrap app = new Bootstrap(
+                binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
+                new LocalFileModule());
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(LocalFileConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(LocalFileConnector.class);
     }
 }

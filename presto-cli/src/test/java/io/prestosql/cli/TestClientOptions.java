@@ -19,6 +19,7 @@ import io.prestosql.cli.ClientOptions.ClientSessionProperty;
 import io.prestosql.client.ClientSession;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static io.airlift.airline.SingleCommand.singleCommand;
@@ -32,6 +33,7 @@ public class TestClientOptions
         ClientSession session = new ClientOptions().toClientSession();
         assertEquals(session.getServer().toString(), "http://localhost:8080");
         assertEquals(session.getSource(), "presto-cli");
+        assertEquals(session.getTimeZone(), ZoneId.systemDefault());
     }
 
     @Test
@@ -132,6 +134,15 @@ public class TestClientOptions
 
         // empty values are allowed
         assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
+    }
+
+    @Test
+    public void testTimeZone()
+    {
+        ClientOptions options = new ClientOptions();
+        options.timeZone = "Europe/Vilnius";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

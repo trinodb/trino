@@ -27,6 +27,8 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 
+import static java.nio.charset.StandardCharsets.US_ASCII;
+
 public class TimestampEncoding
         implements TextColumnEncoding
 {
@@ -119,6 +121,6 @@ public class TimestampEncoding
     private long parseTimestamp(Slice slice, int offset, int length)
     {
         //noinspection deprecation
-        return dateTimeFormatter.parseMillis(new String(slice.getBytes(offset, length), 0));
+        return dateTimeFormatter.parseMillis(new String(slice.getBytes(offset, length), US_ASCII));
     }
 }

@@ -75,7 +75,8 @@ public class TableWriterOperator
         private final List<Type> types;
         private boolean closed;
 
-        public TableWriterOperatorFactory(int operatorId,
+        public TableWriterOperatorFactory(
+                int operatorId,
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,

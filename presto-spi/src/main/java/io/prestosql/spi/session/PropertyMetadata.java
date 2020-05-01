@@ -13,8 +13,6 @@
  */
 package io.prestosql.spi.session;
 
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.prestosql.spi.type.Type;
 
 import java.util.EnumSet;
@@ -226,31 +224,5 @@ public final class PropertyMetadata<T>
                     }
                 },
                 Enum::name);
-    }
-
-    public static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
-    {
-        return new PropertyMetadata<>(
-                name,
-                description,
-                createUnboundedVarcharType(),
-                DataSize.class,
-                defaultValue,
-                hidden,
-                value -> DataSize.valueOf((String) value),
-                DataSize::toString);
-    }
-
-    public static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, boolean hidden)
-    {
-        return new PropertyMetadata<>(
-                name,
-                description,
-                createUnboundedVarcharType(),
-                Duration.class,
-                defaultValue,
-                hidden,
-                value -> Duration.valueOf((String) value),
-                Duration::toString);
     }
 }

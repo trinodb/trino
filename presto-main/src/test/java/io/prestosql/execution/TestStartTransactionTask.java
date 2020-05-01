@@ -20,6 +20,7 @@ import io.prestosql.Session.SessionBuilder;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -255,7 +256,7 @@ public class TestStartTransactionTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(transactionManager),
+                new AccessControlManager(transactionManager, new AccessControlConfig()),
                 executor,
                 metadata,
                 WarningCollector.NOOP);

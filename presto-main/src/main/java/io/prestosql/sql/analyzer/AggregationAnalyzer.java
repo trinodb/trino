@@ -464,12 +464,23 @@ class AggregationAnalyzer
             if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(node))) {
                 return true;
             }
+
+            if (!hasReferencesToScope(node, analysis, sourceScope)) {
+                // reference to outer scope is group-invariant
+                return true;
+            }
+
             return isGroupingKey(node);
         }
 
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
+            if (!hasReferencesToScope(node, analysis, sourceScope)) {
+                // reference to outer scope is group-invariant
+                return true;
+            }
+
             if (columnReferences.containsKey(NodeRef.<Expression>of(node))) {
                 return isGroupingKey(node);
             }
@@ -601,9 +612,9 @@ class AggregationAnalyzer
             if (analysis.isDescribe()) {
                 return true;
             }
-            List<Expression> parameters = analysis.getParameters();
+            Map<NodeRef<Parameter>, Expression> parameters = analysis.getParameters();
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
-            return process(parameters.get(node.getPosition()), context);
+            return process(parameters.get(NodeRef.of(node)), context);
         }
 
         @Override

@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class StorageFormat
 {
-    public static final StorageFormat VIEW_STORAGE_FORMAT = StorageFormat.createNullable(null, null, null);
+    public static final StorageFormat VIEW_STORAGE_FORMAT = createNullable(null, null, null);
 
     private final String serDe;
     private final String inputFormat;

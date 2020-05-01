@@ -35,27 +35,27 @@ public class TestMemoryManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MemoryManagerConfig.class)
-                .setLowMemoryKillerPolicy(NONE)
+                .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
-                .setMaxQueryMemory(new DataSize(20, GIGABYTE))
-                .setMaxQueryTotalMemory(new DataSize(40, GIGABYTE)));
+                .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
+                .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.low-memory-killer.policy", "total-reservation-on-blocked-nodes")
+                .put("query.low-memory-killer.policy", "none")
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
+                .setLowMemoryKillerPolicy(NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
-                .setMaxQueryMemory(new DataSize(2, GIGABYTE))
-                .setMaxQueryTotalMemory(new DataSize(3, GIGABYTE));
+                .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
+                .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

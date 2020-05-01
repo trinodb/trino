@@ -28,7 +28,6 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -162,13 +161,13 @@ public class BasicQueryStats
                 0,
                 0,
                 0,
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0,
                 0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 false,

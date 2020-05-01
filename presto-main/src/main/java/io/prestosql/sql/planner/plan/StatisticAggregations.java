@@ -17,9 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
@@ -63,12 +64,13 @@ public class StatisticAggregations
         ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
-            Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(signature);
-            Symbol partialSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
+            ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
+            AggregationFunctionMetadata functionMetadata = metadata.getAggregationFunctionMetadata(resolvedFunction);
+            Type intermediateType = metadata.getType(functionMetadata.getIntermediateType().orElseThrow(() -> new IllegalArgumentException("aggregation is not decomposable")));
+            Symbol partialSymbol = symbolAllocator.newSymbol(resolvedFunction.getSignature().getName(), intermediateType);
             mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(
-                    signature,
+                    resolvedFunction,
                     originalAggregation.getArguments(),
                     originalAggregation.isDistinct(),
                     originalAggregation.getFilter(),
@@ -76,7 +78,7 @@ public class StatisticAggregations
                     originalAggregation.getMask()));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
-                            signature,
+                            resolvedFunction,
                             ImmutableList.of(partialSymbol.toSymbolReference()),
                             false,
                             Optional.empty(),

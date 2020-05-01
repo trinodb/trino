@@ -37,7 +37,6 @@ import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestJdbcClient
 {
     private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();
@@ -83,9 +82,9 @@ public class TestJdbcClient
         assertEquals(table.get().getTableName(), "NUMBERS");
         assertEquals(table.get().getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
-                new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR, true),
-                new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true),
-                new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT, true)));
+                new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
+                new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
     }
 
     @Test
@@ -95,8 +94,8 @@ public class TestJdbcClient
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
-                new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR, true),
-                new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT, true)));
+                new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT)));
     }
 
     @Test
@@ -106,9 +105,9 @@ public class TestJdbcClient
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
-                new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE, true),
-                new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE, true),
-                new JdbcColumnHandle("COL4", JDBC_REAL, REAL, true)));
+                new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("COL4", JDBC_REAL, REAL)));
     }
 }

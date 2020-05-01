@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.io.Files;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -29,15 +30,18 @@ import java.io.IOException;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestHiveLocal
         extends AbstractTestHive
 {
     private static final String DEFAULT_TEST_DB_NAME = "test";
+    private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION);
 
     private File tempDir;
-    private String testDbName;
+    private final String testDbName;
 
     protected AbstractTestHiveLocal()
     {
@@ -58,16 +62,17 @@ public abstract class AbstractTestHiveLocal
 
         HiveMetastore metastore = createMetastore(tempDir);
 
-        metastore.createDatabase(Database.builder()
-                .setDatabaseName(testDbName)
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
-                .build());
+        metastore.createDatabase(HIVE_IDENTITY,
+                Database.builder()
+                        .setDatabaseName(testDbName)
+                        .setOwnerName("public")
+                        .setOwnerType(PrincipalType.ROLE)
+                        .build());
 
         HiveConfig hiveConfig = new HiveConfig()
                 .setTimeZone("America/Los_Angeles");
 
-        setup(testDbName, hiveConfig, metastore);
+        setup(testDbName, hiveConfig, metastore, HDFS_ENVIRONMENT);
     }
 
     @AfterClass(alwaysRun = true)
@@ -75,7 +80,7 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         try {
-            getMetastoreClient().dropDatabase(testDbName);
+            getMetastoreClient().dropDatabase(HIVE_IDENTITY, testDbName);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -92,17 +97,32 @@ public abstract class AbstractTestHiveLocal
     }
 
     @Override
-    public void testGetAllTableNames() {}
+    public void testGetAllTableNames()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetAllTableColumns() {}
+    public void testGetAllTableColumns()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetAllTableColumnsInSchema() {}
+    public void testGetAllTableColumnsInSchema()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetTableNames() {}
+    public void testGetTableNames()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 
     @Override
-    public void testGetTableSchemaOffline() {}
+    public void testGetTableSchemaOffline()
+    {
+        throw new SkipException("Test disabled for this subclass");
+    }
 }

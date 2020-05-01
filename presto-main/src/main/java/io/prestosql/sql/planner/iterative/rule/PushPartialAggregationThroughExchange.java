@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;
@@ -86,7 +87,7 @@ public class PushPartialAggregationThroughExchange
 
         boolean decomposable = aggregationNode.isDecomposable(metadata);
 
-        if (aggregationNode.getStep().equals(SINGLE) &&
+        if (aggregationNode.getStep() == SINGLE &&
                 aggregationNode.hasEmptyGroupingSet() &&
                 aggregationNode.hasNonEmptyGroupingSet() &&
                 exchangeNode.getType() == REPARTITION) {
@@ -200,15 +201,16 @@ public class PushPartialAggregationThroughExchange
         Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(signature);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
+            ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
+            AggregationFunctionMetadata functionMetadata = metadata.getAggregationFunctionMetadata(resolvedFunction);
+            Type intermediateType = metadata.getType(functionMetadata.getIntermediateType().orElseThrow(() -> new IllegalArgumentException("aggregation is not decomposable")));
+            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.getSignature().getName(), intermediateType);
 
             checkState(!originalAggregation.getOrderingScheme().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
             intermediateAggregation.put(
                     intermediateSymbol,
                     new AggregationNode.Aggregation(
-                            signature,
+                            resolvedFunction,
                             originalAggregation.getArguments(),
                             originalAggregation.isDistinct(),
                             originalAggregation.getFilter(),
@@ -219,7 +221,7 @@ public class PushPartialAggregationThroughExchange
             finalAggregation.put(
                     entry.getKey(),
                     new AggregationNode.Aggregation(
-                            signature,
+                            resolvedFunction,
                             ImmutableList.<Expression>builder()
                                     .add(intermediateSymbol.toSymbolReference())
                                     .addAll(originalAggregation.getArguments().stream()

@@ -22,12 +22,8 @@ public class MinByNAggregationFunction
 
     public MinByNAggregationFunction()
     {
-        super(NAME, t -> ((leftBlock, leftIndex, rightBlock, rightIndex) -> -t.compareTo(leftBlock, leftIndex, rightBlock, rightIndex)));
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns the values of the first argument associated with the minimum values of the second argument";
+        super(NAME,
+                t -> ((leftBlock, leftIndex, rightBlock, rightIndex) -> -t.compareTo(leftBlock, leftIndex, rightBlock, rightIndex)),
+                "Returns the values of the first argument associated with the minimum values of the second argument");
     }
 }

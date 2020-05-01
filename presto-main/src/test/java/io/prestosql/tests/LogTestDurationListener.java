@@ -48,9 +48,14 @@ public class LogTestDurationListener
 {
     private static final Logger LOG = Logger.get(LogTestDurationListener.class);
 
+    // LogTestDurationListener does not support concurrent invocations of same test method
+    // (@Test(threadPoolSize=n)), so we need kill switch for local development purposes.
+    private static final boolean enabled = Boolean.getBoolean("LogTestDurationListener.enabled");
+
     private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("30s");
     private static final Duration CLASS_LOGGING_THRESHOLD = Duration.valueOf("1m");
-    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("5m");
+    // Must be below Travis "no output" timeout (10m). E.g. TestElasticsearchIntegrationSmokeTest is known to take ~5-6m.
+    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("8m");
 
     private final ScheduledExecutorService scheduledExecutorService;
 
@@ -69,6 +74,10 @@ public class LogTestDurationListener
     @Override
     public synchronized void onExecutionStart()
     {
+        if (!enabled) {
+            return;
+        }
+
         resetHangMonitor();
         finished.set(false);
         if (monitorHangTask == null) {
@@ -79,6 +88,10 @@ public class LogTestDurationListener
     @Override
     public synchronized void onExecutionFinish()
     {
+        if (!enabled) {
+            return;
+        }
+
         resetHangMonitor();
         finished.set(true);
         // do not stop hang task so notification of hung test JVM will fire
@@ -132,12 +145,20 @@ public class LogTestDurationListener
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
+        if (!enabled) {
+            return;
+        }
+
         beginTest(getName(testClass));
     }
 
     @Override
     public void onAfterClass(ITestClass testClass)
     {
+        if (!enabled) {
+            return;
+        }
+
         String name = getName(testClass);
         Duration duration = endTest(name);
         if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
@@ -148,12 +169,20 @@ public class LogTestDurationListener
     @Override
     public void beforeInvocation(IInvokedMethod method, ITestResult testResult)
     {
+        if (!enabled) {
+            return;
+        }
+
         beginTest(getName(method));
     }
 
     @Override
     public void afterInvocation(IInvokedMethod method, ITestResult testResult)
     {
+        if (!enabled) {
+            return;
+        }
+
         String name = getName(method);
         Duration duration = endTest(name);
         if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {

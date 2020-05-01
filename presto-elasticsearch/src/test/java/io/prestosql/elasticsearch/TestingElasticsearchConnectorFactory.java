@@ -29,11 +29,8 @@ import static java.util.Objects.requireNonNull;
 class TestingElasticsearchConnectorFactory
         extends ElasticsearchConnectorFactory
 {
-    private final ElasticsearchTableDescriptionProvider tableDescriptionSupplier;
-
-    TestingElasticsearchConnectorFactory(ElasticsearchTableDescriptionProvider tableDescriptionSupplier)
+    TestingElasticsearchConnectorFactory()
     {
-        this.tableDescriptionSupplier = tableDescriptionSupplier;
     }
 
     @Override
@@ -54,25 +51,19 @@ class TestingElasticsearchConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new ElasticsearchConnectorModule(),
-                    binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(ElasticsearchTableDescriptionProvider.class).toInstance(tableDescriptionSupplier);
-                    });
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new ElasticsearchConnectorModule(),
+                binder -> {
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                });
 
-            Injector injector = app.strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app.strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(ElasticsearchConnector.class);
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(ElasticsearchConnector.class);
     }
 }

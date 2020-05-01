@@ -15,7 +15,6 @@ package io.prestosql.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.connector.CatalogName;
@@ -46,12 +45,10 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -198,7 +195,9 @@ public class IndexLoader
                 // Try loading just my request
                 if (requests.size() > 1) {
                     // Add all other requests back into the queue
-                    Iterables.addAll(updateRequests, filter(requests, not(equalTo(myUpdateRequest))));
+                    requests.stream()
+                            .filter(Predicate.isEqual(myUpdateRequest).negate())
+                            .forEach(updateRequests::add);
 
                     if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
                         stats.recordSuccessfulIndexJoinLookupBySingleRequest();
@@ -281,7 +280,8 @@ public class IndexLoader
 
         private final IndexSnapshotBuilder indexSnapshotBuilder;
 
-        private IndexSnapshotLoader(IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
+        private IndexSnapshotLoader(
+                IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
                 PipelineContext pipelineContext,
                 AtomicReference<IndexSnapshot> indexSnapshotReference,
                 Set<Integer> lookupSourceInputChannels,

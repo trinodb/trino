@@ -70,7 +70,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -168,7 +167,8 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
-        public MockRemoteTask(TaskId taskId,
+        public MockRemoteTask(
+                TaskId taskId,
                 PlanFragment fragment,
                 String nodeId,
                 Executor executor,
@@ -179,16 +179,16 @@ public class MockRemoteTaskFactory
         {
             this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
 
-            MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-            SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+            MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+            SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
             QueryContext queryContext = new QueryContext(taskId.getQueryId(),
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(2, MEGABYTE),
+                    DataSize.of(1, MEGABYTE),
+                    DataSize.of(2, MEGABYTE),
                     memoryPool,
                     new TestingGcMonitor(),
                     executor,
                     scheduledExecutor,
-                    new DataSize(1, MEGABYTE),
+                    DataSize.of(1, MEGABYTE),
                     spillSpaceTracker);
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, totalPartitions);
 
@@ -198,7 +198,7 @@ public class MockRemoteTaskFactory
                     taskId,
                     TASK_INSTANCE_ID,
                     executor,
-                    new DataSize(1, BYTE),
+                    DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
@@ -243,10 +243,10 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             false,
-                            new DataSize(0, BYTE),
-                            new DataSize(0, BYTE),
-                            new DataSize(0, BYTE),
-                            new DataSize(0, BYTE),
+                            DataSize.ofBytes(0),
+                            DataSize.ofBytes(0),
+                            DataSize.ofBytes(0),
+                            DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS)),
                     DateTime.now(),

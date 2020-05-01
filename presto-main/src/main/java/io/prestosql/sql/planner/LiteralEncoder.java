@@ -20,16 +20,14 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 import io.prestosql.block.BlockSerdeUtil;
-import io.prestosql.metadata.LiteralFunction;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -47,7 +45,9 @@ import io.prestosql.sql.tree.StringLiteral;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.LiteralFunction.typeForLiteralFunctionArgument;
+import static io.prestosql.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
+import static io.prestosql.metadata.LiteralFunction.typeForMagicLiteral;
+import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -58,6 +58,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -99,7 +100,7 @@ public final class LiteralEncoder
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
+            return new Cast(new NullLiteral(), toSqlType(type), false, true);
         }
 
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
@@ -155,21 +156,21 @@ public final class LiteralEncoder
                         new FunctionCallBuilder(metadata)
                                 .setName(QualifiedName.of("nan"))
                                 .build(),
-                        StandardTypes.REAL);
+                        toSqlType(REAL));
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
                         new FunctionCallBuilder(metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
-                        StandardTypes.REAL));
+                        toSqlType(REAL)));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
                         new FunctionCallBuilder(metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
-                        StandardTypes.REAL);
+                        toSqlType(REAL));
             }
             return new GenericLiteral("REAL", value.toString());
         }
@@ -182,7 +183,7 @@ public final class LiteralEncoder
             else {
                 string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
             }
-            return new Cast(new DecimalLiteral(string), type.getDisplayName());
+            return new Cast(new DecimalLiteral(string), toSqlType(type));
         }
 
         if (type instanceof VarcharType) {
@@ -193,12 +194,12 @@ public final class LiteralEncoder
             if (!varcharType.isUnbounded() && varcharType.getBoundedLength() == SliceUtf8.countCodePoints(value)) {
                 return stringLiteral;
             }
-            return new Cast(stringLiteral, type.getDisplayName(), false, true);
+            return new Cast(stringLiteral, toSqlType(type), false, true);
         }
 
         if (type instanceof CharType) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
-            return new Cast(stringLiteral, type.getDisplayName(), false, true);
+            return new Cast(stringLiteral, toSqlType(type), false, true);
         }
 
         if (type.equals(BOOLEAN)) {
@@ -209,6 +210,14 @@ public final class LiteralEncoder
             return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
         }
 
+        // There is no automatic built in encoding for this Presto type, so instead the stack type is
+        // encoded as another Presto type.
+
+        // If the stack value is not a simple type, encode the stack value in a block
+        if (!type.getJavaType().isPrimitive() && type.getJavaType() != Slice.class && type.getJavaType() != Block.class) {
+            object = nativeValueToBlock(type, object);
+        }
+
         if (object instanceof Block) {
             SliceOutput output = new DynamicSliceOutput(toIntExact(((Block) object).getSizeInBytes()));
             BlockSerdeUtil.writeBlock(metadata.getBlockEncodingSerde(), output, (Block) object);
@@ -216,9 +225,7 @@ public final class LiteralEncoder
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
 
-        Signature signature = LiteralFunction.getLiteralFunctionSignature(type);
-
-        Type argumentType = typeForLiteralFunctionArgument(type);
+        Type argumentType = typeForMagicLiteral(type);
         Expression argument;
         if (object instanceof Slice) {
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
@@ -234,8 +241,9 @@ public final class LiteralEncoder
             argument = toExpression(object, argumentType);
         }
 
+        ResolvedFunction resolvedFunction = metadata.getCoercion(QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
         return new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of(signature.getName()))
+                .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)
                 .build();
     }

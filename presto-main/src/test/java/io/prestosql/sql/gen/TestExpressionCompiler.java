@@ -21,11 +21,9 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.joni.Regex;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.prestosql.operator.scalar.BitwiseFunctions;
 import io.prestosql.operator.scalar.DateTimeFunctions;
@@ -39,11 +37,11 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.Extract.Field;
+import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.LikeFunctions;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -88,6 +86,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
@@ -209,8 +208,8 @@ public class TestExpressionCompiler
         assertExecute("10000000000 + 1", BIGINT, 10000000001L);
         assertExecute("4.2", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
         assertExecute("DECIMAL '4.2'", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
-        assertExecute("X' 1 f'", VARBINARY, new SqlVarbinary(Slices.wrappedBuffer((byte) 0x1f).getBytes()));
-        assertExecute("X' '", VARBINARY, new SqlVarbinary(new byte[0]));
+        assertExecute("X' 1 f'", VARBINARY, sqlVarbinary(0x1F));
+        assertExecute("X' '", VARBINARY, sqlVarbinary());
         assertExecute("bound_integer", INTEGER, 1234);
         assertExecute("bound_long", BIGINT, 1234L);
         assertExecute("bound_string", VARCHAR, "hello");
@@ -220,7 +219,7 @@ public class TestExpressionCompiler
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
         assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
-        assertExecute("bound_binary_literal", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xab}));
+        assertExecute("bound_binary_literal", VARBINARY, sqlVarbinary(0xAB));
 
         // todo enable when null output type is supported
         // assertExecute("null", null);
@@ -1322,6 +1321,18 @@ public class TestExpressionCompiler
         assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
         assertExecute("bound_timestamp_with_timezone in (TIMESTAMP '1970-01-01 01:01:00.0+02:00')", BOOLEAN, false);
 
+        String shortDecimalValues = range(2000, 7000)
+                .mapToObj(value -> format("decimal '%s'", value))
+                .collect(joining(", "));
+        assertExecute("bound_short_decimal in (1234, " + shortDecimalValues + ")", BOOLEAN, true);
+        assertExecute("bound_short_decimal in (" + shortDecimalValues + ")", BOOLEAN, false);
+
+        String longDecimalValues = range(2000, 7000)
+                .mapToObj(value -> format("decimal '123456789012345678901234567890%s'", value))
+                .collect(joining(", "));
+        assertExecute("bound_long_decimal in (1234, " + longDecimalValues + ")", BOOLEAN, true);
+        assertExecute("bound_long_decimal in (" + longDecimalValues + ")", BOOLEAN, false);
+
         Futures.allAsList(futures).get();
     }
 
@@ -1570,7 +1581,7 @@ public class TestExpressionCompiler
             for (String pattern : stringLefts) {
                 Boolean expected = null;
                 if (value != null && pattern != null) {
-                    Regex regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
+                    JoniRegexp regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
                     expected = LikeFunctions.likeVarchar(utf8Slice(value), regex);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);
@@ -1847,10 +1858,14 @@ public class TestExpressionCompiler
                 ImmutableList.of(leftType, rightType));
     }
 
-    private static List<String> formatExpression(String expressionPattern,
-            Object first, String firstType,
-            Object second, String secondType,
-            Object third, String thirdType)
+    private static List<String> formatExpression(
+            String expressionPattern,
+            Object first,
+            String firstType,
+            Object second,
+            String secondType,
+            Object third,
+            String thirdType)
     {
         return formatExpression(expressionPattern,
                 Arrays.asList(first, second, third),

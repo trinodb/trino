@@ -39,8 +39,8 @@ public class SpatialJoinMatcher
     public SpatialJoinMatcher(Type type, Expression filter, Optional<String> kdbTree)
     {
         this.type = type;
-        this.filter = requireNonNull(filter, "filter can not be null");
-        this.kdbTree = requireNonNull(kdbTree, "kdbTree can not be null");
+        this.filter = requireNonNull(filter, "filter cannot be null");
+        this.kdbTree = requireNonNull(kdbTree, "kdbTree cannot be null");
     }
 
     @Override

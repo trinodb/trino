@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
@@ -25,22 +26,26 @@ public class SchemaAccessControlRule
 {
     private final boolean owner;
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> schemaRegex;
 
     @JsonCreator
     public SchemaAccessControlRule(
             @JsonProperty("owner") boolean owner,
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex)
     {
         this.owner = owner;
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.userRegex = requireNonNull(userRegex, "user is null");
+        this.groupRegex = requireNonNull(groupRegex, "group is null");
         this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
     }
 
-    public Optional<Boolean> match(String user, String schema)
+    public Optional<Boolean> match(String user, Set<String> groups, String schema)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
                 schemaRegex.map(regex -> regex.matcher(schema).matches()).orElse(true)) {
             return Optional.of(owner);
         }

@@ -39,7 +39,7 @@ public class TestFailureFunction
     {
         // The other test does not exercise this function during execution (i.e. inside a page processor).
         // It only verifies constant folding works.
-        try (LocalQueryRunner runner = new LocalQueryRunner(TEST_SESSION)) {
+        try (LocalQueryRunner runner = LocalQueryRunner.create(TEST_SESSION)) {
             runner.execute("select if(x, 78, 0/0) from (values rand() >= 0, rand() < 0) t(x)");
         }
     }

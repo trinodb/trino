@@ -22,12 +22,6 @@ public class MaxAggregationFunction
 
     public MaxAggregationFunction()
     {
-        super(NAME, false);
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns the maximum value of the argument";
+        super(NAME, false, "Returns the maximum value of the argument");
     }
 }

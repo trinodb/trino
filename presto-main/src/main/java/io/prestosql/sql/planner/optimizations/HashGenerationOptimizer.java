@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -64,6 +66,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,7 +91,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Stream.concat;
 
 public class HashGenerationOptimizer
         implements PlanOptimizer
@@ -168,7 +170,7 @@ public class HashGenerationOptimizer
         {
             Optional<HashComputation> groupByHash = Optional.empty();
             if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
-                groupByHash = computeHash(metadata, symbolAllocator, node.getGroupingKeys());
+                groupByHash = computeHash(node.getGroupingKeys());
             }
 
             // aggregation does not pass through preferred hash symbols
@@ -211,7 +213,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(metadata, symbolAllocator, node.getDistinctSymbols());
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols());
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -235,7 +237,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference, false);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(metadata, symbolAllocator, node.getDistinctSymbols());
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols());
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -255,7 +257,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(metadata, symbolAllocator, node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -268,6 +270,7 @@ public class HashGenerationOptimizer
                             node.getId(),
                             child.getNode(),
                             node.getPartitionBy(),
+                            node.isOrderSensitive(),
                             node.getRowNumberSymbol(),
                             node.getMaxRowCountPerPartition(),
                             Optional.of(hashSymbol)),
@@ -281,7 +284,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(metadata, symbolAllocator, node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -318,11 +321,11 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> leftHashComputation = computeHash(metadata, symbolAllocator, Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft));
+            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft));
             PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(leftHashComputation), true, new HashComputationSet(leftHashComputation));
             Symbol leftHashSymbol = left.getRequiredHashSymbol(leftHashComputation.get());
 
-            Optional<HashComputation> rightHashComputation = computeHash(metadata, symbolAllocator, Lists.transform(clauses, JoinNode.EquiJoinClause::getRight));
+            Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight));
             // drop undesired hash symbols from build to save memory
             PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(rightHashComputation), true, new HashComputationSet(rightHashComputation));
             Symbol rightHashSymbol = right.getRequiredHashSymbol(rightHashComputation.get());
@@ -355,9 +358,15 @@ public class HashGenerationOptimizer
                             .stream()
                             .filter(entry -> parentPreference.getHashes().contains(entry.getKey()))
                             .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+            Set<Symbol> preferredHashSymbols = ImmutableSet.copyOf(hashSymbolsWithParentPreferences.values());
+            Set<Symbol> leftOutputSymbols = ImmutableSet.copyOf(node.getLeftOutputSymbols());
+            Set<Symbol> rightOutputSymbols = ImmutableSet.copyOf(node.getRightOutputSymbols());
 
-            List<Symbol> outputSymbols = concat(left.getNode().getOutputSymbols().stream(), right.getNode().getOutputSymbols().stream())
-                    .filter(symbol -> node.getOutputSymbols().contains(symbol) || hashSymbolsWithParentPreferences.values().contains(symbol))
+            List<Symbol> newLeftOutputSymbols = left.getNode().getOutputSymbols().stream()
+                    .filter(symbol -> leftOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
+                    .collect(toImmutableList());
+            List<Symbol> newRightOutputSymbols = right.getNode().getOutputSymbols().stream()
+                    .filter(symbol -> rightOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
                     .collect(toImmutableList());
 
             return new PlanWithProperties(
@@ -367,20 +376,22 @@ public class HashGenerationOptimizer
                             left.getNode(),
                             right.getNode(),
                             node.getCriteria(),
-                            outputSymbols,
+                            newLeftOutputSymbols,
+                            newRightOutputSymbols,
                             node.getFilter(),
                             leftHashSymbol,
                             rightHashSymbol,
                             node.getDistributionType(),
                             node.isSpillable(),
-                            node.getDynamicFilters()),
+                            node.getDynamicFilters(),
+                            node.getReorderJoinStatsAndCost()),
                     hashSymbolsWithParentPreferences);
         }
 
         @Override
         public PlanWithProperties visitSemiJoin(SemiJoinNode node, HashComputationSet parentPreference)
         {
-            Optional<HashComputation> sourceHashComputation = computeHash(metadata, symbolAllocator, ImmutableList.of(node.getSourceJoinSymbol()));
+            Optional<HashComputation> sourceHashComputation = computeHash(ImmutableList.of(node.getSourceJoinSymbol()));
             PlanWithProperties source = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(sourceHashComputation),
@@ -388,7 +399,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(sourceHashComputation));
             Symbol sourceHashSymbol = source.getRequiredHashSymbol(sourceHashComputation.get());
 
-            Optional<HashComputation> filterHashComputation = computeHash(metadata, symbolAllocator, ImmutableList.of(node.getFilteringSourceJoinSymbol()));
+            Optional<HashComputation> filterHashComputation = computeHash(ImmutableList.of(node.getFilteringSourceJoinSymbol()));
             HashComputationSet requiredHashes = new HashComputationSet(filterHashComputation);
             PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), requiredHashes, true, requiredHashes);
             Symbol filteringSourceHashSymbol = filteringSource.getRequiredHashSymbol(filterHashComputation.get());
@@ -426,7 +437,7 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> probeHashComputation = computeHash(metadata, symbolAllocator, Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe));
+            Optional<HashComputation> probeHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe));
             PlanWithProperties probe = planAndEnforce(
                     node.getProbeSource(),
                     new HashComputationSet(probeHashComputation),
@@ -434,7 +445,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(probeHashComputation));
             Symbol probeHashSymbol = probe.getRequiredHashSymbol(probeHashComputation.get());
 
-            Optional<HashComputation> indexHashComputation = computeHash(metadata, symbolAllocator, Lists.transform(clauses, EquiJoinClause::getIndex));
+            Optional<HashComputation> indexHashComputation = computeHash(Lists.transform(clauses, EquiJoinClause::getIndex));
             HashComputationSet requiredHashes = new HashComputationSet(indexHashComputation);
             PlanWithProperties index = planAndEnforce(node.getIndexSource(), requiredHashes, true, requiredHashes);
             Symbol indexHashSymbol = index.getRequiredHashSymbol(indexHashComputation.get());
@@ -465,7 +476,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference, true);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(metadata, symbolAllocator, node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -498,7 +509,7 @@ public class HashGenerationOptimizer
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
                     partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
                 // add precomputed hash for exchange
-                partitionSymbols = computeHash(metadata, symbolAllocator, partitioningScheme.getPartitioning().getArguments().stream()
+                partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
                         .map(ArgumentBinding::getColumn)
                         .collect(toImmutableList()));
                 preference = preference.withHashComputation(partitionSymbols);
@@ -626,13 +637,15 @@ public class HashGenerationOptimizer
                 Expression hashExpression;
                 if (hashSymbol == null) {
                     hashSymbol = symbolAllocator.newHashSymbol();
-                    hashExpression = hashComputation.getHashExpression();
+                    hashExpression = hashComputation.getHashExpression(metadata, types);
                 }
                 else {
                     hashExpression = hashSymbol.toSymbolReference();
                 }
                 newAssignments.put(hashSymbol, hashExpression);
-                allHashSymbols.put(sourceContext.lookup(hashComputation), hashSymbol);
+                for (HashComputation sourceHashComputation : sourceContext.lookup(hashComputation)) {
+                    allHashSymbols.put(sourceHashComputation, hashSymbol);
+                }
             }
 
             return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build()), allHashSymbols);
@@ -656,7 +669,9 @@ public class HashGenerationOptimizer
                                     .addAll(hashSymbols.values())
                                     .build(),
                             node.getUnnestSymbols(),
-                            node.getOrdinalitySymbol()),
+                            node.getOrdinalitySymbol(),
+                            node.getJoinType(),
+                            node.getFilter()),
                     hashSymbols);
         }
 
@@ -739,7 +754,7 @@ public class HashGenerationOptimizer
             // add new projections for hash symbols needed by the parent
             for (HashComputation hashComputation : requiredHashes.getHashes()) {
                 if (!planWithProperties.getHashSymbols().containsKey(hashComputation)) {
-                    Expression hashExpression = hashComputation.getHashExpression();
+                    Expression hashExpression = hashComputation.getHashExpression(metadata, types);
                     Symbol hashSymbol = symbolAllocator.newHashSymbol();
                     assignments.put(hashSymbol, hashExpression);
                     outputHashSymbols.put(hashComputation, hashSymbol);
@@ -763,28 +778,28 @@ public class HashGenerationOptimizer
 
     private static class HashComputationSet
     {
-        private final Map<HashComputation, HashComputation> hashes;
+        private final Multimap<HashComputation, HashComputation> hashes;
 
         public HashComputationSet()
         {
-            hashes = ImmutableMap.of();
+            hashes = ImmutableSetMultimap.of();
         }
 
         public HashComputationSet(Optional<HashComputation> hash)
         {
             requireNonNull(hash, "hash is null");
             if (hash.isPresent()) {
-                this.hashes = ImmutableMap.of(hash.get(), hash.get());
+                this.hashes = ImmutableSetMultimap.of(hash.get(), hash.get());
             }
             else {
-                this.hashes = ImmutableMap.of();
+                this.hashes = ImmutableSetMultimap.of();
             }
         }
 
-        private HashComputationSet(Map<HashComputation, HashComputation> hashes)
+        private HashComputationSet(Multimap<HashComputation, HashComputation> hashes)
         {
             requireNonNull(hashes, "hashes is null");
-            this.hashes = ImmutableMap.copyOf(hashes);
+            this.hashes = ImmutableSetMultimap.copyOf(hashes);
         }
 
         public Set<HashComputation> getHashes()
@@ -795,14 +810,18 @@ public class HashGenerationOptimizer
         public HashComputationSet pruneSymbols(List<Symbol> symbols)
         {
             Set<Symbol> uniqueSymbols = ImmutableSet.copyOf(symbols);
-            return new HashComputationSet(hashes.entrySet().stream()
-                    .filter(hash -> hash.getKey().canComputeWith(uniqueSymbols))
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue)));
+            ImmutableSetMultimap.Builder<HashComputation, HashComputation> builder = ImmutableSetMultimap.builder();
+
+            hashes.keySet().stream()
+                    .filter(hash -> hash.canComputeWith(uniqueSymbols))
+                    .forEach(hash -> builder.putAll(hash, hashes.get(hash)));
+
+            return new HashComputationSet(builder.build());
         }
 
         public HashComputationSet translate(Function<Symbol, Optional<Symbol>> translator)
         {
-            ImmutableMap.Builder<HashComputation, HashComputation> builder = ImmutableMap.builder();
+            ImmutableSetMultimap.Builder<HashComputation, HashComputation> builder = ImmutableSetMultimap.builder();
             for (HashComputation hashComputation : hashes.keySet()) {
                 hashComputation.translate(translator)
                         .ifPresent(hash -> builder.put(hash, hashComputation));
@@ -810,7 +829,7 @@ public class HashGenerationOptimizer
             return new HashComputationSet(builder.build());
         }
 
-        public HashComputation lookup(HashComputation hashComputation)
+        public Collection<HashComputation> lookup(HashComputation hashComputation)
         {
             return hashes.get(hashComputation);
         }
@@ -825,21 +844,21 @@ public class HashGenerationOptimizer
             if (!hashComputation.isPresent() || hashes.containsKey(hashComputation.get())) {
                 return this;
             }
-            return new HashComputationSet(ImmutableMap.<HashComputation, HashComputation>builder()
+            return new HashComputationSet(ImmutableSetMultimap.<HashComputation, HashComputation>builder()
                     .putAll(hashes)
                     .put(hashComputation.get(), hashComputation.get())
                     .build());
         }
     }
 
-    private static Optional<HashComputation> computeHash(Metadata metadata, SymbolAllocator symbolAllocator, Iterable<Symbol> fields)
+    private static Optional<HashComputation> computeHash(Iterable<Symbol> fields)
     {
         requireNonNull(fields, "fields is null");
         List<Symbol> symbols = ImmutableList.copyOf(fields);
         if (symbols.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new HashComputation(metadata, symbolAllocator, fields));
+        return Optional.of(new HashComputation(fields));
     }
 
     public static Optional<Expression> getHashExpression(Metadata metadata, SymbolAllocator symbolAllocator, List<Symbol> symbols)
@@ -868,19 +887,13 @@ public class HashGenerationOptimizer
 
     private static class HashComputation
     {
-        private final Metadata metadata;
         private final List<Symbol> fields;
-        private final SymbolAllocator symbolAllocator;
 
-        private HashComputation(Metadata metadata, SymbolAllocator symbolAllocator, Iterable<Symbol> fields)
+        private HashComputation(Iterable<Symbol> fields)
         {
-            requireNonNull(metadata, "metadata is null");
             requireNonNull(fields, "fields is null");
-            requireNonNull(symbolAllocator, "symbolAllocator is null");
-            this.metadata = metadata;
             this.fields = ImmutableList.copyOf(fields);
-            checkArgument(!this.fields.isEmpty(), "fields can not be empty");
-            this.symbolAllocator = symbolAllocator;
+            checkArgument(!this.fields.isEmpty(), "fields cannot be empty");
         }
 
         public List<Symbol> getFields()
@@ -898,7 +911,7 @@ public class HashGenerationOptimizer
                 }
                 newSymbols.add(newSymbol.get());
             }
-            return computeHash(metadata, symbolAllocator, newSymbols.build());
+            return computeHash(newSymbols.build());
         }
 
         public boolean canComputeWith(Set<Symbol> availableFields)
@@ -906,20 +919,20 @@ public class HashGenerationOptimizer
             return availableFields.containsAll(fields);
         }
 
-        private Expression getHashExpression()
+        private Expression getHashExpression(Metadata metadata, TypeProvider types)
         {
             Expression hashExpression = new GenericLiteral(StandardTypes.BIGINT, Integer.toString(INITIAL_HASH_VALUE));
             for (Symbol field : fields) {
-                hashExpression = getHashFunctionCall(hashExpression, field);
+                hashExpression = getHashFunctionCall(hashExpression, field, metadata, types);
             }
             return hashExpression;
         }
 
-        private Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol)
+        private Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol, Metadata metadata, TypeProvider types)
         {
             FunctionCall functionCall = new FunctionCallBuilder(metadata)
                     .setName(QualifiedName.of(HASH_CODE))
-                    .addArgument(symbolAllocator.getTypes().get(symbol), symbol.toSymbolReference())
+                    .addArgument(types.get(symbol), symbol.toSymbolReference())
                     .build();
 
             return new FunctionCallBuilder(metadata)

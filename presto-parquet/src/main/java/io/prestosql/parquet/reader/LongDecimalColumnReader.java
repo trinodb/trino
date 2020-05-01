@@ -13,28 +13,62 @@
  */
 package io.prestosql.parquet.reader;
 
+import io.airlift.slice.Slice;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 
 import java.math.BigInteger;
 
+import static io.prestosql.spi.type.DecimalConversions.longToLongCast;
+import static io.prestosql.spi.type.DecimalConversions.longToShortCast;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
 public class LongDecimalColumnReader
         extends PrimitiveColumnReader
 {
-    LongDecimalColumnReader(RichColumnDescriptor descriptor)
+    private final DecimalType parquetDecimalType;
+
+    LongDecimalColumnReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
     {
         super(descriptor);
+        this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type prestoType)
     {
+        if (!(prestoType instanceof DecimalType)) {
+            throw new ParquetDecodingException(format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
+        }
+
+        DecimalType prestoDecimalType = (DecimalType) prestoType;
+
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary value = valuesReader.readBytes();
-            type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
+            Binary binary = valuesReader.readBytes();
+            Slice value = Decimals.encodeUnscaledValue(new BigInteger(binary.getBytes()));
+
+            if (prestoDecimalType.isShort()) {
+                prestoType.writeLong(blockBuilder, longToShortCast(
+                        value,
+                        parquetDecimalType.getPrecision(),
+                        parquetDecimalType.getScale(),
+                        prestoDecimalType.getPrecision(),
+                        prestoDecimalType.getScale()));
+            }
+            else {
+                prestoType.writeSlice(blockBuilder, longToLongCast(
+                        value,
+                        parquetDecimalType.getPrecision(),
+                        parquetDecimalType.getScale(),
+                        prestoDecimalType.getPrecision(),
+                        prestoDecimalType.getScale()));
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

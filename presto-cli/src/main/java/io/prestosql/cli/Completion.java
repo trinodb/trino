@@ -14,12 +14,12 @@
 package io.prestosql.cli;
 
 import com.google.common.collect.ImmutableSet;
-import jline.console.completer.Completer;
-import jline.console.completer.StringsCompleter;
+import org.jline.reader.Completer;
+import org.jline.reader.impl.completer.StringsCompleter;
 
-import java.util.Locale;
 import java.util.Set;
 
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toSet;
 
 public final class Completion
@@ -44,14 +44,11 @@ public final class Completion
 
     public static Completer commandCompleter()
     {
-        return new StringsCompleter(COMMANDS);
-    }
-
-    // TODO: create a case-insensitive completer
-    public static Completer lowerCaseCommandCompleter()
-    {
-        return new StringsCompleter(COMMANDS.stream()
-                .map(s -> s.toLowerCase(Locale.ENGLISH))
-                .collect(toSet()));
+        return new StringsCompleter(ImmutableSet.<String>builder()
+                .addAll(COMMANDS)
+                .addAll(COMMANDS.stream()
+                        .map(value -> value.toLowerCase(ENGLISH))
+                        .collect(toSet()))
+                .build());
     }
 }

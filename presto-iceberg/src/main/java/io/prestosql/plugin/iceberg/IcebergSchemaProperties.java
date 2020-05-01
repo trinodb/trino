@@ -36,7 +36,7 @@ public final class IcebergSchemaProperties
 
     private IcebergSchemaProperties() {}
 
-    public static Optional<String> getLocation(Map<String, Object> schemaProperties)
+    public static Optional<String> getSchemaLocation(Map<String, Object> schemaProperties)
     {
         return Optional.ofNullable((String) schemaProperties.get(LOCATION_PROPERTY));
     }

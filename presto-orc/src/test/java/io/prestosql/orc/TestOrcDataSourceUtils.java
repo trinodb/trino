@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static org.testng.Assert.assertEquals;
@@ -31,8 +30,8 @@ public class TestOrcDataSourceUtils
     {
         List<DiskRange> diskRanges = mergeAdjacentDiskRanges(
                 ImmutableList.of(new DiskRange(100, 100)),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE));
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0));
         assertEquals(diskRanges, ImmutableList.of(new DiskRange(100, 100)));
     }
 
@@ -41,8 +40,8 @@ public class TestOrcDataSourceUtils
     {
         List<DiskRange> diskRanges = mergeAdjacentDiskRanges(
                 ImmutableList.of(new DiskRange(100, 100), new DiskRange(200, 100), new DiskRange(300, 100)),
-                new DataSize(0, BYTE),
-                new DataSize(1, GIGABYTE));
+                DataSize.ofBytes(0),
+                DataSize.of(1, GIGABYTE));
         assertEquals(diskRanges, ImmutableList.of(new DiskRange(100, 300)));
     }
 
@@ -50,36 +49,36 @@ public class TestOrcDataSourceUtils
     public void testMergeGap()
     {
         List<DiskRange> consistent10ByteGap = ImmutableList.of(new DiskRange(100, 90), new DiskRange(200, 90), new DiskRange(300, 90));
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(0, BYTE), new DataSize(1, GIGABYTE)), consistent10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(9, BYTE), new DataSize(1, GIGABYTE)), consistent10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(10, BYTE), new DataSize(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 290)));
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(100, BYTE), new DataSize(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 290)));
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(0), DataSize.of(1, GIGABYTE)), consistent10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(9), DataSize.of(1, GIGABYTE)), consistent10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(10), DataSize.of(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 290)));
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(100), DataSize.of(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 290)));
 
         List<DiskRange> middle10ByteGap = ImmutableList.of(new DiskRange(100, 80), new DiskRange(200, 90), new DiskRange(300, 80), new DiskRange(400, 90));
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(0, BYTE), new DataSize(1, GIGABYTE)), middle10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(9, BYTE), new DataSize(1, GIGABYTE)), middle10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(10, BYTE), new DataSize(1, GIGABYTE)),
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(0), DataSize.of(1, GIGABYTE)), middle10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(9), DataSize.of(1, GIGABYTE)), middle10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(10), DataSize.of(1, GIGABYTE)),
                 ImmutableList.of(new DiskRange(100, 80), new DiskRange(200, 180), new DiskRange(400, 90)));
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(100, BYTE), new DataSize(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 390)));
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(100), DataSize.of(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 390)));
     }
 
     @Test
     public void testMergeMaxSize()
     {
         List<DiskRange> consistent10ByteGap = ImmutableList.of(new DiskRange(100, 90), new DiskRange(200, 90), new DiskRange(300, 90));
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(10, BYTE), new DataSize(0, BYTE)), consistent10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(10, BYTE), new DataSize(100, BYTE)), consistent10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(10, BYTE), new DataSize(190, BYTE)),
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(10), DataSize.ofBytes(0)), consistent10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(10), DataSize.ofBytes(100)), consistent10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(10), DataSize.ofBytes(190)),
                 ImmutableList.of(new DiskRange(100, 190), new DiskRange(300, 90)));
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(10, BYTE), new DataSize(200, BYTE)),
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(10), DataSize.ofBytes(200)),
                 ImmutableList.of(new DiskRange(100, 190), new DiskRange(300, 90)));
-        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, new DataSize(10, BYTE), new DataSize(290, BYTE)), ImmutableList.of(new DiskRange(100, 290)));
+        assertEquals(mergeAdjacentDiskRanges(consistent10ByteGap, DataSize.ofBytes(10), DataSize.ofBytes(290)), ImmutableList.of(new DiskRange(100, 290)));
 
         List<DiskRange> middle10ByteGap = ImmutableList.of(new DiskRange(100, 80), new DiskRange(200, 90), new DiskRange(300, 80), new DiskRange(400, 90));
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(0, BYTE), new DataSize(1, GIGABYTE)), middle10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(9, BYTE), new DataSize(1, GIGABYTE)), middle10ByteGap);
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(10, BYTE), new DataSize(1, GIGABYTE)),
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(0), DataSize.of(1, GIGABYTE)), middle10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(9), DataSize.of(1, GIGABYTE)), middle10ByteGap);
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(10), DataSize.of(1, GIGABYTE)),
                 ImmutableList.of(new DiskRange(100, 80), new DiskRange(200, 180), new DiskRange(400, 90)));
-        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, new DataSize(100, BYTE), new DataSize(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 390)));
+        assertEquals(mergeAdjacentDiskRanges(middle10ByteGap, DataSize.ofBytes(100), DataSize.of(1, GIGABYTE)), ImmutableList.of(new DiskRange(100, 390)));
     }
 }

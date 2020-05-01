@@ -30,6 +30,7 @@ import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.SessionContext;
 import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.server.SessionSupplier;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
@@ -79,7 +80,7 @@ public class DispatchManager
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
             QueryPreparer queryPreparer,
-            @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             DispatchQueryFactory dispatchQueryFactory,
             FailedDispatchQueryFactory failedDispatchQueryFactory,
             TransactionManager transactionManager,
@@ -131,7 +132,7 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
-    public ListenableFuture<?> createQuery(QueryId queryId, String slug, SessionContext sessionContext, String query)
+    public ListenableFuture<?> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
@@ -155,7 +156,7 @@ public class DispatchManager
      *  Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
      *  tracker.  If an error occurs while creating a dispatch query, a failed dispatch will be created and registered.
      */
-    private <C> void createQueryInternal(QueryId queryId, String slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
+    private <C> void createQueryInternal(QueryId queryId, Slug slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
         PreparedQuery preparedQuery = null;
@@ -169,6 +170,9 @@ public class DispatchManager
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
 
+            // check query execute permissions
+            accessControl.checkCanExecuteQuery(sessionContext.getIdentity());
+
             // prepare query
             preparedQuery = queryPreparer.prepareQuery(session, query);
 
@@ -177,6 +181,7 @@ public class DispatchManager
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
+                    sessionContext.getIdentity().getGroups(),
                     Optional.ofNullable(sessionContext.getSource()),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
@@ -317,7 +322,7 @@ public class DispatchManager
         @Override
         public boolean cancel(boolean mayInterruptIfRunning)
         {
-            // query submission can not be canceled
+            // query submission cannot be canceled
             return false;
         }
     }

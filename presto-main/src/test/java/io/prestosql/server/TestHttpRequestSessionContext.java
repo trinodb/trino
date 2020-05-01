@@ -15,12 +15,16 @@ package io.prestosql.server;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
+import io.prestosql.dispatcher.DispatcherConfig.HeaderSupport;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
 import org.testng.annotations.Test;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.Optional;
 
@@ -51,34 +55,32 @@ public class TestHttpRequestSessionContext
     @Test
     public void testSessionContext()
     {
-        HttpServletRequest request = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_SOURCE, "testSource")
-                        .put(PRESTO_CATALOG, "testCatalog")
-                        .put(PRESTO_SCHEMA, "testSchema")
-                        .put(PRESTO_PATH, "testPath")
-                        .put(PRESTO_LANGUAGE, "zh-TW")
-                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-                        .put(PRESTO_CLIENT_INFO, "client-info")
-                        .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
-                        .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
-                        .put(PRESTO_SESSION, "some_session_property=some value with %2C comma")
-                        .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
-                        .put(PRESTO_ROLE, "foo_connector=ALL")
-                        .put(PRESTO_ROLE, "bar_connector=NONE")
-                        .put(PRESTO_ROLE, "foobar_connector=ROLE{role}")
-                        .put(PRESTO_EXTRA_CREDENTIAL, "test.token.foo=bar")
-                        .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
-                        .build(),
-                "testRemote");
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .put(PRESTO_SOURCE, "testSource")
+                .put(PRESTO_CATALOG, "testCatalog")
+                .put(PRESTO_SCHEMA, "testSchema")
+                .put(PRESTO_PATH, "testPath")
+                .put(PRESTO_LANGUAGE, "zh-TW")
+                .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                .put(PRESTO_CLIENT_INFO, "client-info")
+                .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
+                .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+                .put(PRESTO_SESSION, "some_session_property=some value with %2C comma")
+                .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
+                .put(PRESTO_ROLE, "foo_connector=ALL")
+                .put(PRESTO_ROLE, "bar_connector=NONE")
+                .put(PRESTO_ROLE, "foobar_connector=ROLE{role}")
+                .put(PRESTO_EXTRA_CREDENTIAL, "test.token.foo=bar")
+                .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
+                .build());
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, request);
+        SessionContext context = new HttpRequestSessionContext(WARN, headers, "testRemote", Optional.empty(), user -> ImmutableSet.of(user));
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
         assertEquals(context.getPath(), "testPath");
-        assertEquals(context.getIdentity(), new Identity("testUser", Optional.empty()));
+        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
         assertEquals(context.getClientInfo(), "client-info");
         assertEquals(context.getLanguage(), "zh-TW");
         assertEquals(context.getTimeZoneId(), "Asia/Taipei");
@@ -93,25 +95,50 @@ public class TestHttpRequestSessionContext
                 "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
                 "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
+        assertEquals(context.getIdentity().getGroups(), ImmutableSet.of("testUser"));
+    }
+
+    @Test
+    public void testMappedUser()
+    {
+        MultivaluedMap<String, String> userHeaders = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(PRESTO_USER, "testUser"));
+        MultivaluedMap<String, String> emptyHeaders = new MultivaluedHashMap<>();
+
+        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.empty(), user -> ImmutableSet.of(user));
+        assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+
+        context = new HttpRequestSessionContext(
+                WARN,
+                emptyHeaders,
+                "testRemote",
+                Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()),
+                user -> ImmutableSet.of(user));
+        assertEquals(context.getIdentity(), Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
+
+        context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")), user -> ImmutableSet.of(user));
+        assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+
+        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, emptyHeaders, "testRemote", Optional.empty(), user -> ImmutableSet.of()))
+                .isInstanceOf(WebApplicationException.class)
+                .matches(e -> ((WebApplicationException) e).getResponse().getStatus() == 400);
     }
 
     @Test
     public void testPreparedStatementsHeaderDoesNotParse()
     {
-        HttpServletRequest request = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_SOURCE, "testSource")
-                        .put(PRESTO_CATALOG, "testCatalog")
-                        .put(PRESTO_SCHEMA, "testSchema")
-                        .put(PRESTO_PATH, "testPath")
-                        .put(PRESTO_LANGUAGE, "zh-TW")
-                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-                        .put(PRESTO_CLIENT_INFO, "null")
-                        .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
-                        .build(),
-                "testRemote");
-        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, request))
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .put(PRESTO_SOURCE, "testSource")
+                .put(PRESTO_CATALOG, "testCatalog")
+                .put(PRESTO_SCHEMA, "testSchema")
+                .put(PRESTO_PATH, "testPath")
+                .put(PRESTO_LANGUAGE, "zh-TW")
+                .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                .put(PRESTO_CLIENT_INFO, "null")
+                .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
+                .build());
+
+        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, headers, "testRemote", Optional.empty(), user -> ImmutableSet.of()))
                 .isInstanceOf(WebApplicationException.class)
                 .hasMessageMatching("Invalid X-Presto-Prepared-Statement header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
     }
@@ -119,24 +146,30 @@ public class TestHttpRequestSessionContext
     @Test
     public void testXForwardedFor()
     {
-        HttpServletRequest plainRequest = requestWithXForwardedFor(Optional.empty(), "remote_address");
-        HttpServletRequest requestWithXForwardedFor = requestWithXForwardedFor(Optional.of("forwarded_client"), "proxy_address");
+        assertEquals(plainRequest(IGNORE).getRemoteUserAddress(), "remote_address");
+        assertEquals(requestWithXForwardedFor(IGNORE).getRemoteUserAddress(), "proxy_address");
 
-        assertEquals(new HttpRequestSessionContext(IGNORE, plainRequest).getRemoteUserAddress(), "remote_address");
-        assertEquals(new HttpRequestSessionContext(IGNORE, requestWithXForwardedFor).getRemoteUserAddress(), "proxy_address");
+        assertEquals(plainRequest(ACCEPT).getRemoteUserAddress(), "remote_address");
+        assertEquals(requestWithXForwardedFor(ACCEPT).getRemoteUserAddress(), "forwarded_client");
 
-        assertEquals(new HttpRequestSessionContext(ACCEPT, plainRequest).getRemoteUserAddress(), "remote_address");
-        assertEquals(new HttpRequestSessionContext(ACCEPT, requestWithXForwardedFor).getRemoteUserAddress(), "forwarded_client");
-
-        assertEquals(new HttpRequestSessionContext(WARN, plainRequest).getRemoteUserAddress(), "remote_address");
-        assertEquals(new HttpRequestSessionContext(WARN, requestWithXForwardedFor).getRemoteUserAddress(), "proxy_address"); // this generates a warning to logs
+        assertEquals(plainRequest(WARN).getRemoteUserAddress(), "remote_address");
+        assertEquals(requestWithXForwardedFor(WARN).getRemoteUserAddress(), "proxy_address"); // this generates a warning to logs
     }
 
-    private static HttpServletRequest requestWithXForwardedFor(Optional<String> xForwardedFor, String remoteAddress)
+    private static SessionContext plainRequest(HeaderSupport headerSupport)
     {
-        ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.<String, String>builder()
-                .put(PRESTO_USER, "testUser");
-        xForwardedFor.ifPresent(value -> headers.put(X_FORWARDED_FOR, value));
-        return new MockHttpServletRequest(headers.build(), remoteAddress);
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .build());
+        return new HttpRequestSessionContext(headerSupport, headers, "remote_address", Optional.empty(), user -> ImmutableSet.of());
+    }
+
+    private static SessionContext requestWithXForwardedFor(HeaderSupport headerSupport)
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(PRESTO_USER, "testUser")
+                .put(X_FORWARDED_FOR, "forwarded_client")
+                .build());
+        return new HttpRequestSessionContext(headerSupport, headers, "proxy_address", Optional.empty(), user -> ImmutableSet.of());
     }
 }

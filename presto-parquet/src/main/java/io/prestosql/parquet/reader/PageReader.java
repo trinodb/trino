@@ -24,7 +24,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
-import static java.lang.Math.toIntExact;
 
 class PageReader
 {
@@ -33,9 +32,7 @@ class PageReader
     private final List<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
 
-    public PageReader(CompressionCodecName codec,
-            List<DataPage> compressedPages,
-            DictionaryPage compressedDictionaryPage)
+    public PageReader(CompressionCodecName codec, List<DataPage> compressedPages, DictionaryPage compressedDictionaryPage)
     {
         this.codec = codec;
         this.compressedPages = new LinkedList<>(compressedPages);
@@ -65,7 +62,6 @@ class PageReader
                         decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
-                        dataPageV1.getStatistics(),
                         dataPageV1.getRepetitionLevelEncoding(),
                         dataPageV1.getDefinitionLevelEncoding(),
                         dataPageV1.getValueEncoding());
@@ -75,9 +71,9 @@ class PageReader
                 if (!dataPageV2.isCompressed()) {
                     return dataPageV2;
                 }
-                int uncompressedSize = toIntExact(dataPageV2.getUncompressedSize()
+                int uncompressedSize = dataPageV2.getUncompressedSize()
                         - dataPageV2.getDefinitionLevels().length()
-                        - dataPageV2.getRepetitionLevels().length());
+                        - dataPageV2.getRepetitionLevels().length();
                 return new DataPageV2(
                         dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),

@@ -14,7 +14,9 @@
 package io.prestosql.tests;
 
 import io.prestosql.Session;
-import io.prestosql.tests.tpch.IndexedTpchPlugin;
+import io.prestosql.testing.AbstractTestIndexedQueries;
+import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.tpch.IndexedTpchPlugin;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -22,12 +24,8 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    public TestDistributedQueriesIndexed()
-    {
-        super(TestDistributedQueriesIndexed::createQueryRunner);
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -35,7 +33,7 @@ public class TestDistributedQueriesIndexed
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
         queryRunner.createCatalog("tpch_indexed", "tpch_indexed");

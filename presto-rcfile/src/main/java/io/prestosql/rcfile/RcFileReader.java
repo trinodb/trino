@@ -422,7 +422,7 @@ public class RcFileReader
     public Block readBlock(int columnIndex)
             throws IOException
     {
-        checkArgument(readColumns.containsKey(columnIndex), "Column %s is not being read", columnIndex);
+        checkArgument(readColumns.containsKey(columnIndex), "Column '%s' is not being read", columnIndex);
         checkState(currentChunkRowCount > 0, "No more data");
 
         if (columnIndex >= columns.length) {
@@ -527,7 +527,7 @@ public class RcFileReader
                 codecFactory,
                 0,
                 input.getSize(),
-                new DataSize(8, Unit.MEGABYTE),
+                DataSize.of(8, Unit.MEGABYTE),
                 Optional.of(writeValidation))) {
             while (rcFileReader.advance() >= 0) {
                 // ignored

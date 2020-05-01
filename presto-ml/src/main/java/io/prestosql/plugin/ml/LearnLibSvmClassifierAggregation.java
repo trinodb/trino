@@ -65,7 +65,7 @@ public final class LearnLibSvmClassifierAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction("Classifier<bigint>")
+    @OutputFunction("Classifier(bigint)")
     public static void output(@AggregationState LearnState state, BlockBuilder out)
     {
         Dataset dataset = new Dataset(state.getLabels(), state.getFeatureVectors(), state.getLabelEnumeration().inverse());

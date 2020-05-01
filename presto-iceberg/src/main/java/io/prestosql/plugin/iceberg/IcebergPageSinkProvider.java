@@ -23,7 +23,6 @@ import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -38,19 +37,19 @@ public class IcebergPageSinkProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final JsonCodec<CommitTaskData> jsonCodec;
-    private final TypeManager typeManager;
+    private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
 
     @Inject
     public IcebergPageSinkProvider(
             HdfsEnvironment hdfsEnvironment,
             JsonCodec<CommitTaskData> jsonCodec,
-            TypeManager typeManager,
+            IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
     }
 
@@ -75,11 +74,11 @@ public class IcebergPageSinkProvider
                 schema,
                 partitionSpec,
                 tableHandle.getOutputPath(),
+                fileWriterFactory,
                 pageIndexerFactory,
                 hdfsEnvironment,
                 hdfsContext,
                 tableHandle.getInputColumns(),
-                typeManager,
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat());

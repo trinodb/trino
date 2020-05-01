@@ -2,6 +2,10 @@
 Comparison Functions and Operators
 ==================================
 
+.. contents:: :local:
+
+.. _comparison_operators:
+
 Comparison Operators
 --------------------
 
@@ -16,6 +20,8 @@ Operator Description
 ``<>``   Not equal
 ``!=``   Not equal (non-standard but popular syntax)
 ======== ===========
+
+.. _range_operator:
 
 Range Operator: BETWEEN
 -----------------------
@@ -59,6 +65,8 @@ Not that the value, min, and max parameters to ``BETWEEN`` and ``NOT
 BETWEEN`` must be the same type.  For example, Presto will produce an
 error if you ask it if John is between 2.3 and 35.2.
 
+.. _is_null_operator:
+
 IS NULL and IS NOT NULL
 -----------------------
 The ``IS NULL`` and ``IS NOT NULL`` operators test whether a value
@@ -71,6 +79,8 @@ Using ``NULL`` with ``IS NULL`` evaluates to true::
 But any other constant does not::
 
     SELECT 3.0 IS NULL; -- false
+
+.. _is_distinct_operator:
 
 IS DISTINCT FROM and IS NOT DISTINCT FROM
 -----------------------------------------
@@ -126,6 +136,8 @@ The following types are supported:
 
     Returns the smallest of the provided values.
 
+.. _quantified_comparison_predicates:
+
 Quantified Comparison Predicates: ALL, ANY and SOME
 ---------------------------------------------------
 
@@ -158,3 +170,49 @@ Expression              Meaning
 ====================    ===========
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
+
+.. _like_operator:
+
+Pattern Comparison: LIKE
+------------------------
+
+The ``LIKE`` operator can be used to compare values with a pattern::
+
+    ... column [NOT] LIKE 'pattern' ESCAPE 'character';
+
+Matching characters is case sensitive, and the pattern supports two symbols for
+matching:
+
+- ``_`` matches any single character
+- ``%`` matches zero or more characters
+
+Typically it is often used as a condition in ``WHERE`` statements. An example is
+a query to find all continents starting with ``E``, which returns ``Europe``::
+
+    SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
+    WHERE continent LIKE 'E%';
+
+You can negate the result by adding ``NOT``, and get all other continents, all
+not starting with ``E``::
+
+    SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
+    WHERE continent NOT LIKE 'E%';
+
+If you only have one specific character to match, you can use the ``_`` symbol
+for each character. The following query uses two underscores and produces only
+``Asia`` as result::
+
+    SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
+    WHERE continent LIKE 'A__A';
+
+The wildcard characters ``_`` and ``%`` must be escaped to allow you to match
+them as literals. This can be achieved by specifying the ``ESCAPE`` character to
+use::
+
+    SELECT 'South_America' LIKE 'South\_America' ESCAPE '\';
+
+The above query returns ``true`` since the escaped underscore symbol matches. If
+you need to match the used escape character as well, you can escape it.
+
+If you want to match for the chosen escape character, you simply escape itself.
+For example, you can use ``\\`` to match for ''\''.

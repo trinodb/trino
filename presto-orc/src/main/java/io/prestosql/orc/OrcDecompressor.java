@@ -24,7 +24,7 @@ import static java.lang.Math.toIntExact;
 
 public interface OrcDecompressor
 {
-    int MAX_BUFFER_SIZE = toIntExact(new DataSize(4, MEGABYTE).toBytes());
+    int MAX_BUFFER_SIZE = toIntExact(DataSize.of(4, MEGABYTE).toBytes());
 
     static Optional<OrcDecompressor> createOrcDecompressor(OrcDataSourceId orcDataSourceId, CompressionKind compression, int bufferSize)
             throws OrcCorruptionException

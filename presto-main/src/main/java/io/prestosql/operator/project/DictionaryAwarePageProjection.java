@@ -193,11 +193,11 @@ public class DictionaryAwarePageProjection
         public Block getResult()
         {
             if (produceLazyBlock) {
-                return new LazyBlock(selectedPositions.size(), lazyBlock -> {
+                return new LazyBlock(selectedPositions.size(), () -> {
                     setupDictionaryBlockProjection();
                     checkState(processInternal(), "processInternal() yielded");
                     checkState(result != null, "result has not been generated");
-                    lazyBlock.setBlock(result.getLoadedBlock());
+                    return result.getLoadedBlock();
                 });
             }
             else {

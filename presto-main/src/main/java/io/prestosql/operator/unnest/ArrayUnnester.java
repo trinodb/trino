@@ -73,7 +73,13 @@ class ArrayUnnester
 
         // Append elements and nulls
         getBlockBuilder(0).appendRange(startElementIndex, length);
-        for (int i = 0; i < requiredOutputCount - length; i++) {
+        appendNulls(requiredOutputCount - length);
+    }
+
+    @Override
+    protected void appendNulls(int count)
+    {
+        for (int i = 0; i < count; i++) {
             getBlockBuilder(0).appendNull();
         }
     }

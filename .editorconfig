@@ -1,0 +1,21 @@
+# top-most EditorConfig file
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+ij_continuation_indent_size = 8
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.java]
+ij_java_doc_align_exception_comments = false
+ij_java_doc_align_param_comments = false
+
+[*.yml]
+indent_size = 2

@@ -27,6 +27,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
+import static io.prestosql.tests.TestGroups.PRESTO_JDBC;
 import static io.prestosql.tests.TestGroups.SMOKE;
 
 public class TestSyncPartitionMetadata
@@ -40,7 +41,7 @@ public class TestSyncPartitionMetadata
     @Inject
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
     public void testAddPartition()
     {
         String tableName = "test_sync_partition_metadata_add_partition";
@@ -79,7 +80,7 @@ public class TestSyncPartitionMetadata
         cleanup(tableName);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
     public void testInvalidSyncMode()
     {
         String tableName = "test_repair_invalid_mode";

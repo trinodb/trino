@@ -14,11 +14,18 @@
 
 package io.prestosql.cost;
 
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.ComparisonExpression.Operator;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
@@ -141,9 +148,17 @@ public class TestFilterStatsRule
     public void testUnestimatableFunction()
     {
         // can't estimate function and default filter factor is turned off
+        ComparisonExpression unestimatableExpression = new ComparisonExpression(
+                Operator.EQUAL,
+                new FunctionCallBuilder(tester().getMetadata())
+                        .setName(QualifiedName.of("sin"))
+                        .addArgument(DOUBLE, new SymbolReference("i1"))
+                        .build(),
+                new LongLiteral("1"));
+
         tester()
                 .assertStatsFor(pb -> pb
-                        .filter(expression("sin(i1) = 1"),
+                        .filter(unestimatableExpression,
                                 pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -170,7 +185,7 @@ public class TestFilterStatsRule
 
         // can't estimate function, but default filter factor is turned on
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(expression("sin(i1) = 1"),
+                .filter(unestimatableExpression,
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)

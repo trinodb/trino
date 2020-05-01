@@ -20,11 +20,12 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestVarBinaryMaxAggregation
         extends AbstractTestAggregationFunction
@@ -33,7 +34,7 @@ public class TestVarBinaryMaxAggregation
     protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, length);
-        for (int i = 0; i < length; i++) {
+        for (int i = start; i < start + length; i++) {
             VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(Ints.toByteArray(i)));
         }
         return new Block[] {blockBuilder.build()};
@@ -46,7 +47,7 @@ public class TestVarBinaryMaxAggregation
             return null;
         }
         Slice max = null;
-        for (int i = 0; i < length; i++) {
+        for (int i = start; i < start + length; i++) {
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
             max = (max == null) ? slice : Ordering.natural().max(max, slice);
         }
@@ -60,8 +61,8 @@ public class TestVarBinaryMaxAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.VARCHAR);
+        return ImmutableList.of(VARCHAR);
     }
 }

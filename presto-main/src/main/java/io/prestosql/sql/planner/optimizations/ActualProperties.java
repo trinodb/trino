@@ -39,7 +39,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -74,7 +73,7 @@ public class ActualProperties
                 .build();
 
         List<LocalProperty<Symbol>> updatedLocalProperties = LocalProperties.normalizeAndPrune(ImmutableList.<LocalProperty<Symbol>>builder()
-                .addAll(transform(updatedLocalConstants, ConstantProperty::new))
+                .addAll(updatedLocalConstants.stream().map(ConstantProperty::new).iterator())
                 .addAll(localProperties)
                 .build());
 

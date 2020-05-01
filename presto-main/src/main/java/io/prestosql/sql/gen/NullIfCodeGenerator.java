@@ -20,11 +20,11 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
@@ -36,7 +36,7 @@ public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         Scope scope = generatorContext.getScope();
 
@@ -58,14 +58,17 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        Signature equalsSignature = generatorContext.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getMetadata().getScalarFunctionImplementation(equalsSignature);
+        Metadata metadata = generatorContext.getMetadata();
+        ResolvedFunction resolvedEqualsFunction = metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        ScalarFunctionImplementation equalsFunction = metadata.getScalarFunctionImplementation(resolvedEqualsFunction);
+        Type firstRequiredType = metadata.getType(resolvedEqualsFunction.getSignature().getArgumentTypes().get(0));
+        Type secondRequiredType = metadata.getType(resolvedEqualsFunction.getSignature().getArgumentTypes().get(1));
         BytecodeNode equalsCall = generatorContext.generateCall(
-                equalsSignature.getName(),
+                resolvedEqualsFunction.getSignature().getName(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, firstValue, firstType, equalsSignature.getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second), secondType, equalsSignature.getArgumentTypes().get(1))));
+                        cast(generatorContext, firstValue, firstType, firstRequiredType),
+                        cast(generatorContext, generatorContext.generate(second), secondType, secondRequiredType)));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)
@@ -90,17 +93,20 @@ public class NullIfCodeGenerator
             BytecodeGeneratorContext generatorContext,
             BytecodeNode argument,
             Type actualType,
-            TypeSignature requiredType)
+            Type requiredType)
     {
-        if (actualType.getTypeSignature().equals(requiredType)) {
+        if (actualType.equals(requiredType)) {
             return argument;
         }
 
-        Signature function = generatorContext
+        ResolvedFunction function = generatorContext
                 .getMetadata()
-                .getCoercion(actualType, generatorContext.getMetadata().getType(requiredType));
+                .getCoercion(actualType, requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function.getName(), generatorContext.getMetadata().getScalarFunctionImplementation(function), ImmutableList.of(argument));
+        return generatorContext.generateCall(
+                function.getSignature().getName(),
+                generatorContext.getMetadata().getScalarFunctionImplementation(function),
+                ImmutableList.of(argument));
     }
 }

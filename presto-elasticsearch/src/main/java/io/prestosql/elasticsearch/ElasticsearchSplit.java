@@ -20,6 +20,7 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,24 +29,18 @@ public class ElasticsearchSplit
         implements ConnectorSplit
 {
     private final String index;
-    private final String type;
     private final int shard;
-    private final String searchNode;
-    private final int port;
+    private final Optional<String> address;
 
     @JsonCreator
     public ElasticsearchSplit(
             @JsonProperty("index") String index,
-            @JsonProperty("type") String type,
             @JsonProperty("shard") int shard,
-            @JsonProperty("searchNode") String searchNode,
-            @JsonProperty("port") int port)
+            @JsonProperty("address") Optional<String> address)
     {
         this.index = requireNonNull(index, "index is null");
-        this.type = requireNonNull(type, "index is null");
-        this.searchNode = requireNonNull(searchNode, "searchNode is null");
-        this.port = port;
         this.shard = shard;
+        this.address = requireNonNull(address, "address is null");
     }
 
     @JsonProperty
@@ -55,27 +50,15 @@ public class ElasticsearchSplit
     }
 
     @JsonProperty
-    public String getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
     public int getShard()
     {
         return shard;
     }
 
     @JsonProperty
-    public String getSearchNode()
+    public Optional<String> getAddress()
     {
-        return searchNode;
-    }
-
-    @JsonProperty
-    public int getPort()
-    {
-        return port;
+        return address;
     }
 
     @Override
@@ -87,7 +70,8 @@ public class ElasticsearchSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return ImmutableList.of(HostAddress.fromParts(searchNode, port));
+        return address.map(host -> ImmutableList.of(HostAddress.fromString(host)))
+                .orElseGet(ImmutableList::of);
     }
 
     @Override
@@ -100,11 +84,8 @@ public class ElasticsearchSplit
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(index)
-                .addValue(type)
-                .addValue(shard)
-                .addValue(port)
-                .addValue(searchNode)
+                .add("index", index)
+                .add("shard", shard)
                 .toString();
     }
 }

@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -43,6 +44,8 @@ import static java.util.stream.Collectors.joining;
 
 public class QueryBuilder
 {
+    private static final Logger log = Logger.get(QueryBuilder.class);
+
     // not all databases support booleans, so use 1=1 and 1=0 instead
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
@@ -98,25 +101,11 @@ public class QueryBuilder
     {
         StringBuilder sql = new StringBuilder();
 
-        String columnNames = columns.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .map(this::quote)
-                .collect(joining(", "));
-
         sql.append("SELECT ");
-        sql.append(columnNames);
-        if (columns.isEmpty()) {
-            sql.append("null");
-        }
+        sql.append(getProjection(columns));
 
         sql.append(" FROM ");
-        if (!isNullOrEmpty(catalog)) {
-            sql.append(quote(catalog)).append('.');
-        }
-        if (!isNullOrEmpty(schema)) {
-            sql.append(quote(schema)).append('.');
-        }
-        sql.append(quote(table));
+        sql.append(getRelation(catalog, schema, table));
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
@@ -133,6 +122,7 @@ public class QueryBuilder
         }
 
         String query = sqlFunction.apply(sql.toString());
+        log.debug("Preparing query: %s", query);
         PreparedStatement statement = client.getPreparedStatement(connection, query);
 
         for (int i = 0; i < accumulator.size(); i++) {
@@ -165,6 +155,29 @@ public class QueryBuilder
         }
 
         return statement;
+    }
+
+    protected String getProjection(List<JdbcColumnHandle> columns)
+    {
+        if (columns.isEmpty()) {
+            return "null";
+        }
+        return columns.stream()
+                .map(JdbcColumnHandle::getColumnName)
+                .map(this::quote)
+                .collect(joining(", "));
+    }
+
+    protected String getRelation(String catalog, String schema, String table)
+    {
+        StringBuilder sql = new StringBuilder();
+        if (!isNullOrEmpty(catalog)) {
+            sql.append(quote(catalog)).append('.');
+        }
+        if (!isNullOrEmpty(schema)) {
+            sql.append(quote(schema)).append('.');
+        }
+        return sql.append(quote(table)).toString();
     }
 
     private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
@@ -276,7 +289,7 @@ public class QueryBuilder
         return quote(columnName) + " " + operator + " ?";
     }
 
-    private String quote(String name)
+    protected String quote(String name)
     {
         return identifierQuote + name.replace(identifierQuote, identifierQuote + identifierQuote) + identifierQuote;
     }

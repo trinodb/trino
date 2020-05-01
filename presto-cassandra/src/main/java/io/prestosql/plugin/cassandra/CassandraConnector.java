@@ -14,7 +14,6 @@
 package io.prestosql.plugin.cassandra;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
@@ -35,8 +34,6 @@ import static java.util.Objects.requireNonNull;
 public class CassandraConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(CassandraConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final CassandraMetadata metadata;
     private final CassandraSplitManager splitManager;
@@ -107,11 +104,6 @@ public class CassandraConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

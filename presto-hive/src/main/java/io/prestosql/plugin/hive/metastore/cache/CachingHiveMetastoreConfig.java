@@ -20,12 +20,13 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class CachingHiveMetastoreConfig
 {
     private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
-    private Duration metastoreRefreshInterval = new Duration(0, TimeUnit.SECONDS);
+    private Optional<Duration> metastoreRefreshInterval = Optional.empty();
     private long metastoreCacheMaximumSize = 10000;
     private int maxMetastoreRefreshThreads = 100;
 
@@ -35,7 +36,6 @@ public class CachingHiveMetastoreConfig
         return metastoreCacheTtl;
     }
 
-    @MinDuration("0ms")
     @Config("hive.metastore-cache-ttl")
     public CachingHiveMetastoreConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
@@ -44,25 +44,24 @@ public class CachingHiveMetastoreConfig
     }
 
     @NotNull
-    public Duration getMetastoreRefreshInterval()
+    public Optional<@MinDuration("1ms") Duration> getMetastoreRefreshInterval()
     {
         return metastoreRefreshInterval;
     }
 
-    @MinDuration("1ms")
     @Config("hive.metastore-refresh-interval")
     public CachingHiveMetastoreConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
-        this.metastoreRefreshInterval = metastoreRefreshInterval;
+        this.metastoreRefreshInterval = Optional.ofNullable(metastoreRefreshInterval);
         return this;
     }
 
+    @Min(1)
     public long getMetastoreCacheMaximumSize()
     {
         return metastoreCacheMaximumSize;
     }
 
-    @Min(1)
     @Config("hive.metastore-cache-maximum-size")
     public CachingHiveMetastoreConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
     {

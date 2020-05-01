@@ -25,6 +25,8 @@ import java.util.Optional;
 public class SqlEnvironmentConfig
 {
     private Optional<String> path = Optional.empty();
+    private Optional<String> defaultCatalog = Optional.empty();
+    private Optional<String> defaultSchema = Optional.empty();
     private Optional<TimeZoneKey> forcedSessionTimeZone = Optional.empty();
 
     @NotNull
@@ -37,6 +39,32 @@ public class SqlEnvironmentConfig
     public SqlEnvironmentConfig setPath(String path)
     {
         this.path = Optional.ofNullable(path);
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getDefaultCatalog()
+    {
+        return defaultCatalog;
+    }
+
+    @Config("sql.default-catalog")
+    public SqlEnvironmentConfig setDefaultCatalog(String catalog)
+    {
+        this.defaultCatalog = Optional.ofNullable(catalog);
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getDefaultSchema()
+    {
+        return defaultSchema;
+    }
+
+    @Config("sql.default-schema")
+    public SqlEnvironmentConfig setDefaultSchema(String schema)
+    {
+        this.defaultSchema = Optional.ofNullable(schema);
         return this;
     }
 

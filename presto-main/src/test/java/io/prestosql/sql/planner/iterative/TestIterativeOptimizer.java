@@ -52,7 +52,7 @@ public class TestIterativeOptimizer
                 .setSystemProperty("iterative_optimizer_enabled", "true")
                 .setSystemProperty("iterative_optimizer_timeout", "1ms");
 
-        queryRunner = new LocalQueryRunner(sessionBuilder.build());
+        queryRunner = LocalQueryRunner.create(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),

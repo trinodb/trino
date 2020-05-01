@@ -29,7 +29,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 
 @ScalarFunction("array_intersect")
 @Description("Intersects elements of the two given arrays")
@@ -47,7 +46,7 @@ public final class ArrayIntersectFunction
     @SqlType("array(E)")
     public Block intersect(
             @TypeParameter("E") Type type,
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {

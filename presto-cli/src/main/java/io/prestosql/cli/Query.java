@@ -25,10 +25,12 @@ import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
 import io.prestosql.client.Warning;
-import org.fusesource.jansi.Ansi;
+import org.jline.terminal.Terminal;
+import org.jline.utils.AttributedStringBuilder;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
+import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -54,6 +56,9 @@ import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static org.jline.utils.AttributedStyle.CYAN;
+import static org.jline.utils.AttributedStyle.DEFAULT;
+import static org.jline.utils.AttributedStyle.RED;
 
 public class Query
         implements Closeable
@@ -122,7 +127,7 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public boolean renderOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
+    public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
@@ -133,7 +138,7 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            return renderQueryOutput(out, errorChannel, outputFormat, usePager, showProgress);
+            return renderQueryOutput(terminal, out, errorChannel, outputFormat, usePager, showProgress);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
@@ -141,14 +146,14 @@ public class Query
         }
     }
 
-    private boolean renderQueryOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
+    private boolean renderQueryOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
     {
         StatusPrinter statusPrinter = null;
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
 
         if (showProgress) {
             statusPrinter = new StatusPrinter(client, errorChannel, debug);
-            statusPrinter.printInitialStatusUpdates();
+            statusPrinter.printInitialStatusUpdates(terminal);
         }
         else {
             processInitialStatusUpdates(warningsPrinter);
@@ -333,7 +338,7 @@ public class Query
 
     private static Writer createWriter(OutputStream out)
     {
-        return new OutputStreamWriter(out, UTF_8);
+        return new BufferedWriter(new OutputStreamWriter(out, UTF_8), 16384);
     }
 
     @Override
@@ -371,22 +376,22 @@ public class Query
         }
 
         if (REAL_TERMINAL) {
-            Ansi ansi = Ansi.ansi();
+            AttributedStringBuilder builder = new AttributedStringBuilder();
 
-            ansi.fg(Ansi.Color.CYAN);
+            builder.style(DEFAULT.foreground(CYAN));
             for (int i = 1; i < location.getLineNumber(); i++) {
-                ansi.a(lines.get(i - 1)).newline();
+                builder.append(lines.get(i - 1)).append("\n");
             }
-            ansi.a(good);
+            builder.append(good);
 
-            ansi.fg(Ansi.Color.RED);
-            ansi.a(bad).newline();
+            builder.style(DEFAULT.foreground(RED));
+            builder.append(bad).append("\n");
             for (int i = location.getLineNumber(); i < lines.size(); i++) {
-                ansi.a(lines.get(i)).newline();
+                builder.append(lines.get(i)).append("\n");
             }
 
-            ansi.reset();
-            out.print(ansi);
+            builder.style(DEFAULT);
+            out.print(builder.toAnsi());
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());

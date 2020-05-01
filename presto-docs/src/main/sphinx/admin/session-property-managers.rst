@@ -3,12 +3,12 @@ Session Property Managers
 =========================
 
 Administrators can add session properties to control the behavior for subsets of their workload.
-These properties are defaults and can be overridden by users (if authorized to do so). Session
+These properties are defaults, and can be overridden by users, if authorized to do so. Session
 properties can be used to control resource usage, enable or disable features, and change query
 characteristics. Session property managers are pluggable.
 
 Add an ``etc/session-property-config.properties`` file with the following contents to enable
-the built-in manager that reads a JSON config file:
+the built-in manager, that reads a JSON config file:
 
 .. code-block:: none
 

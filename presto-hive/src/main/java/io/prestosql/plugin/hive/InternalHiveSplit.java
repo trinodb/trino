@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.spi.HostAddress;
 import org.openjdk.jol.info.ClassLayout;
@@ -22,7 +21,6 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -37,17 +35,16 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() +
             ClassLayout.parseClass(Properties.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() +
             ClassLayout.parseClass(OptionalInt.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
 
     private final String path;
     private final long end;
     private final long fileSize;
+    private final long fileModifiedTime;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
@@ -55,9 +52,10 @@ public class InternalHiveSplit
     private final OptionalInt bucketNumber;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
-    private final Map<Integer, HiveTypeName> columnCoercions;
+    private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
+    private final Optional<DeleteDeltaLocations> deleteDeltaLocations;
 
     private long start;
     private int currentBlockIndex;
@@ -68,15 +66,17 @@ public class InternalHiveSplit
             long start,
             long end,
             long fileSize,
+            long fileModifiedTime,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt bucketNumber,
             boolean splittable,
             boolean forceLocalScheduling,
-            Map<Integer, HiveTypeName> columnCoercions,
+            TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
@@ -87,23 +87,26 @@ public class InternalHiveSplit
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(blocks, "blocks is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
-        requireNonNull(columnCoercions, "columnCoercions is null");
+        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
 
         this.partitionName = partitionName;
         this.path = path;
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
+        this.fileModifiedTime = fileModifiedTime;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.blocks = ImmutableList.copyOf(blocks);
         this.bucketNumber = bucketNumber;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.columnCoercions = ImmutableMap.copyOf(columnCoercions);
+        this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.deleteDeltaLocations = deleteDeltaLocations;
     }
 
     public String getPath()
@@ -124,6 +127,11 @@ public class InternalHiveSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
     }
 
     public boolean isS3SelectPushdownEnabled()
@@ -161,9 +169,9 @@ public class InternalHiveSplit
         return forceLocalScheduling;
     }
 
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return columnCoercions;
+        return tableToPartitionMapping;
     }
 
     public Optional<BucketConversion> getBucketConversion()
@@ -207,11 +215,13 @@ public class InternalHiveSplit
             result += block.getEstimatedSizeInBytes();
         }
         result += partitionName.length() * Character.BYTES;
-        result += sizeOfObjectArray(columnCoercions.size());
-        for (HiveTypeName hiveTypeName : columnCoercions.values()) {
-            result += INTEGER_INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
-        }
+        result += tableToPartitionMapping.getEstimatedSizeInBytes();
         return result;
+    }
+
+    public Optional<DeleteDeltaLocations> getDeleteDeltaLocations()
+    {
+        return deleteDeltaLocations;
     }
 
     @Override

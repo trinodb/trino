@@ -14,6 +14,7 @@
 package io.prestosql.plugin.cassandra;
 
 import io.prestosql.plugin.cassandra.CassandraTokenSplitManager.TokenSplit;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -22,6 +23,7 @@ import java.util.Optional;
 
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraTokenSplitManager
@@ -30,6 +32,7 @@ public class TestCassandraTokenSplitManager
     private static final String KEYSPACE = "test_cassandra_token_split_manager_keyspace";
     private static final int PARTITION_COUNT = 1000;
 
+    private CassandraServer server;
     private CassandraSession session;
     private CassandraTokenSplitManager splitManager;
 
@@ -37,10 +40,16 @@ public class TestCassandraTokenSplitManager
     public void setUp()
             throws Exception
     {
-        EmbeddedCassandra.start();
-        session = EmbeddedCassandra.getSession();
+        server = new CassandraServer();
+        session = server.getSession();
         createKeyspace(session, KEYSPACE);
         splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        server.close();
     }
 
     @Test
@@ -49,19 +58,19 @@ public class TestCassandraTokenSplitManager
     {
         String tableName = "partition_count_override_table";
         session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
-        EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, tableName);
+        server.refreshSizeEstimates(KEYSPACE, tableName);
 
         CassandraTokenSplitManager onlyConfigSplitsPerNode = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.of(12_345L));
-        assertEquals(12_345L, onlyConfigSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()));
+        assertEquals(onlyConfigSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()), 12_345L);
 
         CassandraTokenSplitManager onlySessionSplitsPerNode = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
-        assertEquals(67_890L, onlySessionSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)));
+        assertEquals(onlySessionSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)), 67_890L);
 
         CassandraTokenSplitManager sessionOverrideConfig = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.of(12_345L));
-        assertEquals(67_890L, sessionOverrideConfig.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)));
+        assertEquals(sessionOverrideConfig.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)), 67_890L);
 
         CassandraTokenSplitManager defaultSplitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
-        assertEquals(0, defaultSplitManager.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()));
+        assertEquals(defaultSplitManager.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()), 0);
     }
 
     @Test
@@ -70,10 +79,10 @@ public class TestCassandraTokenSplitManager
     {
         String tableName = "empty_table";
         session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
-        EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, tableName);
+        server.refreshSizeEstimates(KEYSPACE, tableName);
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
         // even for the empty table at least one split must be produced, in case the statistics are inaccurate
-        assertEquals(splits.size(), 1);
+        assertThat(splits).hasSize(1);
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 
@@ -86,9 +95,11 @@ public class TestCassandraTokenSplitManager
         for (int i = 0; i < PARTITION_COUNT; i++) {
             session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, tableName, "value" + i));
         }
-        EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, tableName);
+        server.refreshSizeEstimates(KEYSPACE, tableName);
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
-        assertEquals(splits.size(), PARTITION_COUNT / SPLIT_SIZE);
+        int expectedTokenSplitSize = PARTITION_COUNT / SPLIT_SIZE;
+        // Use hasSizeBetween because Cassandra server may overestimate the size
+        assertThat(splits).hasSizeBetween(expectedTokenSplitSize, expectedTokenSplitSize + 1);
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 }

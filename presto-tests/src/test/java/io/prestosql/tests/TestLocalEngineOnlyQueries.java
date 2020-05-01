@@ -13,11 +13,14 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.QueryRunner;
+
 public class TestLocalEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
-    public TestLocalEngineOnlyQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        return TestLocalQueries.createLocalQueryRunner();
     }
 }

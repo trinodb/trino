@@ -30,7 +30,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMemoryContexts
 {
     private static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
-    private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
+    private static final long GUARANTEED_MEMORY = DataSize.of(1, MEGABYTE).toBytes();
 
     @Test
     public void testLocalMemoryContextClose()

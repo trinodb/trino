@@ -45,32 +45,37 @@ public class TestTryFunction
     @SqlType("bigint")
     public static long throwError()
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "internal error, should not be suppressed by $internal$try");
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "internal error, should not be suppressed by " + TryFunction.NAME);
     }
 
     @Test
     public void testBasic()
     {
-        assertFunction("\"$internal$try\"(() -> 42)", INTEGER, 42);
-        assertFunction("\"$internal$try\"(() -> DOUBLE '4.5')", DOUBLE, 4.5);
-        assertFunction("\"$internal$try\"(() -> DECIMAL '4.5')", createDecimalType(2, 1), SqlDecimal.of("4.5"));
-        assertFunction("\"$internal$try\"(() -> TRUE)", BOOLEAN, true);
-        assertFunction("\"$internal$try\"(() -> 'hello')", createVarcharType(5), "hello");
-        assertFunction("\"$internal$try\"(() -> JSON '[true, false, 12, 12.7, \"12\", null]')", JSON, "[true,false,12,12.7,\"12\",null]");
-        assertFunction("\"$internal$try\"(() -> ARRAY [1, 2])", new ArrayType(INTEGER), asList(1, 2));
-        assertFunction("\"$internal$try\"(() -> NULL)", UNKNOWN, null);
+        assertFunction(createTryExpression("42"), INTEGER, 42);
+        assertFunction(createTryExpression("DOUBLE '4.5'"), DOUBLE, 4.5);
+        assertFunction(createTryExpression("DECIMAL '4.5'"), createDecimalType(2, 1), SqlDecimal.of("4.5"));
+        assertFunction(createTryExpression("TRUE"), BOOLEAN, true);
+        assertFunction(createTryExpression("'hello'"), createVarcharType(5), "hello");
+        assertFunction(createTryExpression("JSON '[true, false, 12, 12.7, \"12\", null]'"), JSON, "[true,false,12,12.7,\"12\",null]");
+        assertFunction(createTryExpression("ARRAY [1, 2]"), new ArrayType(INTEGER), asList(1, 2));
+        assertFunction(createTryExpression("NULL"), UNKNOWN, null);
     }
 
     @Test
     public void testExceptions()
     {
         // Exceptions that should be suppressed
-        assertFunction("\"$internal$try\"(() -> 1/0)", INTEGER, null);
-        assertFunction("\"$internal$try\"(() -> JSON_PARSE('INVALID'))", JSON, null);
-        assertFunction("\"$internal$try\"(() -> CAST(NULL AS INTEGER))", INTEGER, null);
-        assertFunction("\"$internal$try\"(() -> ABS(-9223372036854775807 - 1))", BIGINT, null);
+        assertFunction(createTryExpression("1/0"), INTEGER, null);
+        assertFunction(createTryExpression("JSON_PARSE('INVALID')"), JSON, null);
+        assertFunction(createTryExpression("CAST(NULL AS INTEGER)"), INTEGER, null);
+        assertFunction(createTryExpression("ABS(-9223372036854775807 - 1)"), BIGINT, null);
 
         // Exceptions that should not be suppressed
-        assertInvalidFunction("\"$internal$try\"(() -> throw_error())", GENERIC_INTERNAL_ERROR);
+        assertInvalidFunction(createTryExpression("throw_error()"), GENERIC_INTERNAL_ERROR);
+    }
+
+    private static String createTryExpression(String expression)
+    {
+        return "\"" + TryFunction.NAME + "\"(() -> " + expression + ")";
     }
 }

@@ -43,9 +43,10 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 
@@ -78,7 +79,7 @@ public class AddColumnTask
         ColumnDefinition element = statement.getColumn();
         Type type;
         try {
-            type = metadata.getType(parseTypeSignature(element.getType()));
+            type = metadata.getType(toTypeSignature(element.getType()));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
@@ -100,15 +101,16 @@ public class AddColumnTask
                 sqlProperties,
                 session,
                 metadata,
-                parameters);
+                accessControl,
+                parameterExtractor(statement, parameters));
 
-        ColumnMetadata column = new ColumnMetadata(
-                element.getName().getValue(),
-                type,
-                element.isNullable(), element.getComment().orElse(null),
-                null,
-                false,
-                columnProperties);
+        ColumnMetadata column = ColumnMetadata.builder()
+                .setName(element.getName().getValue())
+                .setType(type)
+                .setNullable(element.isNullable())
+                .setComment(element.getComment())
+                .setProperties(columnProperties)
+                .build();
 
         metadata.addColumn(session, tableHandle.get(), column);
 

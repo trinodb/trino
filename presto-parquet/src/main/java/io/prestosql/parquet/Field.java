@@ -51,4 +51,7 @@ public abstract class Field
     {
         return required;
     }
+
+    @Override
+    public abstract String toString();
 }

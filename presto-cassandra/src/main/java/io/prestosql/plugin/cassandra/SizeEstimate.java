@@ -16,36 +16,14 @@ package io.prestosql.plugin.cassandra;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
 public class SizeEstimate
 {
-    private final String rangeStart;
-    private final String rangeEnd;
-    private final long meanPartitionSize;
     private final long partitionsCount;
 
-    public SizeEstimate(String rangeStart, String rangeEnd, long meanPartitionSize, long partitionsCount)
+    public SizeEstimate(long partitionsCount)
     {
-        this.rangeStart = requireNonNull(rangeStart, "rangeStart is null");
-        this.rangeEnd = requireNonNull(rangeEnd, "rangeEnd is null");
-        this.meanPartitionSize = meanPartitionSize;
         this.partitionsCount = partitionsCount;
-    }
-
-    public String getRangeStart()
-    {
-        return rangeStart;
-    }
-
-    public String getRangeEnd()
-    {
-        return rangeEnd;
-    }
-
-    public long getMeanPartitionSize()
-    {
-        return meanPartitionSize;
     }
 
     public long getPartitionsCount()
@@ -63,25 +41,19 @@ public class SizeEstimate
             return false;
         }
         SizeEstimate that = (SizeEstimate) o;
-        return meanPartitionSize == that.meanPartitionSize &&
-                partitionsCount == that.partitionsCount &&
-                Objects.equals(rangeStart, that.rangeStart) &&
-                Objects.equals(rangeEnd, that.rangeEnd);
+        return partitionsCount == that.partitionsCount;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rangeStart, rangeEnd, meanPartitionSize, partitionsCount);
+        return Objects.hash(partitionsCount);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("rangeStart", rangeStart)
-                .add("rangeEnd", rangeEnd)
-                .add("meanPartitionSize", meanPartitionSize)
                 .add("partitionsCount", partitionsCount)
                 .toString();
     }

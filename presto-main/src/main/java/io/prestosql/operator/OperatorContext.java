@@ -81,6 +81,8 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
     private final AtomicReference<SettableFuture<?>> memoryFuture;
@@ -209,6 +211,11 @@ public class OperatorContext
     {
         outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
+    }
+
+    public void recordDynamicFilterSplitProcessed(long dynamicFilterSplits)
+    {
+        dynamicFilterSplitsProcessed.getAndAdd(dynamicFilterSplits);
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
@@ -510,6 +517,8 @@ public class OperatorContext
                 new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
+
+                dynamicFilterSplitsProcessed.get(),
 
                 succinctBytes(physicalWrittenDataSize.get()),
 

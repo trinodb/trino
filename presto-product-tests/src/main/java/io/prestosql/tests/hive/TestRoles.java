@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert;
 import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.tempto.query.QueryResult;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -39,7 +39,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRoles
-        extends ProductTest
+        extends HiveProductTest
 {
     private static final String ROLE1 = "role1";
     private static final String ROLE2 = "role2";
@@ -60,7 +60,7 @@ public class TestRoles
         cleanup();
     }
 
-    public void cleanup()
+    private void cleanup()
     {
         Set<String> existentRoles = listRoles();
         for (String role : TEST_ROLES) {
@@ -106,6 +106,10 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testListGrants()
     {
+        if (getHiveVersionMajor() >= 3) {
+            throw new SkipException(""); // TODO (https://github.com/prestosql/presto/issues/1218) this currently fails on HDP 3
+        }
+
         onPresto().executeQuery("SHOW GRANTS"); // must not fail
         onPresto().executeQuery("SELECT * FROM information_schema.table_privileges"); // must not fail
 
@@ -688,7 +692,7 @@ public class TestRoles
         }
         finally {
             onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_alice");
-            onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
+            onPrestoBob().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
             onPresto().executeQuery("REVOKE admin FROM alice");
         }
     }
@@ -701,7 +705,7 @@ public class TestRoles
             onPresto().executeQuery("CREATE SCHEMA hive.test");
             onPresto().executeQuery("GRANT admin TO alice");
             onPrestoAlice().executeQuery("SET ROLE ADMIN");
-            onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT)");
+            onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT) with (external_location='/tmp')");
 
             QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table_bob"))
                     .containsOnly(ImmutableList.of(
@@ -728,7 +732,7 @@ public class TestRoles
                             row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "INSERT", "YES", null)));
         }
         finally {
-            onPresto().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
+            onPrestoBob().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
             onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.test.test_table_bob");
             onPresto().executeQuery("DROP SCHEMA IF EXISTS hive.test");
             onPresto().executeQuery("REVOKE admin FROM alice");

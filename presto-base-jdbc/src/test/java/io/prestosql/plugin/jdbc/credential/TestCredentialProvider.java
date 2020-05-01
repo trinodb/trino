@@ -27,7 +27,6 @@ public class TestCredentialProvider
 {
     @Test
     public void testInlineCredentialProvider()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -41,7 +40,6 @@ public class TestCredentialProvider
 
     @Test
     public void testFileCredentialProvider()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -53,8 +51,27 @@ public class TestCredentialProvider
         assertEquals(credentialProvider.getConnectionPassword(Optional.empty()).get(), "password_for_user_from_file");
     }
 
+    @Test
+    public void testKeyStoreBasedCredentialProvider()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("connection-url", "jdbc:h2:mem:config")
+                .put("credential-provider.type", "KEYSTORE")
+                .put("keystore-file-path", getResourceFilePath("credentials.jceks"))
+                .put("keystore-type", "JCEKS")
+                .put("keystore-password", "keystore_password")
+                .put("keystore-user-credential-name", "userName")
+                .put("keystore-user-credential-password", "keystore_password_for_user_name")
+                .put("keystore-password-credential-name", "password")
+                .put("keystore-password-credential-password", "keystore_password_for_password")
+                .build();
+
+        CredentialProvider credentialProvider = getCredentialProvider(properties);
+        assertEquals(credentialProvider.getConnectionUser(Optional.empty()).get(), "user_from_keystore");
+        assertEquals(credentialProvider.getConnectionPassword(Optional.empty()).get(), "password_from_keystore");
+    }
+
     private CredentialProvider getCredentialProvider(Map<String, String> properties)
-            throws Exception
     {
         return new Bootstrap(ImmutableList.of(new CredentialProviderModule()))
                 .setOptionalConfigurationProperties(properties)

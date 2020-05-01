@@ -15,50 +15,60 @@ package io.prestosql.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalLong;
 
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
-    private final SchemaTableName schemaTableName;
+    private final String schema;
+    private final String index;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<String> query;
+    private final OptionalLong limit;
 
-    public ElasticsearchTableHandle(String schemaName, String tableName)
+    public ElasticsearchTableHandle(String schema, String index, Optional<String> query)
     {
-        this(schemaName, tableName, TupleDomain.all());
+        this.schema = requireNonNull(schema, "schema is null");
+        this.index = requireNonNull(index, "index is null");
+        this.query = requireNonNull(query, "query is null");
+
+        constraint = TupleDomain.all();
+        limit = OptionalLong.empty();
     }
 
     @JsonCreator
     public ElasticsearchTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("schema") String schema,
+            @JsonProperty("index") String index,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("query") Optional<String> query,
+            @JsonProperty("limit") OptionalLong limit)
     {
-        requireNonNull(schemaName, "schemaName is null");
-        requireNonNull(tableName, "tableName is null");
-        this.schemaTableName = new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
+        this.schema = requireNonNull(schema, "schema is null");
+        this.index = requireNonNull(index, "index is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.query = requireNonNull(query, "query is null");
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public String getSchema()
     {
-        return schemaTableName.getSchemaName();
+        return schema;
     }
 
     @JsonProperty
-    public String getTableName()
+    public String getIndex()
     {
-        return schemaTableName.getTableName();
+        return index;
     }
 
     @JsonProperty
@@ -67,35 +77,38 @@ public final class ElasticsearchTableHandle
         return constraint;
     }
 
-    public SchemaTableName getSchemaTableName()
+    @JsonProperty
+    public Optional<String> getQuery()
     {
-        return schemaTableName;
+        return query;
+    }
+
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ElasticsearchTableHandle that = (ElasticsearchTableHandle) o;
+        return schema.equals(that.schema) &&
+                index.equals(that.index) &&
+                constraint.equals(that.constraint) &&
+                query.equals(that.query) &&
+                limit.equals(that.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), getTableName());
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-
-        ElasticsearchTableHandle other = (ElasticsearchTableHandle) obj;
-        return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
-                Objects.equals(this.getTableName(), other.getTableName());
-    }
-
-    @Override
-    public String toString()
-    {
-        return Joiner.on(":").join(getSchemaName(), getTableName());
+        return Objects.hash(schema, index, constraint, query, limit);
     }
 }

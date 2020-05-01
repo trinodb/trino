@@ -13,16 +13,16 @@ Table Layouts
 -------------
 
 Statistics are exposed to the query planner by a table layout. A table layout
-represents a subset of a table's data and contains information about the
-organizational properties of that data (like sort order and bucketing).
+represents a subset of a table's data, and contains information about the
+organizational properties of that data, like sort order and bucketing.
 
-The number of table layouts available for a table and the details of those table
-layouts are specific to each connector.  Using the Hive connector as an example:
+The number of table layouts available for a table, and the details of those table
+layouts, are specific to each connector.  Using the Hive connector as an example:
 
 * Non-partitioned tables have just one table layout representing all data in the table
 * Partitioned tables have a family of table layouts. Each set of partitions to
-  be scanned represents one table layout.  Presto will try to pick a table
-  layout consisting of the smallest number of partitions based on filtering
+  be scanned represents one table layout.  Presto tries to pick a table
+  layout consisting of the smallest number of partitions, based on filtering
   predicates from the query.
 
 Available Statistics

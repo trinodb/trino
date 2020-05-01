@@ -46,18 +46,17 @@ Memory Connector Limitations
 ----------------------------
 
     * After ``DROP TABLE`` memory is not released immediately. It is
-      released after next write access to memory connector.
-    * When one worker fails/restarts all data that were stored in its
-      memory will be lost forever. To prevent silent data loss this
-      connector will throw an error on any read access to such
+      released after the next write access to memory connector.
+    * When one worker fails/restarts, all data that was stored in its
+      memory is lost. To prevent silent data loss the
+      connector throws an error on any read access to such
       corrupted table.
-    * When query fails for any reason during writing to memory table,
-      table will be in undefined state. Such table should be dropped
-      and recreated manually. Reading attempt from such table may fail
+    * When a query fails for any reason during writing to memory table,
+      the table enters an undefined state. The table should be dropped
+      and recreated manually. Reading attempts from the table may fail,
       or may return partial data.
-    * When coordinator fails/restarts all metadata about tables will
-      be lost, but tables' data will be still present on the workers
-      however they will be inaccessible.
-    * This connector will not work properly with multiple
-      coordinators, since each coordinator will have a different
+    * When the coordinator fails/restarts, all metadata about tables is
+      lost. The tables remain on the workers, but become inaccessible.
+    * This connector does not work properly with multiple
+      coordinators, since each coordinator has different
       metadata.

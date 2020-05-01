@@ -14,7 +14,12 @@
 package io.prestosql.server.security;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HttpHeaders;
+import io.prestosql.server.InternalAuthenticationManager;
+import io.prestosql.server.ui.WebUiAuthenticationManager;
+import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -29,26 +34,43 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
+import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static java.util.Objects.requireNonNull;
+import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
 public class AuthenticationFilter
         implements Filter
 {
+    private static final String HTTPS_PROTOCOL = "https";
+
     private final List<Authenticator> authenticators;
+    private final boolean httpsForwardingEnabled;
+    private final InternalAuthenticationManager internalAuthenticationManager;
+    private final WebUiAuthenticationManager uiAuthenticationManager;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators)
+    public AuthenticationFilter(List<Authenticator> authenticators,
+            SecurityConfig securityConfig,
+            InternalAuthenticationManager internalAuthenticationManager,
+            WebUiAuthenticationManager uiAuthenticationManager)
     {
-        this.authenticators = ImmutableList.copyOf(authenticators);
+        this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
+        this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
+        this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
+        this.uiAuthenticationManager = requireNonNull(uiAuthenticationManager, "uiAuthenticationManager is null");
     }
 
     @Override
@@ -64,9 +86,28 @@ public class AuthenticationFilter
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
+        if (internalAuthenticationManager.isInternalRequest(request)) {
+            Principal principal = internalAuthenticationManager.authenticateInternalRequest(request);
+            if (principal == null) {
+                response.setStatus(SC_UNAUTHORIZED);
+                response.setContentType(PLAIN_TEXT_UTF_8.toString());
+                return;
+            }
+            Identity identity = Identity.forUser("<internal>")
+                    .withPrincipal(principal)
+                    .build();
+            withAuthenticatedIdentity(nextFilter, request, response, identity);
+            return;
+        }
+
+        if (WebUiAuthenticationManager.isUiRequest(request)) {
+            uiAuthenticationManager.handleUiRequest(request, response, nextFilter);
+            return;
+        }
+
         // skip authentication if non-secure or not configured
-        if (!request.isSecure() || authenticators.isEmpty()) {
-            nextFilter.doFilter(request, response);
+        if (!doesRequestSupportAuthentication(request)) {
+            handleInsecureRequest(nextFilter, request, response);
             return;
         }
 
@@ -75,9 +116,9 @@ public class AuthenticationFilter
         Set<String> authenticateHeaders = new LinkedHashSet<>();
 
         for (Authenticator authenticator : authenticators) {
-            Principal principal;
+            Identity authenticatedIdentity;
             try {
-                principal = authenticator.authenticate(request);
+                authenticatedIdentity = authenticator.authenticate(request);
             }
             catch (AuthenticationException e) {
                 if (e.getMessage() != null) {
@@ -88,7 +129,7 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            nextFilter.doFilter(withPrincipal(request, principal), response);
+            withAuthenticatedIdentity(nextFilter, request, response, authenticatedIdentity);
             return;
         }
 
@@ -102,18 +143,89 @@ public class AuthenticationFilter
         if (messages.isEmpty()) {
             messages.add("Unauthorized");
         }
-        response.sendError(SC_UNAUTHORIZED, Joiner.on(" | ").join(messages));
+
+        // The error string is used by clients for exception messages and
+        // is presented to the end user, thus it should be a single line.
+        String error = Joiner.on(" | ").join(messages);
+        sendErrorMessage(response, SC_UNAUTHORIZED, error);
     }
 
-    private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
+    private static void sendErrorMessage(HttpServletResponse response, int errorCode, String errorMessage)
+            throws IOException
+    {
+        // Clients should use the response body rather than the HTTP status
+        // message (which does not exist with HTTP/2), but the status message
+        // still needs to be sent for compatibility with existing clients.
+        response.setStatus(errorCode, errorMessage);
+        response.setContentType(PLAIN_TEXT_UTF_8.toString());
+        try (PrintWriter writer = response.getWriter()) {
+            writer.write(errorMessage);
+        }
+    }
+
+    private static void handleInsecureRequest(FilterChain nextFilter, HttpServletRequest request, HttpServletResponse response)
+            throws IOException, ServletException
+    {
+        Optional<BasicAuthCredentials> basicAuthCredentials;
+        try {
+            basicAuthCredentials = extractBasicAuthCredentials(request);
+        }
+        catch (AuthenticationException e) {
+            sendErrorMessage(response, SC_FORBIDDEN, e.getMessage());
+            return;
+        }
+
+        if (!basicAuthCredentials.isPresent()) {
+            nextFilter.doFilter(request, response);
+            return;
+        }
+
+        if (basicAuthCredentials.get().getPassword().isPresent()) {
+            sendErrorMessage(response, SC_FORBIDDEN, "Password not allowed for insecure request");
+            return;
+        }
+
+        withAuthenticatedIdentity(nextFilter, request, response, Identity.ofUser(basicAuthCredentials.get().getUser()));
+    }
+
+    private boolean doesRequestSupportAuthentication(HttpServletRequest request)
+    {
+        if (authenticators.isEmpty()) {
+            return false;
+        }
+        if (request.isSecure()) {
+            return true;
+        }
+        return httpsForwardingEnabled && Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
+    }
+
+    private static void withAuthenticatedIdentity(FilterChain nextFilter, HttpServletRequest request, HttpServletResponse response, Identity authenticatedIdentity)
+            throws IOException, ServletException
+    {
+        request.setAttribute(AUTHENTICATED_IDENTITY, authenticatedIdentity);
+        try {
+            nextFilter.doFilter(withPrincipal(request, authenticatedIdentity.getPrincipal()), response);
+        }
+        finally {
+            // destroy identity if identity is still attached to the request
+            Optional.ofNullable(request.getAttribute(AUTHENTICATED_IDENTITY))
+                    .map(Identity.class::cast)
+                    .ifPresent(Identity::destroy);
+        }
+    }
+
+    private static ServletRequest withPrincipal(HttpServletRequest request, Optional<Principal> principal)
     {
         requireNonNull(principal, "principal is null");
+        if (!principal.isPresent()) {
+            return request;
+        }
         return new HttpServletRequestWrapper(request)
         {
             @Override
             public Principal getUserPrincipal()
             {
-                return principal;
+                return principal.get();
             }
         };
     }

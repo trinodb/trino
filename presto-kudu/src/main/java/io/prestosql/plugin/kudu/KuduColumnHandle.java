@@ -29,8 +29,9 @@ public class KuduColumnHandle
         implements ColumnHandle
 {
     public static final String ROW_ID = "row_uuid";
+    public static final int ROW_ID_POSITION = -1;
 
-    public static final KuduColumnHandle ROW_ID_HANDLE = new KuduColumnHandle(ROW_ID, -1, VarbinaryType.VARBINARY);
+    public static final KuduColumnHandle ROW_ID_HANDLE = new KuduColumnHandle(ROW_ID, ROW_ID_POSITION, VarbinaryType.VARBINARY);
 
     private final String name;
     private final int ordinalPosition;

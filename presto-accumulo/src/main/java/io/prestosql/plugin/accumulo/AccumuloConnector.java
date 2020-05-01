@@ -140,11 +140,6 @@ public class AccumuloConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            LOG.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

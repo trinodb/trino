@@ -13,17 +13,16 @@
  */
 package io.prestosql.parquet;
 
+import com.google.common.io.ByteStreams;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
 import io.airlift.compress.zstd.ZstdDecompressor;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -31,8 +30,9 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class ParquetCompressionUtils
 {
@@ -88,14 +88,15 @@ public final class ParquetCompressionUtils
             return EMPTY_SLICE;
         }
 
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(uncompressedSize);
-        byte[] buffer = new byte[uncompressedSize];
-        try (InputStream gzipInputStream = new GZIPInputStream(input.getInput(), GZIP_BUFFER_SIZE)) {
-            int bytesRead;
-            while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
-                sliceOutput.write(buffer, 0, bytesRead);
+        try (GZIPInputStream gzipInputStream = new GZIPInputStream(input.getInput(), min(GZIP_BUFFER_SIZE, input.length()))) {
+            byte[] buffer = new byte[uncompressedSize];
+            int bytesRead = ByteStreams.read(gzipInputStream, buffer, 0, buffer.length);
+            if (bytesRead != uncompressedSize) {
+                throw new IllegalArgumentException(format("Invalid uncompressedSize for GZIP input. Expected %s, actual: %s", uncompressedSize, bytesRead));
             }
-            return sliceOutput.getUnderlyingSlice();
+            // Verify we're at EOF and aren't truncating the input
+            checkArgument(gzipInputStream.read() == -1, "Invalid uncompressedSize for GZIP input. Actual size exceeds %s bytes", uncompressedSize);
+            return wrappedBuffer(buffer, 0, bytesRead);
         }
     }
 
@@ -136,9 +137,8 @@ public final class ParquetCompressionUtils
 
     private static int decompress(Decompressor decompressor, Slice input, int inputOffset, int inputLength, byte[] output, int outputOffset)
     {
-        byte[] byteArray = (byte[]) input.getBase();
-        int byteArrayOffset = inputOffset + (int) (input.getAddress() - ARRAY_BYTE_BASE_OFFSET);
-        int size = decompressor.decompress(byteArray, byteArrayOffset, inputLength, output, outputOffset, output.length - outputOffset);
-        return size;
+        byte[] byteArray = input.byteArray();
+        int byteArrayOffset = inputOffset + input.byteArrayOffset();
+        return decompressor.decompress(byteArray, byteArrayOffset, inputLength, output, outputOffset, output.length - outputOffset);
     }
 }

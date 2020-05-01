@@ -15,8 +15,8 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.HiveWriteUtils.FieldSetter;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.util.HiveWriteUtils.FieldSetter;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -39,20 +39,21 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnNames;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnTypes;
-import static io.prestosql.plugin.hive.HiveWriteUtils.createFieldSetter;
-import static io.prestosql.plugin.hive.HiveWriteUtils.createRecordWriter;
-import static io.prestosql.plugin.hive.HiveWriteUtils.getRowColumnInspectors;
-import static io.prestosql.plugin.hive.HiveWriteUtils.initializeSerializer;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.createFieldSetter;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.createRecordWriter;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.getRowColumnInspectors;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.initializeSerializer;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 
 public class RecordFileWriter
-        implements HiveFileWriter
+        implements FileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
 
@@ -68,6 +69,7 @@ public class RecordFileWriter
     private final long estimatedWriterSystemMemoryUsage;
 
     private boolean committed;
+    private long finalWrittenBytes = -1;
 
     public RecordFileWriter(
             Path path,
@@ -100,7 +102,7 @@ public class RecordFileWriter
         // reorder (and possibly reduce) struct fields to match input
         structFields = ImmutableList.copyOf(inputColumnNames.stream()
                 .map(tableInspector::getStructFieldRef)
-                .collect(toList()));
+                .collect(toImmutableList()));
 
         row = tableInspector.create();
 
@@ -120,8 +122,13 @@ public class RecordFileWriter
         }
 
         if (committed) {
+            if (finalWrittenBytes != -1) {
+                return finalWrittenBytes;
+            }
+
             try {
-                return path.getFileSystem(conf).getFileStatus(path).getLen();
+                finalWrittenBytes = path.getFileSystem(conf).getFileStatus(path).getLen();
+                return finalWrittenBytes;
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

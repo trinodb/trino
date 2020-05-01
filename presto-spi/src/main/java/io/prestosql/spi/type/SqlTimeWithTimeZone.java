@@ -28,7 +28,7 @@ public final class SqlTimeWithTimeZone
 {
     // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
     // TODO when support for political time zones is removed, change the pattern to "HH:mm:ss.SSS XXX" and reuse in TestingPrestoClient
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS VV");
+    private static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS VV");
 
     private final long millisUtc;
     private final TimeZoneKey timeZoneKey;
@@ -45,6 +45,10 @@ public final class SqlTimeWithTimeZone
         this.timeZoneKey = timeZoneKey;
     }
 
+    /**
+     * @deprecated Use {@link #SqlTimeWithTimeZone(long, TimeZoneKey)} instead.
+     */
+    @Deprecated
     public SqlTimeWithTimeZone(long millisUtc, TimeZone timeZone)
     {
         this.millisUtc = millisUtc;
@@ -85,6 +89,8 @@ public final class SqlTimeWithTimeZone
     @Override
     public String toString()
     {
-        return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(timeZoneKey.getId())).format(formatter);
+        return Instant.ofEpochMilli(millisUtc)
+                .atZone(ZoneId.of(timeZoneKey.getId()))
+                .format(JSON_FORMATTER);
     }
 }

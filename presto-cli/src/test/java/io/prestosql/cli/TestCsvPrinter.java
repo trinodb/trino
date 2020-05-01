@@ -24,8 +24,12 @@ import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
+import static io.prestosql.cli.TestAlignedTablePrinter.item;
+import static io.prestosql.cli.TestAlignedTablePrinter.list;
+import static io.prestosql.cli.TestAlignedTablePrinter.map;
 import static io.prestosql.cli.TestAlignedTablePrinter.row;
 import static io.prestosql.cli.TestAlignedTablePrinter.rows;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 public class TestCsvPrinter
@@ -174,10 +178,42 @@ public class TestCsvPrinter
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
         OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER);
 
-        printRows(printer, row("hello".getBytes(), null, 123));
+        printRows(printer, row("hello".getBytes(UTF_8), null, 123));
         printer.finish();
 
         String expected = "\"68 65 6c 6c 6f\",\"\",\"123\"\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvVarbinaryInMaps()
+            throws IOException
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("map", "value");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, STANDARD);
+        printRows(printer, row(map(item("key", "value".getBytes(UTF_8))), "value"));
+        printer.finish();
+
+        String expected = "\"map\",\"value\"\n" +
+                "\"{key=76 61 6c 75 65}\",\"value\"\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvVarbinaryInList()
+            throws IOException
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("list", "value");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, STANDARD);
+        printRows(printer, row(list("value".getBytes(UTF_8)), "value"));
+        printer.finish();
+
+        String expected = "\"list\",\"value\"\n" +
+                "\"[76 61 6c 75 65]\",\"value\"\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }

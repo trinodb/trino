@@ -42,26 +42,30 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static java.util.Objects.requireNonNull;
 
-public class HandleResolver
+public final class HandleResolver
 {
     private final ConcurrentMap<String, MaterializedHandleResolver> handleResolvers = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
     {
-        handleResolvers.put(REMOTE_CONNECTOR_ID.toString(), new MaterializedHandleResolver(new RemoteHandleResolver()));
-        handleResolvers.put("$system", new MaterializedHandleResolver(new SystemHandleResolver()));
-        handleResolvers.put("$info_schema", new MaterializedHandleResolver(new InformationSchemaHandleResolver()));
-        handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
+        addCatalogHandleResolver(REMOTE_CONNECTOR_ID.toString(), new RemoteHandleResolver());
+        addCatalogHandleResolver("$system", new SystemHandleResolver());
+        addCatalogHandleResolver("$info_schema", new InformationSchemaHandleResolver());
+        addCatalogHandleResolver("$empty", new EmptySplitHandleResolver());
     }
 
-    public void addConnectorName(String name, ConnectorHandleResolver resolver)
+    public void addCatalogHandleResolver(String catalogName, ConnectorHandleResolver resolver)
     {
-        requireNonNull(name, "name is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(resolver, "resolver is null");
-        MaterializedHandleResolver existingResolver = handleResolvers.putIfAbsent(name, new MaterializedHandleResolver(resolver));
-        checkState(existingResolver == null || existingResolver.equals(resolver),
-                "Connector '%s' is already assigned to resolver: %s", name, existingResolver);
+        MaterializedHandleResolver existingResolver = handleResolvers.putIfAbsent(catalogName, new MaterializedHandleResolver(resolver));
+        checkState(existingResolver == null, "Catalog '%s' is already assigned to resolver: %s", catalogName, existingResolver);
+    }
+
+    public void removeCatalogHandleResolver(String catalogName)
+    {
+        handleResolvers.remove(catalogName);
     }
 
     public String getId(ConnectorTableHandle tableHandle)

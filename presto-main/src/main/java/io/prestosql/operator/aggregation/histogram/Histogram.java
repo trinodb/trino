@@ -16,7 +16,10 @@ package io.prestosql.operator.aggregation.histogram;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
 import io.prestosql.operator.aggregation.AggregationMetadata;
@@ -27,12 +30,15 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -40,7 +46,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -57,18 +63,24 @@ public class Histogram
 
     public Histogram(HistogramGroupImplementation groupMode)
     {
-        super(NAME,
-                ImmutableList.of(comparableTypeParameter("K")),
-                ImmutableList.of(),
-                parseTypeSignature("map(K,bigint)"),
-                ImmutableList.of(parseTypeSignature("K")));
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(comparableTypeParameter("K")),
+                                ImmutableList.of(),
+                                mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
+                                ImmutableList.of(new TypeSignature("K")),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Count the number of times each value occurs",
+                        AGGREGATE),
+                true,
+                false);
         this.groupMode = groupMode;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Count the number of times each value occurs";
     }
 
     @Override
@@ -76,8 +88,8 @@ public class Histogram
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type outputType = metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(BIGINT.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
         return generateAggregation(NAME, keyType, outputType, groupMode);
     }
 
@@ -98,6 +110,7 @@ public class Histogram
                 generateAggregationName(functionName, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType),
                 inputFunction,
+                Optional.empty(),
                 COMBINE_FUNCTION,
                 outputFunction,
                 ImmutableList.of(new AccumulatorStateDescriptor(

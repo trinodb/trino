@@ -15,7 +15,6 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.prestosql.ExceededMemoryLimitException;
 import io.prestosql.operator.OrderByOperator.OrderByOperatorFactory;
 import io.prestosql.spi.Page;
@@ -242,7 +241,7 @@ public class TestOrderByOperator
                 .row(4L, 0.4)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(10))
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 

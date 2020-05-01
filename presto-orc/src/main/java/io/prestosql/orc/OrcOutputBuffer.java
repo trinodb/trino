@@ -43,7 +43,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public class OrcOutputBuffer
         extends SliceOutput
@@ -242,7 +241,7 @@ public class OrcOutputBuffer
         // Write huge chunks direct to OutputStream
         if (length >= DIRECT_FLUSH_SIZE) {
             flushBufferToOutputStream();
-            writeDirectlyToOutputStream((byte[]) source.getBase(), sourceIndex + (int) (source.getAddress() - ARRAY_BYTE_BASE_OFFSET), length);
+            writeDirectlyToOutputStream(source.byteArray(), sourceIndex + source.byteArrayOffset(), length);
             bufferOffset += length;
         }
         else {

@@ -28,9 +28,12 @@ import io.prestosql.sql.tree.ExplainOption;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.Statement;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.sql.QueryUtil.singleValueQuery;
@@ -51,7 +54,8 @@ final class ExplainRewrite
             SqlParser parser,
             Optional<QueryExplainer> queryExplainer,
             Statement node,
-            List<Expression> parameters,
+            List<Expression> parameter,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {

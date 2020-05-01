@@ -14,7 +14,6 @@
 package io.prestosql.plugin.atop;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -30,8 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class AtopConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(AtopConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final AtopMetadata metadata;
     private final AtopSplitManager splitManager;
@@ -86,11 +83,6 @@ public class AtopConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

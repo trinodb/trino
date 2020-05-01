@@ -40,7 +40,8 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.SystemSessionProperties.getRequiredWorkers;
+import static io.prestosql.SystemSessionProperties.getRequiredWorkersMaxWait;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
@@ -74,7 +75,16 @@ public class LocalDispatchQuery
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
-        addExceptionCallback(queryExecutionFuture, stateMachine::transitionToFailed);
+        addExceptionCallback(queryExecutionFuture, throwable -> {
+            // When we are at the terminal state transitionToFailed()
+            // doesn't make sense and only pollutes log file.
+            // This will be fired when queryExecutionFuture.cancel(true)
+            // is called which happens when we reached terminal query state.
+            if (!stateMachine.isDone()) {
+                stateMachine.transitionToFailed(throwable);
+            }
+        });
+
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 submitted.set(null);
@@ -93,10 +103,25 @@ public class LocalDispatchQuery
 
     private void waitForMinimumWorkers()
     {
-        ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
-        // when worker requirement is met, wait for query execution to finish construction and then start the execution
-        addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
-        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> stateMachine.transitionToFailed(throwable)));
+        // wait for query execution to finish construction
+        addSuccessCallback(queryExecutionFuture, queryExecution -> {
+            Session session = stateMachine.getSession();
+            int executionMinCount = 1; // always wait for 1 node to be up
+            if (queryExecution.shouldWaitForMinWorkers()) {
+                executionMinCount = getRequiredWorkers(session);
+            }
+            ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
+            // when worker requirement is met, start the execution
+            addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution));
+            addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> stateMachine.transitionToFailed(throwable)));
+
+            // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user
+            stateMachine.addStateChangeListener(state -> {
+                if (state.isDone()) {
+                    minimumWorkerFuture.cancel(true);
+                }
+            });
+        });
     }
 
     private void startExecution(QueryExecution queryExecution)
@@ -190,7 +215,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getTotalCpuTime)
-                .orElse(new Duration(0, MILLISECONDS));
+                .orElseGet(() -> new Duration(0, MILLISECONDS));
     }
 
     @Override
@@ -198,7 +223,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getTotalMemoryReservation)
-                .orElse(new DataSize(0, BYTE));
+                .orElseGet(() -> DataSize.ofBytes(0));
     }
 
     @Override
@@ -206,7 +231,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getUserMemoryReservation)
-                .orElse(new DataSize(0, BYTE));
+                .orElseGet(() -> DataSize.ofBytes(0));
     }
 
     @Override
@@ -214,7 +239,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getBasicQueryInfo)
-                .orElse(stateMachine.getBasicQueryInfo(Optional.empty()));
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.empty()));
     }
 
     @Override
@@ -222,7 +247,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getQueryInfo)
-                .orElse(stateMachine.updateQueryInfo(Optional.empty()));
+                .orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
     }
 
     @Override

@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -27,7 +28,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.type.UnknownType;
@@ -40,15 +40,15 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -59,7 +59,6 @@ public final class ArrayJoin
     public static final ArrayJoin ARRAY_JOIN = new ArrayJoin();
     public static final ArrayJoinWithNullReplacement ARRAY_JOIN_WITH_NULL_REPLACEMENT = new ArrayJoinWithNullReplacement();
 
-    private static final TypeSignature VARCHAR_TYPE_SIGNATURE = VARCHAR.getTypeSignature();
     private static final String FUNCTION_NAME = "array_join";
     private static final String DESCRIPTION = "Concatenates the elements of the given array using a delimiter and an optional string to replace nulls";
     private static final MethodHandle METHOD_HANDLE = methodHandle(
@@ -93,31 +92,23 @@ public final class ArrayJoin
 
         public ArrayJoinWithNullReplacement()
         {
-            super(new Signature(FUNCTION_NAME,
-                    FunctionKind.SCALAR,
-                    ImmutableList.of(typeVariable("T")),
-                    ImmutableList.of(),
-                    parseTypeSignature(StandardTypes.VARCHAR),
-                    ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
-                    false));
-        }
-
-        @Override
-        public boolean isHidden()
-        {
-            return false;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return true;
-        }
-
-        @Override
-        public String getDescription()
-        {
-            return DESCRIPTION;
+            super(new FunctionMetadata(
+                    new Signature(
+                            FUNCTION_NAME,
+                            ImmutableList.of(typeVariable("T")),
+                            ImmutableList.of(),
+                            VARCHAR.getTypeSignature(),
+                            ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
+                            false),
+                    false,
+                    ImmutableList.of(
+                            new FunctionArgumentDefinition(false),
+                            new FunctionArgumentDefinition(false),
+                            new FunctionArgumentDefinition(false)),
+                    false,
+                    true,
+                    DESCRIPTION,
+                    SCALAR));
         }
 
         @Override
@@ -129,37 +120,28 @@ public final class ArrayJoin
 
     public ArrayJoin()
     {
-        super(new Signature(FUNCTION_NAME,
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                parseTypeSignature(StandardTypes.VARCHAR),
-                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR)),
-                false));
+        super(new FunctionMetadata(
+                new Signature(
+                        FUNCTION_NAME,
+                        ImmutableList.of(castableToTypeParameter("T", VARCHAR.getTypeSignature())),
+                        ImmutableList.of(),
+                        VARCHAR.getTypeSignature(),
+                        ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature()),
+                        false),
+                false,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
+                false,
+                true,
+                DESCRIPTION,
+                SCALAR));
     }
 
     @UsedByGeneratedCode
     public static Object createState()
     {
         return new PageBuilder(ImmutableList.of(VARCHAR));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return DESCRIPTION;
     }
 
     @Override
@@ -182,12 +164,11 @@ public final class ArrayJoin
                     false,
                     argumentProperties,
                     methodHandle.bindTo(null),
-                    Optional.of(STATE_FACTORY),
-                    true);
+                    Optional.of(STATE_FACTORY));
         }
         else {
             try {
-                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(internalOperator(CAST, VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
+                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(metadata.getCoercion(type, VARCHAR));
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();
@@ -227,8 +208,7 @@ public final class ArrayJoin
                         false,
                         argumentProperties,
                         target,
-                        Optional.of(STATE_FACTORY),
-                        true);
+                        Optional.of(STATE_FACTORY));
             }
             catch (PrestoException e) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);

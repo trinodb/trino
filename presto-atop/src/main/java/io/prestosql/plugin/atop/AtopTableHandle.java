@@ -76,7 +76,7 @@ public class AtopTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, table);
+        return Objects.hash(schema, table, startTimeConstraint, endTimeConstraint);
     }
 
     @Override
@@ -90,7 +90,9 @@ public class AtopTableHandle
         }
         AtopTableHandle other = (AtopTableHandle) obj;
         return Objects.equals(this.schema, other.schema) &&
-                Objects.equals(this.table, other.table);
+                this.table == other.table &&
+                Objects.equals(startTimeConstraint, other.startTimeConstraint) &&
+                Objects.equals(endTimeConstraint, other.endTimeConstraint);
     }
 
     @Override

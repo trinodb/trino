@@ -97,7 +97,7 @@ public class Assignments
         return assignments;
     }
 
-    public <C> Assignments rewrite(ExpressionRewriter<C> rewriter)
+    public Assignments rewrite(ExpressionRewriter<Void> rewriter)
     {
         return rewrite(expression -> ExpressionTreeRewriter.rewriteWith(rewriter, expression));
     }

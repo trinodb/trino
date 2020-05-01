@@ -6,6 +6,7 @@ module.exports = {
         'embedded_plan': __dirname +'/embedded_plan.jsx',
         'stage': __dirname +'/stage.jsx',
         'worker': __dirname +'/worker.jsx',
+        'timeline': __dirname +'/timeline.jsx',
     },
     mode: "development",
     module: {

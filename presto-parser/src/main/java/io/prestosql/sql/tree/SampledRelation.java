@@ -101,7 +101,7 @@ public class SampledRelation
         }
         SampledRelation that = (SampledRelation) o;
         return Objects.equals(relation, that.relation) &&
-                Objects.equals(type, that.type) &&
+                type == that.type &&
                 Objects.equals(samplePercentage, that.samplePercentage);
     }
 

@@ -13,35 +13,57 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import com.google.common.base.Ticker;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
+import io.prestosql.plugin.hive.metastore.thrift.FailureAwareThriftMetastoreClient.Callback;
 import org.apache.thrift.TException;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.metastore.thrift.StaticMetastoreConfig.HIVE_METASTORE_USERNAME;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class StaticMetastoreLocator
         implements MetastoreLocator
 {
     private final List<HostAndPort> addresses;
+    private final List<Backoff> backoffs;
     private final ThriftMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
 
     @Inject
-    public StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(StaticMetastoreConfig config, HiveAuthenticationConfig hiveAuthenticationConfig, ThriftMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
+
+        checkArgument(
+                isNullOrEmpty(metastoreUsername) || hiveAuthenticationConfig.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.NONE,
+                "%s cannot be used together with %s authentication",
+                HIVE_METASTORE_USERNAME,
+                hiveAuthenticationConfig.getHiveMetastoreAuthenticationType());
     }
 
-    public StaticMetastoreLocator(List<URI> metastoreUris, String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
@@ -49,6 +71,7 @@ public class StaticMetastoreLocator
                 .map(StaticMetastoreLocator::checkMetastoreUri)
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
                 .collect(toList());
+        this.backoffs = IntStream.range(0, addresses.size()).mapToObj(ignore -> new Backoff()).collect(toImmutableList());
         this.metastoreUsername = metastoreUsername;
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
@@ -62,26 +85,47 @@ public class StaticMetastoreLocator
      * connection succeeds or there are no more fallback metastores.
      */
     @Override
-    public ThriftMetastoreClient createMetastoreClient()
+    public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
             throws TException
     {
-        List<HostAndPort> metastores = new ArrayList<>(addresses);
-        Collections.shuffle(metastores.subList(1, metastores.size()));
+        List<Integer> indices = backoffs.stream()
+                .sorted(Comparator.comparingLong(backoff -> backoff.getBackoffDuration()))
+                .map(backoffs::indexOf)
+                .collect(toImmutableList());
 
         TException lastException = null;
-        for (HostAndPort metastore : metastores) {
+        for (int index : indices) {
             try {
-                ThriftMetastoreClient client = clientFactory.create(metastore);
-                if (!isNullOrEmpty(metastoreUsername)) {
-                    client.setUGI(metastoreUsername);
-                }
-                return client;
+                return getClient(addresses.get(index), backoffs.get(index), delegationToken);
             }
             catch (TException e) {
                 lastException = e;
             }
         }
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
+    }
+
+    private ThriftMetastoreClient getClient(HostAndPort address, Backoff backoff, Optional<String> delegationToken)
+            throws TException
+    {
+        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(address, delegationToken), new Callback()
+        {
+            @Override
+            public void success()
+            {
+                backoff.success();
+            }
+
+            @Override
+            public void failed(TException e)
+            {
+                backoff.fail();
+            }
+        });
+        if (!isNullOrEmpty(metastoreUsername)) {
+            client.setUGI(metastoreUsername);
+        }
+        return client;
     }
 
     private static URI checkMetastoreUri(URI uri)
@@ -93,5 +137,36 @@ public class StaticMetastoreLocator
         checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
         checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
         return uri;
+    }
+
+    private static class Backoff
+    {
+        private static final long MIN_BACKOFF = new Duration(50, MILLISECONDS).roundTo(NANOSECONDS);
+        private static final long MAX_BACKOFF = new Duration(60, SECONDS).roundTo(NANOSECONDS);
+
+        private final Ticker ticker = Ticker.systemTicker();
+        private long backoffDuration = MIN_BACKOFF;
+        private OptionalLong lastFailureTimestamps = OptionalLong.empty();
+
+        synchronized void fail()
+        {
+            lastFailureTimestamps = OptionalLong.of(ticker.read());
+            backoffDuration = min(backoffDuration * 2, MAX_BACKOFF);
+        }
+
+        synchronized void success()
+        {
+            lastFailureTimestamps = OptionalLong.empty();
+            backoffDuration = MIN_BACKOFF;
+        }
+
+        synchronized long getBackoffDuration()
+        {
+            if (lastFailureTimestamps.isPresent()) {
+                long timeSinceLastFail = ticker.read() - lastFailureTimestamps.getAsLong();
+                return max(backoffDuration - timeSinceLastFail, 0);
+            }
+            return 0;
+        }
     }
 }

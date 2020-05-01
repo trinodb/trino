@@ -1,0 +1,15 @@
+{
+    "rules": [
+        {
+            "pattern": "test@example\\.com",
+            "allow": false
+        },
+        {
+            "pattern": "(.+)@example\\.com"
+        },
+        {
+            "pattern": "(?<user>.+)@(?<region>.+)\\.example\\.com",
+            "user": "${user}_${region}"
+        }
+    ]
+}

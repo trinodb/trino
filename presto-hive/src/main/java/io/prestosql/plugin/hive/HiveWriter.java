@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveWriter
 {
-    private final HiveFileWriter fileWriter;
+    private final FileWriter fileWriter;
     private final Optional<String> partitionName;
     private final UpdateMode updateMode;
     private final String fileName;
@@ -38,7 +38,7 @@ public class HiveWriter
     private long inputSizeInBytes;
 
     public HiveWriter(
-            HiveFileWriter fileWriter,
+            FileWriter fileWriter,
             Optional<String> partitionName,
             UpdateMode updateMode,
             String fileName,

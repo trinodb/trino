@@ -96,7 +96,7 @@ public class TestingMetadata
         requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(tableName);
-        checkArgument(tableMetadata != null, "Table %s does not exist", tableName);
+        checkArgument(tableMetadata != null, "Table '%s' does not exist", tableName);
         return tableMetadata;
     }
 
@@ -261,7 +261,7 @@ public class TestingMetadata
         SchemaTableName tableName = getTableName(tableHandle);
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
-        columns.set(columns.indexOf(columnMetadata), new ColumnMetadata(target, columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden()));
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setName(target).build());
         tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 

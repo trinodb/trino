@@ -430,12 +430,23 @@ public final class StreamPropertyDerivations
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
             Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
-            return properties.translate(column -> {
+            StreamProperties translatedProperties = properties.translate(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }
                 return Optional.empty();
             });
+
+            switch (node.getJoinType()) {
+                case INNER:
+                case LEFT:
+                    return translatedProperties;
+                case RIGHT:
+                case FULL:
+                    return translatedProperties.unordered(true);
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            }
         }
 
         @Override
@@ -522,7 +533,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitTopN(TopNNode node, List<StreamProperties> inputProperties)
         {
             // Partial TopN doesn't guarantee that stream is ordered
-            if (node.getStep().equals(TopNNode.Step.PARTIAL)) {
+            if (node.getStep() == TopNNode.Step.PARTIAL) {
                 return Iterables.getOnlyElement(inputProperties);
             }
             return StreamProperties.ordered();
@@ -756,7 +767,7 @@ public final class StreamPropertyDerivations
                 return false;
             }
             StreamProperties other = (StreamProperties) obj;
-            return Objects.equals(this.distribution, other.distribution) &&
+            return this.distribution == other.distribution &&
                     Objects.equals(this.partitioningColumns, other.partitioningColumns);
         }
 

@@ -13,13 +13,17 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestWindowQueries;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestWindowQueries
         extends AbstractTestWindowQueries
 {
-    public TestWindowQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
     }
 }

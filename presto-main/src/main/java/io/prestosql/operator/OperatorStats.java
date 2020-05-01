@@ -61,6 +61,8 @@ public class OperatorStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final long dynamicFilterSplitsProcessed;
+
     private final DataSize physicalWrittenDataSize;
 
     private final Duration blockedWall;
@@ -110,6 +112,8 @@ public class OperatorStats
             @JsonProperty("getOutputCpu") Duration getOutputCpu,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("dynamicFilterSplitsProcessed") long dynamicFilterSplitsProcessed,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -162,6 +166,8 @@ public class OperatorStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.dynamicFilterSplitsProcessed = dynamicFilterSplitsProcessed;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
 
@@ -320,6 +326,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public long getDynamicFilterSplitsProcessed()
+    {
+        return dynamicFilterSplitsProcessed;
+    }
+
+    @JsonProperty
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
@@ -437,6 +449,8 @@ public class OperatorStats
         long outputDataSize = this.outputDataSize.toBytes();
         long outputPositions = this.outputPositions;
 
+        long dynamicFilterSplitsProcessed = this.dynamicFilterSplitsProcessed;
+
         long physicalWrittenDataSize = this.physicalWrittenDataSize.toBytes();
 
         long blockedWall = this.blockedWall.roundTo(NANOSECONDS);
@@ -480,6 +494,8 @@ public class OperatorStats
             getOutputCpu += operator.getGetOutputCpu().roundTo(NANOSECONDS);
             outputDataSize += operator.getOutputDataSize().toBytes();
             outputPositions += operator.getOutputPositions();
+
+            dynamicFilterSplitsProcessed += operator.getDynamicFilterSplitsProcessed();
 
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
 
@@ -536,6 +552,8 @@ public class OperatorStats
                 new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize),
                 outputPositions,
+
+                dynamicFilterSplitsProcessed,
 
                 succinctBytes(physicalWrittenDataSize),
 
@@ -601,6 +619,7 @@ public class OperatorStats
                 getOutputCpu,
                 outputDataSize,
                 outputPositions,
+                dynamicFilterSplitsProcessed,
                 physicalWrittenDataSize,
                 blockedWall,
                 finishCalls,

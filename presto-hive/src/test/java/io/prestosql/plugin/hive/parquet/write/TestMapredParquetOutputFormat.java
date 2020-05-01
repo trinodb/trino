@@ -48,7 +48,8 @@ public class TestMapredParquetOutputFormat
     }
 
     @Override
-    public FileSinkOperator.RecordWriter getHiveRecordWriter(JobConf jobConf,
+    public FileSinkOperator.RecordWriter getHiveRecordWriter(
+            JobConf jobConf,
             Path finalOutPath,
             Class<? extends Writable> valueClass,
             boolean isCompressed,

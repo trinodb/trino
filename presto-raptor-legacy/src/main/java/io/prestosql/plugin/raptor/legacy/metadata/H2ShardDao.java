@@ -34,6 +34,7 @@ public interface H2ShardDao
             "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
     void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
+    @Override
     @SqlUpdate("DELETE FROM transactions\n" +
             "WHERE end_time < :maxEndTime\n" +
             "  AND successful IN (TRUE, FALSE)\n" +
