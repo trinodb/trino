@@ -39,6 +39,7 @@ Property Name                              Description
 ========================================== ==============================================================
 ``mongodb.seeds``                          List of all MongoDB servers
 ``mongodb.schema-collection``              A collection which contains schema information
+``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
 ``mongodb.credentials``                    List of credentials
 ``mongodb.min-connections-per-host``       The minimum size of the connection pool per host
 ``mongodb.connections-per-host``           The maximum size of the connection pool per host
