@@ -261,22 +261,13 @@ class SubqueryPlanner
 
         PlanBuilder subqueryPlan = createPlanBuilder(existsPredicate.getSubquery());
 
-        PlanNode subqueryPlanRoot = subqueryPlan.getRoot();
-        if (isAggregationWithEmptyGroupBy(subqueryPlanRoot)) {
-            subPlan.getTranslations().put(existsPredicate, TRUE_LITERAL);
-            return subPlan;
-        }
-
-        // add an explicit projection that removes all columns
-        PlanNode subqueryNode = new ProjectNode(idAllocator.getNextId(), subqueryPlan.getRoot(), Assignments.of());
-
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
         ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(TRUE_LITERAL);
         return appendApplyNode(
                 subPlan,
                 existsPredicate.getSubquery(),
-                subqueryNode,
+                subqueryPlan.getRoot(),
                 Assignments.of(exists, rewrittenExistsPredicate));
     }
 
