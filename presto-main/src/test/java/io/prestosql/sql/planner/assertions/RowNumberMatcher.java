@@ -147,9 +147,10 @@ public class RowNumberMatcher
             return this;
         }
 
-        public Builder hashSymbol(Optional<SymbolAlias> hashSymbol)
+        public Builder hashSymbol(Optional<String> hashSymbol)
         {
-            this.hashSymbol = Optional.of(requireNonNull(hashSymbol, "hashSymbol is null"));
+            requireNonNull(hashSymbol, "hashSymbol is null");
+            this.hashSymbol = Optional.of(hashSymbol.map(SymbolAlias::new));
             return this;
         }
 
