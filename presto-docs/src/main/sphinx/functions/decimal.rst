@@ -35,8 +35,8 @@ Binary Arithmetic Decimal Operators
 |               |                                   |                                   |
 | and           |   min(38,                         | ``max(xs, ys)``                   |
 |               |       1 +                         |                                   |
-| ``x - y``     |         min(xs, ys) +             |                                   |
-|               |         min(xp - xs, yp - ys)     |                                   |
+| ``x - y``     |         max(xs, ys) +             |                                   |
+|               |         max(xp - xs, yp - ys)     |                                   |
 |               |      )                            |                                   |
 +---------------+-----------------------------------+-----------------------------------+
 | ``x * y``     | ``min(38, xp + yp)``              | ``xs + ys``                       |
