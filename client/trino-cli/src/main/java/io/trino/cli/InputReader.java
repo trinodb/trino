@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static org.jline.reader.LineReader.BLINK_MATCHING_PAREN;
 import static org.jline.reader.LineReader.HISTORY_FILE;
+import static org.jline.reader.LineReader.MAIN;
 import static org.jline.reader.LineReader.Option.HISTORY_TIMESTAMPED;
 import static org.jline.reader.LineReader.SECONDARY_PROMPT_PATTERN;
 import static org.jline.utils.AttributedStyle.BRIGHT;
@@ -39,7 +40,7 @@ public class InputReader
 {
     private final LineReader reader;
 
-    public InputReader(Path historyFile, Completer... completers)
+    public InputReader(ClientOptions.EditingMode editingMode, Path historyFile, Completer... completers)
             throws IOException
     {
         reader = LineReaderBuilder.builder()
@@ -52,6 +53,7 @@ public class InputReader
                 .completer(new AggregateCompleter(completers))
                 .build();
 
+        reader.getKeyMaps().put(MAIN, reader.getKeyMaps().get(editingMode.getKeyMap()));
         reader.unsetOpt(HISTORY_TIMESTAMPED);
     }
 
