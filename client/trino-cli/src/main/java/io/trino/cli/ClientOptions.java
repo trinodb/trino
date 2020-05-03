@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import okhttp3.logging.HttpLoggingInterceptor;
+import org.jline.reader.LineReader;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -175,6 +176,9 @@ public class ClientOptions
     @Option(names = "--disable-compression", description = "Disable compression of query results")
     public boolean disableCompression;
 
+    @Option(names = "--editing-mode", paramLabel = "<editing-mode>", defaultValue = "EMACS", description = "Editing mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public EditingMode editingMode;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -187,6 +191,24 @@ public class ClientOptions
         CSV_HEADER_UNQUOTED,
         JSON,
         NULL
+    }
+
+    public enum EditingMode
+    {
+        EMACS(LineReader.EMACS),
+        VI(LineReader.VIINS);
+
+        private final String keyMap;
+
+        EditingMode(String keyMap)
+        {
+            this.keyMap = keyMap;
+        }
+
+        public String getKeyMap()
+        {
+            return keyMap;
+        }
     }
 
     public ClientSession toClientSession()
