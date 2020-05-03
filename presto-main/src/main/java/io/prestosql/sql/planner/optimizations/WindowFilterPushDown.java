@@ -125,6 +125,11 @@ public class WindowFilterPushDown
                 return context.defaultRewrite(node);
             }
 
+            // Limit with count 0 should be removed by RemoveRedundantLimit rule
+            if (node.getCount() == 0) {
+                return node;
+            }
+
             // Operators can handle MAX_VALUE rows per page, so do not optimize if count is greater than this value
             if (node.getCount() > Integer.MAX_VALUE) {
                 return context.defaultRewrite(node);
