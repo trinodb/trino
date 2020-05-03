@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.aggregation;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
@@ -423,7 +424,7 @@ public class AggregationImplementation
                     builder.add(BLOCK_INDEX);
                 }
                 else {
-                    throw new IllegalArgumentException("Unsupported annotation: " + annotations[i]);
+                    throw new VerifyException("Unhandled annotation: " + baseTypeAnnotation);
                 }
             }
             return builder.build();
