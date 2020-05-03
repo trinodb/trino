@@ -13,7 +13,6 @@
  */
 package io.prestosql.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,7 +20,6 @@ import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
@@ -67,7 +65,6 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
-import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -79,6 +76,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * Generic test for connectors exercising connector's read and write capabilities.
+ *
+ * @see AbstractTestIntegrationSmokeTest
+ */
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
@@ -264,41 +266,6 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
         assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testExplainAnalyze()
-    {
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk");
-        assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT x + y FROM (" +
-                        "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
-                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate");
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk UNION ALL SELECT sum(orderkey), clerk FROM orders GROUP BY clerk");
-
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW COLUMNS FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN SELECT count(*) FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN ANALYZE SELECT count(*) FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW FUNCTIONS");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW TABLES");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SCHEMAS");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW CATALOGS");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
-    }
-
-    @Test
-    public void testExplainAnalyzeVerbose()
-    {
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
-    }
-
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")
-    public void testExplainAnalyzeDDL()
-    {
-        computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
     protected void assertExplainAnalyze(@Language("SQL") String query)
@@ -963,42 +930,10 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testLargeQuerySuccess()
-    {
-        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
-    }
-
-    @Test
     public void testShowSchemasFromOther()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
-    }
-
-    @Test
-    public void testTableSampleSystem()
-    {
-        MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
-        MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
-        MaterializedResult randomSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (50)");
-        MaterializedResult all = computeActual("SELECT orderkey FROM orders");
-
-        assertContains(all, fullSample);
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
-        assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
-    }
-
-    @Test
-    public void testTableSampleWithFiltering()
-    {
-        MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (99) WHERE orderkey BETWEEN 0 AND 0");
-        MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (50) WHERE orderkey BETWEEN 0 AND 9999999999");
-        MaterializedResult all = computeActual("SELECT orderkey, orderdate FROM orders");
-
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
-        // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
-        // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
-        assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
     }
 
     @Test
@@ -1200,18 +1135,6 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testComplexCast()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
-                .build();
-        // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
-        assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
-                        "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
-                "VALUES (1, '0 00:00:01.000')");
-    }
-
-    @Test
     public void testCreateSchema()
     {
         String schemaName = "test_schema_create_" + randomTableSuffix();
@@ -1399,9 +1322,7 @@ public abstract class AbstractTestDistributedQueries
                 .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999'"))
                 .add(new DataMappingTestSetup("timestamp with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999 +12:00'"))
                 .add(new DataMappingTestSetup("char(3)", "'ab'", "'zzz'"))
-                .add(new DataMappingTestSetup("char(3)", "'ab '", "'zzz'"))
                 .add(new DataMappingTestSetup("varchar(3)", "'de'", "'zzz'"))
-                .add(new DataMappingTestSetup("varchar(3)", "'de '", "'zzz'"))
                 .add(new DataMappingTestSetup("varchar", "'łąka for the win'", "'ŻŻŻŻŻŻŻŻŻŻ'"))
                 .add(new DataMappingTestSetup("varbinary", "X'12ab3f'", "X'ffffffffffffffffffff'"))
                 .build();

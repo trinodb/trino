@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -72,6 +73,7 @@ import static io.prestosql.tests.QueryTemplate.parameter;
 import static io.prestosql.tests.QueryTemplate.queryTemplate;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -208,6 +210,12 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testIntersectAllFails()
     {
         assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: INTERSECT ALL not yet implemented");
+    }
+
+    @Test
+    public void testLargeQuerySuccess()
+    {
+        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
     }
 
     @Test
@@ -529,6 +537,18 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 "SELECT * FROM lineitem l JOIN (SELECT orderkey_1, custkey FROM orders) o on l.orderkey = o.orderkey_1",
                 "line 1:39: Column 'orderkey_1' cannot be resolved");
+    }
+
+    @Test
+    public void testComplexCast()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .build();
+        // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
+        assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
+                        "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
+                "VALUES (1, '0 00:00:01.000')");
     }
 
     @Test
@@ -3452,6 +3472,12 @@ public abstract class AbstractTestEngineOnlyQueries
         assertExplainDdl("START TRANSACTION");
         assertExplainDdl("COMMIT");
         assertExplainDdl("ROLLBACK");
+    }
+
+    @Test
+    public void testExplainAnalyzeDDL()
+    {
+        assertQueryFails("EXPLAIN ANALYZE DROP TABLE orders", "EXPLAIN ANALYZE doesn't support statement type: DropTable");
     }
 
     private void assertExplainDdl(String query)

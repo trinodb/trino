@@ -19,10 +19,17 @@ import org.testng.annotations.Test;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertTrue;
 
+/**
+ * Generic test for connectors exercising connector's read capabilities.
+ *
+ * @see AbstractTestDistributedQueries
+ */
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
@@ -151,6 +158,71 @@ public abstract class AbstractTestIntegrationSmokeTest
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Test
+    public void testExplainAnalyze()
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT x + y FROM (" +
+                        "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
+                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate");
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk UNION ALL SELECT sum(orderkey), clerk FROM orders GROUP BY clerk");
+
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW COLUMNS FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN SELECT count(*) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN ANALYZE SELECT count(*) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW FUNCTIONS");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW TABLES");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SCHEMAS");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW CATALOGS");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
+    }
+
+    @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
+    }
+
+    protected void assertExplainAnalyze(@Language("SQL") String query)
+    {
+        String value = (String) computeActual(query).getOnlyValue();
+
+        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
+
+        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
+        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
+    }
+
+    @Test
+    public void testTableSampleSystem()
+    {
+        MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
+        MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
+        MaterializedResult randomSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (50)");
+        MaterializedResult all = computeActual("SELECT orderkey FROM orders");
+
+        assertContains(all, fullSample);
+        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
+    }
+
+    @Test
+    public void testTableSampleWithFiltering()
+    {
+        MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (99) WHERE orderkey BETWEEN 0 AND 0");
+        MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (50) WHERE orderkey BETWEEN 0 AND 9999999999");
+        MaterializedResult all = computeActual("SELECT orderkey, orderdate FROM orders");
+
+        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
+        // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
+        assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
     }
 
     @Test
