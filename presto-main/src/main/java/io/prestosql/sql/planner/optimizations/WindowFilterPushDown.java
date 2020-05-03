@@ -34,6 +34,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Expression;
@@ -47,6 +48,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.isOptimizeTopNRowNumber;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
+import static io.prestosql.spi.predicate.Range.range;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
 import static io.prestosql.sql.planner.DomainTranslator.fromPredicate;
@@ -167,8 +169,11 @@ public class WindowFilterPushDown
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
+                    if (upperBound.getAsInt() <= 0) {
+                        return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                    }
                     source = mergeLimit(((RowNumberNode) source), upperBound.getAsInt());
-                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
             else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source) && isOptimizeTopNRowNumber(session)) {
@@ -177,6 +182,9 @@ public class WindowFilterPushDown
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
+                    if (upperBound.getAsInt() <= 0) {
+                        return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                    }
                     source = convertToTopNRowNumber(windowNode, upperBound.getAsInt());
                     return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
                 }
@@ -189,7 +197,7 @@ public class WindowFilterPushDown
             ExtractionResult extractionResult = fromPredicate(metadata, session, filterNode.getPredicate(), types);
             TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
-            if (!isEqualRange(tupleDomain, rowNumberSymbol, upperBound)) {
+            if (!allRowNumberValuesInDomain(tupleDomain, rowNumberSymbol, upperBound)) {
                 return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
             }
 
@@ -206,13 +214,16 @@ public class WindowFilterPushDown
             return new FilterNode(filterNode.getId(), source, newPredicate);
         }
 
-        private static boolean isEqualRange(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
+        private static boolean allRowNumberValuesInDomain(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
         {
             if (tupleDomain.isNone()) {
                 return false;
             }
             Domain domain = tupleDomain.getDomains().get().get(symbol);
-            return domain.getValues().equals(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), upperBound)));
+            if (domain == null) {
+                return true;
+            }
+            return domain.getValues().contains(ValueSet.ofRanges(range(domain.getType(), 0L, true, upperBound, true)));
         }
 
         private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)
@@ -242,7 +253,7 @@ public class WindowFilterPushDown
                 upperBound--;
             }
 
-            if (upperBound > 0 && upperBound <= Integer.MAX_VALUE) {
+            if (upperBound >= Integer.MIN_VALUE && upperBound <= Integer.MAX_VALUE) {
                 return OptionalInt.of(toIntExact(upperBound));
             }
             return OptionalInt.empty();
