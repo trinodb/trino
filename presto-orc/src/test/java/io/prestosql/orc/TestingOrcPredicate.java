@@ -149,11 +149,6 @@ public final class TestingOrcPredicate
                 List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
                 assertChunkStats(chunk, columnStatistics);
             }
-            else if (numberOfRows == expectedValues.size() % ORC_STRIPE_SIZE) {
-                // tail section
-                List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
-                assertChunkStats(chunk, columnStatistics);
-            }
             else {
                 fail("Unexpected number of rows: " + numberOfRows);
             }
@@ -180,11 +175,7 @@ public final class TestingOrcPredicate
         protected boolean chunkMatchesStats(List<T> chunk, ColumnStatistics columnStatistics)
         {
             // verify non null count
-            if (columnStatistics.getNumberOfValues() != chunk.stream().filter(Objects::nonNull).count()) {
-                return false;
-            }
-
-            return true;
+            return columnStatistics.getNumberOfValues() == chunk.stream().filter(Objects::nonNull).count();
         }
     }
 
