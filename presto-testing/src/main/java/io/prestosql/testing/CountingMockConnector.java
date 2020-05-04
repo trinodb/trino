@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -54,6 +55,13 @@ public class CountingMockConnector
                 return ImmutableList.of(getConnectorFactory());
             }
         };
+    }
+
+    public Stream<SchemaTableName> getAllTables()
+    {
+        return Stream.concat(
+                tablesTestSchema1.stream(),
+                tablesTestSchema2.stream());
     }
 
     public MetadataCallsCount runCounting(Runnable runnable)
