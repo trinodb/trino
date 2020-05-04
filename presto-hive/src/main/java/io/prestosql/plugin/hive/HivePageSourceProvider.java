@@ -163,7 +163,8 @@ public class HivePageSourceProvider
                 path,
                 bucketNumber,
                 fileSize,
-                fileModifiedTime);
+                fileModifiedTime,
+                hiveStorageTimeZone);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, bucketNumber, regularAndInterimColumnMappings);
@@ -350,7 +351,8 @@ public class HivePageSourceProvider
                 Path path,
                 OptionalInt bucketNumber,
                 long fileSize,
-                long fileModifiedTime)
+                long fileModifiedTime,
+                DateTimeZone hiveStorageTimeZone)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
 
@@ -386,7 +388,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime, hiveStorageTimeZone),
                             baseTypeCoercionFrom));
                 }
             }

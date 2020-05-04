@@ -973,7 +973,14 @@ public final class HiveUtil
         return resultBuilder.build();
     }
 
-    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber, long fileSize, long fileModifiedTime)
+    public static String getPrefilledColumnValue(
+            HiveColumnHandle columnHandle,
+            HivePartitionKey partitionKey,
+            Path path,
+            OptionalInt bucketNumber,
+            long fileSize,
+            long fileModifiedTime,
+            DateTimeZone hiveStorageTimeZone)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
@@ -988,7 +995,7 @@ public final class HiveUtil
             return String.valueOf(fileSize);
         }
         if (isFileModifiedTimeColumnHandle(columnHandle)) {
-            return String.valueOf(fileModifiedTime);
+            return HIVE_TIMESTAMP_PARSER.withZone(hiveStorageTimeZone).print(fileModifiedTime);
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
