@@ -171,7 +171,10 @@ public class TestInformationSchemaConnector
                 new MetadataCallsCount()
                         .withListTablesCount(1)
                         .withGetColumnsCount(1));
-        assertNoMetadataCalls("SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'", "VALUES 0");
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'",
+                "VALUES 0",
+                new MetadataCallsCount());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'table_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
@@ -196,7 +199,10 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1)
                         .withListTablesCount(2)
                         .withGetColumnsCount(10000));
-        assertNoMetadataCalls("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''", "VALUES 0");
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''",
+                "VALUES 0",
+                new MetadataCallsCount());
     }
 
     @Test
@@ -259,11 +265,6 @@ public class TestInformationSchemaConnector
             queryRunner.close();
             throw e;
         }
-    }
-
-    private void assertNoMetadataCalls(String actualSql, String expectedSql)
-    {
-        assertMetadataCalls(actualSql, expectedSql, new MetadataCallsCount());
     }
 
     private void assertMetadataCalls(String actualSql, String expectedSql, MetadataCallsCount expectedMetadataCallsCount)
