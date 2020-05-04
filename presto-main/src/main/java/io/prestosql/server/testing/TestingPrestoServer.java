@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -324,15 +325,18 @@ public class TestingPrestoServer
     public void close()
             throws IOException
     {
-        try {
-            if (lifeCycleManager != null) {
-                lifeCycleManager.stop();
-            }
-        }
-        finally {
-            if (isDirectory(baseDataDir) && !preserveData) {
-                deleteRecursively(baseDataDir, ALLOW_INSECURE);
-            }
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> {
+                if (isDirectory(baseDataDir) && !preserveData) {
+                    deleteRecursively(baseDataDir, ALLOW_INSECURE);
+                }
+            });
+
+            closer.register(() -> {
+                if (lifeCycleManager != null) {
+                    lifeCycleManager.stop();
+                }
+            });
         }
     }
 
