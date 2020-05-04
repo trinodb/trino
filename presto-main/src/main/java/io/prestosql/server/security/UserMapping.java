@@ -49,7 +49,9 @@ public final class UserMapping
     @VisibleForTesting
     UserMapping(List<Rule> rules)
     {
-        this.rules = ImmutableList.copyOf(requireNonNull(rules, "rules is null"));
+        requireNonNull(rules, "rules is null");
+        checkArgument(!rules.isEmpty(), "rules list is empty");
+        this.rules = ImmutableList.copyOf(rules);
     }
 
     public String mapUser(String principal)
