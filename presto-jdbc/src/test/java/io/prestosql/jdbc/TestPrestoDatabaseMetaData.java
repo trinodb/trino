@@ -225,7 +225,8 @@ public class TestPrestoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
-                assertEquals(readRows(rs), list(list("blackhole"), list("hive"), list("system"), list(TEST_CATALOG)));
+                assertThat(readRows(rs))
+                        .isEqualTo(list(list("blackhole"), list("hive"), list("system"), list(TEST_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -330,9 +331,10 @@ public class TestPrestoDatabaseMetaData
     {
         List<List<Object>> data = readRows(rs);
 
-        assertEquals(data.size(), expectedSchemas.size());
+        assertThat(data).hasSize(expectedSchemas.size());
         for (List<Object> row : data) {
-            assertTrue(expectedSchemas.contains(list((String) row.get(1), (String) row.get(0))));
+            assertThat(list((String) row.get(1), (String) row.get(0)))
+                    .isIn(expectedSchemas);
         }
 
         ResultSetMetaData metadata = rs.getMetaData();
@@ -352,20 +354,18 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .contains(getTablesRow("information_schema", "schemata"));
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, null, null, null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .contains(getTablesRow("information_schema", "schemata"));
             }
         }
 
@@ -373,17 +373,16 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables("", null, null, null)) {
                 assertTableMetadata(rs);
-                assertEquals(readRows(rs).size(), 0);
+                assertThat(readRows(rs)).isEmpty();
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", null, null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .contains(getTablesRow("information_schema", "schemata"));
             }
         }
 
@@ -391,77 +390,70 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "", null, null)) {
                 assertTableMetadata(rs);
-                assertEquals(readRows(rs).size(), 0);
+                assertThat(readRows(rs)).isEmpty();
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .doesNotContain(getTablesRow("information_schema", "schemata"));
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", array("TABLE"))) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .doesNotContain(getTablesRow("information_schema", "schemata"));
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(null, "information_schema", null, null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .contains(getTablesRow("information_schema", "schemata"));
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(null, null, "tables", null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .doesNotContain(getTablesRow("information_schema", "schemata"));
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(null, null, null, array("TABLE"))) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .contains(getTablesRow("information_schema", "schemata"));
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "inf%", "tables", null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .doesNotContain(getTablesRow("information_schema", "schemata"));
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tab%", null)) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .doesNotContain(getTablesRow("information_schema", "schemata"));
             }
         }
 
@@ -469,7 +461,7 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables("unknown", "information_schema", "tables", array("TABLE"))) {
                 assertTableMetadata(rs);
-                assertEquals(readRows(rs).size(), 0);
+                assertThat(readRows(rs)).isEmpty();
             }
         }
 
@@ -477,7 +469,7 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "unknown", "tables", array("TABLE"))) {
                 assertTableMetadata(rs);
-                assertEquals(readRows(rs).size(), 0);
+                assertThat(readRows(rs)).isEmpty();
             }
         }
 
@@ -485,7 +477,7 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "unknown", array("TABLE"))) {
                 assertTableMetadata(rs);
-                assertEquals(readRows(rs).size(), 0);
+                assertThat(readRows(rs)).isEmpty();
             }
         }
 
@@ -493,17 +485,16 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", array("unknown"))) {
                 assertTableMetadata(rs);
-                assertEquals(readRows(rs).size(), 0);
+                assertThat(readRows(rs)).isEmpty();
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", array("unknown", "TABLE"))) {
                 assertTableMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
-                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertThat(readRows(rs))
+                        .contains(getTablesRow("information_schema", "tables"))
+                        .doesNotContain(getTablesRow("information_schema", "schemata"));
             }
         }
 
@@ -511,7 +502,7 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", array())) {
                 assertTableMetadata(rs);
-                assertEquals(readRows(rs).size(), 0);
+                assertThat(readRows(rs)).isEmpty();
             }
         }
 
@@ -593,8 +584,8 @@ public class TestPrestoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet tableTypes = connection.getMetaData().getTableTypes()) {
-                List<List<Object>> data = readRows(tableTypes);
-                assertEquals(data, list(list("TABLE"), list("VIEW")));
+                assertThat(readRows(tableTypes))
+                        .isEqualTo(list(list("TABLE"), list("VIEW")));
 
                 ResultSetMetaData metadata = tableTypes.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -637,35 +628,35 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, null, "tables", "table_name")) {
                 assertColumnMetadata(rs);
-                assertEquals(readRows(rs).size(), 1);
+                assertThat(readRows(rs)).hasSize(1);
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(null, "information_schema", "tables", "table_name")) {
                 assertColumnMetadata(rs);
-                assertEquals(readRows(rs).size(), 4);
+                assertThat(readRows(rs)).hasSize(4);
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "table_name")) {
                 assertColumnMetadata(rs);
-                assertEquals(readRows(rs).size(), 1);
+                assertThat(readRows(rs)).hasSize(1);
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "inf%", "tables", "table_name")) {
                 assertColumnMetadata(rs);
-                assertEquals(readRows(rs).size(), 1);
+                assertThat(readRows(rs)).hasSize(1);
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tab%", "table_name")) {
                 assertColumnMetadata(rs);
-                assertEquals(readRows(rs).size(), 2);
+                assertThat(readRows(rs)).hasSize(2);
             }
         }
 
