@@ -17,17 +17,4 @@ The following can be helpful for diagnosing garbage collection (GC) issues:
 
 .. code-block:: none
 
-    -XX:+PrintGCApplicationConcurrentTime
-    -XX:+PrintGCApplicationStoppedTime
-    -XX:+PrintGCCause
-    -XX:+PrintGCDateStamps
-    -XX:+PrintGCTimeStamps
-    -XX:+PrintGCDetails
-    -XX:+PrintReferenceGC
-    -XX:+PrintClassHistogramAfterFullGC
-    -XX:+PrintClassHistogramBeforeFullGC
-    -XX:PrintFLSStatistics=2
-    -XX:+PrintAdaptiveSizePolicy
-    -XX:+PrintSafepointStatistics
-    -XX:PrintSafepointStatisticsCount=1
     -Xlog:gc*,safepoint::time,level,tags,tid
