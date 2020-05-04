@@ -55,18 +55,14 @@ public final class UserMapping
     public String mapUser(String principal)
             throws UserMappingException
     {
-        Optional<String> user = Optional.empty();
         for (Rule rule : rules) {
-            user = rule.mapUser(principal);
+            Optional<String> user = rule.mapUser(principal);
             if (user.isPresent()) {
-                break;
+                return user.get();
             }
         }
 
-        if (!user.isPresent()) {
-            throw new UserMappingException("No user mapping patterns match the principal");
-        }
-        return user.get();
+        throw new UserMappingException("No user mapping patterns match the principal");
     }
 
     public static final class UserMappingRules
