@@ -50,6 +50,7 @@ functions and operators</functions>`.
     sql/set-session
     sql/show-catalogs
     sql/show-columns
+    sql/show-create-schema
     sql/show-create-table
     sql/show-create-view
     sql/show-functions
