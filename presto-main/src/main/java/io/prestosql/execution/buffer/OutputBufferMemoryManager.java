@@ -81,7 +81,12 @@ class OutputBufferMemoryManager
             return;
         }
 
-        long currentBufferedBytes = bufferedBytes.addAndGet(bytesAdded);
+        long currentBufferedBytes = bufferedBytes.updateAndGet(bytes -> {
+            long result = bytes + bytesAdded;
+            checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
+            return result;
+        });
+
         peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
         this.blockedOnMemory = systemMemoryContext.get().setBytes(currentBufferedBytes);
         if (!isBufferFull() && !isBlockedOnMemory() && !bufferBlockedFuture.isDone()) {
