@@ -38,7 +38,6 @@ import io.prestosql.orc.stream.StreamDataOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.type.Type;
-import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -408,32 +407,26 @@ public class SliceDictionaryColumnWriter
             sortedPositions[i] = i;
         }
 
-        IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, new AbstractIntComparator()
-        {
-            @Override
-            public int compare(int left, int right)
-            {
-                boolean nullLeft = elementBlock.isNull(left);
-                boolean nullRight = elementBlock.isNull(right);
-                if (nullLeft && nullRight) {
-                    return 0;
-                }
-                if (nullLeft) {
-                    return 1;
-                }
-                if (nullRight) {
-                    return -1;
-                }
-
-                return elementBlock.compareTo(
-                        left,
-                        0,
-                        elementBlock.getSliceLength(left),
-                        elementBlock,
-                        right,
-                        0,
-                        elementBlock.getSliceLength(right));
+        IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, (int left, int right) -> {
+            boolean nullLeft = elementBlock.isNull(left);
+            boolean nullRight = elementBlock.isNull(right);
+            if (nullLeft && nullRight) {
+                return 0;
             }
+            if (nullLeft) {
+                return 1;
+            }
+            if (nullRight) {
+                return -1;
+            }
+            return elementBlock.compareTo(
+                    left,
+                    0,
+                    elementBlock.getSliceLength(left),
+                    elementBlock,
+                    right,
+                    0,
+                    elementBlock.getSliceLength(right));
         });
 
         return sortedPositions;
