@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -68,7 +69,7 @@ public interface ThriftMetastoreClient
     void dropTable(String databaseName, String name, boolean deleteData)
             throws TException;
 
-    void alterTable(String databaseName, String tableName, Table newTable)
+    void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException;
 
     Table getTable(String databaseName, String tableName)
