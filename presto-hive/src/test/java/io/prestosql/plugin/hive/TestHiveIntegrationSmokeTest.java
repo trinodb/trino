@@ -62,6 +62,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -3812,17 +3813,17 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(getPartitions("test_file_modified_time").size(), 3);
 
         MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_file_modified_time", FILE_MODIFIED_TIME_COLUMN_NAME));
-        Map<Integer, Long> fileModifiedTimeMap = new HashMap<>();
+        Map<Integer, Instant> fileModifiedTimeMap = new HashMap<>();
         for (int i = 0; i < results.getRowCount(); i++) {
             MaterializedRow row = results.getMaterializedRows().get(i);
             int col0 = (int) row.getField(0);
             int col1 = (int) row.getField(1);
-            long fileModifiedTime = (Long) row.getField(2);
+            Instant fileModifiedTime = ((ZonedDateTime) row.getField(2)).toInstant();
 
-            assertTrue(fileModifiedTime > (testStartTime - 2_000));
+            assertTrue(fileModifiedTime.toEpochMilli() > (testStartTime - 2_000));
             assertEquals(col0 % 3, col1);
             if (fileModifiedTimeMap.containsKey(col1)) {
-                assertEquals(fileModifiedTimeMap.get(col1).longValue(), fileModifiedTime);
+                assertEquals(fileModifiedTimeMap.get(col1), fileModifiedTime);
             }
             else {
                 fileModifiedTimeMap.put(col1, fileModifiedTime);

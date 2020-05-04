@@ -109,6 +109,7 @@ import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
@@ -256,6 +257,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -4516,6 +4518,9 @@ public abstract class AbstractTestHive
                 }
                 else if (TIMESTAMP.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestamp.class);
+                }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {
+                    assertInstanceOf(value, SqlTimestampWithTimeZone.class);
                 }
                 else if (DATE.equals(column.getType())) {
                     assertInstanceOf(value, SqlDate.class);
