@@ -13,28 +13,17 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.CountingMockConnector;
+import io.prestosql.testing.CountingMockConnector.MetadataCallsCount;
 import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.IntStream;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
@@ -44,9 +33,7 @@ import static org.testng.Assert.assertFalse;
 public class TestInformationSchemaConnector
         extends AbstractTestQueryFramework
 {
-    private static final AtomicLong LIST_SCHEMAS_CALLS_COUNTER = new AtomicLong();
-    private static final AtomicLong LIST_TABLES_CALLS_COUNTER = new AtomicLong();
-    private static final AtomicLong GET_COLUMNS_CALLS_COUNTER = new AtomicLong();
+    private final CountingMockConnector countingMockConnector = new CountingMockConnector();
 
     @Test
     public void testBasic()
@@ -224,40 +211,7 @@ public class TestInformationSchemaConnector
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new Plugin()
-            {
-                @Override
-                public Iterable<ConnectorFactory> getConnectorFactories()
-                {
-                    List<SchemaTableName> tablesTestSchema1 = IntStream.range(0, 10000)
-                            .mapToObj(i -> new SchemaTableName("test_schema1", "test_table" + i))
-                            .collect(toImmutableList());
-                    List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 20000)
-                            .mapToObj(i -> new SchemaTableName("test_schema2", "test_table" + i))
-                            .collect(toImmutableList());
-                    MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
-                            .withListSchemaNames(connectorSession -> {
-                                LIST_SCHEMAS_CALLS_COUNTER.incrementAndGet();
-                                return ImmutableList.of("test_schema1", "test_schema2");
-                            })
-                            .withListTables((connectorSession, schemaName) -> {
-                                LIST_TABLES_CALLS_COUNTER.incrementAndGet();
-                                if (schemaName.equals("test_schema1")) {
-                                    return tablesTestSchema1;
-                                }
-                                if (schemaName.equals("test_schema2")) {
-                                    return tablesTestSchema2;
-                                }
-                                return ImmutableList.of();
-                            })
-                            .withGetColumns(schemaTableName -> {
-                                GET_COLUMNS_CALLS_COUNTER.incrementAndGet();
-                                return defaultGetColumns().apply(schemaTableName);
-                            })
-                            .build();
-                    return ImmutableList.of(mockConnectorFactory);
-                }
-            });
+            queryRunner.installPlugin(countingMockConnector.getPlugin());
             queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
             return queryRunner;
         }
@@ -269,14 +223,10 @@ public class TestInformationSchemaConnector
 
     private void assertMetadataCalls(String actualSql, String expectedSql, MetadataCallsCount expectedMetadataCallsCount)
     {
-        long listSchemasCallsCountBefore = LIST_SCHEMAS_CALLS_COUNTER.get();
-        long listTablesCallsCountBefore = LIST_TABLES_CALLS_COUNTER.get();
-        long getColumnsCallsCountBefore = GET_COLUMNS_CALLS_COUNTER.get();
-        assertQuery(actualSql, expectedSql);
-        MetadataCallsCount actualMetadataCallsCount = new MetadataCallsCount()
-                .withListSchemasCount(LIST_SCHEMAS_CALLS_COUNTER.get() - listSchemasCallsCountBefore)
-                .withListTablesCount(LIST_TABLES_CALLS_COUNTER.get() - listTablesCallsCountBefore)
-                .withGetColumnsCount(GET_COLUMNS_CALLS_COUNTER.get() - getColumnsCallsCountBefore);
+        MetadataCallsCount actualMetadataCallsCount = countingMockConnector.runCounting(() -> {
+            // expectedSql is run on H2, so does not affect counts.
+            assertQuery(actualSql, expectedSql);
+        });
 
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
     }
@@ -288,70 +238,5 @@ public class TestInformationSchemaConnector
                         .findFirst()
                         .isPresent(),
                 "TableScanNode was not expected");
-    }
-
-    private static class MetadataCallsCount
-    {
-        private final long listSchemasCount;
-        private final long listTablesCount;
-        private final long getColumnsCount;
-
-        private MetadataCallsCount()
-        {
-            this(0, 0, 0);
-        }
-
-        private MetadataCallsCount(long listSchemasCount, long listTablesCount, long getColumnsCount)
-        {
-            this.listSchemasCount = listSchemasCount;
-            this.listTablesCount = listTablesCount;
-            this.getColumnsCount = getColumnsCount;
-        }
-
-        public MetadataCallsCount withListSchemasCount(long listSchemasCount)
-        {
-            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        public MetadataCallsCount withListTablesCount(long listTablesCount)
-        {
-            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        public MetadataCallsCount withGetColumnsCount(long getColumnsCount)
-        {
-            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            MetadataCallsCount that = (MetadataCallsCount) o;
-            return listSchemasCount == that.listSchemasCount &&
-                    listTablesCount == that.listTablesCount &&
-                    getColumnsCount == that.getColumnsCount;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("listSchemasCount", listSchemasCount)
-                    .add("listTablesCount", listTablesCount)
-                    .add("getColumnsCount", getColumnsCount)
-                    .toString();
-        }
     }
 }
