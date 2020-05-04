@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
@@ -48,6 +49,32 @@ public class TestHiveBasicTableStatistics
             BasicStatistics statistics = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNonZero(statistics);
             assertThat(statistics.getNumRows().getAsLong()).isEqualTo(25);
+        }
+        finally {
+            onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        }
+    }
+
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore automatically gathers raw data size statistics on its own */)
+    public void testCreateExternalUnpartitioned()
+    {
+        String tableName = "test_basic_statistics_external_unpartitioned_presto";
+
+        onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+
+        try {
+            String location = getTableLocation("nation", false);
+            onPresto().executeQuery(format("" +
+                    "CREATE TABLE %s (" +
+                    "   n_nationkey bigint, " +
+                    "   n_regionkey bigint, " +
+                    "   n_name varchar(25), " +
+                    "   n_comment varchar(152)) " +
+                    "WITH (external_location = '%s', format = 'TEXTFILE', textfile_field_separator = '|')",
+                    tableName,
+                    location));
+            BasicStatistics statistics = getBasicStatisticsForTable(onHive(), tableName);
+            assertThatStatisticsAreNotPresent(statistics);
         }
         finally {
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -418,6 +445,15 @@ public class TestHiveBasicTableStatistics
         OptionalLong rawDataSize = getTableParameterValue(result, "rawDataSize");
         OptionalLong totalSize = getTableParameterValue(result, "totalSize");
         return new BasicStatistics(numFiles, numRows, rawDataSize, totalSize);
+    }
+
+    private static String getTableLocation(String tableName, boolean partitioned)
+    {
+        String regex = "/[^/]*$";
+        if (partitioned) {
+            regex = "/[^/]*" + regex;
+        }
+        return getOnlyElement(onPresto().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
     }
 
     private static OptionalLong getTableParameterValue(QueryResult describeResult, String key)

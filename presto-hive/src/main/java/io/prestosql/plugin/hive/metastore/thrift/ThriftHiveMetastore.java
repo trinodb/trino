@@ -56,6 +56,7 @@ import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.ConfigValSecurityException;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -1064,7 +1065,12 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("alterTable", stats.getAlterTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.alterTable(databaseName, tableName, table);
+                            EnvironmentContext context = new EnvironmentContext();
+                            // This prevents Hive 3.x from collecting basic table stats at table creation time.
+                            // These stats are not useful by themselves and can take very long time to collect when creating an
+                            // external table over large data set.
+                            context.setProperties(ImmutableMap.of("DO_NOT_UPDATE_STATS", "true"));
+                            client.alterTableWithEnvironmentContext(databaseName, tableName, table, context);
                         }
                         return null;
                     }));
