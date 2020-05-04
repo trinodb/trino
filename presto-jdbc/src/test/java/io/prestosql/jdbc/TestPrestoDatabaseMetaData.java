@@ -39,6 +39,7 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.testing.CountingMockConnector;
 import io.prestosql.type.ColorType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -80,7 +81,9 @@ import static org.testng.Assert.assertTrue;
 public class TestPrestoDatabaseMetaData
 {
     private static final String TEST_CATALOG = "test_catalog";
+    private static final String COUNTING_CATALOG = "mock_catalog";
 
+    private CountingMockConnector countingMockConnector;
     private TestingPrestoServer server;
 
     private Connection connection;
@@ -105,6 +108,10 @@ public class TestPrestoDatabaseMetaData
                 .put("hive.security", "sql-standard")
                 .build());
 
+        countingMockConnector = new CountingMockConnector();
+        server.installPlugin(countingMockConnector.getPlugin());
+        server.createCatalog(COUNTING_CATALOG, "mock", ImmutableMap.of());
+
         waitForNodeRefresh(server);
 
         try (Connection connection = createConnection();
@@ -128,6 +135,8 @@ public class TestPrestoDatabaseMetaData
             throws Exception
     {
         server.close();
+        server = null;
+        countingMockConnector = null;
     }
 
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
@@ -226,7 +235,7 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
                 assertThat(readRows(rs))
-                        .isEqualTo(list(list("blackhole"), list("hive"), list("system"), list(TEST_CATALOG)));
+                        .isEqualTo(list(list("blackhole"), list("hive"), list(COUNTING_CATALOG), list("system"), list(TEST_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -243,6 +252,11 @@ public class TestPrestoDatabaseMetaData
         List<List<String>> hive = new ArrayList<>();
         hive.add(list("hive", "information_schema"));
         hive.add(list("hive", "default"));
+
+        List<List<String>> countingCatalog = new ArrayList<>();
+        hive.add(list(COUNTING_CATALOG, "information_schema"));
+        hive.add(list(COUNTING_CATALOG, "test_schema1"));
+        hive.add(list(COUNTING_CATALOG, "test_schema2"));
 
         List<List<String>> system = new ArrayList<>();
         system.add(list("system", "information_schema"));
@@ -263,6 +277,7 @@ public class TestPrestoDatabaseMetaData
 
         List<List<String>> all = new ArrayList<>();
         all.addAll(hive);
+        all.addAll(countingCatalog);
         all.addAll(system);
         all.addAll(test);
         all.addAll(blackhole);
@@ -292,6 +307,7 @@ public class TestPrestoDatabaseMetaData
             try (ResultSet rs = connection.getMetaData().getSchemas(null, "information_schema")) {
                 assertGetSchemasResult(rs, list(
                         list(TEST_CATALOG, "information_schema"),
+                        list(COUNTING_CATALOG, "information_schema"),
                         list("blackhole", "information_schema"),
                         list("hive", "information_schema"),
                         list("system", "information_schema")));
@@ -613,6 +629,9 @@ public class TestPrestoDatabaseMetaData
                 assertEquals(rs.getString("TABLE_CAT"), "hive");
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertTrue(rs.next());
+                assertEquals(rs.getString("TABLE_CAT"), COUNTING_CATALOG);
+                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
+                assertTrue(rs.next());
                 assertEquals(rs.getString("TABLE_CAT"), "system");
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertTrue(rs.next());
@@ -635,7 +654,7 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(null, "information_schema", "tables", "table_name")) {
                 assertColumnMetadata(rs);
-                assertThat(readRows(rs)).hasSize(4);
+                assertThat(readRows(rs)).hasSize(5);
             }
         }
 
