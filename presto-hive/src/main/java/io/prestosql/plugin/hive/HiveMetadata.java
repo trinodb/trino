@@ -948,6 +948,12 @@ public class HiveMetadata
                     tableProperties.put(CSV_SEPARATOR_KEY, separator.toString());
                 });
 
+        // Set bogus table stats to prevent Hive 2.x from gathering these stats at table creation.
+        // These stats are not useful by themselves and can take very long time to collect when creating an
+        // external table over large data set.
+        tableProperties.put("numFiles", "-1");
+        tableProperties.put("totalSize", "-1");
+
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
 
