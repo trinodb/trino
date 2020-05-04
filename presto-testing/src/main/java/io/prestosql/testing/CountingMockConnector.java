@@ -32,11 +32,11 @@ public class CountingMockConnector
 {
     private final Object lock = new Object();
 
-    private final List<SchemaTableName> tablesTestSchema1 = IntStream.range(0, 10000)
+    private final List<SchemaTableName> tablesTestSchema1 = IntStream.range(0, 1000)
             .mapToObj(i -> new SchemaTableName("test_schema1", "test_table" + i))
             .collect(toImmutableList());
 
-    private final List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 20000)
+    private final List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 2000)
             .mapToObj(i -> new SchemaTableName("test_schema2", "test_table" + i))
             .collect(toImmutableList());
 
