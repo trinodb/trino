@@ -14,6 +14,7 @@
 package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
@@ -116,9 +117,9 @@ public class TestingAccessControlManager
     private Predicate<SchemaTableName> deniedTables = s -> true;
 
     @Inject
-    public TestingAccessControlManager(TransactionManager transactionManager)
+    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
     {
-        super(transactionManager, new AccessControlConfig());
+        super(transactionManager, eventListenerManager, new AccessControlConfig());
     }
 
     public void loadSystemAccessControl(String name, Map<String, String> properties)

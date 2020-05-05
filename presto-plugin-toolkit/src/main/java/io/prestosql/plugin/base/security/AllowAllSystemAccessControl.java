@@ -13,11 +13,13 @@
  */
 package io.prestosql.plugin.base.security;
 
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
@@ -273,6 +275,12 @@ public class AllowAllSystemAccessControl
     @Override
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
+    }
+
+    @Override
+    public Iterable<EventListener> getEventListeners()
+    {
+        return ImmutableSet.of();
     }
 
     @Override

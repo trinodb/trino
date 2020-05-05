@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.plugin.base.security.FileBasedSystemAccessControl;
@@ -82,6 +83,7 @@ public class AccessControlManager
     private static final String NAME_PROPERTY = "access-control.name";
 
     private final TransactionManager transactionManager;
+    private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
@@ -93,9 +95,10 @@ public class AccessControlManager
     private final CounterStat authorizationFail = new CounterStat();
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager, AccessControlConfig config)
+    public AccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, AccessControlConfig config)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
@@ -140,6 +143,11 @@ public class AccessControlManager
         List<SystemAccessControl> systemAccessControls = configFiles.stream()
                 .map(this::createSystemAccessControl)
                 .collect(toImmutableList());
+
+        systemAccessControls.stream()
+                .map(SystemAccessControl::getEventListeners)
+                .flatMap(listeners -> ImmutableSet.copyOf(listeners).stream())
+                .forEach(eventListenerManager::addEventListener);
 
         this.systemAccessControls.set(systemAccessControls);
     }

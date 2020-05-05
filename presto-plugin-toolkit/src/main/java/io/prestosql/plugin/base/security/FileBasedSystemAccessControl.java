@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -561,6 +562,12 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
+    }
+
+    @Override
+    public Iterable<EventListener> getEventListeners()
+    {
+        return ImmutableSet.of();
     }
 
     @Override
