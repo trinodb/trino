@@ -1180,7 +1180,7 @@ public abstract class AbstractTestDistributedQueries
 
         try {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
-            assertUpdate("CREATE TABLE " + tableName + "(id varchar, " + nameInSql + " varchar)");
+            assertUpdate("CREATE TABLE " + tableName + "(key varchar, " + nameInSql + " varchar)");
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
@@ -1198,8 +1198,8 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT " + nameInSql + " FROM " + tableName, "VALUES (NULL), ('abc'), ('xyz')");
 
         // predicate
-        assertQuery("SELECT id FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
-        assertQuery("SELECT id FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
+        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
+        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1237,7 +1237,7 @@ public abstract class AbstractTestDistributedQueries
                 {"a/slash`"},
                 {"a\\backslash`"},
                 {"adigit0"},
-                {"0startingwithdigit"},
+                {"0startwithdigit"},
         };
     }
 
