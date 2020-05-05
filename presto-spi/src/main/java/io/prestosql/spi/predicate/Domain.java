@@ -188,7 +188,10 @@ public final class Domain
     public boolean overlaps(Domain other)
     {
         checkCompatibility(other);
-        return !this.intersect(other).isNone();
+        if (this.isNullAllowed() && other.isNullAllowed()) {
+            return true;
+        }
+        return values.overlaps(other.getValues());
     }
 
     public boolean contains(Domain other)

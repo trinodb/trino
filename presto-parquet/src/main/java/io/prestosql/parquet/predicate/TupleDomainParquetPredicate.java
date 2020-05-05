@@ -96,7 +96,7 @@ public class TupleDomainParquetPredicate
             }
 
             Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
-            if (effectivePredicateDomain.intersect(domain).isNone()) {
+            if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
         }
@@ -120,7 +120,7 @@ public class TupleDomainParquetPredicate
 
     private static boolean effectivePredicateMatches(Domain effectivePredicateDomain, DictionaryDescriptor dictionary)
     {
-        return !effectivePredicateDomain.intersect(getDomain(effectivePredicateDomain.getType(), dictionary)).isNone();
+        return effectivePredicateDomain.overlaps(getDomain(effectivePredicateDomain.getType(), dictionary));
     }
 
     @VisibleForTesting
