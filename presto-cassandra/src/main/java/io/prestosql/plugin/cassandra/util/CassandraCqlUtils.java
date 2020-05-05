@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 
 import java.util.List;
 
+import static com.datastax.driver.core.Metadata.quote;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class CassandraCqlUtils
@@ -34,12 +35,12 @@ public final class CassandraCqlUtils
 
     public static String validSchemaName(String identifier)
     {
-        return quoteIdentifier(identifier);
+        return quote(identifier);
     }
 
     public static String validTableName(String identifier)
     {
-        return quoteIdentifier(identifier);
+        return quote(identifier);
     }
 
     public static String validColumnName(String identifier)
@@ -48,12 +49,7 @@ public final class CassandraCqlUtils
             return "\"\"";
         }
 
-        return quoteIdentifier(identifier);
-    }
-
-    private static String quoteIdentifier(String identifier)
-    {
-        return '"' + identifier + '"';
+        return quote(identifier);
     }
 
     public static String quoteStringLiteral(String string)
