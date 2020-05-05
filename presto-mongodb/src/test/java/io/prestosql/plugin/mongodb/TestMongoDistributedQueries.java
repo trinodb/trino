@@ -54,20 +54,6 @@ public class TestMongoDistributedQueries
     }
 
     @Override
-    public void testCreateTable()
-    {
-        // TODO https://github.com/prestosql/presto/issues/3082
-        throw new SkipException("Fix DROP TABLE");
-    }
-
-    @Override
-    public void testCreateTableAsSelect()
-    {
-        // TODO https://github.com/prestosql/presto/issues/3082
-        throw new SkipException("Fix DROP TABLE");
-    }
-
-    @Override
     public void testCreateSchema()
     {
         // the connector does not support creating schemas
