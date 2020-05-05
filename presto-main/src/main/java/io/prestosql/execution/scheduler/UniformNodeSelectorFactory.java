@@ -54,6 +54,7 @@ public class UniformNodeSelectorFactory
     private final int maxPendingSplitsPerTask;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
+    private final String blackListPath;
 
     @Inject
     public UniformNodeSelectorFactory(
@@ -71,6 +72,7 @@ public class UniformNodeSelectorFactory
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
         this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
+        this.blackListPath = config.getBlacklist();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
     }
@@ -95,6 +97,12 @@ public class UniformNodeSelectorFactory
                 maxSplitsPerNode,
                 maxPendingSplitsPerTask,
                 optimizedLocalScheduling);
+    }
+
+    @Override
+    public String getBlackListPath()
+    {
+        return this.blackListPath;
     }
 
     private NodeMap createNodeMap(Optional<CatalogName> catalogName)

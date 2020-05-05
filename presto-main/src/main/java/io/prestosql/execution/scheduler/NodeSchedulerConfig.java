@@ -36,6 +36,7 @@ public class NodeSchedulerConfig
     private int maxPendingSplitsPerTask = 10;
     private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
     private boolean optimizedLocalScheduling = true;
+    private String blackListPath = "/app/presto/etc/blacklist";
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -70,6 +71,18 @@ public class NodeSchedulerConfig
     public int getMinCandidates()
     {
         return minCandidates;
+    }
+
+    @Config("node-scheduler.blacklist.path")
+    public NodeSchedulerConfig setBlacklist(String path)
+    {
+        this.blackListPath = path;
+        return this;
+    }
+
+    public String getBlacklist()
+    {
+        return this.blackListPath;
     }
 
     @Config("node-scheduler.min-candidates")

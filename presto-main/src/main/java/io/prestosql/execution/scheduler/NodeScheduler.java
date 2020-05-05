@@ -13,6 +13,8 @@
  */
 package io.prestosql.execution.scheduler;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -39,6 +41,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -49,11 +52,14 @@ import static java.util.Objects.requireNonNull;
 public class NodeScheduler
 {
     private final NodeSelectorFactory nodeSelectorFactory;
+    private static String blackListPath;
+    private static Supplier<List<String>> blackHostList = Suppliers.memoizeWithExpiration(() -> SchedulerUtil.getBlackHosts(blackListPath), 5, TimeUnit.SECONDS);
 
     @Inject
     public NodeScheduler(NodeSelectorFactory nodeSelectorFactory)
     {
         this.nodeSelectorFactory = requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
+        this.blackListPath = nodeSelectorFactory.getBlackListPath();
     }
 
     public NodeSelector createNodeSelector(Optional<CatalogName> catalogName)
@@ -82,9 +88,11 @@ public class NodeScheduler
 
     public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
+        List<String> blackList = blackHostList.get();
         ImmutableList<InternalNode> nodes = nodeMap.getNodesByHostAndPort().values().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
                 .filter(node -> !excludedNodes.contains(node))
+                .filter(node -> !blackList.contains(node.getHost()))
                 .collect(toImmutableList());
         return new ResettableRandomizedIterator<>(nodes);
     }
@@ -97,6 +105,7 @@ public class NodeScheduler
         for (HostAddress host : hosts) {
             nodeMap.getNodesByHostAndPort().get(host).stream()
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
+                    .filter(node -> !blackHostList.get().contains(node.getHost()))
                     .forEach(chosen::add);
 
             InetAddress address;
@@ -112,6 +121,7 @@ public class NodeScheduler
             if (!host.hasPort()) {
                 nodeMap.getNodesByHost().get(address).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
+                        .filter(node -> !blackHostList.get().contains(node.getHost()))
                         .forEach(chosen::add);
             }
         }
@@ -123,7 +133,10 @@ public class NodeScheduler
                 // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary
                 // because every node satisfies it. Otherwise, `chosen` wouldn't have been empty.
 
-                chosen.addAll(nodeMap.getNodesByHostAndPort().get(host));
+                // chosen.addAll(nodeMap.getNodesByHostAndPort().get(host));
+                nodeMap.getNodesByHostAndPort().get(host).stream()
+                    .filter(node -> !blackHostList.get().contains(node.getHost()))
+                    .forEach(chosen::add);
 
                 InetAddress address;
                 try {
@@ -136,7 +149,10 @@ public class NodeScheduler
 
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
-                    chosen.addAll(nodeMap.getNodesByHost().get(address));
+                    // chosen.addAll(nodeMap.getNodesByHost().get(address));
+                    nodeMap.getNodesByHost().get(address).stream()
+                        .filter(node -> !blackHostList.get().contains(node.getHost()))
+                        .forEach(chosen::add);
                 }
             }
         }

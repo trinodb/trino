@@ -60,6 +60,7 @@ public class TopologyAwareNodeSelectorFactory
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
     private final NodeTaskMap nodeTaskMap;
+    private final String blackListPath;
 
     private final List<CounterStat> placementCounters;
     private final Map<String, CounterStat> placementCountersByName;
@@ -84,6 +85,7 @@ public class TopologyAwareNodeSelectorFactory
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
         this.maxSplitsPerNode = schedulerConfig.getMaxSplitsPerNode();
         this.maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
+        this.blackListPath = schedulerConfig.getBlacklist();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
 
@@ -131,6 +133,12 @@ public class TopologyAwareNodeSelectorFactory
                 maxPendingSplitsPerTask,
                 placementCounters,
                 networkTopology);
+    }
+
+    @Override
+    public String getBlackListPath()
+    {
+        return this.blackListPath;
     }
 
     private NodeMap createNodeMap(Optional<CatalogName> catalogName)

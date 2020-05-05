@@ -20,4 +20,6 @@ import java.util.Optional;
 public interface NodeSelectorFactory
 {
     NodeSelector createNodeSelector(Optional<CatalogName> catalogName);
+
+    String getBlackListPath();
 }
