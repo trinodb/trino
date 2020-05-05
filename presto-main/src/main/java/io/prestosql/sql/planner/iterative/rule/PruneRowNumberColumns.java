@@ -38,15 +38,18 @@ public class PruneRowNumberColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(Context context, RowNumberNode rowNumberNode, Set<Symbol> referencedOutputs)
     {
-        if (!referencedOutputs.contains(rowNumberNode.getRowNumberSymbol()) && rowNumberNode.getPartitionBy().isEmpty()) {
-            if (rowNumberNode.getMaxRowCountPerPartition().isPresent()) {
+        // Remove unused RowNumberNode
+        if (!referencedOutputs.contains(rowNumberNode.getRowNumberSymbol())) {
+            if (!rowNumberNode.getMaxRowCountPerPartition().isPresent()) {
+                return Optional.of(rowNumberNode.getSource());
+            }
+            if (rowNumberNode.getPartitionBy().isEmpty()) {
                 return Optional.of(new LimitNode(
                         rowNumberNode.getId(),
                         rowNumberNode.getSource(),
                         rowNumberNode.getMaxRowCountPerPartition().get(),
                         false));
             }
-            return Optional.of(rowNumberNode.getSource());
         }
 
         Set<Symbol> requiredInputs = Streams.concat(

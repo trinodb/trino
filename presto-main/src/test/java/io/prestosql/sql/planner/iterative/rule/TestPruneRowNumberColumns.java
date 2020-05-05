@@ -49,6 +49,20 @@ public class TestPruneRowNumberColumns
                                 ImmutableMap.of("a", expression("a")),
                                 values(ImmutableList.of("a"))));
 
+        // partitioning is present, no limit per partition
+        tester().assertThat(new PruneRowNumberColumns())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol rowNumber = p.symbol("row_number");
+                    return p.project(
+                            Assignments.identity(a),
+                            p.rowNumber(ImmutableList.of(a), Optional.empty(), rowNumber, p.values(a)));
+                })
+                .matches(
+                        strictProject(
+                                ImmutableMap.of("a", expression("a")),
+                                values(ImmutableList.of("a"))));
+
         // no partitioning, limit per partition is present
         tester().assertThat(new PruneRowNumberColumns())
                 .on(p -> {
@@ -65,7 +79,7 @@ public class TestPruneRowNumberColumns
                                         5,
                                         values(ImmutableList.of("a")))));
 
-        // partitioning is present
+        // partitioning and limit per partition are present
         tester().assertThat(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -73,14 +87,15 @@ public class TestPruneRowNumberColumns
                     Symbol rowNumber = p.symbol("row_number");
                     return p.project(
                             Assignments.identity(a),
-                            p.rowNumber(ImmutableList.of(a), Optional.empty(), rowNumber, p.values(a, b)));
+                            p.rowNumber(ImmutableList.of(a), Optional.of(5), rowNumber, p.values(a, b)));
                 })
                 .matches(
                         strictProject(
                                 ImmutableMap.of("a", expression("a")),
                                 rowNumber(
                                         pattern -> pattern
-                                                .partitionBy(ImmutableList.of("a")),
+                                                .partitionBy(ImmutableList.of("a"))
+                                                .maxRowCountPerPartition(Optional.of(5)),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values(ImmutableList.of("a", "b"))))));
