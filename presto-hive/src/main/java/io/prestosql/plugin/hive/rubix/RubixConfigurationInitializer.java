@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.rubix;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
@@ -58,6 +59,8 @@ public class RubixConfigurationInitializer
     private static final String RUBIX_SECURE_AZURE_BLOB_FS_CLASS_NAME = CachingPrestoSecureAzureBlobFileSystem.class.getName();
 
     private static final String RUBIX_GS_FS_CLASS_NAME = CachingPrestoGoogleHadoopFileSystem.class.getName();
+
+    private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
 
     private final boolean parallelWarmupEnabled;
     private final String cacheLocation;
@@ -122,6 +125,8 @@ public class RubixConfigurationInitializer
         config.set("fs.abfss.impl", RUBIX_SECURE_AZURE_BLOB_FS_CLASS_NAME);
 
         config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
+
+        config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
 
         // TODO: remove after https://github.com/qubole/rubix/pull/385 is merged
         setPrestoClusterManager(config, "com.qubole.rubix.prestosql.PrestoClusterManager");
