@@ -283,6 +283,41 @@ public final class SortedRangeSet
     }
 
     @Override
+    public boolean overlaps(ValueSet other)
+    {
+        SortedRangeSet otherRangeSet = checkCompatibility(other);
+
+        Iterator<Range> iterator1 = lowIndexedRanges.values().iterator();
+        Iterator<Range> iterator2 = otherRangeSet.lowIndexedRanges.values().iterator();
+
+        if (iterator1.hasNext() && iterator2.hasNext()) {
+            Range range1 = iterator1.next();
+            Range range2 = iterator2.next();
+
+            while (true) {
+                if (range1.overlaps(range2)) {
+                    return true;
+                }
+
+                if (range1.getHigh().compareTo(range2.getHigh()) <= 0) {
+                    if (!iterator1.hasNext()) {
+                        break;
+                    }
+                    range1 = iterator1.next();
+                }
+                else {
+                    if (!iterator2.hasNext()) {
+                        break;
+                    }
+                    range2 = iterator2.next();
+                }
+            }
+        }
+
+        return false;
+    }
+
+    @Override
     public SortedRangeSet union(ValueSet other)
     {
         SortedRangeSet otherRangeSet = checkCompatibility(other);
