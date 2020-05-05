@@ -609,12 +609,14 @@ public class PruneUnreferencedOutputs
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Set<Symbol>> context)
         {
             // Remove unused RowNumberNode
-            if (!context.get().contains(node.getRowNumberSymbol()) && node.getPartitionBy().isEmpty()) {
+            if (!context.get().contains(node.getRowNumberSymbol())) {
                 PlanNode source = context.rewrite(node.getSource(), context.get());
-                if (node.getMaxRowCountPerPartition().isPresent()) {
+                if (!node.getMaxRowCountPerPartition().isPresent()) {
+                    return source;
+                }
+                if (node.getPartitionBy().isEmpty()) {
                     return new LimitNode(node.getId(), source, node.getMaxRowCountPerPartition().get(), false);
                 }
-                return source;
             }
 
             ImmutableSet.Builder<Symbol> inputsBuilder = ImmutableSet.builder();
