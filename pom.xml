@@ -1187,6 +1187,13 @@
                 <version>2.0.1</version>
             </dependency>
 
+            <!-- TODO: move this to Airbase -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-cbor</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
