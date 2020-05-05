@@ -37,6 +37,7 @@ import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SEC
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.security.Privilege.SELECT;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.Thread.sleep;
@@ -116,7 +117,7 @@ public class TestFileBasedSystemAccessControl
     public void testDocsExample()
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig());
         accessControlManager.setSystemAccessControl(
                 FileBasedSystemAccessControl.NAME,
                 ImmutableMap.of("security.config-file", new File("../presto-docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
@@ -492,7 +493,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig());
         File configFile = newTemporaryFile();
         configFile.deleteOnExit();
         copy(new File(getResourcePath("catalog.json")), configFile);
@@ -548,7 +549,7 @@ public class TestFileBasedSystemAccessControl
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
     {
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig());
 
         accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName)));
 
