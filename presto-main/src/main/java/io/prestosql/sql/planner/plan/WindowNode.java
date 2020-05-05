@@ -336,9 +336,9 @@ public class WindowNode
                 @JsonProperty("frame") Frame frame,
                 @JsonProperty("ignoreNulls") boolean ignoreNulls)
         {
-            this.resolvedFunction = requireNonNull(resolvedFunction, "Signature is null");
+            this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
             this.arguments = requireNonNull(arguments, "arguments is null");
-            this.frame = requireNonNull(frame, "Frame is null");
+            this.frame = requireNonNull(frame, "frame is null");
             this.ignoreNulls = ignoreNulls;
         }
 
