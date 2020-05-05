@@ -99,7 +99,8 @@ public class OracleAuthenticationModule
                     config,
                     getProperties(oracleConfig),
                     Optional.of(credentialProvider),
-                    poolingConfig);
+                    poolingConfig,
+                    oracleConfig.getAuthenticationType());
         }
         return new DriverConnectionFactory(
                 new OracleDriver(),
@@ -151,14 +152,33 @@ public class OracleAuthenticationModule
             implements Module
     {
         @Override
-        public void configure(Binder binder) {}
+        public void configure(Binder binder)
+        {
+            configBinder(binder).bindConfig(OracleConnectionPoolingConfig.class);
+        }
 
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, CredentialProvider credentialProvider)
         {
-            return createBasicConnectionFactory(config, oracleConfig, poolingConfig, new PassThroughCredentialProvider());
+            if (oracleConfig.isConnectionPoolingEnabled()) {
+                // pass-through credentials are be handled by OraclePoolingConnectionFactory
+                return new OraclePoolingConnectionFactory(
+                        catalogName,
+                        config,
+                        getProperties(oracleConfig),
+                        Optional.of(credentialProvider), // static credentials are needed to initialize the pool
+                        poolingConfig,
+                        oracleConfig.getAuthenticationType());
+            }
+            else {
+                return new DriverConnectionFactory(
+                        new OracleDriver(),
+                        config.getConnectionUrl(),
+                        getProperties(oracleConfig),
+                        new PassThroughCredentialProvider());
+            }
         }
     }
 
@@ -187,7 +207,8 @@ public class OracleAuthenticationModule
                         baseJdbcConfig,
                         getKerberosProperties(oracleConfig),
                         Optional.empty(),
-                        poolingConfig);
+                        poolingConfig,
+                        KERBEROS);
                 return new KerberosConnectionFactory(connectionFactory, kerberosConfig);
             }
             return new KerberosConnectionFactory(baseJdbcConfig, kerberosConfig, getKerberosProperties(oracleConfig));

@@ -29,21 +29,36 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Verify.verify;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class OraclePoolingConnectionFactory
         implements ConnectionFactory
 {
+    private static final String PASSWORD_PASSTHROUGH = "starburst.password.passthrough";
+    private static final String USERNAME_PASSTHROUGH = "starburst.username.passthrough";
+
     private static final Logger log = Logger.get(OraclePoolingConnectionFactory.class);
 
     private final UniversalConnectionPoolManager poolManager;
     private final PoolDataSource dataSource;
+    private final OracleAuthenticationType authenticationType;
 
-    public OraclePoolingConnectionFactory(String catalogName, BaseJdbcConfig config, Properties properties, Optional<CredentialProvider> credentialProvider, OracleConnectionPoolingConfig poolingConfig)
+    public OraclePoolingConnectionFactory(
+            String catalogName,
+            BaseJdbcConfig config,
+            Properties properties,
+            Optional<CredentialProvider> credentialProvider,
+            OracleConnectionPoolingConfig poolingConfig,
+            OracleAuthenticationType authenticationType)
     {
+        this.authenticationType = requireNonNull(authenticationType, "authenticationType is null");
         String poolUuid = randomUuidValue();
 
         try {
@@ -68,11 +83,26 @@ public class OraclePoolingConnectionFactory
                     .ifPresent(pwd -> attempt(() -> dataSource.setPassword(pwd)));
             dataSource.setValidateConnectionOnBorrow(true);
 
+            if (authenticationType == PASSWORD_PASS_THROUGH) {
+                verifyPassThroughDataSourceConfiguration(dataSource);
+            }
+
             log.debug("Opening Oracle UCP %s", dataSource.getConnectionPoolName());
             poolManager.createConnectionPool((UniversalConnectionPoolAdapter) dataSource);
         }
         catch (SQLException | UniversalConnectionPoolException e) {
             throw fail(e);
+        }
+    }
+
+    private static void verifyPassThroughDataSourceConfiguration(PoolDataSource dataSource)
+    {
+        if (dataSource.getUser() == null || dataSource.getUser().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-user to discover cluster topology");
+        }
+
+        if (dataSource.getPassword() == null || dataSource.getPassword().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-password to discover cluster topology");
         }
     }
 
@@ -89,9 +119,31 @@ public class OraclePoolingConnectionFactory
     public Connection openConnection(JdbcIdentity identity)
             throws SQLException
     {
-        Connection connection = dataSource.getConnection();
+        Connection connection;
+
+        if (authenticationType == PASSWORD_PASS_THROUGH) {
+            connection = getPassThroughConnection(identity);
+        }
+        else {
+            connection = dataSource.getConnection();
+        }
+
         verify(connection.getAutoCommit(), "autoCommit must be enabled");
+
         return connection;
+    }
+
+    private Connection getPassThroughConnection(JdbcIdentity identity)
+            throws SQLException
+    {
+        String username = identity.getExtraCredentials().getOrDefault(USERNAME_PASSTHROUGH, "");
+        String password = identity.getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH, "");
+
+        if (username.isEmpty() || password.isEmpty()) {
+            throw new PrestoException(GENERIC_USER_ERROR, "Password pass-through authentication requires user credentials");
+        }
+
+        return dataSource.getConnection(username, password);
     }
 
     @Override
