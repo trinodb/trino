@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
@@ -63,6 +64,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
+import static java.util.Collections.emptySet;
 
 public interface SystemAccessControl
 {
@@ -514,5 +516,13 @@ public interface SystemAccessControl
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    /**
+     * @return the event listeners provided by this system access control
+     */
+    default Iterable<EventListener> getEventListeners()
+    {
+        return emptySet();
     }
 }
