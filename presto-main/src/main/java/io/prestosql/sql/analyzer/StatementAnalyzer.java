@@ -1354,19 +1354,15 @@ class StatementAnalyzer
         {
             checkState(node.getRelations().size() >= 2);
 
-            List<Scope> relationScopes = node.getRelations().stream()
-                    .map(relation -> {
-                        Scope relationScope = process(relation, scope);
-                        return createAndAssignScope(relation, scope, relationScope.getRelationType().withOnlyVisibleFields());
-                    })
+            List<RelationType> childrenTypes = node.getRelations().stream()
+                    .map(relation -> process(relation, scope).getRelationType().withOnlyVisibleFields())
                     .collect(toImmutableList());
 
-            Type[] outputFieldTypes = relationScopes.get(0).getRelationType().getVisibleFields().stream()
+            Type[] outputFieldTypes = childrenTypes.get(0).getVisibleFields().stream()
                     .map(Field::getType)
                     .toArray(Type[]::new);
-            for (Scope relationScope : relationScopes) {
+            for (RelationType relationType : childrenTypes) {
                 int outputFieldSize = outputFieldTypes.length;
-                RelationType relationType = relationScope.getRelationType();
                 int descFieldSize = relationType.getVisibleFields().size();
                 String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
                 if (outputFieldSize != descFieldSize) {
@@ -1396,7 +1392,7 @@ class StatementAnalyzer
             }
 
             Field[] outputDescriptorFields = new Field[outputFieldTypes.length];
-            RelationType firstDescriptor = relationScopes.get(0).getRelationType().withOnlyVisibleFields();
+            RelationType firstDescriptor = childrenTypes.get(0);
             for (int i = 0; i < outputFieldTypes.length; i++) {
                 Field oldField = firstDescriptor.getFieldByIndex(i);
                 outputDescriptorFields[i] = new Field(
@@ -1411,8 +1407,7 @@ class StatementAnalyzer
 
             for (int i = 0; i < node.getRelations().size(); i++) {
                 Relation relation = node.getRelations().get(i);
-                Scope relationScope = relationScopes.get(i);
-                RelationType relationType = relationScope.getRelationType();
+                RelationType relationType = childrenTypes.get(i);
                 for (int j = 0; j < relationType.getVisibleFields().size(); j++) {
                     Type outputFieldType = outputFieldTypes[j];
                     Type descFieldType = relationType.getFieldByIndex(j).getType();
