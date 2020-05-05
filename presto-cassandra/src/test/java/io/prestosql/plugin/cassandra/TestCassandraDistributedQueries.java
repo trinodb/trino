@@ -151,16 +151,6 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testColumnName(String columnName)
-    {
-        // TODO Enable after fixing the following error messages
-        // - Multiple definition of identifier id
-        // - Column family names shouldn't be more than 48 characters long
-        // - mismatched character '<EOF>'
-        // - missing EOF at 'apostrophe'
-    }
-
-    @Override
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
         // TODO Enable after fixing the following error messages
