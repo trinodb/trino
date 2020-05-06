@@ -24,6 +24,7 @@ import io.grpc.StatusRuntimeException;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -41,7 +42,7 @@ public class TestReadRowsHelper
         batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(11).build());
 
         // so we can run multiple tests
-        ImmutableList<ReadRowsResponse> responses = ImmutableList.copyOf(
+        List<ReadRowsResponse> responses = ImmutableList.copyOf(
                 new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1))
                         .readRows());
 
@@ -62,7 +63,7 @@ public class TestReadRowsHelper
         MockResponsesBatch batch2 = new MockResponsesBatch();
         batch2.addResponse(ReadRowsResponse.newBuilder().setRowCount(11).build());
 
-        ImmutableList<ReadRowsResponse> responses = ImmutableList.copyOf(
+        List<ReadRowsResponse> responses = ImmutableList.copyOf(
                 new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1, batch2))
                         .readRows());
 

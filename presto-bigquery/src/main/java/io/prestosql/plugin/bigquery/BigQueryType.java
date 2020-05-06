@@ -14,7 +14,6 @@
 package io.prestosql.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
@@ -36,7 +35,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -50,19 +48,6 @@ import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SC
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.time.Month.APRIL;
-import static java.time.Month.AUGUST;
-import static java.time.Month.DECEMBER;
-import static java.time.Month.FEBRUARY;
-import static java.time.Month.JANUARY;
-import static java.time.Month.JULY;
-import static java.time.Month.JUNE;
-import static java.time.Month.MARCH;
-import static java.time.Month.MAY;
-import static java.time.Month.NOVEMBER;
-import static java.time.Month.OCTOBER;
-import static java.time.Month.SEPTEMBER;
 import static java.time.ZoneOffset.systemDefault;
 import static java.util.stream.Collectors.toList;
 
@@ -93,20 +78,6 @@ public enum BigQueryType
             10, // 8 digits after the dot
             1, // 9 digits after the dot
     };
-    private static final ImmutableMap<String, Month> MONTH = ImmutableMap.<String, Month>builder()
-            .put("01", JANUARY)
-            .put("02", FEBRUARY)
-            .put("03", MARCH)
-            .put("04", APRIL)
-            .put("05", MAY)
-            .put("06", JUNE)
-            .put("07", JULY)
-            .put("08", AUGUST)
-            .put("09", SEPTEMBER)
-            .put("10", OCTOBER)
-            .put("11", NOVEMBER)
-            .put("12", DECEMBER)
-            .build();
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSS''");
 
     private final Type nativeType;
@@ -194,7 +165,7 @@ public enum BigQueryType
     static String stringToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        return quote(new String(slice.getBytes(), UTF_8));
+        return quote(slice.toStringUtf8());
     }
 
     static String numericToStringConverter(Object value)

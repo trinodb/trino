@@ -38,7 +38,6 @@ import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -90,16 +89,16 @@ public class BigQuerySplitManager
         return new FixedSplitSource(splits);
     }
 
-    private boolean emptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
+    private static boolean emptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
     {
         return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
 
-    private ImmutableList<BigQuerySplit> readFromBigQuery(TableId tableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
+    private List<BigQuerySplit> readFromBigQuery(TableId tableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
     {
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", tableId, projectedColumns, actualParallelism, filter);
         List<ColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
-        ImmutableList<String> projectedColumnsNames = columns.stream()
+        List<String> projectedColumnsNames = columns.stream()
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
@@ -118,7 +117,7 @@ public class BigQuerySplitManager
             long numberOfRows;
             if (filter.isPresent()) {
                 // count the rows based on the filter
-                String sql = bigQueryClient.createSql(tableId, "COUNT(*)", new String[] {filter.get()});
+                String sql = bigQueryClient.selectSql(tableId, "COUNT(*)", new String[] {filter.get()});
                 TableResult result = bigQueryClient.query(sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
@@ -136,7 +135,7 @@ public class BigQuerySplitManager
             return splits;
         }
         catch (BigQueryException e) {
-            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to compute empty projection"), e);
+            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to compute empty projection", e);
         }
     }
 }
