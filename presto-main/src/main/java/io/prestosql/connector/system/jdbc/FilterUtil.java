@@ -41,14 +41,13 @@ public final class FilterUtil
 
     public static QualifiedTablePrefix tablePrefix(String catalog, Optional<String> schema, Optional<String> table)
     {
-        QualifiedTablePrefix prefix = new QualifiedTablePrefix(catalog);
-        if (schema.isPresent()) {
-            prefix = new QualifiedTablePrefix(catalog, schema.get());
-            if (table.isPresent()) {
-                prefix = new QualifiedTablePrefix(catalog, schema.get(), table.get());
-            }
+        if (schema.isPresent() && table.isPresent()) {
+            return new QualifiedTablePrefix(catalog, schema.get(), table.get());
         }
-        return prefix;
+        if (schema.isPresent()) {
+            return new QualifiedTablePrefix(catalog, schema.get());
+        }
+        return new QualifiedTablePrefix(catalog);
     }
 
     public static <T> boolean emptyOrEquals(Optional<T> value, T other)
