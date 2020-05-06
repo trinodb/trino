@@ -37,7 +37,6 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
@@ -93,7 +92,7 @@ public class TableCommentSystemTable
         Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
 
-        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
+        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> names = ImmutableSet.of();

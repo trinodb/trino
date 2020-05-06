@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
@@ -121,7 +120,7 @@ public class ColumnJdbcTable
         Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
+        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
             QualifiedTablePrefix prefix = FilterUtil.tablePrefix(catalog, schemaFilter, tableFilter);
             for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
                 addColumnRows(table, catalog, entry.getKey(), entry.getValue());

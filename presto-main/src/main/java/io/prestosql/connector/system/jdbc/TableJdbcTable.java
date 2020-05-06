@@ -33,7 +33,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.connector.system.jdbc.FilterUtil.emptyOrEquals;
-import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
@@ -94,7 +93,7 @@ public class TableJdbcTable
             return table.build().cursor();
         }
 
-        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
+        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
