@@ -83,6 +83,22 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
+    public void testLikePredicate()
+    {
+        // filtered column is not selected
+        assertQuery("SELECT orderkey FROM orders WHERE orderpriority LIKE '5-L%'");
+
+        // filtered column is selected
+        assertQuery("SELECT orderkey, orderpriority FROM orders WHERE orderpriority LIKE '5-L%'");
+
+        // filtered column is not selected
+        assertQuery("SELECT orderkey FROM orders WHERE orderpriority LIKE '5-L__'");
+
+        // filtered column is selected
+        assertQuery("SELECT orderkey, orderpriority FROM orders WHERE orderpriority LIKE '5-L__'");
+    }
+
+    @Test
     public void testLimit()
     {
         assertEquals(computeActual("SELECT * FROM orders LIMIT 10").getRowCount(), 10);

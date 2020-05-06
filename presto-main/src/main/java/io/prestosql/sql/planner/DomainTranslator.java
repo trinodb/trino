@@ -16,6 +16,8 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
@@ -34,6 +36,7 @@ import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.parser.SqlParser;
@@ -47,11 +50,14 @@ import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.LikeFunctions;
 import io.prestosql.type.TypeCoercion;
 
 import javax.annotation.Nullable;
@@ -66,6 +72,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -855,6 +865,92 @@ public final class DomainTranslator
             return process(and(
                     new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()),
                     new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax())), complement);
+        }
+
+        @Override
+        protected ExtractionResult visitLikePredicate(LikePredicate node, Boolean complement)
+        {
+            Optional<ExtractionResult> result = tryVisitLikePredicate(node, complement);
+            if (result.isPresent()) {
+                return result.get();
+            }
+            return super.visitLikePredicate(node, complement);
+        }
+
+        private Optional<ExtractionResult> tryVisitLikePredicate(LikePredicate node, Boolean complement)
+        {
+            if (!(node.getValue() instanceof SymbolReference)) {
+                // LIKE not on a symbol
+                return Optional.empty();
+            }
+
+            if (!(node.getPattern() instanceof StringLiteral)) {
+                // dynamic pattern
+                return Optional.empty();
+            }
+
+            if (node.getEscape().isPresent() && !(node.getEscape().get() instanceof StringLiteral)) {
+                // dynamic escape
+                return Optional.empty();
+            }
+
+            Type type = typeAnalyzer.getType(session, types, node.getValue());
+            if (!(type instanceof VarcharType)) {
+                // TODO support CharType
+                return Optional.empty();
+            }
+            VarcharType varcharType = (VarcharType) type;
+
+            Symbol symbol = Symbol.from(node.getValue());
+            Slice pattern = ((StringLiteral) node.getPattern()).getSlice();
+            Optional<Slice> escape = node.getEscape()
+                    .map(StringLiteral.class::cast)
+                    .map(StringLiteral::getSlice);
+
+            int patternConstantPrefixBytes = LikeFunctions.patternConstantPrefixBytes(pattern, escape);
+            if (patternConstantPrefixBytes == pattern.length()) {
+                // This should not actually happen, constant LIKE pattern should be converted to equality predicate before DomainTranslator is invoked.
+
+                Slice literal = LikeFunctions.unescapeLiteralLikePattern(pattern, escape);
+                ValueSet valueSet;
+                if (varcharType.isUnbounded() || countCodePoints(literal) <= varcharType.getBoundedLength()) {
+                    valueSet = ValueSet.of(type, literal);
+                }
+                else {
+                    // impossible to satisfy
+                    valueSet = ValueSet.none(type);
+                }
+                Domain domain = Domain.create(complementIfNecessary(valueSet, complement), false);
+                return Optional.of(new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), TRUE_LITERAL));
+            }
+
+            if (complement || patternConstantPrefixBytes == 0) {
+                // TODO
+                return Optional.empty();
+            }
+
+            Slice constantPrefix = LikeFunctions.unescapeLiteralLikePattern(pattern.slice(0, patternConstantPrefixBytes), escape);
+
+            int lastIncrementable = -1;
+            for (int position = 0; position < constantPrefix.length(); position += lengthOfCodePoint(constantPrefix, position)) {
+                // Get last ASCII character to increment, so that character length in bytes does not change.
+                // Also prefer not to produce non-ASCII if input is all-ASCII, to be on the safe side with connectors.
+                // TODO remove those limitations
+                if (getCodePointAt(constantPrefix, position) < 127) {
+                    lastIncrementable = position;
+                }
+            }
+
+            if (lastIncrementable == -1) {
+                return Optional.empty();
+            }
+
+            Slice lowerBound = constantPrefix;
+            Slice upperBound = Slices.copyOf(constantPrefix.slice(0, lastIncrementable + lengthOfCodePoint(constantPrefix, lastIncrementable)));
+            setCodePointAt(getCodePointAt(constantPrefix, lastIncrementable) + 1, upperBound, lastIncrementable);
+
+            Domain domain = Domain.create(ValueSet.ofRanges(Range.range(type, lowerBound, true, upperBound, false)), false);
+            return Optional.of(new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
         }
 
         @Override
