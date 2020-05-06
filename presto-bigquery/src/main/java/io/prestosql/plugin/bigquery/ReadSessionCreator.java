@@ -28,7 +28,6 @@ import com.google.cloud.bigquery.storage.v1beta1.Storage;
 import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.spi.PrestoException;
 
@@ -42,6 +41,7 @@ import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTI
 import static io.prestosql.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 // A helper class, also handles view materialization
@@ -49,7 +49,7 @@ public class ReadSessionCreator
 {
     private static final Logger log = Logger.get(ReadSessionCreator.class);
 
-    private static Cache<String, TableInfo> destinationTableCache =
+    private static final Cache<String, TableInfo> destinationTableCache =
             CacheBuilder.newBuilder()
                     .expireAfterWrite(15, TimeUnit.MINUTES)
                     .maximumSize(1000)
@@ -69,11 +69,11 @@ public class ReadSessionCreator
         this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
     }
 
-    public Storage.ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
+    public Storage.ReadSession create(TableId table, List<String> selectedFields, Optional<String> filter, int parallelism)
     {
         TableInfo tableDetails = bigQueryClient.getTable(table);
 
-        TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
+        TableInfo actualTable = getActualTable(tableDetails, selectedFields);
 
         List<String> filteredSelectedFields = selectedFields.stream()
                 .filter(BigQueryUtil::validColumnName)
@@ -111,10 +111,9 @@ public class ReadSessionCreator
                 .build();
     }
 
-    TableInfo getActualTable(
+    private TableInfo getActualTable(
             TableInfo table,
-            ImmutableList<String> requiredColumns,
-            String[] filters)
+            List<String> requiredColumns)
     {
         TableDefinition tableDefinition = table.getDefinition();
         TableDefinition.Type tableType = tableDefinition.getType();
@@ -128,10 +127,10 @@ public class ReadSessionCreator
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            String querySql = bigQueryClient.createSql(table.getTableId(), requiredColumns, filters);
-            log.debug("querySql is %s", querySql);
+            String query = bigQueryClient.selectSql(table.getTableId(), requiredColumns);
+            log.debug("query is %s", query);
             try {
-                return destinationTableCache.get(querySql, new DestinationTableBuilder(bigQueryClient, config, querySql, table.getTableId()));
+                return destinationTableCache.get(query, new DestinationTableBuilder(bigQueryClient, config, query, table.getTableId()));
             }
             catch (ExecutionException e) {
                 throw new PrestoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
@@ -144,20 +143,20 @@ public class ReadSessionCreator
         }
     }
 
-    static class DestinationTableBuilder
+    private static class DestinationTableBuilder
             implements Callable<TableInfo>
     {
-        final BigQueryClient bigQueryClient;
-        final ReadSessionCreatorConfig config;
-        final String querySql;
-        final TableId table;
+        private final BigQueryClient bigQueryClient;
+        private final ReadSessionCreatorConfig config;
+        private final String query;
+        private final TableId table;
 
-        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String querySql, TableId table)
+        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String query, TableId table)
         {
-            this.bigQueryClient = bigQueryClient;
-            this.config = config;
-            this.querySql = querySql;
-            this.table = table;
+            this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
+            this.config = requireNonNull(config, "config is null");
+            this.query = requireNonNull(query, "query is null");
+            this.table = requireNonNull(table, "table is null");
         }
 
         @Override
@@ -172,7 +171,7 @@ public class ReadSessionCreator
             log.debug("destinationTable is %s", destinationTable);
             JobInfo jobInfo = JobInfo.of(
                     QueryJobConfiguration
-                            .newBuilder(querySql)
+                            .newBuilder(query)
                             .setDestinationTable(destinationTable)
                             .build());
             log.debug("running query %s", jobInfo);
