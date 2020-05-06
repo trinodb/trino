@@ -25,14 +25,14 @@ import static java.util.Objects.requireNonNull;
 
 public class ReadRowsHelper
 {
-    private BigQueryStorageClient client;
-    private ReadRowsRequest.Builder request;
-    private int maxReadRowsRetries;
+    private final BigQueryStorageClient client;
+    private final ReadRowsRequest.Builder request;
+    private final int maxReadRowsRetries;
 
     public ReadRowsHelper(BigQueryStorageClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries)
     {
         this.client = requireNonNull(client, "client cannot be null");
-        this.request = requireNonNull(request, "client cannot be null");
+        this.request = requireNonNull(request, "request cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
