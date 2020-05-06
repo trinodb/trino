@@ -13,8 +13,6 @@
  */
 package io.prestosql.connector.system.jdbc;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.spi.predicate.Domain;
@@ -51,14 +49,6 @@ public final class FilterUtil
             }
         }
         return prefix;
-    }
-
-    public static <T> Iterable<T> filter(Iterable<T> items, Optional<T> filter)
-    {
-        if (!filter.isPresent()) {
-            return items;
-        }
-        return Iterables.filter(items, Predicates.equalTo(filter.get()));
     }
 
     public static <T> boolean emptyOrEquals(Optional<T> value, T other)

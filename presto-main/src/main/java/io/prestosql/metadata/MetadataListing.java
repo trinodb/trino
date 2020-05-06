@@ -29,6 +29,7 @@ import io.prestosql.spi.security.GrantInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
@@ -42,7 +43,22 @@ public final class MetadataListing
 
     public static SortedMap<String, CatalogName> listCatalogs(Session session, Metadata metadata, AccessControl accessControl)
     {
-        Map<String, CatalogName> catalogNames = metadata.getCatalogNames(session);
+        return listCatalogs(session, metadata, accessControl, Optional.empty());
+    }
+
+    public static SortedMap<String, CatalogName> listCatalogs(Session session, Metadata metadata, AccessControl accessControl, Optional<String> catalogName)
+    {
+        Map<String, CatalogName> catalogNames;
+        if (catalogName.isPresent()) {
+            Optional<CatalogName> catalogHandle = metadata.getCatalogHandle(session, catalogName.get());
+            if (!catalogHandle.isPresent()) {
+                return ImmutableSortedMap.of();
+            }
+            catalogNames = ImmutableSortedMap.of(catalogName.get(), catalogHandle.get());
+        }
+        else {
+            catalogNames = metadata.getCatalogNames(session);
+        }
         Set<String> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), catalogNames.keySet());
 
         ImmutableSortedMap.Builder<String, CatalogName> result = ImmutableSortedMap.naturalOrder();
