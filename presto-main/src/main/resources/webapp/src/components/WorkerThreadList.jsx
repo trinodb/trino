@@ -52,7 +52,7 @@ export class WorkerThreadList extends React.Component {
                 initialized: true,
             });
         }.bind(this))
-        .error(function () {
+        .fail(function () {
             this.setState({
                 initialized: true,
             });
