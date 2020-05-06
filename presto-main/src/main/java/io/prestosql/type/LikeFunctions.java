@@ -119,6 +119,11 @@ public final class LikeFunctions
 
     public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)
     {
+        return patternConstantPrefixBytes(pattern, escape) < pattern.length();
+    }
+
+    public static int patternConstantPrefixBytes(Slice pattern, Optional<Slice> escape)
+    {
         int escapeChar = getEscapeCharacter(escape)
                 .map(c -> (int) c)
                 .orElse(-1);
@@ -135,12 +140,12 @@ public final class LikeFunctions
                 escaped = false;
             }
             else if ((currentChar == '%') || (currentChar == '_')) {
-                return true;
+                return position;
             }
             position += lengthOfCodePoint(currentChar);
         }
         checkEscape(!escaped);
-        return position < pattern.length();
+        return position;
     }
 
     public static Slice unescapeLiteralLikePattern(Slice pattern, Optional<Slice> escape)
