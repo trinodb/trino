@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -22,6 +23,7 @@ public class ColumnInfo
     private final String column;
     private final List<String> masks;
 
+    @JsonCreator
     public ColumnInfo(String column, List<String> masks)
     {
         this.column = column;

@@ -11,23 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.eventlistener;
+package io.presto.eventlog.plugin;
 
-public interface EventListener
+import com.google.common.collect.ImmutableList;
+import io.presto.eventlog.listener.EventLogListenerFactory;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.eventlistener.EventListenerFactory;
+
+public class EventLogPlugin
+        implements Plugin
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    @Override
+    public Iterable<EventListenerFactory> getEventListenerFactories()
     {
-    }
-
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-    {
-    }
-
-    default void queryCompleted(String queryInfoJson, String queryId)
-    {
-    }
-
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
+        return ImmutableList.of(new EventLogListenerFactory());
     }
 }

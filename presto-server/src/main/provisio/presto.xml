@@ -229,4 +229,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/eventlog">
+        <artifact id="${project.groupId}:presto-eventlog:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

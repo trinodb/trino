@@ -13,6 +13,8 @@
  */
 package io.prestosql.event;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -85,6 +87,7 @@ public class QueryMonitor
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
     private final Metadata metadata;
+    private final ObjectMapper objectMapper;
     private final int maxJsonLimit;
 
     @Inject
@@ -98,7 +101,8 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
-            QueryMonitorConfig config)
+            QueryMonitorConfig config,
+            ObjectMapper objectMapper)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -111,6 +115,7 @@ public class QueryMonitor
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
     public void queryCreatedEvent(BasicQueryInfo queryInfo)
@@ -201,6 +206,12 @@ public class QueryMonitor
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));
+        try {
+            eventListenerManager.queryCompleted(objectMapper.writeValueAsString(queryInfo), queryInfo.getQueryId().getId());
+        }
+        catch (JsonProcessingException e) {
+            log.error(e);
+        }
 
         logQueryTimeline(queryInfo);
     }
