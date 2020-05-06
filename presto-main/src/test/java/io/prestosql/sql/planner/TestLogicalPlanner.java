@@ -15,8 +15,16 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchColumnHandle;
+import io.prestosql.plugin.tpch.TpchTableHandle;
 import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
@@ -51,10 +59,14 @@ import io.prestosql.util.MorePredicates;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
@@ -136,6 +148,37 @@ public class TestLogicalPlanner
                                                                 exchange(REMOTE, GATHER,
                                                                         node(AggregationNode.class,
                                                                                 tableScan("orders", ImmutableMap.of()))))))))));
+    }
+
+    @Test
+    public void testLikePredicate()
+    {
+        assertPlan("SELECT type FROM part WHERE type LIKE 'LARGE PLATED %'",
+                anyTree(
+                        tableScan(
+                                tableHandle -> {
+                                    Map<ColumnHandle, Domain> domains = ((TpchTableHandle) tableHandle).getConstraint().getDomains()
+                                            .orElseThrow(() -> new AssertionError("Unexpected none TupleDomain"));
+
+                                    Domain domain = domains.entrySet().stream()
+                                            .filter(entry -> ((TpchColumnHandle) entry.getKey()).getColumnName().equals("type"))
+                                            .map(Entry::getValue)
+                                            .collect(toOptional())
+                                            .orElseThrow(() -> new AssertionError("No domain for 'type'"));
+
+                                    assertEquals(domain, Domain.multipleValues(
+                                            createVarcharType(25),
+                                            ImmutableList.of("LARGE PLATED BRASS", "LARGE PLATED COPPER", "LARGE PLATED NICKEL", "LARGE PLATED STEEL", "LARGE PLATED TIN").stream()
+                                                    .map(Slices::utf8Slice)
+                                                    .collect(toImmutableList())));
+                                    return true;
+                                },
+                                TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        tableHandle -> ((TpchColumnHandle) tableHandle).getColumnName().equals("type"),
+                                        Domain.create(
+                                                ValueSet.ofRanges(Range.range(createVarcharType(25), utf8Slice("LARGE PLATED "), true, utf8Slice("LARGE PLATED!"), false)),
+                                                false))),
+                                ImmutableMap.of())));
     }
 
     @Test
