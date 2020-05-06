@@ -768,6 +768,7 @@ public abstract class AbstractTestHive
                 partitionManager,
                 10,
                 10,
+                10,
                 false,
                 false,
                 false,
