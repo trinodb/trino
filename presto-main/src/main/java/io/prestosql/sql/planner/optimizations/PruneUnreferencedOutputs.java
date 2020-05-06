@@ -274,7 +274,8 @@ public class PruneUnreferencedOutputs
             PlanNode source = context.rewrite(node.getSource(), sourceInputs);
             PlanNode filteringSource = context.rewrite(node.getFilteringSource(), filteringSourceInputs);
 
-            return new SemiJoinNode(node.getId(),
+            return new SemiJoinNode(
+                    node.getId(),
                     source,
                     filteringSource,
                     node.getSourceJoinSymbol(),
@@ -374,7 +375,8 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new AggregationNode(node.getId(),
+            return new AggregationNode(
+                    node.getId(),
                     source,
                     aggregations.build(),
                     node.getGroupingSets(),
@@ -643,7 +645,8 @@ public class PruneUnreferencedOutputs
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TopNRowNumberNode(node.getId(),
+            return new TopNRowNumberNode(
+                    node.getId(),
                     source,
                     node.getSpecification(),
                     node.getRowNumberSymbol(),
