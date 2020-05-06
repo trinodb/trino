@@ -28,7 +28,6 @@ import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.Field;
 import io.prestosql.sql.analyzer.FieldId;
-import io.prestosql.sql.analyzer.RelationId;
 import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -39,10 +38,8 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.OffsetNode;
-import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SortNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
@@ -65,6 +62,7 @@ import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
 import io.prestosql.type.TypeCoercion;
@@ -261,45 +259,30 @@ class QueryPlanner
 
     public DeleteNode plan(Delete node)
     {
-        RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
-        TableHandle handle = analysis.getTableHandle(node.getTable());
-        ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(session, handle);
-        Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
+        Table table = node.getTable();
+        RelationType descriptor = analysis.getOutputDescriptor(table);
+        TableHandle handle = analysis.getTableHandle(table);
 
         // add table columns
-        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-            outputSymbols.add(symbol);
+            Symbol symbol = symbolAllocator.newSymbol(field);
             columns.put(symbol, analysis.getColumn(field));
             fields.add(field);
         }
 
-        // add rowId column
-        Field rowIdField = Field.newUnqualified(Optional.empty(), rowIdType);
-        Symbol rowIdSymbol = symbolAllocator.newSymbol("$rowId", rowIdField.getType());
-        outputSymbols.add(rowIdSymbol);
-        columns.put(rowIdSymbol, rowIdHandle);
-        fields.add(rowIdField);
-
         // create table scan
-        PlanNode tableScan = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build());
-        Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
-        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build());
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+                .process(table, null);
 
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
-        translations.setFieldMappings(relationPlan.getFieldMappings());
-
-        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
-
+        PlanBuilder builder = planBuilderFor(relationPlan);
         if (node.getWhere().isPresent()) {
             builder = filter(builder, node.getWhere().get(), node);
         }
 
         // create delete node
-        Symbol rowId = builder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(rowIdField)));
+        Symbol rowId = builder.translate(analysis.getRowIdField(table));
         List<Symbol> outputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
                 symbolAllocator.newSymbol("fragment", VARBINARY));
