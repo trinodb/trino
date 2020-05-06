@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.google.common.base.Predicate;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -23,6 +22,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
