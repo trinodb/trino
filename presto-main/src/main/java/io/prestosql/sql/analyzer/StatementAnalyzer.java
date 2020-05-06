@@ -43,7 +43,6 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
-import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
@@ -289,7 +288,14 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        return new Visitor(outerQueryScope, warningCollector).process(node, Optional.empty());
+        return new Visitor(outerQueryScope, warningCollector, false)
+                .process(node, Optional.empty());
+    }
+
+    public Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope)
+    {
+        return new Visitor(outerQueryScope, warningCollector, true)
+                .process(table, Optional.empty());
     }
 
     /**
@@ -302,11 +308,13 @@ class StatementAnalyzer
     {
         private final Optional<Scope> outerQueryScope;
         private final WarningCollector warningCollector;
+        private final boolean isUpdateQuery;
 
-        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector)
+        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, boolean isUpdateQuery)
         {
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.isUpdateQuery = isUpdateQuery;
         }
 
         @Override
@@ -490,6 +498,22 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
+            TableHandle handle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
+
+            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
+
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
+            }
+
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
+                }
+            }
+
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
             // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
             StatementAnalyzer analyzer = new StatementAnalyzer(
@@ -501,26 +525,10 @@ class StatementAnalyzer
                     warningCollector,
                     CorrelationSupport.ALLOWED);
 
-            Scope tableScope = analyzer.analyze(table, scope);
+            Scope tableScope = analyzer.analyzeForUpdate(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
             analysis.setUpdateType("DELETE", tableName);
-
-            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
-
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
-            }
-
-            TableHandle handle = metadata.getTableHandle(session, tableName)
-                    .orElseThrow(() -> new TableNotFoundException(tableName.asSchemaTableName()));
-
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
-                    throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
-                }
-            }
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -1052,11 +1060,28 @@ class StatementAnalyzer
                 analysis.setColumn(field, columnHandle);
             }
 
+            if (isUpdateQuery) {
+                // Add the row id field
+                ColumnHandle column = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get());
+                Type type = metadata.getColumnMetadata(session, tableHandle.get(), column).getType();
+                Field field = Field.newUnqualified(Optional.empty(), type);
+                fields.add(field);
+                analysis.setColumn(field, column);
+            }
+
             List<Field> outputFields = fields.build();
 
             analyzeFiltersAndMasks(table, name, tableHandle, outputFields, session.getIdentity().getUser());
 
-            return createAndAssignScope(table, scope, outputFields);
+            Scope tableScope = createAndAssignScope(table, scope, outputFields);
+
+            if (isUpdateQuery) {
+                FieldReference reference = new FieldReference(outputFields.size() - 1);
+                analyzeExpression(reference, tableScope);
+                analysis.setRowIdField(table, reference);
+            }
+
+            return tableScope;
         }
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
@@ -1067,10 +1092,12 @@ class StatementAnalyzer
 
             ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
             for (Field field : fields) {
-                List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
-                columnMasks.put(field, masks);
+                if (field.getName().isPresent()) {
+                    List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
+                    columnMasks.put(field, masks);
 
-                masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+                    masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+                }
             }
 
             List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
