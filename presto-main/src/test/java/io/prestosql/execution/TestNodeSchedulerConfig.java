@@ -49,7 +49,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.max-pending-splits-per-task", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
                 .put("node-scheduler.optimized-local-scheduling", "false")
-                .put("node-scheduler.blacklist.path","/presto/etc/blacklist")
+                .put("node-scheduler.blacklist.path", "/presto/etc/blacklist")
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
