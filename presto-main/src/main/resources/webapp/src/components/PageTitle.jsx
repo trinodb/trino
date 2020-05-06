@@ -62,15 +62,15 @@ export class PageTitle extends React.Component<Props, State> {
                 $('#no-connection-modal').modal('hide');
                 this.resetTimer();
             })
-            .catch(error => {
+            .catch(fail => {
                 this.setState({
                     noConnection: true,
                     lightShown: !this.state.lightShown,
-                    errorText: error
+                    errorText: fail
                 });
                 this.resetTimer();
 
-                if (!this.state.modalShown && (error || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
+                if (!this.state.modalShown && (fail || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
                     //$FlowFixMe$ Bootstrap 3 plugin
                     $('#no-connection-modal').modal();
                     this.setState({modalShown: true});
