@@ -17,8 +17,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import io.airlift.units.Duration;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.Terminal.Signal;
+import org.jline.terminal.Terminal.SignalHandler;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,12 +51,11 @@ public final class QueryPreprocessor
     public static final String ENV_PRESTO_SCHEMA = "PRESTO_SCHEMA";
     private static final Duration DEFAULT_PREPROCESSOR_TIMEOUT = new Duration(10, SECONDS);
 
-    private static final Signal SIGINT = new Signal("INT");
     private static final String PREPROCESSING_QUERY_MESSAGE = "Preprocessing query...";
 
     private QueryPreprocessor() {}
 
-    public static String preprocessQuery(Optional<String> catalog, Optional<String> schema, String query)
+    public static String preprocessQuery(Terminal terminal, Optional<String> catalog, Optional<String> schema, String query)
             throws QueryPreprocessorException
     {
         Duration timeout = DEFAULT_PREPROCESSOR_TIMEOUT;
@@ -68,14 +68,14 @@ public final class QueryPreprocessor
         if (emptyToNull(preprocessorCommand) == null) {
             return query;
         }
-        return preprocessQuery(catalog, schema, query, ImmutableList.of("/bin/sh", "-c", preprocessorCommand), timeout);
+        return preprocessQuery(terminal, catalog, schema, query, ImmutableList.of("/bin/sh", "-c", preprocessorCommand), timeout);
     }
 
-    public static String preprocessQuery(Optional<String> catalog, Optional<String> schema, String query, List<String> preprocessorCommand, Duration timeout)
+    public static String preprocessQuery(Terminal terminal, Optional<String> catalog, Optional<String> schema, String query, List<String> preprocessorCommand, Duration timeout)
             throws QueryPreprocessorException
     {
         Thread clientThread = Thread.currentThread();
-        SignalHandler oldHandler = Signal.handle(SIGINT, signal -> clientThread.interrupt());
+        SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> clientThread.interrupt());
         try {
             if (REAL_TERMINAL) {
                 System.out.print(PREPROCESSING_QUERY_MESSAGE);
@@ -88,7 +88,7 @@ public final class QueryPreprocessor
                 System.out.print("\r" + Strings.repeat(" ", PREPROCESSING_QUERY_MESSAGE.length()) + "\r");
                 System.out.flush();
             }
-            Signal.handle(SIGINT, oldHandler);
+            terminal.handle(Signal.INT, oldHandler);
             Thread.interrupted(); // clear interrupt status
         }
     }
