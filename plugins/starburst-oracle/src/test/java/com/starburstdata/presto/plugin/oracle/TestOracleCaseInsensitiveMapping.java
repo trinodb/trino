@@ -25,7 +25,6 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
