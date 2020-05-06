@@ -26,7 +26,7 @@ public final class FilterUtil
 {
     private FilterUtil() {}
 
-    public static Optional<String> stringFilter(TupleDomain<Integer> constraint, int index)
+    public static <T> Optional<String> tryGetSingleVarcharValue(TupleDomain<T> constraint, T index)
     {
         if (constraint.isNone()) {
             return Optional.empty();
