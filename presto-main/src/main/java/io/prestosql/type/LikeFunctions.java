@@ -27,6 +27,8 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
+import java.util.Optional;
+
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
 import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
@@ -112,17 +114,14 @@ public final class LikeFunctions
         return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }
 
-    public static boolean isLikePattern(Slice pattern, Slice escape)
+    public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)
     {
         String stringPattern = pattern.toStringUtf8();
-        if (escape == null) {
+        if (!escape.isPresent()) {
             return stringPattern.contains("%") || stringPattern.contains("_");
         }
 
-        String stringEscape = escape.toStringUtf8();
-        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
-
-        char escapeChar = stringEscape.charAt(0);
+        char escapeChar = getEscapeCharacter(escape).get();
         boolean escaped = false;
         boolean isLikePattern = false;
         for (int currentChar : stringPattern.codePoints().toArray()) {
@@ -141,14 +140,13 @@ public final class LikeFunctions
         return isLikePattern;
     }
 
-    public static Slice unescapeLiteralLikePattern(Slice pattern, Slice escape)
+    public static Slice unescapeLiteralLikePattern(Slice pattern, Optional<Slice> escape)
     {
-        if (escape == null) {
+        if (!escape.isPresent()) {
             return pattern;
         }
 
-        String stringEscape = escape.toStringUtf8();
-        char escapeChar = stringEscape.charAt(0);
+        char escapeChar = getEscapeCharacter(escape).get();
         String stringPattern = pattern.toStringUtf8();
         StringBuilder unescapedPattern = new StringBuilder(stringPattern.length());
         boolean escaped = false;
@@ -162,6 +160,17 @@ public final class LikeFunctions
             }
         }
         return Slices.utf8Slice(unescapedPattern.toString());
+    }
+
+    private static Optional<Character> getEscapeCharacter(Optional<Slice> escape)
+    {
+        if (!escape.isPresent()) {
+            return Optional.empty();
+        }
+        String stringEscape = escape.get().toStringUtf8();
+        // non-BMP escape is not supported
+        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+        return Optional.of(stringEscape.charAt(0));
     }
 
     private static void checkEscape(boolean condition)
