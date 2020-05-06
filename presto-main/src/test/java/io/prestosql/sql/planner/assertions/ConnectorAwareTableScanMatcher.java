@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.google.common.base.Predicate;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
@@ -22,6 +21,8 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;

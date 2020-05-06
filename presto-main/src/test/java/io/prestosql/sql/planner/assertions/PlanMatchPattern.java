@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -76,6 +75,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
