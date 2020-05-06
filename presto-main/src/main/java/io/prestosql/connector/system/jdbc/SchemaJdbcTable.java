@@ -31,6 +31,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
+import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -67,7 +68,7 @@ public class SchemaJdbcTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        Optional<String> catalogFilter = FilterUtil.stringFilter(constraint, 1);
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 1);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
