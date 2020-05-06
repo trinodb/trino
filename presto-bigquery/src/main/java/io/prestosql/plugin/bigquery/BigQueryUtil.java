@@ -24,7 +24,7 @@ import java.util.Set;
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
 import static com.google.common.base.Throwables.getCausalChain;
 
-class BigQueryUtil
+final class BigQueryUtil
 {
     private static final Set<String> INTERNAL_ERROR_MESSAGES = ImmutableSet.of(
             "HTTP/2 error code: INTERNAL_ERROR",

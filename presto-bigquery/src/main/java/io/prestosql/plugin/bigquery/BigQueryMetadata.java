@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.bigquery;
 
-import com.google.api.gax.paging.Page;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
@@ -62,18 +61,20 @@ import static java.util.stream.Collectors.toMap;
 public class BigQueryMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(BigQueryMetadata.class);
+
     static final int NUMERIC_DATA_TYPE_PRECISION = 38;
     static final int NUMERIC_DATA_TYPE_SCALE = 9;
     static final String INFORMATION_SCHEMA = "information_schema";
-    private static final Logger log = Logger.get(BigQueryMetadata.class);
-    private BigQueryClient bigQueryClient;
-    private String projectId;
+
+    private final BigQueryClient bigQueryClient;
+    private final String projectId;
 
     @Inject
     public BigQueryMetadata(BigQueryClient bigQueryClient, BigQueryConfig config)
     {
-        this.bigQueryClient = bigQueryClient;
-        this.projectId = config.getProjectId().orElse(bigQueryClient.getProjectId());
+        this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
+        this.projectId = requireNonNull(config, "config is null").getProjectId().orElse(bigQueryClient.getProjectId());
     }
 
     @Override
@@ -115,11 +116,6 @@ public class BigQueryMetadata
             }
         }
         return tableNames.build();
-    }
-
-    <T> ImmutableList<T> collectAll(Page<T> page)
-    {
-        return ImmutableList.copyOf(page.iterateAll());
     }
 
     @Override
