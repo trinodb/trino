@@ -134,10 +134,16 @@ public class TestKuduDistributedQueries
     }
 
     @Override
-    public void testColumnName(String columnName)
+    protected String createTableSqlForTestColumnName(String tableName, String columnName)
     {
-        // TODO (https://github.com/prestosql/presto/issues/3477) enable the test
-        throw new SkipException("TODO");
+        return "CREATE TABLE " + tableName + "(" +
+                "key varchar WITH (primary_key=true), " +
+                columnName + " varchar WITH ( nullable = true )" +
+                ") " +
+                "WITH ( " +
+                " partition_by_hash_columns = ARRAY['key'], " +
+                " partition_by_hash_buckets = 2" +
+                ")";
     }
 
     @Override
