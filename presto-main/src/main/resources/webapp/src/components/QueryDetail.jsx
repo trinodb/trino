@@ -793,7 +793,7 @@ export class QueryDetail extends React.Component {
             }
             this.resetTimer();
         }.bind(this))
-            .error(() => {
+            .fail(() => {
                 this.setState({
                     initialized: true,
                 });
