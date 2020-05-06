@@ -39,6 +39,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.Identifier;
@@ -163,6 +164,9 @@ public class Analysis
 
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
+
+    // row id field for update/delete queries
+    private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
@@ -783,6 +787,7 @@ public class Analysis
                     NodeRef<Table> table = entry.getKey();
 
                     List<ColumnInfo> columns = referencedFields.get(table).stream()
+                            .filter(field -> field.getName().isPresent()) // For DELETE queries, the synthetic column for row id doesn't have a name
                             .map(field -> {
                                 String fieldName = field.getName().get();
 
@@ -814,6 +819,16 @@ public class Analysis
         return resolvedFunctions.entrySet().stream()
                 .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
                 .collect(toImmutableList());
+    }
+
+    public void setRowIdField(Table table, FieldReference field)
+    {
+        rowIdField.put(NodeRef.of(table), field);
+    }
+
+    public FieldReference getRowIdField(Table table)
+    {
+        return rowIdField.get(NodeRef.of(table));
     }
 
     @Immutable
