@@ -75,6 +75,7 @@ public class HiveConfig
 
     private int maxConcurrentFileRenames = 20;
     private int maxConcurrentMetastoreDrops = 20;
+    private int maxConcurrentMetastoreUpdates = 20;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -257,6 +258,19 @@ public class HiveConfig
     public HiveConfig setMaxConcurrentMetastoreDrops(int maxConcurrentMetastoreDeletes)
     {
         this.maxConcurrentMetastoreDrops = maxConcurrentMetastoreDeletes;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentMetastoreUpdates()
+    {
+        return maxConcurrentMetastoreUpdates;
+    }
+
+    @Config("hive.max-concurrent-metastore-updates")
+    public HiveConfig setMaxConcurrentMetastoreUpdates(int maxConcurrentMetastoreUpdates)
+    {
+        this.maxConcurrentMetastoreUpdates = maxConcurrentMetastoreUpdates;
         return this;
     }
 
