@@ -16,9 +16,7 @@ package io.prestosql.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import sun.misc.Unsafe;
 
-import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.nio.ByteOrder;
 
@@ -85,22 +83,7 @@ public final class UnscaledDecimal128Arithmetic
      */
     private static final int[] POWERS_OF_TEN_INT = new int[MAX_POWER_OF_TEN_INT + 1];
 
-    private static final Unsafe unsafe;
-
     static {
-        try {
-            // fetch theUnsafe object
-            Field field = Unsafe.class.getDeclaredField("theUnsafe");
-            field.setAccessible(true);
-            unsafe = (Unsafe) field.get(null);
-            if (unsafe == null) {
-                throw new RuntimeException("Unsafe access not available");
-            }
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
         for (int i = 0; i < POWERS_OF_FIVE.length; ++i) {
             POWERS_OF_FIVE[i] = unscaledDecimal(BigInteger.valueOf(5).pow(i));
         }
@@ -1645,10 +1628,10 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void pack(long low, long high, boolean negative, Slice result, int resultOffset)
     {
-        unsafe.putLong(result.getBase(), result.getAddress() + resultOffset, low);
+        result.setLong(resultOffset, low);
 
         long value = high | (negative ? SIGN_LONG_MASK : 0);
-        unsafe.putLong(result.getBase(), result.getAddress() + resultOffset + SIZE_OF_LONG, value);
+        result.setLong(resultOffset + SIZE_OF_LONG, value);
     }
 
     public static void pack(long low, long high, boolean negative, long[] result, int resultOffset)
@@ -1722,22 +1705,22 @@ public final class UnscaledDecimal128Arithmetic
 
     private static int getRawInt(Slice decimal, int index)
     {
-        return unsafe.getInt(decimal.getBase(), decimal.getAddress() + SIZE_OF_INT * index);
+        return decimal.getInt(SIZE_OF_INT * index);
     }
 
     private static void setRawInt(Slice decimal, int index, int value)
     {
-        unsafe.putInt(decimal.getBase(), decimal.getAddress() + SIZE_OF_INT * index, value);
+        decimal.setInt(SIZE_OF_INT * index, value);
     }
 
     private static long getRawLong(Slice decimal, int index)
     {
-        return unsafe.getLong(decimal.getBase(), decimal.getAddress() + SIZE_OF_LONG * index);
+        return decimal.getLong(SIZE_OF_LONG * index);
     }
 
     private static void setRawLong(Slice decimal, int index, long value)
     {
-        unsafe.putLong(decimal.getBase(), decimal.getAddress() + SIZE_OF_LONG * index, value);
+        decimal.setLong(SIZE_OF_LONG * index, value);
     }
 
     private static void checkArgument(boolean condition)
