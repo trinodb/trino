@@ -177,20 +177,20 @@ public class TestLogicalPlanner
                                 ImmutableMap.of(
                                         "output_1", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f0"),
                                         "output_2", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f1")),
-                                        project(
-                                                ImmutableMap.of("row", expression("ROW(min, max)")),
-                                                aggregation(
-                                                        ImmutableMap.of(
-                                                                "min", functionCall("min", ImmutableList.of("min_regionkey")),
-                                                                "max", functionCall("max", ImmutableList.of("max_name"))),
-                                                        FINAL,
-                                                        any(
-                                                                aggregation(
-                                                                        ImmutableMap.of(
-                                                                                "min_regionkey", functionCall("min", ImmutableList.of("REGIONKEY")),
-                                                                                "max_name", functionCall("max", ImmutableList.of("NAME"))),
-                                                                        PARTIAL,
-                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))))));
+                                project(
+                                        ImmutableMap.of("row", expression("ROW(min, max)")),
+                                        aggregation(
+                                                ImmutableMap.of(
+                                                        "min", functionCall("min", ImmutableList.of("min_regionkey")),
+                                                        "max", functionCall("max", ImmutableList.of("max_name"))),
+                                                FINAL,
+                                                any(
+                                                        aggregation(
+                                                                ImmutableMap.of(
+                                                                        "min_regionkey", functionCall("min", ImmutableList.of("REGIONKEY")),
+                                                                        "max_name", functionCall("max", ImmutableList.of("NAME"))),
+                                                                PARTIAL,
+                                                                tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))))));
     }
 
     @Test
