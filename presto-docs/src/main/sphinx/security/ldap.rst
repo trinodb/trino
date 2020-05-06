@@ -21,12 +21,6 @@ Presto Server Configuration
 Environment Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Secure LDAP
-~~~~~~~~~~~
-
-Presto requires Secure LDAP (LDAPS), so make sure you have TLS
-enabled on your LDAP server.
-
 Presto Coordinator Node Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -95,8 +89,12 @@ Password authentication needs to be configured to use LDAP. Create an
 ======================================================= ======================================================
 Property                                                Description
 ======================================================= ======================================================
-``ldap.url``                                            The url to the LDAP server. The url scheme must be
-                                                        ``ldaps://`` since Presto allows only Secure LDAP.
+``ldap.url``                                            The URL to the LDAP server. The URL scheme must be
+                                                        ``ldap://`` or ``ldaps://``. Connecting to the LDAP
+                                                        server without SSL enabled requires
+                                                        ``ldap.allow-insecure=true``.
+``ldap.allow-insecure``                                 Allow using an LDAP connection that is not secured with
+                                                        TLS.
 ``ldap.ssl-trust-certificate``                          The path to the PEM encoded trust certificate  for the
                                                         LDAP server. This file should contain the LDAP
                                                         server's certificate or its certificate authority.
@@ -282,7 +280,7 @@ Option                          Description
 ``--server``                    The address and port of the Presto coordinator.  The port must
                                 be set to the port the Presto coordinator is listening for HTTPS
                                 connections on. Presto CLI does not support using ``http`` scheme for
-                                the url when using LDAP authentication.
+                                the URL when using LDAP authentication.
 ``--keystore-path``             The location of the Java Keystore file that will be used
                                 to secure TLS.
 ``--keystore-password``         The password for the keystore. This must match the
