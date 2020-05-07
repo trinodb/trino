@@ -217,6 +217,9 @@ public final class TupleDomain<T>
         if (this.isNone() || other.isNone()) {
             return none();
         }
+        if (this == other) {
+            return this;
+        }
 
         Map<T, Domain> intersected = new LinkedHashMap<>(this.getDomains().get());
         for (Map.Entry<T, Domain> entry : other.getDomains().get().entrySet()) {
