@@ -177,6 +177,11 @@ public final class Patterns
         return typeOf(RowNumberNode.class);
     }
 
+    public static Pattern<TopNRowNumberNode> topNRowNumber()
+    {
+        return typeOf(TopNRowNumberNode.class);
+    }
+
     public static Pattern<DistinctLimitNode> distinctLimit()
     {
         return typeOf(DistinctLimitNode.class);
