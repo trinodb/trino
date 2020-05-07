@@ -15,12 +15,16 @@ package io.prestosql.elasticsearch.decoders;
 
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.RowType;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.elasticsearch.ElasticsearchPageSource.getField;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static java.lang.String.format;
@@ -29,19 +33,23 @@ import static java.util.Objects.requireNonNull;
 public class RowDecoder
         implements Decoder
 {
-    private final String path;
     private final List<String> fieldNames;
     private final List<Decoder> decoders;
 
-    public RowDecoder(String path, List<String> fieldNames, List<Decoder> decoders)
+    public RowDecoder(ConnectorSession session, RowType type)
     {
-        this.path = requireNonNull(path, "path is null");
-        this.fieldNames = fieldNames;
-        this.decoders = decoders;
+        this.decoders = type.getFields().stream()
+                .map(field -> CoderFactory.createDecoder(session, field.getType()))
+                .collect(toImmutableList());
+
+        this.fieldNames = type.getFields().stream()
+                .map(RowType.Field::getName)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         Object data = getter.get();
 
@@ -52,7 +60,7 @@ public class RowDecoder
             BlockBuilder row = output.beginBlockEntry();
             for (int i = 0; i < decoders.size(); i++) {
                 String field = fieldNames.get(i);
-                decoders.get(i).decode(hit, () -> getField((Map<String, Object>) data, field), row);
+                decoders.get(i).decode(appendPath(path, field), hit, () -> getField((Map<String, Object>) data, field), row);
             }
             output.closeEntry();
         }
@@ -65,5 +73,13 @@ public class RowDecoder
     public Object encode(Object value)
     {
         throw new UnsupportedOperationException("Encode not supported");
+    }
+
+    public static String appendPath(String base, String element)
+    {
+        if (base.isEmpty()) {
+            return element;
+        }
+        return base + "." + element;
     }
 }

@@ -22,20 +22,12 @@ import java.util.function.Supplier;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class BooleanDecoder
         implements Decoder
 {
-    private final String path;
-
-    public BooleanDecoder(String path)
-    {
-        this.path = requireNonNull(path, "path is null");
-    }
-
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         Object value = getter.get();
         if (value == null) {

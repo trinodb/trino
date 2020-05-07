@@ -34,7 +34,11 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.elasticsearch.AwsSecurityConfig;
 import io.prestosql.elasticsearch.ElasticsearchConfig;
+import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocol;
 import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocolConfig;
+import io.prestosql.elasticsearch.client.responses.ClusterResponse;
+import io.prestosql.elasticsearch.client.responses.NodesResponse;
+import io.prestosql.elasticsearch.client.responses.SearchShardsResponse;
 import io.prestosql.elasticsearch.client.types.DateTimeFieldType;
 import io.prestosql.elasticsearch.client.types.ElasticField;
 import io.prestosql.elasticsearch.client.types.ElasticFieldType;
@@ -121,6 +125,7 @@ public class ElasticsearchClient
 
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
+    private static final JsonCodec<ClusterResponse> CLUSTER_RESPONSE_CODEC = jsonCodec(ClusterResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
@@ -146,7 +151,7 @@ public class ElasticsearchClient
         requireNonNull(config, "config is null");
 
         client = createClient(config, awsSecurityConfig);
-        this.protocolConfig = config.getProtocol().getConfig();
+        this.protocolConfig = getProtocol().getConfig();
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
@@ -724,7 +729,7 @@ public class ElasticsearchClient
                     });
 
             String json = node.toPrettyString();
-            createTemplate(index, json);
+//            createTemplate(index, json);
             createIndex(index, json);
         }
         catch (Exception e) {
@@ -770,7 +775,7 @@ public class ElasticsearchClient
                 .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
     }
 
-    public void saveIndexBulk(String index, ImmutableList<ImmutableMap<String, Object>> documents)
+    public void saveIndexBulk(String index, ImmutableList<ImmutableMap<String, Optional<Object>>> documents)
             throws IOException
     {
         ImmutableList.Builder<String> actions = ImmutableList.builder();
@@ -791,6 +796,7 @@ public class ElasticsearchClient
 
         client.getLowLevelClient()
                 .performRequest("POST", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+
     }
 
     public void addAlias(String index, String alias)
@@ -801,5 +807,12 @@ public class ElasticsearchClient
 
         client.getLowLevelClient()
                 .performRequest("GET", format("/%s/_refresh", index));
+    }
+
+    private ElasticsearchProtocol getProtocol()
+    {
+        ClusterResponse response = doRequest("/", CLUSTER_RESPONSE_CODEC::fromJson);
+
+        return ElasticsearchProtocol.fromVersion(response.getClusterVersion());
     }
 }

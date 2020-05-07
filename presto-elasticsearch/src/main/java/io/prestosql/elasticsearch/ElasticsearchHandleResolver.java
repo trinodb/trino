@@ -15,6 +15,7 @@ package io.prestosql.elasticsearch;
 
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -51,5 +52,11 @@ public class ElasticsearchHandleResolver
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return ElasticsearchOutputTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        return ElasticsearchInsertTableHandle.class;
     }
 }

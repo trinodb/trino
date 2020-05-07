@@ -20,7 +20,7 @@ import java.util.function.Supplier;
 
 public interface Decoder
 {
-    void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output);
+    void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output);
 
     Object encode(Object value);
 }

@@ -27,17 +27,15 @@ import static java.util.Objects.requireNonNull;
 public class ArrayDecoder
         implements Decoder
 {
-    private final String path;
     private final Decoder elementDecoder;
 
-    public ArrayDecoder(String path, Decoder elementDecoder)
+    public ArrayDecoder(Decoder elementDecoder)
     {
-        this.path = requireNonNull(path, "path is null");
         this.elementDecoder = elementDecoder;
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         Object data = getter.get();
 
@@ -46,7 +44,7 @@ public class ArrayDecoder
         }
         else if (data instanceof List) {
             BlockBuilder array = output.beginBlockEntry();
-            ((List<?>) data).forEach(element -> elementDecoder.decode(hit, () -> element, array));
+            ((List<?>) data).forEach(element -> elementDecoder.decode(path, hit, () -> element, array));
             output.closeEntry();
         }
         else {

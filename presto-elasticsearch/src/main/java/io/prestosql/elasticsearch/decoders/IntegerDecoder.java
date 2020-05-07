@@ -28,15 +28,8 @@ import static java.util.Objects.requireNonNull;
 public class IntegerDecoder
         implements Decoder
 {
-    private final String path;
-
-    public IntegerDecoder(String path)
-    {
-        this.path = requireNonNull(path, "path is null");
-    }
-
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         Object value = getter.get();
         if (value == null) {

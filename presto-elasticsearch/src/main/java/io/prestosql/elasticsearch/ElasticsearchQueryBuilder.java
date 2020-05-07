@@ -94,10 +94,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, columnName, type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, type, range.getLow().getValue())));
                             break;
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, columnName, type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, type, range.getLow().getValue())));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -108,10 +108,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, columnName, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case BELOW:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, columnName, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
@@ -122,15 +122,15 @@ public final class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, columnName, type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }
         return queryBuilder;
     }
 
-    private static Object getValue(ConnectorSession session, String path, Type type, Object value)
+    private static Object getValue(ConnectorSession session, Type type, Object value)
     {
-        return CoderFactory.createDecoder(session, path, type).encode(value);
+        return CoderFactory.createDecoder(session, type).encode(value);
     }
 }

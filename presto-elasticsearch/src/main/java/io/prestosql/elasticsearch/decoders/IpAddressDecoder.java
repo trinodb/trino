@@ -37,17 +37,15 @@ import static java.util.Objects.requireNonNull;
 public class IpAddressDecoder
         implements Decoder
 {
-    private final String path;
     private final Type ipAddressType;
 
-    public IpAddressDecoder(String path, Type type)
+    public IpAddressDecoder(Type type)
     {
-        this.path = requireNonNull(path, "path is null");
         this.ipAddressType = requireNonNull(type, "type is null");
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         Object value = getter.get();
         if (value == null) {

@@ -58,13 +58,12 @@ public abstract class BaseElasticsearchSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(elasticsearchProtocol.getMinVersion());
+//        elasticsearch = new ElasticsearchServer(elasticsearchProtocol.getMinVersion());
 
-        HostAndPort address = elasticsearch.getAddress();
-//        HostAndPort address = HostAndPort.fromParts("localhost", 9200);
+//        HostAndPort address = elasticsearch.getAddress();
+        HostAndPort address = HostAndPort.fromParts("localhost", 9200);
 
         client = new ElasticsearchClient(new ElasticsearchConfig()
-                .setProtocol(elasticsearchProtocol.name())
                 .setHost(address.getHost())
                 .setPort(address.getPort())
                 .setIgnorePublishAddress(true)
@@ -73,7 +72,8 @@ public abstract class BaseElasticsearchSmokeTest
                 .setScrollTimeout(Duration.succinctDuration(1, TimeUnit.MINUTES))
                 .setRequestTimeout(Duration.succinctDuration(2, TimeUnit.MINUTES)),
                 Optional.empty());
-        QueryRunner runner = createElasticsearchQueryRunner(address, elasticsearchProtocol, TpchTable.getTables(), ImmutableMap.of());
+//        QueryRunner runner = createElasticsearchQueryRunner(address, TpchTable.getTables(), ImmutableMap.of());
+        QueryRunner runner = createElasticsearchQueryRunner(address, ImmutableList.of(), ImmutableMap.of());
 
         return runner;
     }
@@ -82,7 +82,7 @@ public abstract class BaseElasticsearchSmokeTest
     public final void destroy()
             throws IOException
     {
-        elasticsearch.stop();
+//        elasticsearch.stop();
         client.close();
     }
 
@@ -335,33 +335,30 @@ public abstract class BaseElasticsearchSmokeTest
     {
         String indexName = "types";
 
-        assertUpdate(format("CREATE TABLE %s( " +
+        assertUpdate("CREATE TABLE " + indexName + " ( " +
                 "boolean_column BOOLEAN, " +
-                "float_column REAL, " +
-                "double_column DOUBLE, " +
+                "byte_column TINYINT, " +
+                "short_column SMALLINT, " +
                 "integer_column INTEGER, " +
                 "long_column BIGINT, " +
+                "float_column REAL, " +
+                "double_column DOUBLE, " +
                 "keyword_column VARCHAR, " +
                 "text_column VARCHAR, " +
                 "binary_column VARBINARY, " +
                 "timestamp_column TIMESTAMP, " +
                 "ipv4_column IPADDRESS, " +
                 "ipv6_column IPADDRESS " +
-                ")", indexName));
+                ")");
 
-        saveIndex(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", true)
-                .put("float_column", 1.0f)
-                .put("double_column", 1.0d)
-                .put("integer_column", 1)
-                .put("long_column", 1L)
-                .put("keyword_column", "cool")
-                .put("text_column", "some text")
-                .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
-                .put("timestamp_column", 0)
-                .put("ipv4_column", "1.2.3.4")
-                .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
-                .build());
+        assertUpdate("INSERT INTO " + indexName +
+                "(" +
+                " boolean_column, byte_column, short_column, integer_column, long_column, float_column, double_column, " +
+                " keyword_column, text_column, binary_column, timestamp_column, ipv4_column, ipv6_column" +
+                ") VALUES (" +
+                " true, 1, 2, 3, 4, REAL '1.0', DOUBLE '1.0', VARCHAR 'cool', VARCHAR 'some text', X'CAFE'," +
+                " TIMESTAMP '2019-10-01 00:00:00', IPADDRESS '1.2.3.4', IPADDRESS '2001:db8:0:0:1:0:0:1'" +
+                ")", 1);
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -376,11 +373,11 @@ public abstract class BaseElasticsearchSmokeTest
                 "timestamp_column, " +
                 "ipv4_column, " +
                 "ipv6_column " +
-                "FROM types");
+                "FROM " + indexName);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true, 1.0f, 1.0d, 3, 4L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(2019, 10, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -392,7 +389,7 @@ public abstract class BaseElasticsearchSmokeTest
     {
         String indexName = "filter_pushdown";
 
-        assertUpdate(format("CREATE TABLE %s( " +
+        assertUpdate("CREATE TABLE " + indexName + " ( " +
                 "boolean_column BOOLEAN, " +
                 "byte_column TINYINT, " +
                 "short_column SMALLINT, " +
@@ -406,100 +403,93 @@ public abstract class BaseElasticsearchSmokeTest
                 "timestamp_column TIMESTAMP, " +
                 "ipv4_column IPADDRESS, " +
                 "ipv6_column IPADDRESS " +
-                ")", indexName));
+                ")");
 
-        saveIndex(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", true)
-                .put("byte_column", 1)
-                .put("short_column", 2)
-                .put("integer_column", 3)
-                .put("long_column", 4L)
-                .put("float_column", 1.0f)
-                .put("double_column", 1.0d)
-                .put("keyword_column", "cool")
-                .put("text_column", "some text")
-                .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
-                .put("timestamp_column", 1569888000000L)
-                .put("ipv4_column", "1.2.3.4")
-                .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
-                .build());
+        assertUpdate("INSERT INTO " + indexName +
+                "(" +
+                " boolean_column, byte_column, short_column, integer_column, long_column, float_column, double_column, " +
+                " keyword_column, text_column, binary_column, timestamp_column, ipv4_column, ipv6_column" +
+                ") VALUES (" +
+                " true, 1, 2, 3 , 4, REAL '1.0', DOUBLE '1.0', VARCHAR 'cool', VARCHAR 'some text', X'CAFE'," +
+                " TIMESTAMP '2019-10-01 00:00:00', IPADDRESS '1.2.3.4', IPADDRESS '2001:db8:0:0:1:0:0:1'" +
+                ")", 1);
 
         // _score column
         assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
 
         // boolean
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = false", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE boolean_column = true", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE boolean_column = false", "VALUES 0");
 
         // tinyint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 1", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 1", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 1", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 10", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE byte_column = 1", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE byte_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE byte_column > 1", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE byte_column < 1", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE byte_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE byte_column < 10", "VALUES 1");
 
         // smallint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 2", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 2", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 2", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 10", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE short_column = 2", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE short_column > 2", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE short_column < 2", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE short_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE short_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE short_column < 10", "VALUES 1");
 
         // integer
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 3", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 3", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 3", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 10", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE integer_column = 3", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE integer_column > 3", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE integer_column < 3", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE integer_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE integer_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE integer_column < 10", "VALUES 1");
 
         // bigint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 4", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 4", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 4", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 10", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE long_column = 4", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE long_column > 4", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE long_column < 4", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE long_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE long_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE long_column < 10", "VALUES 1");
 
         // real
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 1.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 0.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 0.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 10.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE float_column = 1.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE float_column > 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE float_column < 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE float_column = 0.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE float_column > 0.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE float_column < 10.0", "VALUES 1");
 
         // double
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 1.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 0.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 0.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 10.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE double_column = 1.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE double_column > 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE double_column < 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE double_column = 0.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE double_column > 0.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE double_column < 10.0", "VALUES 1");
 
         // varchar
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'cool'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some text'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE keyword_column = 'cool'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE keyword_column = 'bar'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE text_column = 'some text'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE text_column = 'some'", "VALUES 0");
 
         // binary
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'CAFE'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'ABCD'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE binary_column = x'CAFE'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE binary_column = x'ABCD'", "VALUES 0");
 
         // timestamp
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-01 00:00:00'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE timestamp_column = TIMESTAMP '2019-10-01 00:00:00'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE timestamp_column > TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE timestamp_column < TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'", "VALUES 1");
 
         // ipaddress
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv4_column = IPADDRESS '1.2.3.4'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE ipv4_column = IPADDRESS '1.2.3.4'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM " + indexName + " WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'", "VALUES 1");
     }
 
     @Test

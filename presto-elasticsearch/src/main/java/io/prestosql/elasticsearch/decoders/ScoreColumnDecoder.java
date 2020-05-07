@@ -24,7 +24,7 @@ public class ScoreColumnDecoder
         implements Decoder
 {
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         REAL.writeLong(output, Float.floatToRawIntBits(hit.getScore()));
     }

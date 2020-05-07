@@ -25,7 +25,7 @@ public class SourceColumnDecoder
         implements Decoder
 {
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         VARCHAR.writeSlice(output, Slices.utf8Slice(hit.getSourceAsString()));
     }

@@ -36,7 +36,8 @@ public class Elasticsearch7ProtocolConfig
         return "{"
                 + "\"settings\": { "
                 + "  \"number_of_shards\": 1,"
-                + "  \"auto_expand_replicas\": \"0-1\""
+                + "  \"number_of_replicas\": 0"
+//                + "  \"auto_expand_replicas\": \"0-1\""
                 + "},"
                 + "\"mappings\": " + properties +
                 "}";
@@ -49,7 +50,8 @@ public class Elasticsearch7ProtocolConfig
                 + "\"index_patterns\": [\"" + index + "\"],"
                 + "\"settings\": { "
                 + "  \"number_of_shards\": 1,"
-                + "  \"auto_expand_replicas\": \"0-1\""
+                + "  \"number_of_replicas\": 0"
+//                + "  \"auto_expand_replicas\": \"0-1\""
                 + "},"
                 + "\"mappings\": " + properties +
                 "}";

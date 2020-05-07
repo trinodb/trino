@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -43,12 +44,26 @@ public class ElasticsearchPageSinkProvider
         requireNonNull(outputTableHandle, "outputTableHandle is null");
         checkArgument(outputTableHandle instanceof ElasticsearchOutputTableHandle, "outputTableHandle is not an instance of ElasticsearchOutputTableHandle");
         ElasticsearchOutputTableHandle handle = (ElasticsearchOutputTableHandle) outputTableHandle;
-        return new ElasticsearchPageSink(session, clientSession, handle);
+        return new ElasticsearchPageSink(
+                session,
+                clientSession,
+                handle.getIndex(),
+                handle.getColumnNames(),
+                handle.getColumnTypes());
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return null;
+        requireNonNull(insertTableHandle, "insertTableHandle is null");
+        checkArgument(insertTableHandle instanceof ElasticsearchInsertTableHandle, "insertTableHandle is not an instance of ElasticsearchInsertTableHandle");
+        ElasticsearchInsertTableHandle handle = (ElasticsearchInsertTableHandle) insertTableHandle;
+
+        return new ElasticsearchPageSink(
+                session,
+                clientSession,
+                handle.getIndex(),
+                handle.getColumnNames(),
+                handle.getColumnTypes());
     }
 }

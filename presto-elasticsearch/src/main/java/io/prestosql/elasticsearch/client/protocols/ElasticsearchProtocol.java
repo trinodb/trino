@@ -13,19 +13,21 @@
  */
 package io.prestosql.elasticsearch.client.protocols;
 
-public enum ElasticsearchProtocol {
-    V6("6.0.0"),
-    V7("7.0.0");
+import java.util.stream.Stream;
 
-    private final String minVersion;
-    ElasticsearchProtocol(String minVersion)
+public enum ElasticsearchProtocol {
+    V6("6"),
+    V7("7");
+
+    private final String serie;
+    ElasticsearchProtocol(String serie)
     {
-        this.minVersion = minVersion;
+        this.serie = serie;
     }
 
     public String getMinVersion()
     {
-        return minVersion;
+        return String.format("%s.0.0", serie);
     }
 
     public ElasticsearchProtocolConfig getConfig()
@@ -35,5 +37,13 @@ public enum ElasticsearchProtocol {
             case V7: return new Elasticsearch7ProtocolConfig();
             default: throw new IllegalArgumentException("unknown protocol config for " + name());
         }
+    }
+
+    public static ElasticsearchProtocol fromVersion(String version) {
+        String serie = version.replaceAll("^(\\d+?)\\.(\\d+?)\\.(\\d+?)$", "$1");
+        return Stream.of(ElasticsearchProtocol.values())
+                .filter(protocol -> protocol.serie.equals(serie))
+                .findFirst()
+                .orElseThrow(IllegalArgumentException::new);
     }
 }

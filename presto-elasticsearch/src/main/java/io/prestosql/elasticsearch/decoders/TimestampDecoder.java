@@ -36,19 +36,17 @@ public class TimestampDecoder
         implements Decoder
 {
     private static final ZoneId ZULU = ZoneId.of("Z");
-    private final String path;
     private final ZoneId zoneId;
     private final boolean isLegacyTimestamp;
 
-    public TimestampDecoder(ConnectorSession session, String path)
+    public TimestampDecoder(ConnectorSession session)
     {
-        this.path = requireNonNull(path, "path is null");
         this.zoneId = ZoneId.of(session.getTimeZoneKey().getId());
         this.isLegacyTimestamp = session.isLegacyTimestamp();
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         DocumentField documentField = hit.getFields().get(path);
         Object value = null;

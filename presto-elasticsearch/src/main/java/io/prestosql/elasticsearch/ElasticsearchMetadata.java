@@ -20,8 +20,10 @@ import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.elasticsearch.client.IndexMetadata;
 import io.prestosql.elasticsearch.client.types.ElasticField;
 import io.prestosql.elasticsearch.client.types.ObjectFieldType;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNewTableLayout;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
@@ -52,6 +54,7 @@ import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -329,6 +332,36 @@ public class ElasticsearchMetadata
 
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    {
+        ElasticsearchTableHandle table = (ElasticsearchTableHandle) tableHandle;
+
+        IndexMetadata metadata = client.getIndexMetadata(table.getIndex());
+
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+        for (ColumnHandle column : columns) {
+            ElasticsearchColumnHandle columnHandle = (ElasticsearchColumnHandle) column;
+            columnNames.add(columnHandle.getName());
+            columnTypes.add(columnHandle.getType());
+        }
+
+        return new ElasticsearchInsertTableHandle(table.getSchema(), table.getIndex(), columnNames.build(), columnTypes.build());
+    }
+
+    @Override
+    public  boolean supportsMissingColumnsOnInsert()
+    {
+        return true;
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
     }

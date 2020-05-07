@@ -13,7 +13,9 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import io.prestosql.Session;
 import io.prestosql.elasticsearch.client.protocols.ElasticsearchProtocol;
 import io.prestosql.testing.AbstractTestDistributedQueries;
@@ -29,13 +31,11 @@ import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 public abstract class BaseElasticsearchDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final ElasticsearchProtocol elasticsearchProtocol;
     private ElasticsearchServer elasticsearchServer;
 
     public BaseElasticsearchDistributedQueries(ElasticsearchProtocol protocol)
     {
-        this.elasticsearchProtocol = protocol;
-        this.elasticsearchServer = new ElasticsearchServer(elasticsearchProtocol.getMinVersion());
+        this.elasticsearchServer = new ElasticsearchServer(protocol.getMinVersion());
     }
 
     @Override
@@ -43,10 +43,10 @@ public abstract class BaseElasticsearchDistributedQueries
             throws Exception
     {
         return createElasticsearchQueryRunner(
-//                HostAndPort.fromParts("localhost", 9200),
-                elasticsearchServer.getAddress(),
-                elasticsearchProtocol,
-                TpchTable.getTables(),
+                HostAndPort.fromParts("localhost", 9200),
+//                elasticsearchServer.getAddress(),
+//                TpchTable.getTables(),
+                ImmutableList.of(),
                 ImmutableMap.of());
     }
 
@@ -167,9 +167,47 @@ public abstract class BaseElasticsearchDistributedQueries
     }
 
     @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    public void testColumnName(String columnName)
     {
         failByInsert();
+    }
+
+    @Override
+    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String prestoTypeName = dataMappingTestSetup.getPrestoTypeName();
+        String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
+        String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
+
+        String tableName = "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id varchar, value " + prestoTypeName +")");
+        assertUpdate("INSERT INTO " + tableName + " (id, value) VALUES ('null value', NULL)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (id, value) VALUES ('sample value', " + sampleValueLiteral + ")", 1);
+        assertUpdate("INSERT INTO " + tableName + " (id, value) VALUES ('high value', "+ highValueLiteral +")", 1);
+
+
+        // without pushdown, i.e. test read data mapping
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
+
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES ('sample value'), ('high value')");
+
+//        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
+//        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
+//        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
+//        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
+//        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES ('null value'), ('sample value'), ('high value')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override

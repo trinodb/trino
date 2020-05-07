@@ -20,6 +20,7 @@ import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.elasticsearch.decoders.CoderFactory;
 import io.prestosql.elasticsearch.decoders.Decoder;
 import io.prestosql.elasticsearch.decoders.IdColumnDecoder;
+import io.prestosql.elasticsearch.decoders.RowDecoder;
 import io.prestosql.elasticsearch.decoders.ScoreColumnDecoder;
 import io.prestosql.elasticsearch.decoders.SourceColumnDecoder;
 import io.prestosql.spi.Page;
@@ -177,7 +178,7 @@ public class ElasticsearchPageSource
 
             for (int i = 0; i < decoders.size(); i++) {
                 String field = columns.get(i).getName();
-                decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+                decoders.get(i).decode("", hit, () -> getField(document, field), columnBuilders[i]);
             }
 
             if (hit.getSourceRef() != null) {
@@ -234,7 +235,7 @@ public class ElasticsearchPageSource
     {
         if (type instanceof RowType) {
             for (RowType.Field field : ((RowType) type).getFields()) {
-                flattenFields(result, appendPath(fieldName, field.getName().get()), field.getType());
+                flattenFields(result, RowDecoder.appendPath(fieldName, field.getName().get()), field.getType());
             }
         }
         else {
@@ -258,19 +259,14 @@ public class ElasticsearchPageSource
                         return new SourceColumnDecoder();
                     }
 
-                    return createDecoder(session, column.getName(), column.getType());
+                    return createDecoder(session, column.getType());
                 })
                 .collect(toImmutableList());
     }
 
-    private Decoder createDecoder(ConnectorSession session, String path, Type type)
+    private Decoder createDecoder(ConnectorSession session, Type type)
     {
-        return CoderFactory.createDecoder(session, path, type);
-    }
-
-    private static String appendPath(String base, String element)
-    {
-        return CoderFactory.appendPath(base, element);
+        return CoderFactory.createDecoder(session, type);
     }
 
     private static class SearchHitIterator
