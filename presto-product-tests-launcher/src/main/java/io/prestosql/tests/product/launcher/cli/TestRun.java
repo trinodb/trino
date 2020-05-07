@@ -88,6 +88,9 @@ public final class TestRun
         @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
         public String environment;
 
+        @Option(name = "--reuse-existing-environment", description = "Should reuse existing running docker containers")
+        public boolean reuse;
+
         @Arguments(description = "test arguments")
         public List<String> testArguments = new ArrayList<>();
 
@@ -110,6 +113,7 @@ public final class TestRun
         private final File testJar;
         private final List<String> testArguments;
         private final String environment;
+        private final Boolean reuse;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
@@ -121,11 +125,19 @@ public final class TestRun
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
+            this.reuse  = requireNonNull(testRunOptions.reuse, "testRunOptions.reuse is null");
         }
 
         @Override
         public void run()
         {
+            if (reuse) {
+                log.info("Trying to reuse the environment '%s'", environment);
+                Environment environment = getEnvironment();
+                runTests(environment);
+                return;
+            }
+
             try (UncheckedCloseable ignore = this::cleanUp) {
                 log.info("Pruning old environment(s)");
                 Environments.pruneEnvironment();
