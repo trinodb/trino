@@ -71,4 +71,15 @@ public class TimestampLiteral
     {
         return value.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        TimestampLiteral otherLiteral = (TimestampLiteral) other;
+        return value.equals(otherLiteral.value);
+    }
 }

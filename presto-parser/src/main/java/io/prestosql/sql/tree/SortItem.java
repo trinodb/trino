@@ -114,4 +114,15 @@ public class SortItem
     {
         return Objects.hash(sortKey, ordering, nullOrdering);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        SortItem otherItem = (SortItem) other;
+        return ordering == otherItem.ordering && nullOrdering == otherItem.nullOrdering;
+    }
 }

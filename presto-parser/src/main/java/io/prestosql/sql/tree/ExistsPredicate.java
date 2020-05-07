@@ -79,4 +79,10 @@ public class ExistsPredicate
     {
         return subquery.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

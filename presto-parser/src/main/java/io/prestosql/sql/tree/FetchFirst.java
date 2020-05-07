@@ -105,4 +105,16 @@ public class FetchFirst
                 .omitNullValues()
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        FetchFirst otherNode = (FetchFirst) other;
+
+        return withTies == otherNode.withTies && rowCount.equals(otherNode.rowCount);
+    }
 }

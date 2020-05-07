@@ -152,4 +152,18 @@ public class FunctionCall
     {
         IGNORE, RESPECT
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        FunctionCall otherFunction = (FunctionCall) other;
+
+        return name.equals(otherFunction.name) &&
+                distinct == otherFunction.distinct &&
+                nullTreatment.equals(otherFunction.nullTreatment);
+    }
 }

@@ -126,4 +126,14 @@ public class DereferenceExpression
     {
         return Objects.hash(base, field);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return field.equals(((DereferenceExpression) other).field);
+    }
 }

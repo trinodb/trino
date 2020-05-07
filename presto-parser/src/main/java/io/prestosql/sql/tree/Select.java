@@ -97,4 +97,14 @@ public class Select
     {
         return Objects.hash(distinct, selectItems);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return distinct == ((Select) other).distinct;
+    }
 }

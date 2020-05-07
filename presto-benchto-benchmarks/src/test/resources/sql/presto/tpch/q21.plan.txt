@@ -6,9 +6,9 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (name)
                         single aggregation over (commitdate, exists, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique)
                             join (LEFT, PARTITIONED):
-                                final aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_189)
+                                final aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_49)
                                     local exchange (GATHER, SINGLE, [])
-                                        partial aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_189)
+                                        partial aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_49)
                                             join (LEFT, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, ["orderkey"])
                                                     join (INNER, PARTITIONED):
@@ -31,5 +31,5 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["orderkey_10"])
                                                         scan lineitem
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_92"])
+                                    remote exchange (REPARTITION, HASH, ["orderkey_28"])
                                         scan lineitem

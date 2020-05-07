@@ -87,4 +87,10 @@ public final class SimpleGroupBy
                 .add("columns", columns)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

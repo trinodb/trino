@@ -27,7 +27,6 @@ import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.FieldId;
-import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -36,6 +35,7 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.OffsetNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
@@ -45,11 +45,9 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FetchFirst;
-import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.FunctionCall.NullTreatment;
-import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.Node;
@@ -59,13 +57,13 @@ import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
 import io.prestosql.sql.tree.SortItem;
-import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
 import io.prestosql.type.TypeCoercion;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -73,22 +71,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Streams.stream;
 import static io.prestosql.SystemSessionProperties.isSkipRedundantSort;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.prestosql.sql.planner.OrderingScheme.sortItemToSortOrder;
+import static io.prestosql.sql.planner.PlanBuilder.newPlanBuilder;
+import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
 import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -101,6 +103,7 @@ class QueryPlanner
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
+    private final Optional<TranslationMap> outerContext;
 
     QueryPlanner(
             Analysis analysis,
@@ -108,6 +111,7 @@ class QueryPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
+            Optional<TranslationMap> outerContext,
             Session session)
     {
         requireNonNull(analysis, "analysis is null");
@@ -116,6 +120,7 @@ class QueryPlanner
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
+        requireNonNull(outerContext, "outerContext is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -124,7 +129,8 @@ class QueryPlanner
         this.metadata = metadata;
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session);
+        this.outerContext = outerContext;
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, typeCoercion, outerContext, session);
     }
 
     public RelationPlan plan(Query query)
@@ -132,107 +138,92 @@ class QueryPlanner
         PlanBuilder builder = planQueryBody(query);
 
         List<Expression> orderBy = analysis.getOrderByExpressions(query);
-        builder = handleSubqueries(builder, query, orderBy);
+        builder = subqueryPlanner.handleSubqueries(builder, orderBy, query);
 
         List<SelectExpression> selectExpressions = analysis.getSelectExpressions(query);
-        List<Expression> expressions = selectExpressions.stream()
+        List<Expression> outputs = selectExpressions.stream()
                 .map(SelectExpression::getExpression)
                 .collect(toImmutableList());
-        List<Expression> outputs = expressions;
-        builder = handleSubqueries(builder, query, expressions);
-        builder = project(builder, Iterables.concat(orderBy, expressions));
-
-        if (hasExpressionsToUnfold(selectExpressions)) {
-            List<Expression> outputExpressions = outputExpressions(selectExpressions);
-            builder = project(builder, Iterables.concat(orderBy, outputExpressions));
-            outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
-        }
+        builder = builder.appendProjections(Iterables.concat(orderBy, outputs), symbolAllocator, idAllocator);
 
         Optional<OrderingScheme> orderingScheme = orderingScheme(builder, query.getOrderBy(), analysis.getOrderByExpressions(query));
         builder = sort(builder, orderingScheme);
         builder = offset(builder, query.getOffset());
         builder = limit(builder, query.getLimit(), orderingScheme);
-        builder = project(builder, outputs);
+        builder = builder.appendProjections(outputs, symbolAllocator, idAllocator);
 
         return new RelationPlan(
                 builder.getRoot(),
                 analysis.getScope(query),
-                computeOutputs(builder, outputs));
+                computeOutputs(builder, outputs),
+                outerContext);
     }
 
     public RelationPlan plan(QuerySpecification node)
     {
         PlanBuilder builder = planFrom(node);
-        RelationPlan fromRelationPlan = builder.getRelationPlan();
 
         builder = filter(builder, analysis.getWhere(node), node);
         builder = aggregate(builder, node);
         builder = filter(builder, analysis.getHaving(node), node);
-
-        builder = window(builder, node);
+        builder = window(node, builder, ImmutableList.copyOf(analysis.getWindowFunctions(node)));
 
         List<SelectExpression> selectExpressions = analysis.getSelectExpressions(node);
         List<Expression> expressions = selectExpressions.stream()
                 .map(SelectExpression::getExpression)
                 .collect(toImmutableList());
-        List<Expression> outputs = expressions;
-        builder = handleSubqueries(builder, node, expressions);
-        List<Expression> outputExpressions = outputExpressions(selectExpressions);
+        builder = subqueryPlanner.handleSubqueries(builder, expressions, node);
 
-        if (node.getOrderBy().isPresent()) {
-            if (!analysis.isAggregation(node)) {
-                // ORDER BY requires both output and source fields to be visible if there are no aggregations
-                builder = project(builder, Iterables.concat(expressions, toSymbolReferences(fromRelationPlan.getFieldMappings())));
-                outputs = toSymbolReferences(computeOutputs(builder, expressions));
-
-                if (hasExpressionsToUnfold(selectExpressions)) {
-                    builder = project(builder, Iterables.concat(outputExpressions, toSymbolReferences(fromRelationPlan.getFieldMappings())));
-                    outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
-                }
-
-                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()));
-            }
-            else {
-                // ORDER BY requires output fields, groups and translated aggregations to be visible for queries with aggregation
-                List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
-                builder = project(builder, Iterables.concat(expressions, orderByAggregates));
-                outputs = toSymbolReferences(computeOutputs(builder, expressions));
-
-                if (hasExpressionsToUnfold(selectExpressions)) {
-                    builder = project(builder, Iterables.concat(outputExpressions, orderByAggregates));
-                    outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
-                }
-
-                List<Expression> complexOrderByAggregatesToRemap = orderByAggregates.stream()
-                        .filter(expression -> !analysis.isColumnReference(expression))
-                        .collect(toImmutableList());
-                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), complexOrderByAggregatesToRemap);
-            }
-            builder = window(builder, node.getOrderBy().get());
+        if (hasExpressionsToUnfold(selectExpressions)) {
+            // pre-project the folded expressions to preserve any non-deterministic semantics of functions that might be referenced
+            builder = builder.appendProjections(expressions, symbolAllocator, idAllocator);
         }
-        else {
-            if (hasExpressionsToUnfold(selectExpressions)) {
-                builder = project(builder, Iterables.concat(expressions, toSymbolReferences(builder.getRoot().getOutputSymbols())));
-                builder = project(builder, Iterables.concat(outputExpressions, toSymbolReferences(builder.getRoot().getOutputSymbols())));
-                outputs = toSymbolReferences(computeOutputs(builder, outputExpressions));
+
+        List<Expression> outputs = outputExpressions(selectExpressions);
+        if (node.getOrderBy().isPresent()) {
+            // ORDER BY requires outputs of SELECT to be visible.
+            // For queries with aggregation, it also requires grouping keys and translated aggregations.
+            if (analysis.isAggregation(node)) {
+                // Add projections for aggregations required by ORDER BY. After this step, grouping keys and translated
+                // aggregations are visible.
+                List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
+                builder = builder.appendProjections(orderByAggregates, symbolAllocator, idAllocator);
             }
+
+            // Add projections for the outputs of SELECT, but stack them on top of the ones from the FROM clause so both are visible
+            // when resolving the ORDER BY clause.
+            builder = builder.appendProjections(outputs, symbolAllocator, idAllocator);
+
+            // The new scope is the composite of the fields from the FROM and SELECT clause (local nested scopes). Fields from the bottom of
+            // the scope stack need to be placed first to match the expected layout for nested scopes.
+            List<Symbol> newFields = new ArrayList<>();
+            newFields.addAll(builder.getTranslations().getFieldSymbols());
+
+            outputs.stream()
+                    .map(builder::translate)
+                    .forEach(newFields::add);
+
+            builder = builder.withScope(analysis.getScope(node.getOrderBy().get()), newFields);
+
+            builder = window(node, builder, ImmutableList.copyOf(analysis.getOrderByWindowFunctions(node.getOrderBy().get())));
         }
 
         List<Expression> orderBy = analysis.getOrderByExpressions(node);
-        builder = handleSubqueries(builder, node, orderBy);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+        builder = subqueryPlanner.handleSubqueries(builder, orderBy, node);
+        builder = builder.appendProjections(Iterables.concat(orderBy, outputs), symbolAllocator, idAllocator);
 
-        builder = distinct(builder, node);
+        builder = distinct(builder, node, outputs);
         Optional<OrderingScheme> orderingScheme = orderingScheme(builder, node.getOrderBy(), analysis.getOrderByExpressions(node));
         builder = sort(builder, orderingScheme);
         builder = offset(builder, node.getOffset());
         builder = limit(builder, node.getLimit(), orderingScheme);
-        builder = project(builder, outputs);
+        builder = builder.appendProjections(outputs, symbolAllocator, idAllocator);
 
         return new RelationPlan(
                 builder.getRoot(),
                 analysis.getScope(node),
-                computeOutputs(builder, outputs));
+                computeOutputs(builder, outputs),
+                outerContext);
     }
 
     private boolean hasExpressionsToUnfold(List<SelectExpression> selectExpressions)
@@ -262,10 +253,10 @@ class QueryPlanner
         TableHandle handle = analysis.getTableHandle(table);
 
         // create table scan
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session)
                 .process(table, null);
 
-        PlanBuilder builder = planBuilderFor(relationPlan);
+        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
         if (node.getWhere().isPresent()) {
             builder = filter(builder, node.getWhere().get(), node);
         }
@@ -290,53 +281,23 @@ class QueryPlanner
 
     private PlanBuilder planQueryBody(Query query)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session)
                 .process(query.getQueryBody(), null);
 
-        return planBuilderFor(relationPlan);
+        return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
     }
 
     private PlanBuilder planFrom(QuerySpecification node)
     {
-        RelationPlan relationPlan;
-
         if (node.getFrom().isPresent()) {
-            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+            RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session)
                     .process(node.getFrom().get(), null);
-        }
-        else {
-            relationPlan = new RelationPlan(
-                    new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
-                    analysis.getImplicitFromScope(node),
-                    ImmutableList.of());
+            return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
         }
 
-        return planBuilderFor(relationPlan);
-    }
-
-    private PlanBuilder planBuilderFor(PlanBuilder builder, Scope scope, Iterable<? extends Expression> expressionsToRemap)
-    {
-        Map<Expression, Symbol> expressionsToSymbols = symbolsForExpressions(builder, expressionsToRemap);
-        PlanBuilder newBuilder = planBuilderFor(builder, scope);
-        expressionsToSymbols.entrySet()
-                .forEach(entry -> newBuilder.getTranslations().put(entry.getKey(), entry.getValue()));
-        return newBuilder;
-    }
-
-    private PlanBuilder planBuilderFor(PlanBuilder builder, Scope scope)
-    {
-        return planBuilderFor(new RelationPlan(builder.getRoot(), scope, builder.getRoot().getOutputSymbols()));
-    }
-
-    private PlanBuilder planBuilderFor(RelationPlan relationPlan)
-    {
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
-
-        // Make field->symbol mapping from underlying relation plan available for translations
-        // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
-        translations.setFieldMappings(relationPlan.getFieldMappings());
-
-        return new PlanBuilder(translations, relationPlan.getRoot());
+        return new PlanBuilder(
+                new TranslationMap(outerContext, analysis.getImplicitFromScope(node), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of()),
+                new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of())));
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)
@@ -345,102 +306,9 @@ class QueryPlanner
             return subPlan;
         }
 
-        // rewrite expressions which contain already handled subqueries
-        Expression rewrittenBeforeSubqueries = subPlan.rewrite(predicate);
-        subPlan = subqueryPlanner.handleSubqueries(subPlan, rewrittenBeforeSubqueries, node);
-        Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
+        subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, node);
 
-        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewrittenAfterSubqueries));
-    }
-
-    private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions)
-    {
-        TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
-
-        Assignments.Builder projections = Assignments.builder();
-        for (Expression expression : expressions) {
-            if (expression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(expression);
-                projections.put(symbol, expression);
-                outputTranslations.put(expression, symbol);
-                continue;
-            }
-
-            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
-            projections.put(symbol, subPlan.rewrite(expression));
-            outputTranslations.put(expression, symbol);
-        }
-
-        return new PlanBuilder(outputTranslations, new ProjectNode(
-                idAllocator.getNextId(),
-                subPlan.getRoot(),
-                projections.build()));
-    }
-
-    private Map<Symbol, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
-    {
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-
-        for (Expression expression : expressions) {
-            Type type = analysis.getType(expression);
-            Type coercion = analysis.getCoercion(expression);
-            Symbol symbol = symbolAllocator.newSymbol(expression, firstNonNull(coercion, type));
-            Expression rewritten = subPlan.rewrite(expression);
-            if (coercion != null) {
-                rewritten = new Cast(
-                        rewritten,
-                        toSqlType(coercion),
-                        false,
-                        typeCoercion.isTypeOnlyCoercion(type, coercion));
-            }
-            projections.put(symbol, rewritten);
-            translations.put(expression, symbol);
-        }
-
-        return projections.build();
-    }
-
-    private PlanBuilder explicitCoercionFields(PlanBuilder subPlan, Iterable<Expression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
-    {
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
-        Assignments.Builder projections = Assignments.builder();
-
-        projections.putAll(coerce(uncoerced, subPlan, translations));
-
-        for (Expression expression : alreadyCoerced) {
-            if (expression instanceof SymbolReference) {
-                // If this is an identity projection, no need to rewrite it
-                // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
-                // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(Symbol.from(expression), expression);
-                continue;
-            }
-
-            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
-            Expression rewritten = subPlan.rewrite(expression);
-            projections.put(symbol, rewritten);
-            translations.put(expression, symbol);
-        }
-
-        return new PlanBuilder(translations, new ProjectNode(
-                idAllocator.getNextId(),
-                subPlan.getRoot(),
-                projections.build()));
-    }
-
-    private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, Iterable<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
-    {
-        TranslationMap translations = subPlan.copyTranslations();
-
-        Assignments assignments = Assignments.builder()
-                .putAll(coerce(uncoerced, subPlan, translations))
-                .putIdentities(alreadyCoerced)
-                .build();
-
-        return new PlanBuilder(translations, new ProjectNode(
-                idAllocator.getNextId(),
-                subPlan.getRoot(),
-                assignments));
+        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.rewrite(predicate)));
     }
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
@@ -449,15 +317,12 @@ class QueryPlanner
             return subPlan;
         }
 
-        // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
-        Set<Expression> groupByExpressions = ImmutableSet.copyOf(analysis.getGroupByExpressions(node));
-
-        ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+        ImmutableList.Builder<Expression> inputBuilder = ImmutableList.builder();
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
                 .filter(expression -> !(expression instanceof LambdaExpression)) // lambda expression is generated at execution time
-                .forEach(arguments::add);
+                .forEach(inputBuilder::add);
 
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getOrderBy)
@@ -466,130 +331,154 @@ class QueryPlanner
                 .map(OrderBy::getSortItems)
                 .flatMap(List::stream)
                 .map(SortItem::getSortKey)
-                .forEach(arguments::add);
+                .forEach(inputBuilder::add);
 
         // filter expressions need to be projected first
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getFilter)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .forEach(arguments::add);
+                .forEach(inputBuilder::add);
 
-        Iterable<Expression> inputs = Iterables.concat(groupByExpressions, arguments.build());
-        subPlan = handleSubqueries(subPlan, node, inputs);
+        GroupingSetAnalysis groupingSetAnalysis = analysis.getGroupingSets(node);
+        inputBuilder.addAll(groupingSetAnalysis.getComplexExpressions());
 
-        if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
-            subPlan = project(subPlan, inputs);
-        }
+        List<Expression> inputs = inputBuilder.build();
+        subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, node);
+        subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
 
-        // 2. Aggregate
+        // Add projection to coerce inputs to their site-specific types.
+        // This is important because the same lexical expression may need to be coerced
+        // in different ways if it's referenced by multiple arguments to the window function.
+        // For example, given v::integer,
+        //    avg(v)
+        // Needs to be rewritten as
+        //    avg(CAST(v AS double))
+        PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator, typeCoercion);
+        subPlan = coercions.getSubPlan();
 
-        // 2.a. Rewrite aggregate arguments
-        TranslationMap argumentTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
+        GroupingSetsPlan groupingSets = planGroupingSets(subPlan, node, groupingSetAnalysis);
 
-        ImmutableList.Builder<Symbol> aggregationArgumentsBuilder = ImmutableList.builder();
-        for (Expression argument : arguments.build()) {
-            Symbol symbol = subPlan.translate(argument);
-            argumentTranslations.put(argument, symbol);
-            aggregationArgumentsBuilder.add(symbol);
-        }
-        List<Symbol> aggregationArguments = aggregationArgumentsBuilder.build();
+        subPlan = planAggregation(groupingSets.getSubPlan(), groupingSets.getGroupingSets(), groupingSets.getGroupIdSymbol(), analysis.getAggregates(node), coercions::get);
 
-        // 2.b. Rewrite grouping columns
-        TranslationMap groupingTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
+        return planGroupingOperations(subPlan, node, groupingSets.getGroupIdSymbol(), groupingSets.getColumnOnlyGroupingSets());
+    }
+
+    private GroupingSetsPlan planGroupingSets(PlanBuilder subPlan, QuerySpecification node, GroupingSetAnalysis groupingSetAnalysis)
+    {
         Map<Symbol, Symbol> groupingSetMappings = new LinkedHashMap<>();
 
-        for (Expression expression : groupByExpressions) {
-            Symbol input = subPlan.translate(expression);
-            Symbol output = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression), "gid");
-            groupingTranslations.put(expression, output);
+        // Compute a set of artificial columns that will contain the values of the original columns
+        // filtered by whether the column is included in the grouping set
+        // This will become the basis for the scope for any column references
+        Symbol[] fields = new Symbol[subPlan.getTranslations().getFieldSymbols().size()];
+        for (FieldId field : groupingSetAnalysis.getAllFields()) {
+            Symbol input = subPlan.getTranslations().getFieldSymbols().get(field.getFieldIndex());
+            Symbol output = symbolAllocator.newSymbol(input, "gid");
+            fields[field.getFieldIndex()] = output;
             groupingSetMappings.put(output, input);
         }
 
-        // This tracks the grouping sets before complex expressions are considered (see comments below)
+        ImmutableMap.Builder<Expression, Symbol> expressionsBuilder = ImmutableMap.builder();
+        for (Expression expression : groupingSetAnalysis.getComplexExpressions()) {
+            Symbol input = subPlan.translate(expression);
+            Symbol output = symbolAllocator.newSymbol(expression, analysis.getType(expression), "gid");
+            expressionsBuilder.put(expression, output);
+            groupingSetMappings.put(output, input);
+        }
+        Map<Expression, Symbol> complexExpressions = expressionsBuilder.build();
+
+        // For the purpose of "distinct", we need to canonicalize column references that may have varying
+        // syntactic forms (e.g., "t.a" vs "a"). Thus we need to enumerate grouping sets based on the underlying
+        // fieldId associated with each column reference expression.
+
+        // The catch is that simple group-by expressions can be arbitrary expressions (this is a departure from the SQL specification).
+        // But, they don't affect the number of grouping sets or the behavior of "distinct" . We can compute all the candidate
+        // grouping sets in terms of fieldId, dedup as appropriate and then cross-join them with the complex expressions.
+
+        // This tracks the grouping sets before complex expressions are considered.
         // It's also used to compute the descriptors needed to implement grouping()
-        List<Set<FieldId>> columnOnlyGroupingSets = ImmutableList.of(ImmutableSet.of());
-        List<List<Symbol>> groupingSets = ImmutableList.of(ImmutableList.of());
-
-        if (node.getGroupBy().isPresent()) {
-            // For the purpose of "distinct", we need to canonicalize column references that may have varying
-            // syntactic forms (e.g., "t.a" vs "a"). Thus we need to enumerate grouping sets based on the underlying
-            // fieldId associated with each column reference expression.
-
-            // The catch is that simple group-by expressions can be arbitrary expressions (this is a departure from the SQL specification).
-            // But, they don't affect the number of grouping sets or the behavior of "distinct" . We can compute all the candidate
-            // grouping sets in terms of fieldId, dedup as appropriate and then cross-join them with the complex expressions.
-            GroupingSetAnalysis groupingSetAnalysis = analysis.getGroupingSets(node);
-            columnOnlyGroupingSets = enumerateGroupingSets(groupingSetAnalysis);
-
-            if (node.getGroupBy().get().isDistinct()) {
-                columnOnlyGroupingSets = columnOnlyGroupingSets.stream()
-                        .distinct()
-                        .collect(toImmutableList());
-            }
-
-            // add in the complex expressions an turn materialize the grouping sets in terms of plan columns
-            ImmutableList.Builder<List<Symbol>> groupingSetBuilder = ImmutableList.builder();
-            for (Set<FieldId> groupingSet : columnOnlyGroupingSets) {
-                ImmutableList.Builder<Symbol> columns = ImmutableList.builder();
-                groupingSetAnalysis.getComplexExpressions().stream()
-                        .map(groupingTranslations::get)
-                        .forEach(columns::add);
-
-                groupingSet.stream()
-                        .map(field -> groupingTranslations.get(new FieldReference(field.getFieldIndex())))
-                        .forEach(columns::add);
-
-                groupingSetBuilder.add(columns.build());
-            }
-
-            groupingSets = groupingSetBuilder.build();
+        List<Set<FieldId>> columnOnlyGroupingSets = enumerateGroupingSets(groupingSetAnalysis);
+        if (node.getGroupBy().isPresent() && node.getGroupBy().get().isDistinct()) {
+            columnOnlyGroupingSets = columnOnlyGroupingSets.stream()
+                    .distinct()
+                    .collect(toImmutableList());
         }
 
-        // 2.c. Generate GroupIdNode (multiple grouping sets) or ProjectNode (single grouping set)
+        // translate from FieldIds to Symbols
+        List<List<Symbol>> sets = columnOnlyGroupingSets.stream()
+                .map(set -> set.stream()
+                        .map(FieldId::getFieldIndex)
+                        .map(index -> fields[index])
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+
+        // combine (cartesian product) with complex expressions
+        List<List<Symbol>> groupingSets = sets.stream()
+                .map(set -> ImmutableList.<Symbol>builder()
+                        .addAll(set)
+                        .addAll(complexExpressions.values())
+                        .build())
+                .collect(toImmutableList());
+
+        // Generate GroupIdNode (multiple grouping sets) or ProjectNode (single grouping set)
+        PlanNode groupId;
         Optional<Symbol> groupIdSymbol = Optional.empty();
         if (groupingSets.size() > 1) {
             groupIdSymbol = Optional.of(symbolAllocator.newSymbol("groupId", BIGINT));
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdSymbol.get());
-            subPlan = new PlanBuilder(groupingTranslations, groupId);
+            groupId = new GroupIdNode(
+                    idAllocator.getNextId(),
+                    subPlan.getRoot(),
+                    groupingSets,
+                    groupingSetMappings,
+                    subPlan.getRoot().getOutputSymbols(),
+                    groupIdSymbol.get());
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
-            aggregationArguments.forEach(assignments::putIdentity);
+            assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
             groupingSetMappings.forEach((key, value) -> assignments.put(key, value.toSymbolReference()));
 
-            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
-            subPlan = new PlanBuilder(groupingTranslations, project);
+            groupId = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
         }
 
-        TranslationMap aggregationTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
-        aggregationTranslations.copyMappingsFrom(groupingTranslations);
+        subPlan = new PlanBuilder(
+                subPlan.getTranslations()
+                        .withNewMappings(complexExpressions, Arrays.asList(fields)),
+                groupId);
 
-        // 2.d. Rewrite aggregates
-        ImmutableMap.Builder<Symbol, Aggregation> aggregationsBuilder = ImmutableMap.builder();
-        boolean needPostProjectionCoercion = false;
-        for (FunctionCall aggregate : analysis.getAggregates(node)) {
-            Expression rewritten = argumentTranslations.rewrite(aggregate);
-            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(aggregate));
+        return new GroupingSetsPlan(subPlan, columnOnlyGroupingSets, groupingSets, groupIdSymbol);
+    }
 
-            // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
-            // Therefore we can end up with this implicit cast, and have to move it into a post-projection
-            if (rewritten instanceof Cast) {
-                rewritten = ((Cast) rewritten).getExpression();
-                needPostProjectionCoercion = true;
-            }
-            aggregationTranslations.put(aggregate, newSymbol);
+    private PlanBuilder planAggregation(PlanBuilder subPlan, List<List<Symbol>> groupingSets, Optional<Symbol> groupIdSymbol, List<FunctionCall> aggregates, Function<Expression, Symbol> coercions)
+    {
+        ImmutableList.Builder<AggregationAssignment> aggregateMappingBuilder = ImmutableList.builder();
 
-            FunctionCall functionCall = (FunctionCall) rewritten;
-            aggregationsBuilder.put(newSymbol, new Aggregation(
-                    analysis.getResolvedFunction(aggregate),
-                    functionCall.getArguments(),
-                    functionCall.isDistinct(),
-                    functionCall.getFilter().map(Symbol::from),
-                    functionCall.getOrderBy().map(OrderingScheme::fromOrderBy),
-                    Optional.empty()));
+        // deduplicate based on scope-aware equality
+        for (FunctionCall function : scopeAwareDistinct(subPlan, aggregates)) {
+            Symbol symbol = symbolAllocator.newSymbol(function, analysis.getType(function));
+
+            // TODO: for ORDER BY arguments, rewrite them such that they match the actual arguments to the function. This is necessary to maintain the semantics of DISTINCT + ORDER BY,
+            //   which requires that ORDER BY be a subset of arguments
+            //   What can happen currently is that if the argument requires a coercion, the argument will take a different input that the ORDER BY clause, which is undefined behavior
+            Aggregation aggregation = new Aggregation(
+                    analysis.getResolvedFunction(function),
+                    function.getArguments().stream()
+                            .map(argument -> {
+                                if (argument instanceof LambdaExpression) {
+                                    return subPlan.rewrite(argument);
+                                }
+                                return coercions.apply(argument).toSymbolReference();
+                            })
+                            .collect(toImmutableList()),
+                    function.isDistinct(),
+                    function.getFilter().map(coercions::apply),
+                    function.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions)),
+                    Optional.empty());
+
+            aggregateMappingBuilder.add(new AggregationAssignment(symbol, function, aggregation));
         }
-        Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
+        List<AggregationAssignment> aggregateMappings = aggregateMappingBuilder.build();
 
         ImmutableSet.Builder<Integer> globalGroupingSets = ImmutableSet.builder();
         for (int i = 0; i < groupingSets.size(); i++) {
@@ -608,7 +497,8 @@ class QueryPlanner
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                aggregations,
+                aggregateMappings.stream()
+                        .collect(toImmutableMap(AggregationAssignment::getSymbol, AggregationAssignment::getRewritten)),
                 groupingSets(
                         groupingKeys.build(),
                         groupingSets.size(),
@@ -618,21 +508,35 @@ class QueryPlanner
                 Optional.empty(),
                 groupIdSymbol);
 
-        subPlan = new PlanBuilder(aggregationTranslations, aggregationNode);
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(aggregateMappings.stream()
+                                .collect(toImmutableMap(assignment -> scopeAwareKey(assignment.getAstExpression(), analysis, subPlan.getScope()), AggregationAssignment::getSymbol))),
+                aggregationNode);
+    }
 
-        // 3. Post-projection
-        // Add back the implicit casts that we removed in 2.a
-        // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
-        if (needPostProjectionCoercion) {
-            ImmutableList.Builder<Expression> alreadyCoerced = ImmutableList.builder();
-            alreadyCoerced.addAll(groupByExpressions);
-            groupIdSymbol.map(Symbol::toSymbolReference).ifPresent(alreadyCoerced::add);
+    private <T extends Expression> List<T> scopeAwareDistinct(PlanBuilder subPlan, List<T> expressions)
+    {
+        return expressions.stream()
+                .map(function -> scopeAwareKey(function, analysis, subPlan.getScope()))
+                .distinct()
+                .map(ScopeAware::getNode)
+                .collect(toImmutableList());
+    }
 
-            subPlan = explicitCoercionFields(subPlan, alreadyCoerced.build(), analysis.getAggregates(node));
+    private OrderingScheme translateOrderingScheme(List<SortItem> items, Function<Expression, Symbol> coercions)
+    {
+        List<Symbol> symbols = items.stream()
+                .map(SortItem::getSortKey)
+                .map(coercions::apply)
+                .collect(toImmutableList());
+
+        ImmutableMap.Builder<Symbol, SortOrder> orders = ImmutableMap.builder();
+        for (int i = 0; i < symbols.size(); i++) {
+            orders.put(symbols.get(i), OrderingScheme.sortItemToSortOrder(items.get(i)));
         }
 
-        // 4. Project and re-write all grouping functions
-        return handleGroupingOperations(subPlan, node, groupIdSymbol, columnOnlyGroupingSets);
+        return new OrderingScheme(symbols, orders.build());
     }
 
     private List<Set<FieldId>> enumerateGroupingSets(GroupingSetAnalysis groupingSetAnalysis)
@@ -682,16 +586,11 @@ class QueryPlanner
         return allSets;
     }
 
-    private PlanBuilder handleGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol, List<Set<FieldId>> groupingSets)
+    private PlanBuilder planGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol, List<Set<FieldId>> groupingSets)
     {
         if (analysis.getGroupingOperations(node).isEmpty()) {
             return subPlan;
         }
-
-        TranslationMap newTranslations = subPlan.copyTranslations();
-
-        Assignments.Builder projections = Assignments.builder();
-        projections.putIdentities(subPlan.getRoot().getOutputSymbols());
 
         List<Set<Integer>> descriptor = groupingSets.stream()
                 .map(set -> set.stream()
@@ -699,65 +598,27 @@ class QueryPlanner
                         .collect(toImmutableSet()))
                 .collect(toImmutableList());
 
-        for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
-            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdSymbol);
-            Type coercion = analysis.getCoercion(groupingOperation);
-            Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
-            if (coercion != null) {
-                rewritten = new Cast(
-                        rewritten,
-                        toSqlType(coercion),
-                        false,
-                        typeCoercion.isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
-            }
-            projections.put(symbol, rewritten);
-            newTranslations.put(groupingOperation, symbol);
-        }
-
-        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()));
+        return subPlan.appendProjections(
+                analysis.getGroupingOperations(node),
+                symbolAllocator,
+                idAllocator,
+                (translations, groupingOperation) -> rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdSymbol),
+                (translations, groupingOperation) -> false);
     }
 
-    private PlanBuilder window(PlanBuilder subPlan, OrderBy node)
-    {
-        return window(subPlan, ImmutableList.copyOf(analysis.getOrderByWindowFunctions(node)));
-    }
-
-    private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
-    {
-        return window(subPlan, ImmutableList.copyOf(analysis.getWindowFunctions(node)));
-    }
-
-    private PlanBuilder window(PlanBuilder subPlan, List<FunctionCall> windowFunctions)
+    private PlanBuilder window(Node node, PlanBuilder subPlan, List<FunctionCall> windowFunctions)
     {
         if (windowFunctions.isEmpty()) {
             return subPlan;
         }
 
-        for (FunctionCall windowFunction : windowFunctions) {
+        for (FunctionCall windowFunction : scopeAwareDistinct(subPlan, windowFunctions)) {
+            checkArgument(windowFunction.getFilter().isEmpty(), "Window functions cannot have filter");
+
             Window window = windowFunction.getWindow().get();
 
-            // Extract frame
-            WindowFrame.Type frameType = WindowFrame.Type.RANGE;
-            FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
-            FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
-            Expression frameStart = null;
-            Expression frameEnd = null;
-
-            if (window.getFrame().isPresent()) {
-                WindowFrame frame = window.getFrame().get();
-                frameType = frame.getType();
-
-                frameStartType = frame.getStart().getType();
-                frameStart = frame.getStart().getValue().orElse(null);
-
-                if (frame.getEnd().isPresent()) {
-                    frameEndType = frame.getEnd().get().getType();
-                    frameEnd = frame.getEnd().get().getValue().orElse(null);
-                }
-            }
-
             // Pre-project inputs
-            ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
+            ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments().stream()
                             .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
                             .collect(Collectors.toList()))
@@ -766,126 +627,190 @@ class QueryPlanner
                             .map(SortItem::getSortKey)
                             .iterator());
 
-            if (frameStart != null) {
-                inputs.add(frameStart);
-            }
-            if (frameEnd != null) {
-                inputs.add(frameEnd);
-            }
+            if (window.getFrame().isPresent()) {
+                WindowFrame frame = window.getFrame().get();
+                frame.getStart().getValue().ifPresent(inputsBuilder::add);
 
-            subPlan = subPlan.appendProjections(inputs.build(), symbolAllocator, idAllocator);
-
-            // Rewrite PARTITION BY in terms of pre-projected inputs
-            ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
-            for (Expression expression : window.getPartitionBy()) {
-                partitionBySymbols.add(subPlan.translate(expression));
-            }
-
-            // Rewrite ORDER BY in terms of pre-projected inputs
-            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
-            for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
-                Symbol symbol = subPlan.translate(item.getSortKey());
-                // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-                orderings.putIfAbsent(symbol, sortItemToSortOrder(item));
-            }
-
-            // Rewrite frame bounds in terms of pre-projected inputs
-            Optional<Symbol> frameStartSymbol = Optional.empty();
-            Optional<Symbol> frameEndSymbol = Optional.empty();
-            if (frameStart != null) {
-                frameStartSymbol = Optional.of(subPlan.translate(frameStart));
-            }
-            if (frameEnd != null) {
-                frameEndSymbol = Optional.of(subPlan.translate(frameEnd));
-            }
-
-            WindowNode.Frame frame = new WindowNode.Frame(
-                    frameType,
-                    frameStartType,
-                    frameStartSymbol,
-                    frameEndType,
-                    frameEndSymbol,
-                    Optional.ofNullable(frameStart),
-                    Optional.ofNullable(frameEnd));
-
-            TranslationMap outputTranslations = subPlan.copyTranslations();
-
-            // Rewrite function call in terms of pre-projected inputs
-            Expression rewritten = subPlan.rewrite(windowFunction);
-
-            boolean needCoercion = rewritten instanceof Cast;
-            // Strip out the cast and add it back as a post-projection
-            if (rewritten instanceof Cast) {
-                rewritten = ((Cast) rewritten).getExpression();
-            }
-
-            // If refers to existing symbol, don't create another PlanNode
-            if (rewritten instanceof SymbolReference) {
-                if (needCoercion) {
-                    subPlan = explicitCoercionSymbols(subPlan, subPlan.getRoot().getOutputSymbols(), ImmutableList.of(windowFunction));
+                if (frame.getEnd().isPresent()) {
+                    frame.getEnd().get().getValue().ifPresent(inputsBuilder::add);
                 }
-
-                continue;
             }
 
-            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
-            outputTranslations.put(windowFunction, newSymbol);
+            List<Expression> inputs = inputsBuilder.build();
 
-            NullTreatment nullTreatment = windowFunction.getNullTreatment()
-                    .orElse(NullTreatment.RESPECT);
+            subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, node);
+            subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
 
-            WindowNode.Function function = new WindowNode.Function(
-                    analysis.getResolvedFunction(windowFunction),
-                    ((FunctionCall) rewritten).getArguments(),
-                    frame,
-                    nullTreatment == NullTreatment.IGNORE);
-
-            List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
-            ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-            orderBySymbols.addAll(orderings.keySet());
-            Optional<OrderingScheme> orderingScheme = Optional.empty();
-            if (!orderings.isEmpty()) {
-                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
-            }
-
-            // create window node
-            subPlan = new PlanBuilder(outputTranslations,
-                    new WindowNode(
-                            idAllocator.getNextId(),
-                            subPlan.getRoot(),
-                            new WindowNode.Specification(
-                                    partitionBySymbols.build(),
-                                    orderingScheme),
-                            ImmutableMap.of(newSymbol, function),
-                            Optional.empty(),
-                            ImmutableSet.of(),
-                            0));
-
-            if (needCoercion) {
-                subPlan = explicitCoercionSymbols(subPlan, sourceSymbols, ImmutableList.of(windowFunction));
-            }
+            // Add projection to coerce inputs to their site-specific types.
+            // This is important because the same lexical expression may need to be coerced
+            // in different ways if it's referenced by multiple arguments to the window function.
+            // For example, given v::integer,
+            //    avg(v) OVER (ORDER BY v)
+            // Needs to be rewritten as
+            //    avg(CAST(v AS double)) OVER (ORDER BY v)
+            PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator, typeCoercion);
+            subPlan = coercions.getSubPlan();
+            subPlan = planWindow(subPlan, windowFunction, coercions);
         }
 
         return subPlan;
     }
 
-    private PlanBuilder handleSubqueries(PlanBuilder subPlan, Node node, Iterable<Expression> inputs)
+    private PlanBuilder planWindow(PlanBuilder subPlan, FunctionCall windowFunction, PlanAndMappings coercions)
     {
-        for (Expression input : inputs) {
-            subPlan = subqueryPlanner.handleSubqueries(subPlan, subPlan.rewrite(input), node);
+        WindowFrame.Type frameType = WindowFrame.Type.RANGE;
+        FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
+        FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
+
+        Optional<Expression> frameStart = Optional.empty();
+        Optional<Expression> frameEnd = Optional.empty();
+
+        Window window = windowFunction.getWindow().get();
+        if (window.getFrame().isPresent()) {
+            WindowFrame frame = window.getFrame().get();
+            frameType = frame.getType();
+
+            frameStartType = frame.getStart().getType();
+            frameStart = frame.getStart().getValue();
+
+            if (frame.getEnd().isPresent()) {
+                frameEndType = frame.getEnd().get().getType();
+                frameEnd = frame.getEnd().get().getValue();
+            }
         }
-        return subPlan;
+
+        // Rewrite PARTITION BY in terms of pre-projected inputs
+        ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
+        for (Expression expression : window.getPartitionBy()) {
+            partitionBySymbols.add(coercions.get(expression));
+        }
+
+        // Rewrite ORDER BY in terms of pre-projected inputs
+        LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+        for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
+            Symbol symbol = coercions.get(item.getSortKey());
+            // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
+            orderings.putIfAbsent(symbol, sortItemToSortOrder(item));
+        }
+
+        // Rewrite frame bounds in terms of pre-projected inputs
+        WindowNode.Frame frame = new WindowNode.Frame(
+                frameType,
+                frameStartType,
+                frameStart.map(coercions::get),
+                frameEndType,
+                frameEnd.map(coercions::get),
+                frameStart,
+                frameEnd);
+
+        Symbol newSymbol = symbolAllocator.newSymbol(windowFunction, analysis.getType(windowFunction));
+
+        NullTreatment nullTreatment = windowFunction.getNullTreatment()
+                .orElse(NullTreatment.RESPECT);
+
+        WindowNode.Function function = new WindowNode.Function(
+                analysis.getResolvedFunction(windowFunction),
+                windowFunction.getArguments().stream()
+                        .map(argument -> {
+                            if (argument instanceof LambdaExpression) {
+                                return subPlan.rewrite(argument);
+                            }
+                            return coercions.get(argument).toSymbolReference();
+                        })
+                        .collect(toImmutableList()),
+                frame,
+                nullTreatment == NullTreatment.IGNORE);
+
+        ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
+        orderBySymbols.addAll(orderings.keySet());
+        Optional<OrderingScheme> orderingScheme = Optional.empty();
+        if (!orderings.isEmpty()) {
+            orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
+        }
+
+        // create window node
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(windowFunction, analysis, subPlan.getScope()), newSymbol)),
+                new WindowNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        new WindowNode.Specification(
+                                partitionBySymbols.build(),
+                                orderingScheme),
+                        ImmutableMap.of(newSymbol, function),
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0));
     }
 
-    private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node)
+    /**
+     * Creates a projection with any additional coercions by identity of the provided expressions.
+     *
+     * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
+     */
+    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TypeCoercion typeCoercion)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
+
+        ImmutableMap.Builder<NodeRef<Expression>, Symbol> mappings = ImmutableMap.builder();
+        for (Expression expression : expressions) {
+            Type coercion = analysis.getCoercion(expression);
+
+            if (coercion != null) {
+                Type type = analysis.getType(expression);
+                Symbol symbol = symbolAllocator.newSymbol(expression, coercion);
+
+                assignments.put(symbol, new Cast(
+                        subPlan.rewrite(expression),
+                        toSqlType(coercion),
+                        false,
+                        typeCoercion.isTypeOnlyCoercion(type, coercion)));
+
+                mappings.put(NodeRef.of(expression), symbol);
+            }
+            else {
+                mappings.put(NodeRef.of(expression), subPlan.translate(expression));
+            }
+        }
+
+        subPlan = subPlan.withNewRoot(
+                new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        assignments.build()));
+
+        return new PlanAndMappings(subPlan, mappings.build());
+    }
+
+    public static Expression coerceIfNecessary(Analysis analysis, Expression original, Expression rewritten)
+    {
+        Type coercion = analysis.getCoercion(original);
+        if (coercion == null) {
+            return rewritten;
+        }
+
+        return new Cast(
+                rewritten,
+                toSqlType(coercion),
+                false,
+                analysis.isTypeOnlyCoercion(original));
+    }
+
+    private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<Expression> expressions)
     {
         if (node.getSelect().isDistinct()) {
+            List<Symbol> symbols = expressions.stream()
+                    .map(subPlan::translate)
+                    .collect(Collectors.toList());
+
             return subPlan.withNewRoot(
                     new AggregationNode(
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             ImmutableMap.of(),
-                            singleGroupingSet(subPlan.getRoot().getOutputSymbols()),
+                            singleGroupingSet(symbols),
                             ImmutableList.of(),
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),
@@ -962,17 +887,102 @@ class QueryPlanner
         return subPlan;
     }
 
-    private static List<Expression> toSymbolReferences(List<Symbol> symbols)
+    private static class GroupingSetsPlan
     {
-        return symbols.stream()
-                .map(Symbol::toSymbolReference)
-                .collect(toImmutableList());
+        private final PlanBuilder subPlan;
+        private final List<Set<FieldId>> columnOnlyGroupingSets;
+        private final List<List<Symbol>> groupingSets;
+        private final Optional<Symbol> groupIdSymbol;
+
+        public GroupingSetsPlan(PlanBuilder subPlan, List<Set<FieldId>> columnOnlyGroupingSets, List<List<Symbol>> groupingSets, Optional<Symbol> groupIdSymbol)
+        {
+            this.columnOnlyGroupingSets = columnOnlyGroupingSets;
+            this.groupingSets = groupingSets;
+            this.groupIdSymbol = groupIdSymbol;
+            this.subPlan = subPlan;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public List<Set<FieldId>> getColumnOnlyGroupingSets()
+        {
+            return columnOnlyGroupingSets;
+        }
+
+        public List<List<Symbol>> getGroupingSets()
+        {
+            return groupingSets;
+        }
+
+        public Optional<Symbol> getGroupIdSymbol()
+        {
+            return groupIdSymbol;
+        }
     }
 
-    private static Map<Expression, Symbol> symbolsForExpressions(PlanBuilder builder, Iterable<? extends Expression> expressions)
+    public static class PlanAndMappings
     {
-        return stream(expressions)
-                .distinct()
-                .collect(toImmutableMap(expression -> expression, builder::translate));
+        private final PlanBuilder subPlan;
+        private final Map<NodeRef<Expression>, Symbol> mappings;
+
+        public PlanAndMappings(PlanBuilder subPlan, Map<NodeRef<Expression>, Symbol> mappings)
+        {
+            this.subPlan = subPlan;
+            this.mappings = mappings;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public Symbol get(Expression expression)
+        {
+            return tryGet(expression)
+                    .orElseThrow(() -> new IllegalArgumentException(format("No mapping for expression: %s (%s)", expression, System.identityHashCode(expression))));
+        }
+
+        public Optional<Symbol> tryGet(Expression expression)
+        {
+            Symbol result = mappings.get(NodeRef.of(expression));
+
+            if (result != null) {
+                return Optional.of(result);
+            }
+
+            return Optional.empty();
+        }
+    }
+
+    private static class AggregationAssignment
+    {
+        private final Symbol symbol;
+        private final Expression astExpression;
+        private final Aggregation aggregation;
+
+        public AggregationAssignment(Symbol symbol, Expression astExpression, Aggregation aggregation)
+        {
+            this.astExpression = astExpression;
+            this.symbol = symbol;
+            this.aggregation = aggregation;
+        }
+
+        public Symbol getSymbol()
+        {
+            return symbol;
+        }
+
+        public Expression getAstExpression()
+        {
+            return astExpression;
+        }
+
+        public Aggregation getRewritten()
+        {
+            return aggregation;
+        }
     }
 }

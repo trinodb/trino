@@ -40,22 +40,25 @@ class RelationPlan
     private final PlanNode root;
     private final List<Symbol> fieldMappings; // for each field in the relation, the corresponding symbol from "root"
     private final Scope scope;
+    private final Optional<TranslationMap> outerContext;
 
-    public RelationPlan(PlanNode root, Scope scope, List<Symbol> fieldMappings)
+    public RelationPlan(PlanNode root, Scope scope, List<Symbol> fieldMappings, Optional<TranslationMap> outerContext)
     {
         requireNonNull(root, "root is null");
         requireNonNull(fieldMappings, "outputSymbols is null");
         requireNonNull(scope, "scope is null");
+        requireNonNull(outerContext, "outerContext is null");
 
-        int allFieldCount = getAllFieldCount(scope);
+        int allFieldCount = scope.getLocalScopeFieldCount();
         checkArgument(allFieldCount == fieldMappings.size(),
-                "Number of outputs (%s) doesn't match number of fields in scopes tree (%s)",
+                "Number of outputs (%s) doesn't match number of fields in local scope (%s)",
                 fieldMappings.size(),
                 allFieldCount);
 
         this.root = root;
         this.scope = scope;
         this.fieldMappings = ImmutableList.copyOf(fieldMappings);
+        this.outerContext = outerContext;
     }
 
     public Symbol getSymbol(int fieldIndex)
@@ -84,14 +87,8 @@ class RelationPlan
         return scope;
     }
 
-    private static int getAllFieldCount(Scope root)
+    public Optional<TranslationMap> getOuterContext()
     {
-        int allFieldCount = 0;
-        Optional<Scope> current = Optional.of(root);
-        while (current.isPresent()) {
-            allFieldCount += current.get().getRelationType().getAllFieldCount();
-            current = current.get().getLocalParent();
-        }
-        return allFieldCount;
+        return outerContext;
     }
 }

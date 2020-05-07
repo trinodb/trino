@@ -85,4 +85,10 @@ public final class Values
         Values other = (Values) obj;
         return Objects.equals(this.rows, other.rows);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

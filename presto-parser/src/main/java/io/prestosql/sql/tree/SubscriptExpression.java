@@ -86,4 +86,10 @@ public class SubscriptExpression
     {
         return Objects.hash(base, index);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

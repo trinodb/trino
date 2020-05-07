@@ -90,4 +90,16 @@ public class IntervalDayTimeDataType
     {
         return Objects.hash(from, to);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        IntervalDayTimeDataType otherType = (IntervalDayTimeDataType) other;
+        return from.equals(otherType.from) &&
+                to == otherType.to;
+    }
 }

@@ -109,4 +109,15 @@ public class QuantifiedComparisonExpression
     {
         return Objects.hash(operator, quantifier, value, subquery);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        QuantifiedComparisonExpression otherNode = (QuantifiedComparisonExpression) other;
+        return operator == otherNode.operator && quantifier == otherNode.quantifier;
+    }
 }

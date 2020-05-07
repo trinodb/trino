@@ -78,4 +78,10 @@ public final class Row
         Row other = (Row) obj;
         return Objects.equals(this.items, other.items);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }
