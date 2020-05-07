@@ -15,19 +15,15 @@ package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.CountingMockConnector;
 import io.prestosql.testing.CountingMockConnector.MetadataCallsCount;
 import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestInformationSchemaConnector
@@ -186,17 +182,26 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1)
                         .withListTablesCount(2)
                         .withGetColumnsCount(1000));
+
+        // Empty table schema and table name
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = '' AND table_name = ''",
+                "VALUES 0",
+                new MetadataCallsCount());
+
+        // Empty table schema
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''",
                 "VALUES 0",
-                new MetadataCallsCount());
-    }
+                new MetadataCallsCount()
+                        .withListTablesCount(1));
 
-    @Test
-    public void testInformationForEmptyNames()
-    {
-        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''");
-        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = ''");
+        // Empty table name
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = ''",
+                "VALUES 0",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1));
     }
 
     @Override
@@ -229,14 +234,5 @@ public class TestInformationSchemaConnector
         });
 
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
-    }
-
-    private void assertNoTableScan(String query)
-    {
-        assertFalse(searchFrom(getQueryRunner().createPlan(getSession(), query, WarningCollector.NOOP).getRoot())
-                        .where(TableScanNode.class::isInstance)
-                        .findFirst()
-                        .isPresent(),
-                "TableScanNode was not expected");
     }
 }
