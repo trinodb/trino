@@ -1930,7 +1930,7 @@ public class HiveMetadata
         checkArgument(!handle.getAnalyzePartitionValues().isPresent() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, new HiveIdentity(session), handle, constraint);
-        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint.getColumns());
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint.getPredicateColumns());
 
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getCompactEffectivePredicate().equals(newHandle.getCompactEffectivePredicate()) &&
