@@ -67,5 +67,19 @@ public class Kerberos
             container.setDockerImageName(dockerImageName);
             container.withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos.yaml"), CONTAINER_TEMPTO_PROFILE_CONFIG, READ_ONLY);
         });
+        builder.configureContainer("cli", container -> {
+            container
+                    .withEnv(
+                            "PRESTO_CLI_OPTS",
+                            "" +
+                                    "--server https://presto-master.docker.cluster:7778 " +
+                                    "--keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks " +
+                                    "--keystore-password 123456 " +
+                                    "--krb5-config-path /etc/krb5.conf " +
+                                    "--krb5-principal presto-client/presto-master.docker.cluster@LABS.TERADATA.COM " +
+                                    "--krb5-keytab-path /etc/presto/conf/presto-client.keytab " +
+                                    "--krb5-remote-service-name presto-server " +
+                                    "--krb5-disable-remote-service-hostname-canonicalization");
+        });
     }
 }

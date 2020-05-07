@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.airline.Arguments;
@@ -123,6 +124,9 @@ public final class PrestoCli
             environment.configureContainer("cli", container -> {
                 container.addExposedPort(ENVIRONMENT_READY_PORT);
 
+                List<String> cliOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
+                        container.getEnvMap().getOrDefault("PRESTO_CLI_OPTS", ""));
+
                 ImmutableList.Builder<String> jvmOptions = ImmutableList.builder();
 
                 if (debug) {
@@ -137,6 +141,7 @@ public final class PrestoCli
                                 .add(Integer.toString(TESTS_READY_PORT))
                                 .add("java")
                                 .addAll(jvmOptions.build())
+                                .addAll(cliOptions)
                                 .addAll(cliArguments)
                                 .build().toArray(new String[0]));
             });
