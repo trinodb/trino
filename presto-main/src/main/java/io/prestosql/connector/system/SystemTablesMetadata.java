@@ -14,6 +14,7 @@
 package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.system.jdbc.JdbcTable;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -156,12 +157,24 @@ public class SystemTablesMetadata
 
         TupleDomain<ColumnHandle> oldDomain = table.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain) && !constraint.predicate().isPresent()) {
+            return Optional.empty();
+        }
+
+        SystemTable systemTable = checkAndGetTable(session, table);
+        if (systemTable instanceof JdbcTable) {
+            TupleDomain<ColumnHandle> filtered = ((JdbcTable) systemTable).applyFilter(session, new Constraint(newDomain, constraint.predicate(), constraint.getColumns()));
+            newDomain = newDomain.intersect(filtered);
+        }
+
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
+        if (newDomain.isNone()) {
+            // TODO (https://github.com/prestosql/presto/issues/3647) indicate the table scan is empty
+        }
         table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
-
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
     }
 }

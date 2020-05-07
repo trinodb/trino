@@ -72,7 +72,19 @@ public final class MetadataListing
 
     public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName)
     {
+        return listSchemas(session, metadata, accessControl, catalogName, Optional.empty());
+    }
+
+    public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName, Optional<String> schemaName)
+    {
         Set<String> schemaNames = ImmutableSet.copyOf(metadata.listSchemaNames(session, catalogName));
+        if (schemaName.isPresent()) {
+            // we don't use metadata.schemaExists(), because this would change semantics of the method (all vs visible schemas)
+            if (!schemaNames.contains(schemaName.get())) {
+                return ImmutableSortedSet.of();
+            }
+            schemaNames = ImmutableSet.of(schemaName.get());
+        }
         return ImmutableSortedSet.copyOf(accessControl.filterSchemas(session.toSecurityContext(), catalogName, schemaNames));
     }
 

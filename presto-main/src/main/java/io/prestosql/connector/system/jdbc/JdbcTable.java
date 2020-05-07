@@ -13,16 +13,33 @@
  */
 package io.prestosql.connector.system.jdbc;
 
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 
-abstract class JdbcTable
+public abstract class JdbcTable
         implements SystemTable
 {
     @Override
     public final Distribution getDistribution()
     {
         return SINGLE_COORDINATOR;
+    }
+
+    /**
+     * @param constraint a {@link Constraint} using {@link io.prestosql.connector.system.SystemColumnHandle} to identify columns
+     */
+    /*
+     * This method is not part of the SystemTable interface, because system tables do not operate on column handles,
+     * and without column handles it's currently not possible to express Constraint or ConstraintApplicationResult.
+     * TODO provide equivalent API in the SystemTable interface
+     */
+    public TupleDomain<ColumnHandle> applyFilter(ConnectorSession session, Constraint constraint)
+    {
+        return constraint.getSummary();
     }
 }
