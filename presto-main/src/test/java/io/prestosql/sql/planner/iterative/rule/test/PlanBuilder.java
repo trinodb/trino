@@ -78,6 +78,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TopNNode;
+import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
@@ -889,6 +890,18 @@ public class PlanBuilder
                 false,
                 rowNumberSymbol,
                 maxRowCountPerPartition,
+                hashSymbol);
+    }
+
+    public TopNRowNumberNode topNRowNumber(Specification specification, int maxRowCountPerPartition, Symbol rowNumberSymbol, Optional<Symbol> hashSymbol, PlanNode source)
+    {
+        return new TopNRowNumberNode(
+                idAllocator.getNextId(),
+                source,
+                specification,
+                rowNumberSymbol,
+                maxRowCountPerPartition,
+                false,
                 hashSymbol);
     }
 
