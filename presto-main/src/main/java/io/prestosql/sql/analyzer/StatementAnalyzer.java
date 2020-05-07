@@ -2334,7 +2334,9 @@ class StatementAnalyzer
                 return process(node.getFrom().get(), scope);
             }
 
-            return createScope(scope);
+            Scope result = createScope(scope);
+            analysis.setImplicitFromScope(node, result);
+            return result;
         }
 
         private void analyzeGroupingOperations(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
