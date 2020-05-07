@@ -38,10 +38,7 @@ public final class FilterUtil
         }
 
         Object value = domain.getSingleValue();
-        if (value instanceof Slice) {
-            return Optional.of(((Slice) value).toStringUtf8());
-        }
-        return Optional.empty();
+        return Optional.of(((Slice) value).toStringUtf8());
     }
 
     public static QualifiedTablePrefix tablePrefix(String catalog, Optional<String> schema, Optional<String> table)
