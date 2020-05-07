@@ -95,4 +95,15 @@ public final class Unnest
         Unnest other = (Unnest) obj;
         return Objects.equals(expressions, other.expressions) && withOrdinality == other.withOrdinality;
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        Unnest otherNode = (Unnest) other;
+        return withOrdinality == otherNode.withOrdinality;
+    }
 }

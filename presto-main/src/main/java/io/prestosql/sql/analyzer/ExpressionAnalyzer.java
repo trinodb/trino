@@ -196,7 +196,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
     private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
-    private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons = new LinkedHashSet<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
@@ -280,7 +280,7 @@ public class ExpressionAnalyzer
         return unmodifiableSet(subqueryInPredicates);
     }
 
-    public Map<NodeRef<Expression>, FieldId> getColumnReferences()
+    public Map<NodeRef<Expression>, ResolvedField> getColumnReferences()
     {
         return unmodifiableMap(columnReferences);
     }
@@ -436,11 +436,8 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Reference to column '%s' from outer scope not allowed in this context", node);
             }
 
-            return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getField(), context);
-        }
-
-        private Type handleResolvedField(Expression node, FieldId fieldId, Field field, StackableAstVisitorContext<Context> context)
-        {
+            FieldId fieldId = FieldId.from(resolvedField);
+            Field field = resolvedField.getField();
             if (context.getContext().isInLambda()) {
                 LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getFieldToLambdaArgumentDeclaration().get(fieldId);
                 if (lambdaArgumentDeclaration != null) {
@@ -458,8 +455,9 @@ public class ExpressionAnalyzer
                     .getSourceNode()
                     .ifPresent(source -> referencedFields.put(NodeRef.of(source), field));
 
-            FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
+            ResolvedField previous = columnReferences.put(NodeRef.of(node), resolvedField);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
+
             return setExpressionType(node, field.getType());
         }
 
@@ -1280,8 +1278,24 @@ public class ExpressionAnalyzer
         protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = Scope.builder().withParent(context.getContext().getScope()).build();
-            analyzer.analyze(node.getSubquery(), subqueryScope);
+            Scope subqueryScope = Scope.builder()
+                    .withParent(context.getContext().getScope())
+                    .build();
+
+            List<RowType.Field> fields = analyzer.analyze(node.getSubquery(), subqueryScope)
+                    .getRelationType()
+                    .getAllFields().stream()
+                    .map(field -> {
+                        if (field.getName().isPresent()) {
+                            return RowType.field(field.getName().get(), field.getType());
+                        }
+
+                        return RowType.field(field.getType());
+                    })
+                    .collect(toImmutableList());
+
+            // TODO: this should be multiset(row(...))
+            setExpressionType(node.getSubquery(), RowType.from(fields));
 
             existsSubqueries.add(NodeRef.of(node));
 
@@ -1324,8 +1338,8 @@ public class ExpressionAnalyzer
         @Override
         public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
         {
-            Field field = baseScope.getRelationType().getFieldByIndex(node.getFieldIndex());
-            return handleResolvedField(node, new FieldId(baseScope.getRelationId(), node.getFieldIndex()), field, context);
+            ResolvedField field = baseScope.getField(node.getFieldIndex());
+            return handleResolvedField(node, field, context);
         }
 
         @Override

@@ -154,5 +154,17 @@ public class RowDataType
         {
             return Objects.hash(name, type);
         }
+
+        @Override
+        public boolean shallowEquals(Node other)
+        {
+            return sameClass(this, other);
+        }
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
     }
 }

@@ -61,4 +61,10 @@ public class CurrentPath
         }
         return true;
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

@@ -109,4 +109,15 @@ public class AliasedRelation
     {
         return Objects.hash(relation, alias, columnNames);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        AliasedRelation otherRelation = (AliasedRelation) other;
+        return alias.equals(otherRelation.alias) && Objects.equals(columnNames, otherRelation.columnNames);
+    }
 }

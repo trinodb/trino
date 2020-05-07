@@ -121,4 +121,15 @@ public class FrameBound
                 .add("value", value)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        FrameBound otherNode = (FrameBound) other;
+        return type == otherNode.type;
+    }
 }

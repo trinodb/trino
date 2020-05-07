@@ -49,8 +49,13 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Symbol symbolHint)
     {
+        return newSymbol(symbolHint, null);
+    }
+
+    public Symbol newSymbol(Symbol symbolHint, String suffix)
+    {
         checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
-        return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+        return newSymbol(symbolHint.getName(), symbols.get(symbolHint), suffix);
     }
 
     public Symbol newSymbol(String nameHint, Type type)

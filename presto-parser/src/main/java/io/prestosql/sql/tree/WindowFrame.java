@@ -112,4 +112,15 @@ public class WindowFrame
                 .add("end", end)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        WindowFrame otherNode = (WindowFrame) other;
+        return type == otherNode.type;
+    }
 }

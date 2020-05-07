@@ -86,4 +86,10 @@ public class TableSubquery
     {
         return query.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

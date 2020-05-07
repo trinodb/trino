@@ -118,4 +118,17 @@ public final class Cast
     {
         return Objects.hash(expression, type, safe, typeOnly);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        Cast otherCast = (Cast) other;
+        return safe == otherCast.safe &&
+                typeOnly == otherCast.typeOnly &&
+                type.equals(otherCast.type); // type is currently not returned via getChildren(), so it's considered part of the shallow state
+    }
 }

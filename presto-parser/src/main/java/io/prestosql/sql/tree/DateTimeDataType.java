@@ -93,4 +93,17 @@ public class DateTimeDataType
     {
         return Objects.hash(type, withTimeZone, precision);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        DateTimeDataType otherType = (DateTimeDataType) other;
+        return type.equals(otherType.type) &&
+                withTimeZone == otherType.withTimeZone &&
+                precision.equals(otherType.precision);
+    }
 }

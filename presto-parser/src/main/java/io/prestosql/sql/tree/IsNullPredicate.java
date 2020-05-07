@@ -79,4 +79,10 @@ public class IsNullPredicate
     {
         return value.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

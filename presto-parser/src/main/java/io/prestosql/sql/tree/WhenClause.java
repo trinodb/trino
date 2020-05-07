@@ -84,4 +84,10 @@ public class WhenClause
     {
         return Objects.hash(operand, result);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

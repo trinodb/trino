@@ -262,7 +262,7 @@ public class LogicalPlanner
         Scope scope = analysis.getScope(statement);
         Symbol outputSymbol = symbolAllocator.newSymbol(scope.getRelationType().getFieldByIndex(0));
         root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, statement.isVerbose());
-        return new RelationPlan(root, scope, ImmutableList.of(outputSymbol));
+        return new RelationPlan(root, scope, ImmutableList.of(outputSymbol), Optional.empty());
     }
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
@@ -306,7 +306,7 @@ public class LogicalPlanner
                 symbolAllocator.newSymbol("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
-        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols());
+        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols(), Optional.empty());
     }
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
@@ -317,7 +317,7 @@ public class LogicalPlanner
         RelationPlan plan = createRelationPlan(analysis, query);
         if (!create.isCreateTableAsSelectWithData()) {
             PlanNode root = new LimitNode(idAllocator.getNextId(), plan.getRoot(), 0L, false);
-            plan = new RelationPlan(root, plan.getScope(), plan.getFieldMappings());
+            plan = new RelationPlan(root, plan.getScope(), plan.getFieldMappings(), Optional.empty());
         }
 
         ConnectorTableMetadata tableMetadata = create.getMetadata().get();
@@ -392,7 +392,7 @@ public class LogicalPlanner
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
-        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
+        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
 
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
@@ -493,7 +493,7 @@ public class LogicalPlanner
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
-            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
+            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
         }
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -515,7 +515,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
     }
 
     /*
@@ -568,7 +568,7 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
+        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session)
                 .plan(node);
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -579,7 +579,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols());
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
@@ -605,7 +605,7 @@ public class LogicalPlanner
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session)
                 .process(query, null);
     }
 
