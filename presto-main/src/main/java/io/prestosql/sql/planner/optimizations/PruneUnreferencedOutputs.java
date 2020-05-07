@@ -86,6 +86,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Sets.intersection;
@@ -387,6 +388,14 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Set<Symbol>> context)
         {
+            Map<Symbol, WindowNode.Function> prunedFunctions = node.getWindowFunctions().entrySet().stream()
+                    .filter(entry -> context.get().contains(entry.getKey()))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            if (prunedFunctions.isEmpty()) {
+                return context.rewrite(node.getSource(), context.get());
+            }
+
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
                     .addAll(node.getPartitionBy());
@@ -395,43 +404,21 @@ public class PruneUnreferencedOutputs
                     orderingScheme.getOrderBy()
                             .forEach(expectedInputs::add));
 
-            for (WindowNode.Frame frame : node.getFrames()) {
-                if (frame.getStartValue().isPresent()) {
-                    expectedInputs.add(frame.getStartValue().get());
-                }
-                if (frame.getEndValue().isPresent()) {
-                    expectedInputs.add(frame.getEndValue().get());
-                }
-            }
-
             if (node.getHashSymbol().isPresent()) {
                 expectedInputs.add(node.getHashSymbol().get());
             }
 
-            ImmutableMap.Builder<Symbol, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                Symbol symbol = entry.getKey();
-                WindowNode.Function function = entry.getValue();
-
-                if (context.get().contains(symbol)) {
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(function));
-                    functionsBuilder.put(symbol, entry.getValue());
-                }
-            }
+            prunedFunctions.values().stream()
+                    .map(SymbolsExtractor::extractUnique)
+                    .forEach(expectedInputs::addAll);
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-
-            Map<Symbol, WindowNode.Function> functions = functionsBuilder.build();
-
-            if (functions.size() == 0) {
-                return source;
-            }
 
             return new WindowNode(
                     node.getId(),
                     source,
                     node.getSpecification(),
-                    functions,
+                    prunedFunctions,
                     node.getHashSymbol(),
                     node.getPrePartitionedInputs(),
                     node.getPreSortedOrderPrefix());
