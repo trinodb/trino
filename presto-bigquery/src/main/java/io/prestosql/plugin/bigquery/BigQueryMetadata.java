@@ -294,7 +294,7 @@ public class BigQueryMetadata
             Constraint constraint)
     {
         log.debug("applyFilter(session=%s, handle=%s, summary=%s, predicate=%s, columns=%s)",
-                session, handle, constraint.getSummary(), constraint.predicate(), constraint.getColumns());
+                session, handle, constraint.getSummary(), constraint.predicate(), constraint.getPredicateColumns());
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
 
         TupleDomain<ColumnHandle> oldDomain = bigQueryTableHandle.getConstraint();
