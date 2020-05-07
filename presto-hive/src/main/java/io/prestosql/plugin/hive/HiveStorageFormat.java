@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.prestosql.plugin.hive.csv.BetterCsvSerde;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
@@ -28,7 +29,6 @@ import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
-import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
@@ -91,7 +91,7 @@ public enum HiveStorageFormat
             HiveIgnoreKeyTextOutputFormat.class.getName(),
             DataSize.of(8, Unit.MEGABYTE)),
     CSV(
-            OpenCSVSerde.class.getName(),
+            BetterCsvSerde.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
             DataSize.of(8, Unit.MEGABYTE));

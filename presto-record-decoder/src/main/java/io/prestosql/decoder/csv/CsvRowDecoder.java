@@ -13,7 +13,8 @@
  */
 package io.prestosql.decoder.csv;
 
-import au.com.bytecode.opencsv.CSVParser;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.decoder.RowDecoder;
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 /**
- * Decode row as CSV. This is an extremely primitive CSV decoder using {@link au.com.bytecode.opencsv.CSVParser]}.
+ * Decode row as CSV. This is an extremely primitive CSV decoder using {@link com.univocity.parsers.csv.CsvParser]}.
  */
 public class CsvRowDecoder
         implements RowDecoder
@@ -36,13 +37,16 @@ public class CsvRowDecoder
     public static final String NAME = "csv";
 
     private final Map<DecoderColumnHandle, CsvColumnDecoder> columnDecoders;
-    private final CSVParser parser = new CSVParser();
+    private final CsvParser parser;
 
     public CsvRowDecoder(Set<DecoderColumnHandle> columnHandles)
     {
         requireNonNull(columnHandles, "columnHandles is null");
         columnDecoders = columnHandles.stream()
                 .collect(toImmutableMap(identity(), this::createColumnDecoder));
+        CsvParserSettings settings = new CsvParserSettings();
+        settings.setNullValue(""); // todo crlf too?
+        parser = new CsvParser(settings);
     }
 
     private CsvColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle)

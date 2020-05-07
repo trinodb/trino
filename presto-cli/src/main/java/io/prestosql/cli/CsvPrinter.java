@@ -13,8 +13,9 @@
  */
 package io.prestosql.cli;
 
-import au.com.bytecode.opencsv.CSVWriter;
 import com.google.common.collect.ImmutableList;
+import com.univocity.parsers.csv.CsvWriter;
+import com.univocity.parsers.csv.CsvWriterSettings;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -30,7 +31,8 @@ public class CsvPrinter
         implements OutputPrinter
 {
     private final List<String> fieldNames;
-    private final CSVWriter writer;
+    private final CsvWriter writer;
+    private final CsvWriterSettings writerSettings;
 
     private boolean needHeader;
 
@@ -66,7 +68,14 @@ public class CsvPrinter
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) : new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER);
+        this.writerSettings = new CsvWriterSettings();
+        if (csvOutputFormat.isQuoted()) {
+            writerSettings.setQuoteAllFields(true);
+        }
+        else {
+            writerSettings.setQuoteAllFields(false);
+        }
+        this.writer = new CsvWriter(writer, writerSettings);
         this.needHeader = csvOutputFormat.showHeader();
     }
 
@@ -76,12 +85,11 @@ public class CsvPrinter
     {
         if (needHeader) {
             needHeader = false;
-            writer.writeNext(toStrings(fieldNames));
+            writer.writeRow(toStrings(fieldNames));
         }
 
         for (List<?> row : rows) {
-            writer.writeNext(toStrings(row));
-            checkError();
+            writer.writeRow(toStrings(row));
         }
     }
 
@@ -91,15 +99,6 @@ public class CsvPrinter
     {
         printRows(ImmutableList.of(), true);
         writer.flush();
-        checkError();
-    }
-
-    private void checkError()
-            throws IOException
-    {
-        if (writer.checkError()) {
-            throw new IOException("error writing to output");
-        }
     }
 
     private static String[] toStrings(List<?> values)

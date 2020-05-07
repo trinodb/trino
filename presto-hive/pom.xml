@@ -340,6 +340,11 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.univocity</groupId>
+            <artifactId>univocity-parsers</artifactId>
+        </dependency>
     </dependencies>
 
     <profiles>

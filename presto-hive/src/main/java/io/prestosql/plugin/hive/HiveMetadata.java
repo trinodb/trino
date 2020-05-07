@@ -32,6 +32,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.prestosql.plugin.hive.csv.BetterCsvSerde;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
@@ -97,7 +98,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.serde.serdeConstants;
-import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
@@ -274,9 +274,9 @@ public class HiveMetadata
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
     public static final String DELTA_LAKE_PROVIDER = "delta";
 
-    private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
-    private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
-    private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
+    private static final String CSV_SEPARATOR_KEY = BetterCsvSerde.SEPARATORCHAR;
+    private static final String CSV_QUOTE_KEY = BetterCsvSerde.QUOTECHAR;
+    private static final String CSV_ESCAPE_KEY = BetterCsvSerde.ESCAPECHAR;
 
     private final boolean allowCorruptWritesForTesting;
     private final CatalogName catalogName;
