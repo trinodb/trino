@@ -71,6 +71,7 @@ public final class Standard
     {
         builder.addContainer("presto-master", createPrestoMaster());
         builder.addContainer("tests", createTestsContainer());
+        builder.addContainer("cli", createCliContainer());
     }
 
     @SuppressWarnings("resource")
@@ -94,6 +95,17 @@ public final class Standard
     {
         DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion)
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
+                .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
+                .waitingFor(new WaitAllStrategy()) // don't wait
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy());
+
+        return container;
+    }
+
+    @SuppressWarnings("resource")
+    private DockerContainer createCliContainer()
+    {
+        DockerContainer container = new DockerContainer("prestodev/centos7-oj11:" + imagesVersion)
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy());

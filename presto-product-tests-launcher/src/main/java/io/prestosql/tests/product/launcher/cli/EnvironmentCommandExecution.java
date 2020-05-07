@@ -64,6 +64,7 @@ public class EnvironmentCommandExecution
             log.info("Trying to reuse the environment '%s'", environment);
             Environment environment = getEnvironment();
             environment.reuse();
+            environment.start();
             run(environment);
             return;
         }

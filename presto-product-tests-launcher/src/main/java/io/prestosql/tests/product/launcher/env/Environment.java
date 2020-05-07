@@ -67,6 +67,7 @@ public final class Environment
 
     public void reuse()
     {
+        // This requires testcontainers.reuse.enable=true in ~/.testcontainers.properties
         containers.values()
                 .forEach(container -> container.withReuse(true));
     }

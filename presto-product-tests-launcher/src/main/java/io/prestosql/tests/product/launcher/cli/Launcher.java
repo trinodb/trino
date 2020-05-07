@@ -45,6 +45,11 @@ public class Launcher
                 .withDefaultCommand(Help.class) // TODO should be group aware https://github.com/airlift/airline/issues/72? Otherwise it's required until https://github.com/airlift/airline/pull/71
                 .withCommand(TestRun.class);
 
+        cli
+                .withGroup("cli")
+                .withDefaultCommand(Help.class) // TODO should be group aware https://github.com/airlift/airline/issues/72? Otherwise it's required until https://github.com/airlift/airline/pull/71
+                .withCommand(PrestoCli.class);
+
         cli.build().parse(commandFactory, args).run();
     }
 
