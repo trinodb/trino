@@ -13,15 +13,12 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
-import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.PathResolver;
@@ -29,20 +26,15 @@ import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
-import io.prestosql.tests.product.launcher.env.Environments;
-import org.testcontainers.containers.Container;
 
 import javax.inject.Inject;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.cli.EnvironmentCommandExecution.ENVIRONMENT_READY_PORT;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
@@ -52,8 +44,6 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 public final class TestRun
         implements Runnable
 {
-    private static final Logger log = Logger.get(TestRun.class);
-
     @Inject
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
@@ -107,68 +97,33 @@ public final class TestRun
     {
         private static final int TESTS_READY_PORT = 1970;
 
-        private final EnvironmentFactory environmentFactory;
         private final PathResolver pathResolver;
         private final boolean debug;
         private final File testJar;
         private final List<String> testArguments;
-        private final String environment;
-        private final Boolean reuse;
+        private EnvironmentCommandExecution execution;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
         {
-            this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
-            this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
-            this.reuse  = requireNonNull(testRunOptions.reuse, "testRunOptions.reuse is null");
+            execution = new EnvironmentCommandExecution(environmentFactory, testRunOptions.environment, testRunOptions.reuse, this::extendEnvironment, "tests");
         }
 
         @Override
         public void run()
         {
-            if (reuse) {
-                log.info("Trying to reuse the environment '%s'", environment);
-                Environment environment = getEnvironment();
-                runTests(environment);
-                return;
-            }
-
-            try (UncheckedCloseable ignore = this::cleanUp) {
-                log.info("Pruning old environment(s)");
-                Environments.pruneEnvironment();
-
-                Environment environment = getEnvironment();
-
-                log.info("Starting the environment '%s'", environment);
-                environment.start();
-                log.info("Environment '%s' started", environment);
-
-                runTests(environment);
-            }
-            catch (Throwable e) {
-                // log failure (tersely) because cleanup may take some time
-                log.error("Failure: %s", e);
-                throw e;
-            }
+            execution.run();
         }
 
-        private void cleanUp()
+        private void extendEnvironment(Environment.Builder environment)
         {
-            log.info("Done, cleaning up");
-            Environments.pruneEnvironment();
-        }
-
-        private Environment getEnvironment()
-        {
-            Environment.Builder environment = environmentFactory.get(this.environment);
-
             environment.configureContainer("tests", container -> {
-                container.addExposedPort(TESTS_READY_PORT);
+                container.addExposedPort(ENVIRONMENT_READY_PORT);
 
                 List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
                         container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
@@ -208,48 +163,6 @@ public final class TestRun
                                 .addAll(testArguments)
                                 .build().toArray(new String[0]));
             });
-
-            return environment.build();
         }
-
-        private void runTests(Environment environment)
-        {
-            log.info("Starting test execution");
-            Container<?> container = environment.getContainer("tests");
-            try {
-                // Release waiter to let the tests run
-                new Socket(container.getContainerIpAddress(), container.getMappedPort(TESTS_READY_PORT)).close();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-
-            log.info("Waiting for test completion");
-            try {
-                while (container.isRunning()) {
-                    Thread.sleep(1000);
-                }
-
-                InspectContainerResponse containerInfo = container.getCurrentContainerInfo();
-                ContainerState containerState = containerInfo.getState();
-                Integer exitCode = containerState.getExitCode();
-                log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
-                checkState(exitCode != null, "No exitCode for tests container %s in state %s", container, containerState);
-                if (exitCode != 0) {
-                    throw new RuntimeException("Tests exited with " + exitCode);
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted", e);
-            }
-        }
-    }
-
-    private interface UncheckedCloseable
-            extends AutoCloseable
-    {
-        @Override
-        void close();
     }
 }

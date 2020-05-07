@@ -65,6 +65,12 @@ public final class Environment
         }
     }
 
+    public void reuse()
+    {
+        containers.values()
+                .forEach(container -> container.withReuse(true));
+    }
+
     public Container<?> getContainer(String name)
     {
         return Optional.ofNullable(containers.get(requireNonNull(name, "name is null")))
