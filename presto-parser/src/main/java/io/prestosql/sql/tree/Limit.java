@@ -85,4 +85,14 @@ public class Limit
                 .add("limit", limit)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return limit.equals(((Limit) other).limit);
+    }
 }

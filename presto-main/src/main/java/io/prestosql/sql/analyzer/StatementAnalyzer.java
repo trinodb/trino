@@ -55,6 +55,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.SqlPath;
+import io.prestosql.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.Analysis.UnnestAnalysis;
 import io.prestosql.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
@@ -152,7 +153,6 @@ import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
 import io.prestosql.sql.tree.With;
 import io.prestosql.sql.tree.WithQuery;
-import io.prestosql.sql.util.AstUtils;
 import io.prestosql.type.TypeCoercion;
 
 import java.util.ArrayList;
@@ -226,7 +226,6 @@ import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static io.prestosql.sql.analyzer.Scope.BasisType.TABLE;
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
-import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionOptimizer;
@@ -1103,7 +1102,7 @@ class StatementAnalyzer
             List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
             filters.forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
 
-            analysis.registerTable(table, tableHandle, name, filters, columnMasks.build(), authorization);
+            analysis.registerTable(table, tableHandle, name, filters, columnMasks.build(), authorization, accessControlScope);
         }
 
         private Scope createScopeForCommonTableExpression(Table table, Optional<Scope> scope, WithQuery withQuery)
@@ -1286,7 +1285,7 @@ class StatementAnalyzer
             node.getWhere().ifPresent(where -> analyzeWhere(node, sourceScope, where));
 
             List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
-            List<Expression> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
+            GroupingSetAnalysis groupByAnalysis = analyzeGroupBy(node, sourceScope, outputExpressions);
             analyzeHaving(node, sourceScope);
 
             Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope);
@@ -1322,22 +1321,20 @@ class StatementAnalyzer
                 }
             }
 
-            List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
+            List<Expression> sourceExpressions = new ArrayList<>(analysis.getSelectExpressions(node).stream().map(SelectExpression::getExpression).collect(Collectors.toList()));
             node.getHaving().ifPresent(sourceExpressions::add);
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
-            analyzeAggregations(node, sourceScope, orderByScope, groupByExpressions, sourceExpressions, orderByExpressions);
+            analyzeAggregations(node, sourceScope, orderByScope, groupByAnalysis, sourceExpressions, orderByExpressions);
             analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
             if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
-                // Create a different scope for ORDER BY expressions when aggregation is present.
-                // This is because planner requires scope in order to resolve names against fields.
-                // Original ORDER BY scope "sees" FROM query fields. However, during planning
-                // and when aggregation is present, ORDER BY expressions should only be resolvable against
-                // output scope, group by expressions and aggregation expressions.
-                List<GroupingOperation> orderByGroupingOperations = extractExpressions(orderByExpressions, GroupingOperation.class);
-                List<FunctionCall> orderByAggregations = extractAggregateFunctions(orderByExpressions, metadata);
-                computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), sourceScope, outputScope, orderByAggregations, groupByExpressions, orderByGroupingOperations);
+                ImmutableList.Builder<Expression> aggregates = ImmutableList.<Expression>builder()
+                        .addAll(groupByAnalysis.getOriginalExpressions())
+                        .addAll(extractAggregateFunctions(orderByExpressions, metadata))
+                        .addAll(extractExpressions(orderByExpressions, GroupingOperation.class));
+
+                analysis.setOrderByAggregates(node.getOrderBy().get(), aggregates.build());
             }
 
             return outputScope;
@@ -1601,8 +1598,10 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
+            Scope valuesScope = createScope(scope);
+
             List<List<Type>> rowTypes = node.getRows().stream()
-                    .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
+                    .map(row -> analyzeExpression(row, valuesScope).getType(row))
                     .map(type -> {
                         if (type instanceof RowType) {
                             return type.getTypeParameters();
@@ -1886,7 +1885,7 @@ class StatementAnalyzer
             }
         }
 
-        private List<Expression> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
+        private GroupingSetAnalysis analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
         {
             if (node.getGroupBy().isPresent()) {
                 ImmutableList.Builder<Set<FieldId>> cubes = ImmutableList.builder();
@@ -1912,9 +1911,9 @@ class StatementAnalyzer
                                 analyzeExpression(column, scope);
                             }
 
-                            FieldId field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
+                            ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
                             if (field != null) {
-                                sets.add(ImmutableList.of(ImmutableSet.of(field)));
+                                sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
@@ -1939,6 +1938,7 @@ class StatementAnalyzer
                             Set<FieldId> cube = groupingElement.getExpressions().stream()
                                     .map(NodeRef::of)
                                     .map(analysis.getColumnReferenceFields()::get)
+                                    .map(ResolvedField::getFieldId)
                                     .collect(toImmutableSet());
 
                             cubes.add(cube);
@@ -1947,6 +1947,7 @@ class StatementAnalyzer
                             List<FieldId> rollup = groupingElement.getExpressions().stream()
                                     .map(NodeRef::of)
                                     .map(analysis.getColumnReferenceFields()::get)
+                                    .map(ResolvedField::getFieldId)
                                     .collect(toImmutableList());
 
                             rollups.add(rollup);
@@ -1956,6 +1957,7 @@ class StatementAnalyzer
                                     .map(set -> set.stream()
                                             .map(NodeRef::of)
                                             .map(analysis.getColumnReferenceFields()::get)
+                                            .map(ResolvedField::getFieldId)
                                             .collect(toImmutableSet()))
                                     .collect(toImmutableList());
 
@@ -1972,17 +1974,19 @@ class StatementAnalyzer
                     }
                 }
 
-                analysis.setGroupByExpressions(node, expressions);
-                analysis.setGroupingSets(node, new Analysis.GroupingSetAnalysis(cubes.build(), rollups.build(), sets.build(), complexExpressions.build()));
+                GroupingSetAnalysis groupingSets = new GroupingSetAnalysis(expressions, cubes.build(), rollups.build(), sets.build(), complexExpressions.build());
+                analysis.setGroupingSets(node, groupingSets);
 
-                return expressions;
+                return groupingSets;
             }
+
+            GroupingSetAnalysis result = new GroupingSetAnalysis(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
 
             if (hasAggregates(node) || node.getHaving().isPresent()) {
-                analysis.setGroupByExpressions(node, ImmutableList.of());
+                analysis.setGroupingSets(node, result);
             }
 
-            return ImmutableList.of();
+            return result;
         }
 
         private boolean hasAggregates(QuerySpecification node)
@@ -2057,50 +2061,6 @@ class StatementAnalyzer
                     .build();
             analysis.setScope(node, orderByScope);
             return orderByScope;
-        }
-
-        private void computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope sourceScope, Scope outputScope, List<FunctionCall> aggregations, List<Expression> groupByExpressions, List<GroupingOperation> groupingOperations)
-        {
-            // This scope is only used for planning. When aggregation is present then
-            // only output fields, groups and aggregation expressions should be visible from ORDER BY expression
-            ImmutableList.Builder<Expression> orderByAggregationExpressionsBuilder = ImmutableList.<Expression>builder()
-                    .addAll(groupByExpressions)
-                    .addAll(aggregations)
-                    .addAll(groupingOperations);
-
-            // Don't add aggregate complex expressions that contains references to output column because the names would clash in TranslationMap during planning.
-            List<Expression> orderByExpressionsReferencingOutputScope = AstUtils.preOrder(node)
-                    .filter(Expression.class::isInstance)
-                    .map(Expression.class::cast)
-                    .filter(expression -> hasReferencesToScope(expression, analysis, outputScope))
-                    .collect(toImmutableList());
-            List<Expression> orderByAggregationExpressions = orderByAggregationExpressionsBuilder.build().stream()
-                    .filter(expression -> !orderByExpressionsReferencingOutputScope.contains(expression) || analysis.isColumnReference(expression))
-                    .collect(toImmutableList());
-
-            // generate placeholder fields
-            Set<Field> seen = new HashSet<>();
-            List<Field> orderByAggregationSourceFields = orderByAggregationExpressions.stream()
-                    .map(expression -> {
-                        // generate qualified placeholder field for GROUP BY expressions that are column references
-                        Optional<Field> sourceField = sourceScope.tryResolveField(expression)
-                                .filter(resolvedField -> seen.add(resolvedField.getField()))
-                                .map(ResolvedField::getField);
-                        return sourceField
-                                .orElse(Field.newUnqualified(Optional.empty(), analysis.getType(expression)));
-                    })
-                    .collect(toImmutableList());
-
-            Scope orderByAggregationScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(orderByAggregationSourceFields))
-                    .build();
-
-            Scope orderByScope = Scope.builder()
-                    .withParent(orderByAggregationScope)
-                    .withRelationType(outputScope.getRelationId(), outputScope.getRelationType())
-                    .build();
-            analysis.setScope(node, orderByScope);
-            analysis.setOrderByAggregates(node, orderByAggregationExpressions);
         }
 
         private List<Expression> analyzeSelect(QuerySpecification node, Scope scope)
@@ -2353,7 +2313,7 @@ class StatementAnalyzer
                 QuerySpecification node,
                 Scope sourceScope,
                 Optional<Scope> orderByScope,
-                List<Expression> groupByExpressions,
+                GroupingSetAnalysis groupByAnalysis,
                 List<Expression> outputExpressions,
                 List<Expression> orderByExpressions)
         {
@@ -2368,7 +2328,7 @@ class StatementAnalyzer
                 //     SELECT f(a) GROUP BY a
                 //     SELECT f(a + 1) GROUP BY a + 1
                 //     SELECT a + sum(b) GROUP BY a
-                List<Expression> distinctGroupingColumns = ImmutableSet.copyOf(groupByExpressions).asList();
+                List<Expression> distinctGroupingColumns = ImmutableSet.copyOf(groupByAnalysis.getOriginalExpressions()).asList();
 
                 for (Expression expression : outputExpressions) {
                     verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);

@@ -24,15 +24,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class AstUtils
 {
-    public static boolean nodeContains(Node node, Node subNode)
-    {
-        requireNonNull(node, "node is null");
-        requireNonNull(subNode, "subNode is null");
-
-        return preOrder(node)
-                .anyMatch(childNode -> childNode == subNode);
-    }
-
     public static Stream<Node> preOrder(Node node)
     {
         return stream(

@@ -16,25 +16,21 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.graph.SuccessorsFunction;
+import com.google.common.graph.Traverser;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.SimplePlanRewriter;
-import io.prestosql.sql.planner.plan.UnnestNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
-import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Node;
@@ -44,25 +40,26 @@ import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.SubqueryExpression;
-import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.util.MorePredicates;
+import io.prestosql.type.TypeCoercion;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.prestosql.sql.planner.PlanBuilder.newPlanBuilder;
+import static io.prestosql.sql.planner.QueryPlanner.coerce;
+import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.prestosql.sql.util.AstUtils.nodeContains;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -73,6 +70,7 @@ class SubqueryPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final Metadata metadata;
+    private final TypeCoercion typeCoercion;
     private final Session session;
 
     SubqueryPlanner(
@@ -81,6 +79,8 @@ class SubqueryPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
+            TypeCoercion typeCoercion,
+            Optional<TranslationMap> outerContext,
             Session session)
     {
         requireNonNull(analysis, "analysis is null");
@@ -88,6 +88,8 @@ class SubqueryPlanner
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
+        requireNonNull(typeCoercion, "typeCoercion is null");
+        requireNonNull(outerContext, "outerContext is null");
         requireNonNull(session, "session is null");
 
         this.analysis = analysis;
@@ -95,6 +97,7 @@ class SubqueryPlanner
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.metadata = metadata;
+        this.typeCoercion = typeCoercion;
         this.session = session;
     }
 
@@ -108,225 +111,239 @@ class SubqueryPlanner
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
     {
-        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), node);
-        builder = appendScalarSubqueryCorrelatedJoins(builder, collectScalarSubqueries(expression, node));
-        builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node));
-        builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), node);
+        for (List<InPredicate> cluster : cluster(selectSubqueries(builder, expression, analysis.getInPredicateSubqueries(node)))) {
+            builder = planInPredicate(builder, cluster, node);
+        }
+        for (List<SubqueryExpression> cluster : cluster(selectSubqueries(builder, expression, analysis.getScalarSubqueries(node)))) {
+            builder = planScalarSubquery(builder, cluster);
+        }
+        for (List<ExistsPredicate> cluster : cluster(selectSubqueries(builder, expression, analysis.getExistsSubqueries(node)))) {
+            builder = planExists(builder, cluster);
+        }
+        for (List<QuantifiedComparisonExpression> cluster : cluster(selectSubqueries(builder, expression, analysis.getQuantifiedComparisonSubqueries(node)))) {
+            builder = planQuantifiedComparison(builder, cluster, node);
+        }
+
         return builder;
     }
 
-    public Set<InPredicate> collectInPredicateSubqueries(Expression expression, Node node)
+    /**
+     * Find subqueries from the candidate set that are children of the given parent
+     * and that have not already been handled in the subplan
+     */
+    private <T extends Expression> List<T> selectSubqueries(PlanBuilder subPlan, Expression parent, List<T> candidates)
     {
-        return analysis.getInPredicateSubqueries(node)
+        SuccessorsFunction<Node> recurse = expression -> {
+            if (expression instanceof Expression &&
+                    !analysis.isColumnReference((Expression) expression) && // no point in following dereference chains
+                    !subPlan.canTranslate((Expression) expression)) { // don't consider subqueries under parts of the expression that have already been handled
+                return expression.getChildren();
+            }
+
+            return ImmutableList.of();
+        };
+
+        Iterable<Node> allSubExpressions = Traverser.forTree(recurse).depthFirstPreOrder(parent);
+
+        return candidates
                 .stream()
-                .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
-                .collect(toImmutableSet());
+                .filter(candidate -> stream(allSubExpressions).anyMatch(child -> child == candidate))
+                .filter(candidate -> !subPlan.canTranslate(candidate))
+                .collect(toImmutableList());
     }
 
-    public Set<SubqueryExpression> collectScalarSubqueries(Expression expression, Node node)
+    /**
+     * Group expressions into clusters such that all entries in a cluster are #equals to each other
+     */
+    private <T extends Expression> Collection<List<T>> cluster(List<T> expressions)
     {
-        return analysis.getScalarSubqueries(node)
-                .stream()
-                .filter(subquery -> nodeContains(expression, subquery))
-                .collect(toImmutableSet());
-    }
+        Map<T, List<T>> sets = new LinkedHashMap<>();
 
-    public Set<ExistsPredicate> collectExistsSubqueries(Expression expression, Node node)
-    {
-        return analysis.getExistsSubqueries(node)
-                .stream()
-                .filter(subquery -> nodeContains(expression, subquery))
-                .collect(toImmutableSet());
-    }
-
-    public Set<QuantifiedComparisonExpression> collectQuantifiedComparisonSubqueries(Expression expression, Node node)
-    {
-        return analysis.getQuantifiedComparisonSubqueries(node)
-                .stream()
-                .filter(quantifiedComparison -> nodeContains(expression, quantifiedComparison.getSubquery()))
-                .collect(toImmutableSet());
-    }
-
-    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates, Node node)
-    {
-        for (InPredicate inPredicate : inPredicates) {
-            subPlan = appendInPredicateApplyNode(subPlan, inPredicate, node);
-        }
-        return subPlan;
-    }
-
-    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, Node node)
-    {
-        if (subPlan.canTranslate(inPredicate)) {
-            // given subquery is already appended
-            return subPlan;
+        for (T expression : expressions) {
+            sets.computeIfAbsent(expression, key -> new ArrayList<>())
+                    .add(expression);
         }
 
-        subPlan = handleSubqueries(subPlan, inPredicate.getValue(), node);
-
-        subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
-
-        checkState(inPredicate.getValueList() instanceof SubqueryExpression);
-        SubqueryExpression valueListSubquery = (SubqueryExpression) inPredicate.getValueList();
-        SubqueryExpression uncoercedValueListSubquery = uncoercedSubquery(valueListSubquery);
-        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedValueListSubquery);
-
-        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), symbolAllocator, idAllocator);
-        SymbolReference valueList = subqueryPlan.translate(valueListSubquery).toSymbolReference();
-
-        Symbol rewrittenValue = subPlan.translate(inPredicate.getValue());
-        InPredicate inPredicateSubqueryExpression = new InPredicate(rewrittenValue.toSymbolReference(), valueList);
-        Symbol inPredicateSubquerySymbol = symbolAllocator.newSymbol(inPredicateSubqueryExpression, BOOLEAN);
-
-        subPlan.getTranslations().put(inPredicate, inPredicateSubquerySymbol);
-
-        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression));
+        return sets.values();
     }
 
-    private PlanBuilder appendScalarSubqueryCorrelatedJoins(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries)
+    private PlanBuilder planInPredicate(PlanBuilder subPlan, List<InPredicate> cluster, Node node)
     {
-        for (SubqueryExpression scalarSubquery : scalarSubqueries) {
-            builder = appendScalarSubqueryApplyNode(builder, scalarSubquery);
-        }
-        return builder;
-    }
+        checkArgument(ImmutableSet.copyOf(cluster).size() == 1, "Cluster contains expressions that don't equal each other");
 
-    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery)
-    {
-        if (subPlan.canTranslate(scalarSubquery)) {
-            // given subquery is already appended
-            return subPlan;
-        }
+        // Plan one of the predicates from the cluster
+        InPredicate predicate = cluster.get(0);
 
-        List<Expression> coercions = coercionsFor(scalarSubquery);
+        Expression value = predicate.getValue();
+        SubqueryExpression subquery = (SubqueryExpression) predicate.getValueList();
+        Symbol output = symbolAllocator.newSymbol(predicate, BOOLEAN);
 
-        SubqueryExpression uncoercedScalarSubquery = uncoercedSubquery(scalarSubquery);
-        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedScalarSubquery);
-        subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
-        subqueryPlan = subqueryPlan.appendProjections(coercions, symbolAllocator, idAllocator);
-
-        Symbol uncoercedScalarSubquerySymbol = subqueryPlan.translate(uncoercedScalarSubquery);
-        subPlan.getTranslations().put(uncoercedScalarSubquery, uncoercedScalarSubquerySymbol);
-
-        for (Expression coercion : coercions) {
-            Symbol coercionSymbol = subqueryPlan.translate(coercion);
-            subPlan.getTranslations().put(coercion, coercionSymbol);
-        }
-
-        // The subquery's EnforceSingleRowNode always produces a row, so the join is effectively INNER
-        return appendCorrelatedJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), CorrelatedJoinNode.Type.INNER, TRUE_LITERAL);
-    }
-
-    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, CorrelatedJoinNode.Type type, Expression filterCondition)
-    {
-        PlanNode subqueryNode = subqueryPlan.getRoot();
-        Map<NodeRef<Expression>, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
-        subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
+        subPlan = handleSubqueries(subPlan, value, node);
+        subPlan = planInPredicate(subPlan, value, subquery, output, predicate);
 
         return new PlanBuilder(
-                subPlan.copyTranslations(),
+                subPlan.getTranslations()
+                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                subPlan.getRoot());
+    }
+
+    /**
+     * Plans a correlated subquery for value IN (subQuery)
+     *
+     * @param originalExpression the original expression from which the IN predicate was derived. Used for subsequent translations.
+     */
+    private PlanBuilder planInPredicate(PlanBuilder subPlan, Expression value, SubqueryExpression subquery, Symbol output, Expression originalExpression)
+    {
+        // Use the current plan's translations as the outer context when planning the subquery
+        RelationPlan relationPlan = planSubquery(subquery, subPlan.getTranslations());
+        PlanBuilder subqueryPlan = newPlanBuilder(
+                relationPlan,
+                analysis,
+                lambdaDeclarationToSymbolMap,
+                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), Iterables.getOnlyElement(relationPlan.getFieldMappings())));
+
+        QueryPlanner.PlanAndMappings subqueryCoercions = coerce(subqueryPlan, ImmutableList.of(subquery), analysis, idAllocator, symbolAllocator, typeCoercion);
+        subqueryPlan = subqueryCoercions.getSubPlan();
+
+        subPlan = subPlan.appendProjections(
+                ImmutableList.of(value),
+                symbolAllocator,
+                idAllocator);
+
+        QueryPlanner.PlanAndMappings subplanCoercions = coerce(subPlan, ImmutableList.of(value), analysis, idAllocator, symbolAllocator, typeCoercion);
+        subPlan = subplanCoercions.getSubPlan();
+
+        return new PlanBuilder(
+                subPlan.getTranslations(),
+                new ApplyNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        subqueryPlan.getRoot(),
+                        Assignments.of(output, new InPredicate(
+                                subplanCoercions.get(value).toSymbolReference(),
+                                subqueryCoercions.get(subquery).toSymbolReference())),
+                        subPlan.getRoot().getOutputSymbols(),
+                        originalExpression));
+    }
+
+    private PlanBuilder planScalarSubquery(PlanBuilder subPlan, List<SubqueryExpression> cluster)
+    {
+        checkArgument(ImmutableSet.copyOf(cluster).size() == 1, "Cluster contains expressions that don't equal each other");
+
+        // Plan one of the predicates from the cluster
+        SubqueryExpression scalarSubquery = cluster.get(0);
+
+        RelationPlan relationPlan = planSubquery(scalarSubquery, subPlan.getTranslations());
+        PlanBuilder subqueryPlan = newPlanBuilder(
+                relationPlan,
+                analysis,
+                lambdaDeclarationToSymbolMap);
+
+        subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
+
+        return appendCorrelatedJoin(
+                subPlan,
+                subqueryPlan,
+                scalarSubquery.getQuery(),
+                CorrelatedJoinNode.Type.INNER,
+                TRUE_LITERAL,
+                mapAll(cluster, subPlan.getScope(), getOnlyElement(relationPlan.getFieldMappings())));
+    }
+
+    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, CorrelatedJoinNode.Type type, Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
+    {
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(mappings),
                 new CorrelatedJoinNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        subqueryNode,
-                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
+                        subqueryPlan.getRoot(),
+                        subPlan.getRoot().getOutputSymbols(),
                         type,
                         filterCondition,
                         query));
     }
 
-    private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates)
+    private PlanBuilder planExists(PlanBuilder subPlan, List<ExistsPredicate> cluster)
     {
-        for (ExistsPredicate existsPredicate : existsPredicates) {
-            builder = appendExistSubqueryApplyNode(builder, existsPredicate);
-        }
-        return builder;
-    }
+        checkArgument(ImmutableSet.copyOf(cluster).size() == 1, "Cluster contains expressions that don't equal each other");
 
-    /**
-     * Exists is modeled as:
-     * <pre>
-     *     - Project($0 > 0)
-     *       - Aggregation(COUNT(*))
-     *         - Limit(1)
-     *           -- subquery
-     * </pre>
-     */
-    private PlanBuilder appendExistSubqueryApplyNode(PlanBuilder subPlan, ExistsPredicate existsPredicate)
-    {
-        if (subPlan.canTranslate(existsPredicate)) {
-            // given subquery is already appended
-            return subPlan;
-        }
+        // Plan one of the predicates from the cluster
+        ExistsPredicate existsPredicate = cluster.get(0);
 
-        PlanBuilder subqueryPlan = createPlanBuilder(existsPredicate.getSubquery());
-
+        Expression subquery = existsPredicate.getSubquery();
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
-        subPlan.getTranslations().put(existsPredicate, exists);
-        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(TRUE_LITERAL);
-        return appendApplyNode(
-                subPlan,
-                existsPredicate.getSubquery(),
-                subqueryPlan.getRoot(),
-                Assignments.of(exists, rewrittenExistsPredicate));
+
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), exists)),
+                new ApplyNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        planSubquery(subquery, subPlan.getTranslations()).getRoot(),
+                        Assignments.of(exists, new ExistsPredicate(TRUE_LITERAL)),
+                        subPlan.getRoot().getOutputSymbols(),
+                        subquery));
     }
 
-    private PlanBuilder appendQuantifiedComparisonApplyNodes(PlanBuilder subPlan, Set<QuantifiedComparisonExpression> quantifiedComparisons, Node node)
+    private RelationPlan planSubquery(Expression subquery, TranslationMap outerContext)
     {
-        for (QuantifiedComparisonExpression quantifiedComparison : quantifiedComparisons) {
-            subPlan = appendQuantifiedComparisonApplyNode(subPlan, quantifiedComparison, node);
-        }
-        return subPlan;
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.of(outerContext), session)
+                .process(subquery, null);
     }
 
-    private PlanBuilder appendQuantifiedComparisonApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, Node node)
+    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, List<QuantifiedComparisonExpression> cluster, Node node)
     {
-        if (subPlan.canTranslate(quantifiedComparison)) {
-            // given subquery is already appended
-            return subPlan;
-        }
-        switch (quantifiedComparison.getOperator()) {
+        checkArgument(ImmutableSet.copyOf(cluster).size() == 1, "Cluster contains expressions that don't equal each other");
+
+        // Plan one of the predicates from the cluster
+        QuantifiedComparisonExpression quantifiedComparison = cluster.get(0);
+
+        ComparisonExpression.Operator operator = quantifiedComparison.getOperator();
+        Quantifier quantifier = quantifiedComparison.getQuantifier();
+        Expression value = quantifiedComparison.getValue();
+        SubqueryExpression subquery = (SubqueryExpression) quantifiedComparison.getSubquery();
+
+        subPlan = handleSubqueries(subPlan, value, node);
+
+        Symbol output = symbolAllocator.newSymbol(quantifiedComparison, BOOLEAN);
+
+        switch (operator) {
             case EQUAL:
-                switch (quantifiedComparison.getQuantifier()) {
+                switch (quantifier) {
                     case ALL:
-                        return planQuantifiedApplyNode(subPlan, quantifiedComparison);
+                        subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output);
+                        return new PlanBuilder(
+                                subPlan.getTranslations()
+                                        .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(quantifiedComparison, analysis, subPlan.getScope()), output)),
+                                subPlan.getRoot());
                     case ANY:
                     case SOME:
                         // A = ANY B <=> A IN B
-                        InPredicate inPredicate = new InPredicate(quantifiedComparison.getValue(), quantifiedComparison.getSubquery());
-                        subPlan = appendInPredicateApplyNode(subPlan, inPredicate, node);
-                        subPlan.getTranslations().put(quantifiedComparison, subPlan.translate(inPredicate));
-                        return subPlan;
+                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison);
+
+                        return new PlanBuilder(
+                                subPlan.getTranslations()
+                                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                                subPlan.getRoot());
                 }
                 break;
 
             case NOT_EQUAL:
-                switch (quantifiedComparison.getQuantifier()) {
-                    case ALL:
-                        // A <> ALL B <=> !(A IN B) <=> !(A = ANY B)
-                        QuantifiedComparisonExpression rewrittenAny = new QuantifiedComparisonExpression(
-                                EQUAL,
-                                Quantifier.ANY,
-                                quantifiedComparison.getValue(),
-                                quantifiedComparison.getSubquery());
-                        Expression notAny = new NotExpression(rewrittenAny);
-                        // "A <> ALL B" is equivalent to "NOT (A = ANY B)" so add a rewrite for the initial quantifiedComparison to notAny
-                        subPlan.getTranslations().put(quantifiedComparison, subPlan.getTranslations().rewrite(notAny));
-                        // now plan "A = ANY B" part by calling ourselves for rewrittenAny
-                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, node);
+                switch (quantifier) {
+                    case ALL: {
+                        // A <> ALL B <=> !(A IN B)
+                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison);
+                        return addNegation(subPlan, cluster, output);
+                    }
                     case ANY:
-                    case SOME:
+                    case SOME: {
                         // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
-                        QuantifiedComparisonExpression rewrittenAll = new QuantifiedComparisonExpression(
-                                EQUAL,
-                                QuantifiedComparisonExpression.Quantifier.ALL,
-                                quantifiedComparison.getValue(),
-                                quantifiedComparison.getSubquery());
-                        Expression notAll = new NotExpression(rewrittenAll);
                         // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
-                        subPlan.getTranslations().put(quantifiedComparison, subPlan.getTranslations().rewrite(notAll));
-                        // now plan "A = ALL B" part by calling ourselves for rewrittenAll
-                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAll, node);
+                        subPlan = planQuantifiedComparison(subPlan, EQUAL, Quantifier.ALL, value, subquery, output);
+                        return addNegation(subPlan, cluster, output);
+                    }
                 }
                 break;
 
@@ -334,256 +351,76 @@ class SubqueryPlanner
             case LESS_THAN_OR_EQUAL:
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return planQuantifiedApplyNode(subPlan, quantifiedComparison);
+                subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output);
+                return new PlanBuilder(
+                        subPlan.getTranslations()
+                                .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                        subPlan.getRoot());
         }
         // all cases are checked, so this exception should never be thrown
         throw new IllegalArgumentException(
-                format("Unexpected quantified comparison: '%s %s'", quantifiedComparison.getOperator().getValue(), quantifiedComparison.getQuantifier()));
-    }
-
-    private PlanBuilder planQuantifiedApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison)
-    {
-        subPlan = subPlan.appendProjections(ImmutableList.of(quantifiedComparison.getValue()), symbolAllocator, idAllocator);
-
-        checkState(quantifiedComparison.getSubquery() instanceof SubqueryExpression);
-        SubqueryExpression quantifiedSubquery = (SubqueryExpression) quantifiedComparison.getSubquery();
-
-        SubqueryExpression uncoercedQuantifiedSubquery = uncoercedSubquery(quantifiedSubquery);
-        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedQuantifiedSubquery);
-        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(quantifiedSubquery), symbolAllocator, idAllocator);
-
-        QuantifiedComparisonExpression coercedQuantifiedComparison = new QuantifiedComparisonExpression(
-                quantifiedComparison.getOperator(),
-                quantifiedComparison.getQuantifier(),
-                subPlan.translate(quantifiedComparison.getValue()).toSymbolReference(),
-                subqueryPlan.translate(quantifiedSubquery).toSymbolReference());
-
-        Symbol coercedQuantifiedComparisonSymbol = symbolAllocator.newSymbol(coercedQuantifiedComparison, BOOLEAN);
-        subPlan.getTranslations().put(quantifiedComparison, coercedQuantifiedComparisonSymbol);
-
-        return appendApplyNode(
-                subPlan,
-                quantifiedComparison.getSubquery(),
-                subqueryPlan.getRoot(),
-                Assignments.of(coercedQuantifiedComparisonSymbol, coercedQuantifiedComparison));
-    }
-
-    private static boolean isAggregationWithEmptyGroupBy(PlanNode planNode)
-    {
-        return searchFrom(planNode)
-                .recurseOnlyWhen(MorePredicates.isInstanceOfAny(ProjectNode.class))
-                .where(AggregationNode.class::isInstance)
-                .findFirst()
-                .map(AggregationNode.class::cast)
-                .map(aggregation -> aggregation.getGroupingKeys().isEmpty())
-                .orElse(false);
+                format("Unexpected quantified comparison: '%s %s'", operator.getValue(), quantifier));
     }
 
     /**
-     * Implicit coercions are added when mapping an expression to symbol in {@link TranslationMap}. Coercions
-     * for expression are obtained from {@link Analysis} by identity comparison. Create a copy of subquery
-     * in order to get a subquery expression that does not have any coercion assigned to it {@link Analysis}.
+     * Adds a negation of the given input and remaps the provided expression to the negated expression
      */
-    private SubqueryExpression uncoercedSubquery(SubqueryExpression subquery)
+    private PlanBuilder addNegation(PlanBuilder subPlan, List<? extends Expression> cluster, Symbol input)
     {
-        return new SubqueryExpression(subquery.getQuery());
+        Symbol output = symbolAllocator.newSymbol("not", BOOLEAN);
+
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        Assignments.builder()
+                                .putIdentities(subPlan.getRoot().getOutputSymbols())
+                                .put(output, new NotExpression(input.toSymbolReference()))
+                                .build()));
     }
 
-    private List<Expression> coercionsFor(Expression expression)
+    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery, Symbol assignment)
     {
-        return analysis.getCoercions().keySet().stream()
-                .map(NodeRef::getNode)
-                .filter(coercionExpression -> coercionExpression.equals(expression))
-                .collect(toImmutableList());
-    }
+        RelationPlan relationPlan = planSubquery(subquery, subPlan.getTranslations());
+        PlanBuilder subqueryPlan = newPlanBuilder(
+                relationPlan,
+                analysis,
+                lambdaDeclarationToSymbolMap,
+                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), Iterables.getOnlyElement(relationPlan.getFieldMappings())));
+        QueryPlanner.PlanAndMappings subqueryCoercions = coerce(subqueryPlan, ImmutableList.of(subquery), analysis, idAllocator, symbolAllocator, typeCoercion);
+        subqueryPlan = subqueryCoercions.getSubPlan();
 
-    private PlanBuilder appendApplyNode(
-            PlanBuilder subPlan,
-            Node subquery,
-            PlanNode subqueryNode,
-            Assignments subqueryAssignments)
-    {
-        Map<NodeRef<Expression>, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         subPlan = subPlan.appendProjections(
-                correlation.keySet().stream().map(NodeRef::getNode).collect(toImmutableSet()),
+                ImmutableList.of(value),
                 symbolAllocator,
                 idAllocator);
-        subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
-        TranslationMap translations = subPlan.copyTranslations();
-        PlanNode root = subPlan.getRoot();
-        return new PlanBuilder(translations,
-                new ApplyNode(idAllocator.getNextId(),
-                        root,
-                        subqueryNode,
-                        subqueryAssignments,
-                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
+        QueryPlanner.PlanAndMappings subplanCoercions = coerce(subPlan, ImmutableList.of(value), analysis, idAllocator, symbolAllocator, typeCoercion);
+        subPlan = subplanCoercions.getSubPlan();
+
+        return new PlanBuilder(
+                subPlan.getTranslations(),
+                new ApplyNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        subqueryPlan.getRoot(),
+                        Assignments.of(assignment, new QuantifiedComparisonExpression(
+                                operator,
+                                quantifier,
+                                subplanCoercions.get(value).toSymbolReference(),
+                                subqueryCoercions.get(subquery).toSymbolReference())),
+                        subPlan.getRoot().getOutputSymbols(),
                         subquery));
     }
 
-    private Map<NodeRef<Expression>, Expression> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
+    private <T extends Expression> Map<ScopeAware<Expression>, Symbol> mapAll(List<T> cluster, Scope scope, Symbol output)
     {
-        Set<NodeRef<Expression>> missingReferences = extractOuterColumnReferences(subquery);
-        ImmutableMap.Builder<NodeRef<Expression>, Expression> correlation = ImmutableMap.builder();
-        for (NodeRef<Expression> missingReference : missingReferences) {
-            // missing reference expression can be solved within current subPlan,
-            // or within outer plans in case of multiple nesting levels of subqueries.
-            tryResolveMissingExpression(subPlan, missingReference.getNode())
-                    .ifPresent(symbolReference -> correlation.put(missingReference, symbolReference));
-        }
-        return correlation.build();
-    }
-
-    /**
-     * Checks if given reference expression can be resolved within given plan.
-     */
-    private static Optional<Expression> tryResolveMissingExpression(PlanBuilder subPlan, Expression expression)
-    {
-        Expression rewritten = subPlan.rewrite(expression);
-        if (rewritten != expression) {
-            return Optional.of(rewritten);
-        }
-        return Optional.empty();
-    }
-
-    private PlanBuilder createPlanBuilder(Node node)
-    {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
-                .process(node, null);
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
-
-        // Make field->symbol mapping from underlying relation plan available for translations
-        // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
-        translations.setFieldMappings(relationPlan.getFieldMappings());
-
-        if (node instanceof Expression && relationPlan.getFieldMappings().size() == 1) {
-            translations.put((Expression) node, getOnlyElement(relationPlan.getFieldMappings()));
-        }
-
-        return new PlanBuilder(translations, relationPlan.getRoot());
-    }
-
-    /**
-     * @return a set of reference expressions which cannot be resolved within this plan. For plan representing:
-     * SELECT a, b FROM (VALUES 1) T(a). It will return a set containing single expression reference to 'b'.
-     */
-    private Set<NodeRef<Expression>> extractOuterColumnReferences(PlanNode planNode)
-    {
-        // at this point all the column references are already rewritten to SymbolReference
-        // when reference expression is not rewritten that means it cannot be satisfied within given PlanNode
-        // see that TranslationMap only resolves (local) fields in current scope
-        return ExpressionExtractor.extractExpressions(planNode).stream()
-                .flatMap(expression -> extractColumnReferences(expression, analysis.getColumnReferences()).stream())
-                .collect(toImmutableSet());
-    }
-
-    private static Set<NodeRef<Expression>> extractColumnReferences(Expression expression, Set<NodeRef<Expression>> columnReferences)
-    {
-        ColumnReferencesExtractor columnReferencesExtractor = new ColumnReferencesExtractor(columnReferences);
-        columnReferencesExtractor.process(expression, null);
-        return columnReferencesExtractor.getFound();
-    }
-
-    private PlanNode replaceExpressionsWithSymbols(PlanNode planNode, Map<NodeRef<Expression>, Expression> mapping)
-    {
-        if (mapping.isEmpty()) {
-            return planNode;
-        }
-
-        return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(mapping), planNode, null);
-    }
-
-    private static class ColumnReferencesExtractor
-            extends DefaultExpressionTraversalVisitor<Void>
-    {
-        private final Set<NodeRef<Expression>> columnReferences;
-        private final ImmutableSet.Builder<NodeRef<Expression>> found = ImmutableSet.builder();
-
-        private ColumnReferencesExtractor(Set<NodeRef<Expression>> columnReferences)
-        {
-            this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
-        }
-
-        public Set<NodeRef<Expression>> getFound()
-        {
-            return found.build();
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
-        {
-            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                found.add(NodeRef.of(node));
-            }
-            else {
-                process(node.getBase(), context);
-            }
-            return null;
-        }
-
-        @Override
-        protected Void visitIdentifier(Identifier node, Void context)
-        {
-            found.add(NodeRef.of(node));
-            return null;
-        }
-    }
-
-    private static class ExpressionReplacer
-            extends SimplePlanRewriter<Void>
-    {
-        private final Map<NodeRef<Expression>, Expression> mapping;
-
-        public ExpressionReplacer(Map<NodeRef<Expression>, Expression> mapping)
-        {
-            this.mapping = requireNonNull(mapping, "mapping is null");
-        }
-
-        @Override
-        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
-        {
-            ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node);
-
-            Assignments assignments = rewrittenNode.getAssignments()
-                    .rewrite(expression -> replaceExpression(expression, mapping));
-
-            return new ProjectNode(node.getId(), rewrittenNode.getSource(), assignments);
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
-        {
-            FilterNode rewrittenNode = (FilterNode) context.defaultRewrite(node);
-            return new FilterNode(node.getId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
-        }
-
-        @Override
-        public PlanNode visitUnnest(UnnestNode node, RewriteContext<Void> context)
-        {
-            UnnestNode rewrittenNode = (UnnestNode) context.defaultRewrite(node);
-            return new UnnestNode(
-                    node.getId(),
-                    rewrittenNode.getSource(),
-                    rewrittenNode.getReplicateSymbols(),
-                    rewrittenNode.getMappings(),
-                    rewrittenNode.getOrdinalitySymbol(),
-                    rewrittenNode.getJoinType(),
-                    rewrittenNode.getFilter().map(expression -> replaceExpression(expression, mapping)));
-        }
-
-        @Override
-        public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
-        {
-            ValuesNode rewrittenNode = (ValuesNode) context.defaultRewrite(node);
-            List<List<Expression>> rewrittenRows = rewrittenNode.getRows().stream()
-                    .map(row -> row.stream()
-                            .map(column -> replaceExpression(column, mapping))
-                            .collect(toImmutableList()))
-                    .collect(toImmutableList());
-            return new ValuesNode(
-                    node.getId(),
-                    rewrittenNode.getOutputSymbols(),
-                    rewrittenRows);
-        }
+        return cluster.stream()
+                .collect(toImmutableMap(
+                        expression -> ScopeAware.scopeAwareKey(expression, analysis, scope),
+                        expression -> output,
+                        (first, second) -> first));
     }
 }

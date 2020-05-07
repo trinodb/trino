@@ -81,4 +81,10 @@ public class InListExpression
     {
         return values.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

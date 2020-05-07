@@ -73,6 +73,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
@@ -145,7 +146,9 @@ class AggregationAnalyzer
         this.analysis = analysis;
         this.expressions = groupByExpressions;
 
-        this.columnReferences = analysis.getColumnReferenceFields();
+        this.columnReferences = analysis.getColumnReferenceFields()
+                .entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getFieldId()));
 
         this.groupingFields = groupByExpressions.stream()
                 .map(NodeRef::of)

@@ -115,4 +115,14 @@ public class AllColumns
 
         return builder.toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return aliases.equals(((AllColumns) other).aliases);
+    }
 }

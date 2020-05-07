@@ -98,4 +98,10 @@ public class BetweenPredicate
     {
         return Objects.hash(value, min, max);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

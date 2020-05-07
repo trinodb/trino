@@ -163,4 +163,14 @@ public class ComparisonExpression
             }
         }
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return operator == ((ComparisonExpression) other).operator;
+    }
 }

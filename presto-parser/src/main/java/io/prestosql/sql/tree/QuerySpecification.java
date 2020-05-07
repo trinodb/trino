@@ -199,4 +199,10 @@ public class QuerySpecification
     {
         return Objects.hash(select, from, where, groupBy, having, orderBy, offset, limit);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

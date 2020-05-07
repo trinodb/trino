@@ -86,4 +86,10 @@ public class AtTimeZone
         AtTimeZone atTimeZone = (AtTimeZone) obj;
         return Objects.equals(value, atTimeZone.value) && Objects.equals(timeZone, atTimeZone.timeZone);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

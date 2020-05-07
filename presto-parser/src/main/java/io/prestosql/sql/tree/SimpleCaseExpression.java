@@ -101,4 +101,10 @@ public class SimpleCaseExpression
     {
         return Objects.hash(operand, whenClauses, defaultValue);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

@@ -469,15 +469,24 @@ public class TestLogicalPlanner
         // three subqueries with two duplicates (coerced to two different types), only two scalar joins should be in plan
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders WHERE CAST(orderkey AS INTEGER) = (SELECT 1) AND custkey = (SELECT 2) AND CAST(custkey as REAL) != (SELECT 1)"),
-                        ValuesNode.class::isInstance),
-                2);
+                        plan("SELECT * " +
+                                "FROM orders " +
+                                "WHERE CAST(orderkey AS INTEGER) = (SELECT 1 FROM orders LIMIT 1) " +
+                                "AND custkey = (SELECT 2 FROM orders LIMIT 1) " +
+                                "AND CAST(custkey as REAL) != (SELECT 1 FROM orders LIMIT 1)"),
+                        TableScanNode.class::isInstance),
+                3);
         // same query used for left, right and complex join condition
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey > (SELECT 1)"),
-                        ValuesNode.class::isInstance),
-                1);
+                        plan("SELECT * " +
+                                "FROM orders o1 " +
+                                "JOIN orders o2 ON " +
+                                "  o1.orderkey = (SELECT 1 FROM orders LIMIT 1) " +
+                                "  AND o2.orderkey = (SELECT 1 FROM orders LIMIT 1) " +
+                                "  AND o1.orderkey + o2.orderkey > (SELECT 1 FROM orders LIMIT 1)"),
+                        TableScanNode.class::isInstance),
+                3);
     }
 
     @Test
@@ -514,6 +523,16 @@ public class TestLogicalPlanner
                         plan("SELECT 1 <= ALL(SELECT 1), 2 <= ALL(SELECT 1) WHERE 1 <= ALL(SELECT 1)"),
                         AggregationNode.class::isInstance),
                 2);
+    }
+
+    @Test
+    public void testSameExistsAppliedOnlyOnce()
+    {
+        assertPlan(
+                "SELECT EXISTS (SELECT 1 FROM orders), EXISTS (SELECT 1 FROM orders)",
+                anyTree(
+                        node(AggregationNode.class,
+                                tableScan("orders"))));
     }
 
     private static int countOfMatchingNodes(Plan plan, Predicate<PlanNode> predicate)
@@ -808,7 +827,7 @@ public class TestLogicalPlanner
                 OPTIMIZED,
                 anyTree(
                         filter("OUTER_FILTER",
-                                apply(ImmutableList.of("C", "O"),
+                                apply(ImmutableList.of("O", "C"),
                                         ImmutableMap.of("OUTER_FILTER", expression("THREE IN (C)")),
                                         project(ImmutableMap.of("THREE", expression("BIGINT '3'")),
                                                 tableScan("orders", ImmutableMap.of(

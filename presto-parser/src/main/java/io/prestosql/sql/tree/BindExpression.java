@@ -113,4 +113,10 @@ public class BindExpression
     {
         return Objects.hash(values, function);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }
