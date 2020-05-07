@@ -1169,9 +1169,9 @@ public class TestPrestoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                 new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000));
+                        .withListSchemasCount(2)
+                        .withListTablesCount(3)
+                        .withGetColumnsCount(1));
 
         // LIKE predicate on schema name and table name, but no predicate on catalog name
         assertMetadataCalls(
@@ -1179,12 +1179,42 @@ public class TestPrestoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(null, "test_schema1", "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 IntStream.range(0, 100)
-                        .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
+                        .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar"))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000)); // TODO (https://github.com/prestosql/presto/issues/1620)
+                        .withListSchemasCount(2)
+                        .withListTablesCount(3)
+                        .withGetColumnsCount(1));
+
+        // LIKE predicate on schema name, but no predicate on catalog name and table name
+        assertMetadataCalls(
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getColumns(null, "test_schema1", null, null),
+                        list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                IntStream.range(0, 1000).boxed()
+                        .flatMap(tableIndex ->
+                                IntStream.range(0, 100)
+                                        .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar")))
+                        .collect(toImmutableList()),
+                new MetadataCallsCount()
+                        .withListSchemasCount(3)
+                        .withListTablesCount(1001)
+                        .withGetColumnsCount(1000));
+
+        // LIKE predicate on table name, but no predicate on catalog name and schema name
+        assertMetadataCalls(
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getColumns(null, null, "test_table1", null),
+                        list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                IntStream.rangeClosed(1, 2).boxed()
+                        .flatMap(schemaIndex ->
+                                IntStream.range(0, 100)
+                                        .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema" + schemaIndex, "test_table1", "column_" + columnIndex, "varchar")))
+                        .collect(toImmutableList()),
+                new MetadataCallsCount()
+                        .withListSchemasCount(3)
+                        .withListTablesCount(8)
+                        .withGetColumnsCount(2));
 
         // Equality predicate on schema name and table name, but no predicate on catalog name
         assertMetadataCalls(
@@ -1222,9 +1252,9 @@ public class TestPrestoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
                 new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000));
+                        .withListSchemasCount(2)
+                        .withListTablesCount(0)
+                        .withGetColumnsCount(0));
 
         // empty schema name
         assertMetadataCalls(
@@ -1234,8 +1264,8 @@ public class TestPrestoDatabaseMetaData
                 list(),
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000));
+                        .withListTablesCount(0)
+                        .withGetColumnsCount(0));
 
         // empty table name
         assertMetadataCalls(
@@ -1245,8 +1275,8 @@ public class TestPrestoDatabaseMetaData
                 list(),
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000));
+                        .withListTablesCount(0)
+                        .withGetColumnsCount(0));
 
         // empty column name
         assertMetadataCalls(
