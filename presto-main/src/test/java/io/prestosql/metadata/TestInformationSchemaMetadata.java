@@ -57,7 +57,6 @@ import static io.prestosql.transaction.InMemoryTransactionManager.createTestTran
 import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestInformationSchemaMetadata
 {
@@ -222,30 +221,32 @@ public class TestInformationSchemaMetadata
     @Test
     public void testInformationSchemaPredicatePushdownForEmptyNames()
     {
-        assertApplyFilterReturnsEmptyPrefixes(
-                new SchemaTableName("information_schema", "tables"),
-                ImmutableMap.of(
-                        new InformationSchemaColumnHandle("table_name"), new NullableValue(VARCHAR, Slices.utf8Slice(""))));
-
-        assertApplyFilterReturnsEmptyPrefixes(
-                new SchemaTableName("information_schema", "tables"),
-                ImmutableMap.of(
-                        new InformationSchemaColumnHandle("table_schema"), new NullableValue(VARCHAR, Slices.utf8Slice(""))));
-    }
-
-    private void assertApplyFilterReturnsEmptyPrefixes(SchemaTableName schemaTableName, Map<ColumnHandle, NullableValue> constraint)
-    {
         TransactionId transactionId = transactionManager.beginTransaction(false);
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
+        InformationSchemaColumnHandle tableSchemaColumn = new InformationSchemaColumnHandle("table_schema");
+        InformationSchemaColumnHandle tableNameColumn = new InformationSchemaColumnHandle("table_name");
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, new SchemaTableName("information_schema", "tables"));
 
-        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) metadata.getTableHandle(session, schemaTableName);
-
-        assertTrue(metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.fromFixedValues(constraint)))
+        // Empty schema name
+        InformationSchemaTableHandle filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
+                ImmutableMap.of(tableSchemaColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
-                .orElseThrow(AssertionError::new)
-                .getPrefixes().isEmpty());
+                .orElseThrow(AssertionError::new);
+
+        // "" schema name is valid schema name, but is (currently) valid for QualifiedTablePrefix
+        assertEquals(filtered.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "")));
+
+        // Empty table name
+        filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
+                ImmutableMap.of(tableNameColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
+                .map(ConstraintApplicationResult::getHandle)
+                .map(InformationSchemaTableHandle.class::cast)
+                .orElseThrow(AssertionError::new);
+
+        // "" table name is valid schema name, but is (currently) valid for QualifiedTablePrefix
+        assertEquals(filtered.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "")));
     }
 
     private static boolean testConstraint(Map<ColumnHandle, NullableValue> bindings)
