@@ -67,19 +67,38 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testExactPredicate()
     {
-        assertQuery("SELECT * FROM orders WHERE orderkey = 10");
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey = 10");
+
+        // filtered column is selected
+        assertQuery("SELECT custkey, orderkey FROM orders WHERE orderkey = 32", "VALUES (1301, 32)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM orders WHERE orderkey = 32", "VALUES (1301)");
     }
 
     @Test
     public void testInListPredicate()
     {
-        assertQuery("SELECT * FROM orders WHERE orderkey IN (10, 11, 20, 21)");
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey IN (10, 11, 20, 21)");
+
+        // filtered column is selected
+        assertQuery("SELECT custkey, orderkey FROM orders WHERE orderkey IN (7, 10, 32, 33)", "VALUES (392, 7), (1301, 32), (670, 33)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM orders WHERE orderkey IN (7, 10, 32, 33)", "VALUES (392), (1301), (670)");
     }
 
     @Test
     public void testIsNullPredicate()
     {
-        assertQuery("SELECT * FROM orders WHERE orderkey = 10 OR orderkey IS NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey IS NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey = 10 OR orderkey IS NULL");
+
+        // filtered column is selected
+        assertQuery("SELECT custkey, orderkey FROM orders WHERE orderkey = 32 OR orderkey IS NULL", "VALUES (1301, 32)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM orders WHERE orderkey = 32 OR orderkey IS NULL", "VALUES (1301)");
     }
 
     @Test
