@@ -100,6 +100,10 @@ public class Analysis
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
+    // Synthetic scope when a query does not have a FROM clause
+    // We need to track this separately because there's no node we can attach it to.
+    private final Map<NodeRef<QuerySpecification>, Scope> implicitFromScopes = new LinkedHashMap<>();
+
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
 
@@ -829,6 +833,16 @@ public class Analysis
     public FieldReference getRowIdField(Table table)
     {
         return rowIdField.get(NodeRef.of(table));
+    }
+
+    public void setImplicitFromScope(QuerySpecification node, Scope scope)
+    {
+        implicitFromScopes.put(NodeRef.of(node), scope);
+    }
+
+    public Scope getImplicitFromScope(QuerySpecification node)
+    {
+        return implicitFromScopes.get(NodeRef.of(node));
     }
 
     @Immutable
