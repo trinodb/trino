@@ -250,6 +250,29 @@ public class TestLogicalPlanner
                                         project(
                                                 ImmutableMap.of("rand", expression("rand()")),
                                                 values())))));
+
+        assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1) t(x)",
+                any(
+                        project(
+                                ImmutableMap.of(
+                                        "output_1", expression("CAST(r AS ROW(f0 double,f1 double)).f0"),
+                                        "output_2", expression("CAST(r AS ROW(f0 double,f1 double)).f1")),
+                                project(
+                                        ImmutableMap.of("r", expression("ROW(rand(), rand())")),
+                                        values()))));
+
+        // Ensure the calls to rand() are not duplicated by the ORDER BY clause
+        assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1, 2) t(x) ORDER BY 1",
+                anyTree(
+                        node(SortNode.class,
+                                any(
+                                        project(
+                                                ImmutableMap.of(
+                                                        "output_1", expression("CAST(row AS ROW(f0 double,f1 double)).f0"),
+                                                        "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
+                                                project(
+                                                        ImmutableMap.of("row", expression("ROW(rand(), rand())")),
+                                                        values()))))));
     }
 
     @Test
