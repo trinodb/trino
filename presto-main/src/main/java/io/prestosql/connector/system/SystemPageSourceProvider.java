@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
@@ -96,6 +97,9 @@ public class SystemPageSourceProvider
         }
 
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
+        if (constraint.isNone()) {
+            return new FixedPageSource(ImmutableList.of());
+        }
         ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
             String columnName = ((SystemColumnHandle) entry.getKey()).getColumnName();
