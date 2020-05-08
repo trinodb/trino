@@ -209,7 +209,7 @@ public class OracleAuthenticationModule
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, KerberosManager kerberosManager)
         {
             if (oracleConfig.isConnectionPoolingEnabled()) {
-                throw new PrestoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with pass-through authentication");
+                throw new PrestoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with Kerberos pass-through authentication");
             }
 
             DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
