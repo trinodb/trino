@@ -189,15 +189,6 @@ These properties require some explanation:
   the host and port of the Presto coordinator. This URI must not end
   in a slash.
 
-You may also wish to set the following properties:
-
-* ``jmx.rmiregistry.port``:
-  Specifies the port for the JMX RMI registry. JMX clients should connect to this port.
-
-* ``jmx.rmiserver.port``:
-  Specifies the port for the JMX RMI server. Presto exports many metrics,
-  that are useful for monitoring via JMX.
-
 The above configuration properties are a minimal set to help you get started.
 Please see :doc:`/admin` and :doc:`/security` for a more comprehensive list.
 In particular, see :doc:`/admin/resource-groups` for configuring queuing policies.
