@@ -95,6 +95,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNRowNumberColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnionColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnionSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneUnnestSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
@@ -285,6 +286,7 @@ public class PlanOptimizers
                 new PruneTopNRowNumberColumns(),
                 new PruneUnionColumns(),
                 new PruneUnionSourceColumns(),
+                new PruneUnnestSourceColumns(),
                 new PruneValuesColumns(),
                 new PruneWindowColumns());
 
