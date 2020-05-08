@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -238,7 +239,7 @@ public class ElasticsearchConfig
         return this;
     }
 
-    public Optional<File> getKeystorePath()
+    public Optional<@FileExists File> getKeystorePath()
     {
         return Optional.ofNullable(keystorePath);
     }
@@ -263,7 +264,7 @@ public class ElasticsearchConfig
         return this;
     }
 
-    public Optional<File> getTrustStorePath()
+    public Optional<@FileExists File> getTrustStorePath()
     {
         return Optional.ofNullable(trustStorePath);
     }
