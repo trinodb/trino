@@ -16,6 +16,7 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.sql.planner.ScopeAware;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -90,6 +91,7 @@ import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.getReferencesToS
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -100,7 +102,7 @@ class AggregationAnalyzer
 {
     // fields and expressions in the group by clause
     private final Set<FieldId> groupingFields;
-    private final List<Expression> expressions;
+    private final Set<ScopeAware<Expression>> expressions;
     private final Map<NodeRef<Expression>, FieldId> columnReferences;
 
     private final Metadata metadata;
@@ -144,7 +146,9 @@ class AggregationAnalyzer
         this.orderByScope = orderByScope;
         this.metadata = metadata;
         this.analysis = analysis;
-        this.expressions = groupByExpressions;
+        this.expressions = groupByExpressions.stream()
+                .map(expression -> scopeAwareKey(expression, analysis, sourceScope))
+                .collect(toImmutableSet());
 
         this.columnReferences = analysis.getColumnReferenceFields()
                 .entrySet().stream()
@@ -661,7 +665,8 @@ class AggregationAnalyzer
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
-            if (expressions.stream().anyMatch(node::equals)
+            if (node instanceof Expression
+                    && expressions.contains(scopeAwareKey(node, analysis, sourceScope))
                     && (orderByScope.isEmpty() || !hasOrderByReferencesToOutputColumns(node))
                     && !hasFreeReferencesToLambdaArgument(node, analysis)) {
                 return true;
