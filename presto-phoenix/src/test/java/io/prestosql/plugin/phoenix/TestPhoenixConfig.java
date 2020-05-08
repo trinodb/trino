@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -39,17 +42,20 @@ public class TestPhoenixConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path configFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("phoenix.connection-url", "jdbc:phoenix:localhost:2181:/hbase")
-                .put("phoenix.config.resources", "/hbase-site.xml")
+                .put("phoenix.config.resources", configFile.toString())
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .build();
 
         PhoenixConfig expected = new PhoenixConfig()
                 .setConnectionUrl("jdbc:phoenix:localhost:2181:/hbase")
-                .setResourceConfigFiles("/hbase-site.xml")
+                .setResourceConfigFiles(configFile.toString())
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 
