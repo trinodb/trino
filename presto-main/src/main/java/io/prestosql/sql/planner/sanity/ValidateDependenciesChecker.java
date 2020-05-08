@@ -15,7 +15,6 @@ package io.prestosql.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -79,7 +78,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -503,13 +501,6 @@ public final class ValidateDependenciesChecker
                     .map(UnnestNode.Mapping::getInput)
                     .forEach(required::add);
 
-            Set<Symbol> unnestedSymbols = node.getMappings().stream()
-                    .map(UnnestNode.Mapping::getOutputs)
-                    .flatMap(Collection::stream)
-                    .collect(toImmutableSet());
-
-            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols);
-            required.addAll(expectedFilterSymbols);
             checkDependencies(source.getOutputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
 
             return null;
