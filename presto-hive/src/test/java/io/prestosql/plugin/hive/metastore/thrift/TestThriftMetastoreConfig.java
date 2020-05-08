@@ -18,7 +18,9 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -55,7 +57,11 @@ public class TestThriftMetastoreConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore-timeout", "20s")
                 .put("hive.metastore.thrift.client.socks-proxy", "localhost:1234")
@@ -65,9 +71,9 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.client.max-backoff-delay", "4s")
                 .put("hive.metastore.thrift.client.max-retry-time", "60s")
                 .put("hive.metastore.thrift.client.ssl.enabled", "true")
-                .put("hive.metastore.thrift.client.ssl.key", "/tmp/keystore")
+                .put("hive.metastore.thrift.client.ssl.key", keystoreFile.toString())
                 .put("hive.metastore.thrift.client.ssl.key-password", "keystore-password")
-                .put("hive.metastore.thrift.client.ssl.trust-certificate", "/tmp/truststore")
+                .put("hive.metastore.thrift.client.ssl.trust-certificate", truststoreFile.toString())
                 .put("hive.metastore.thrift.impersonation.enabled", "true")
                 .put("hive.metastore.thrift.delegation-token.cache-ttl", "1d")
                 .put("hive.metastore.thrift.delegation-token.cache-maximum-size", "9999")
@@ -84,9 +90,9 @@ public class TestThriftMetastoreConfig
                 .setMaxBackoffDelay(new Duration(4, SECONDS))
                 .setMaxRetryTime(new Duration(60, SECONDS))
                 .setTlsEnabled(true)
-                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")
-                .setTruststorePath(new File("/tmp/truststore"))
+                .setTruststorePath(truststoreFile.toFile())
                 .setImpersonationEnabled(true)
                 .setDelegationTokenCacheTtl(new Duration(1, DAYS))
                 .setDelegationTokenCacheMaximumSize(9999)
