@@ -16,6 +16,9 @@ package io.prestosql.plugin.hive.gcs;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -34,14 +37,17 @@ public class TestHiveGcsConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path jsonKeyFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.gcs.json-key-file-path", "/tmp/key.json")
+                .put("hive.gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("hive.gcs.use-access-token", "true")
                 .build();
 
         HiveGcsConfig expected = new HiveGcsConfig()
-                .setJsonKeyFilePath("/tmp/key.json")
+                .setJsonKeyFilePath(jsonKeyFile.toString())
                 .setUseGcsAccessToken(true);
 
         assertFullMapping(properties, expected);

@@ -17,6 +17,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.prestosql.plugin.hive.util.RetryDriver;
@@ -223,6 +224,7 @@ public class ThriftMetastoreConfig
         return this;
     }
 
+    @FileExists
     public File getKeystorePath()
     {
         return keystorePath;
@@ -249,6 +251,7 @@ public class ThriftMetastoreConfig
         return this;
     }
 
+    @FileExists
     public File getTruststorePath()
     {
         return truststorePath;

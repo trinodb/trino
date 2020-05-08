@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -38,16 +40,19 @@ public class TestS3SecurityMappingConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path securityMappingConfigFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.s3.security-mapping.config-file", "/test/mapping.json")
+                .put("hive.s3.security-mapping.config-file", securityMappingConfigFile.toString())
                 .put("hive.s3.security-mapping.iam-role-credential-name", "credential-name")
                 .put("hive.s3.security-mapping.refresh-period", "1s")
                 .put("hive.s3.security-mapping.colon-replacement", "#")
                 .build();
 
         S3SecurityMappingConfig expected = new S3SecurityMappingConfig()
-                .setConfigFile(new File("/test/mapping.json"))
+                .setConfigFile(securityMappingConfigFile.toFile())
                 .setRoleCredentialName("credential-name")
                 .setRefreshPeriod(Duration.valueOf("1s"))
                 .setColonReplacement("#");
