@@ -500,34 +500,26 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Set<Symbol>> context)
         {
-            List<Symbol> replicateSymbols = node.getReplicateSymbols().stream()
-                    .filter(context.get()::contains)
+            ImmutableSet.Builder<Symbol> contextAndFilterSymbolsBuilder = ImmutableSet.<Symbol>builder()
+                    .addAll(context.get());
+            node.getFilter().ifPresent(expression -> contextAndFilterSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(expression)));
+            Set<Symbol> contextAndFilterSymbols = contextAndFilterSymbolsBuilder.build();
+
+            List<Symbol> prunedReplicateSymbols = node.getReplicateSymbols().stream()
+                    .filter(contextAndFilterSymbols::contains)
                     .collect(toImmutableList());
 
-            Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
-            if (ordinalitySymbol.isPresent() && !context.get().contains(ordinalitySymbol.get())) {
-                ordinalitySymbol = Optional.empty();
-            }
-            List<UnnestNode.Mapping> mappings = node.getMappings();
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(replicateSymbols);
+            Optional<Symbol> prunedOrdinalitySymbol = node.getOrdinalitySymbol()
+                    .filter(contextAndFilterSymbols::contains);
 
-            mappings.stream()
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(prunedReplicateSymbols);
+            node.getMappings().stream()
                     .map(UnnestNode.Mapping::getInput)
                     .forEach(expectedInputs::add);
 
-            ImmutableSet.Builder<Symbol> unnestedSymbols = ImmutableSet.builder();
-
-            mappings.stream()
-                    .map(UnnestNode.Mapping::getOutputs)
-                    .flatMap(Collection::stream)
-                    .forEach(unnestedSymbols::add);
-
-            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols.build());
-            expectedInputs.addAll(expectedFilterSymbols);
-
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new UnnestNode(node.getId(), source, replicateSymbols, mappings, ordinalitySymbol, node.getJoinType(), node.getFilter());
+            return new UnnestNode(node.getId(), source, prunedReplicateSymbols, node.getMappings(), prunedOrdinalitySymbol, node.getJoinType(), node.getFilter());
         }
 
         @Override
