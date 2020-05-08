@@ -16,6 +16,7 @@ package io.prestosql.plugin.phoenix;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -46,7 +47,7 @@ public class PhoenixConfig
     }
 
     @NotNull
-    public List<String> getResourceConfigFiles()
+    public List<@FileExists String> getResourceConfigFiles()
     {
         return resourceConfigFiles;
     }
