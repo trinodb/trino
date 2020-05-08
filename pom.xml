@@ -43,6 +43,8 @@
         <project.build.targetJdk>11</project.build.targetJdk>
         <air.modernizer.java-version>8</air.modernizer.java-version>
 
+        <dep.accumulo.version>1.7.4</dep.accumulo.version>
+        <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.7.1</dep.antlr.version>
         <dep.airlift.version>0.196</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -80,6 +82,7 @@
         <module>presto-kafka</module>
         <module>presto-kinesis</module>
         <module>presto-redis</module>
+        <module>presto-accumulo-iterators</module>
         <module>presto-accumulo</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
