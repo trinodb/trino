@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -29,7 +32,7 @@ public class TestBigQueryConfig
     public void testDefaults()
     {
         BigQueryConfig config = new BigQueryConfig()
-                .setCredentialsKey("ckey")
+                .setCredentialsKey("key")
                 .setCredentialsFile("cfile")
                 .setProjectId("pid")
                 .setParentProjectId("ppid")
@@ -38,7 +41,7 @@ public class TestBigQueryConfig
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10);
 
-        assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
+        assertEquals(config.getCredentialsKey(), Optional.of("key"));
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
         assertEquals(config.getParentProjectId(), Optional.of("ppid"));
@@ -52,7 +55,7 @@ public class TestBigQueryConfig
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("bigquery.credentials-key", "ckey")
+                .put("bigquery.credentials-key", "key")
                 .put("bigquery.project-id", "pid")
                 .put("bigquery.parent-project-id", "ppid")
                 .put("bigquery.parallelism", "20")
@@ -64,7 +67,7 @@ public class TestBigQueryConfig
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         BigQueryConfig config = configurationFactory.build(BigQueryConfig.class);
 
-        assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
+        assertEquals(config.getCredentialsKey(), Optional.of("key"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
         assertEquals(config.getParentProjectId(), Optional.of("ppid"));
         assertEquals(config.getParallelism(), OptionalInt.of(20));
@@ -75,14 +78,17 @@ public class TestBigQueryConfig
 
     @Test
     public void testExplicitPropertyMappingsWithCredentialsFile()
+            throws IOException
     {
+        Path credentialsFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("bigquery.credentials-file", "cfile")
+                .put("bigquery.credentials-file", credentialsFile.toString())
                 .build();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         BigQueryConfig config = configurationFactory.build(BigQueryConfig.class);
 
-        assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
+        assertEquals(config.getCredentialsFile(), Optional.of(credentialsFile.toString()));
     }
 }
