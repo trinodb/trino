@@ -14,6 +14,7 @@
 package io.prestosql.plugin.session.file;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -24,6 +25,7 @@ public class FileSessionPropertyManagerConfig
     private File configFile;
 
     @NotNull
+    @FileExists
     public File getConfigFile()
     {
         return configFile;
