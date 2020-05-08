@@ -15,6 +15,7 @@ package io.prestosql.proxy;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -41,6 +42,7 @@ public class ProxyConfig
     }
 
     @NotNull
+    @FileExists
     public File getSharedSecretFile()
     {
         return sharedSecretFile;

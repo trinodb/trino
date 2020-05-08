@@ -16,8 +16,10 @@ package io.prestosql.proxy;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -36,15 +38,18 @@ public class TestProxyConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path sharedSecretFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("proxy.uri", "http://example.net/")
-                .put("proxy.shared-secret-file", "test.secret")
+                .put("proxy.shared-secret-file", sharedSecretFile.toString())
                 .build();
 
         ProxyConfig expected = new ProxyConfig()
                 .setUri(URI.create("http://example.net/"))
-                .setSharedSecretFile(new File("test.secret"));
+                .setSharedSecretFile(sharedSecretFile.toFile());
 
         assertFullMapping(properties, expected);
     }
