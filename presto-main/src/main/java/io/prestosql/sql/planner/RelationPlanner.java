@@ -29,6 +29,7 @@ import io.prestosql.sql.analyzer.Field;
 import io.prestosql.sql.analyzer.RelationId;
 import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.analyzer.Scope;
+import io.prestosql.sql.planner.QueryPlanner.NodeAndMappings;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
@@ -824,19 +825,6 @@ class RelationPlanner
         return new PlanBuilder(translations, values);
     }
 
-    private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
-    {
-        List<Type> coerceToTypes = analysis.getRelationCoercion(node);
-
-        RelationPlan plan = this.process(node, context);
-
-        if (coerceToTypes == null) {
-            return plan;
-        }
-
-        return addCoercions(plan, coerceToTypes);
-    }
-
     private RelationPlan addCoercions(RelationPlan plan, List<Type> targetColumnTypes)
     {
         List<Symbol> oldSymbols = plan.getFieldMappings();
@@ -922,44 +910,35 @@ class RelationPlanner
 
     private SetOperationPlan process(SetOperation node)
     {
-        List<Symbol> outputs = null;
-        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-        ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
-
-        List<RelationPlan> subPlans = node.getRelations().stream()
-                .map(relation -> processAndCoerceIfNecessary(relation, null))
+        RelationType outputFields = analysis.getOutputDescriptor(node);
+        List<Symbol> outputs = outputFields
+                .getAllFields().stream()
+                .map(symbolAllocator::newSymbol)
                 .collect(toImmutableList());
 
-        for (RelationPlan relationPlan : subPlans) {
-            List<Symbol> childOutputSymbols = relationPlan.getFieldMappings();
-            if (outputs == null) {
-                // Use the first Relation to derive output symbol names
-                RelationType descriptor = relationPlan.getDescriptor();
-                ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
-                for (Field field : descriptor.getVisibleFields()) {
-                    int fieldIndex = descriptor.indexOf(field);
-                    Symbol symbol = childOutputSymbols.get(fieldIndex);
-                    outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
-                }
-                outputs = outputSymbolBuilder.build();
+        ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
+        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
+
+        for (Relation child : node.getRelations()) {
+            RelationPlan plan = process(child, null);
+
+            List<Type> types = analysis.getRelationCoercion(child);
+            if (types == null) {
+                // If there are no coercions, we still want to call the coerce method below to create a plan
+                // with just the visible fields
+                types = plan.getDescriptor()
+                        .getVisibleFields().stream()
+                        .map(Field::getType)
+                        .collect(toImmutableList());
             }
 
-            RelationType descriptor = relationPlan.getDescriptor();
-            checkArgument(descriptor.getVisibleFieldCount() == outputs.size(),
-                    "Expected relation to have %s symbols but has %s symbols",
-                    descriptor.getVisibleFieldCount(),
-                    outputs.size());
-
-            int fieldId = 0;
-            for (Field field : descriptor.getVisibleFields()) {
-                int fieldIndex = descriptor.indexOf(field);
-                symbolMapping.put(outputs.get(fieldId), childOutputSymbols.get(fieldIndex));
-                fieldId++;
+            NodeAndMappings planAndMappings = coerce(plan.getRoot(), visibleFields(plan), types, symbolAllocator, idAllocator);
+            for (int i = 0; i < outputFields.getAllFields().size(); i++) {
+                symbolMapping.put(outputs.get(i), planAndMappings.getFields().get(i));
             }
 
-            sources.add(relationPlan.getRoot());
+            sources.add(planAndMappings.getNode());
         }
-
         return new SetOperationPlan(sources.build(), symbolMapping.build());
     }
 
@@ -973,6 +952,16 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    private static List<Symbol> visibleFields(RelationPlan subPlan)
+    {
+        RelationType descriptor = subPlan.getDescriptor();
+        return descriptor.getAllFields().stream()
+                .filter(field -> !field.isHidden())
+                .map(descriptor::indexOf)
+                .map(subPlan.getFieldMappings()::get)
+                .collect(toImmutableList());
     }
 
     private static class SetOperationPlan

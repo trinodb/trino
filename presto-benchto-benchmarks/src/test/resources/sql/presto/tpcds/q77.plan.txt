@@ -1,9 +1,9 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        final aggregation over (expr$gid, groupid, s_store_sk$gid$gid)
-            local exchange (REPARTITION, HASH, ["expr$gid", "groupid", "s_store_sk$gid$gid"])
-                remote exchange (REPARTITION, HASH, ["expr$gid", "groupid", "s_store_sk$gid$gid"])
-                    partial aggregation over (expr$gid, groupid, s_store_sk$gid$gid)
+        final aggregation over (channel$gid, groupid, id$gid)
+            local exchange (REPARTITION, HASH, ["channel$gid", "groupid", "id$gid"])
+                remote exchange (REPARTITION, HASH, ["channel$gid", "groupid", "id$gid"])
+                    partial aggregation over (channel$gid, groupid, id$gid)
                         local exchange (REPARTITION, ROUND_ROBIN, [])
                             join (LEFT, PARTITIONED):
                                 final aggregation over (ss_store_sk)
