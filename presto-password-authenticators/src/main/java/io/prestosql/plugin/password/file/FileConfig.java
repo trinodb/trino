@@ -15,6 +15,7 @@ package io.prestosql.plugin.password.file;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -28,6 +29,7 @@ public class FileConfig
     private Duration refreshPeriod = new Duration(5, SECONDS);
     private int authTokenCacheMaxSize = 1000;
 
+    @FileExists
     public File getPasswordFile()
     {
         return passwordFile;
