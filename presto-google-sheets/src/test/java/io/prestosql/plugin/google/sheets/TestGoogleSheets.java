@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.google.sheets;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.google.sheets.TestSheetsConfig.getProperties;
 import static io.prestosql.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
 import static io.prestosql.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -45,7 +45,11 @@ public class TestGoogleSheets
             SheetsPlugin sheetsPlugin = new SheetsPlugin();
             queryRunner = DistributedQueryRunner.builder(createSession()).build();
             queryRunner.installPlugin(sheetsPlugin);
-            queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, getProperties(getTestCredentialsPath(), TEST_METADATA_SHEET_ID, 1000, "5m"));
+            queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, ImmutableMap.of(
+                    "credentials-path", getTestCredentialsPath(),
+                    "metadata-sheet-id", TEST_METADATA_SHEET_ID,
+                    "sheets-data-max-cache-size", "1000",
+                    "sheets-data-expire-after-write", "5m"));
         }
         catch (Exception e) {
             throw new IllegalStateException(e.getMessage());
