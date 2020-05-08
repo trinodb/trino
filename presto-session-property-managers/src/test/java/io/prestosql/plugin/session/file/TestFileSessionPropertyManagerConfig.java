@@ -16,7 +16,9 @@ package io.prestosql.plugin.session.file;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -34,13 +36,16 @@ public class TestFileSessionPropertyManagerConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path configFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("session-property-manager.config-file", "/test.json")
+                .put("session-property-manager.config-file", configFile.toString())
                 .build();
 
         FileSessionPropertyManagerConfig expected = new FileSessionPropertyManagerConfig()
-                .setConfigFile(new File("/test.json"));
+                .setConfigFile(configFile.toFile());
 
         assertFullMapping(properties, expected);
     }
