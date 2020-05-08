@@ -64,7 +64,7 @@ public class EventListenerManager
         requireNonNull(eventListenerFactory, "eventListenerFactory is null");
 
         if (eventListenerFactories.putIfAbsent(eventListenerFactory.getName(), eventListenerFactory) != null) {
-            throw new IllegalArgumentException(format("Event listener '%s' is already registered", eventListenerFactory.getName()));
+            throw new IllegalArgumentException(format("Event listener factory '%s' is already registered", eventListenerFactory.getName()));
         }
     }
 
@@ -107,6 +107,7 @@ public class EventListenerManager
         String name = properties.remove(EVENT_LISTENER_NAME_PROPERTY);
         checkArgument(!isNullOrEmpty(name), "EventListener plugin configuration for %s does not contain %s", configFile, EVENT_LISTENER_NAME_PROPERTY);
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
+        checkArgument(eventListenerFactory != null, "Event listener factory '%s' is not registered. Available factories: %s", name, eventListenerFactories.keySet());
         EventListener eventListener = eventListenerFactory.create(properties);
         log.info("-- Loaded event listener %s --", configFile);
         return eventListener;
