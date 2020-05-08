@@ -17,25 +17,28 @@ import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.ResolvedField;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 
-import java.util.List;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.util.AstUtils.treeEqual;
+import static io.prestosql.sql.util.AstUtils.treeHash;
 import static java.util.Objects.requireNonNull;
 
 /**
  * A wrapper for Expressions that can be used as a key in maps and sets.
- *
+ * <p>
  * Expressions are considered equal if they are structurally equal and column references refer to the same logical fields.
- *
+ * <p>
  * For example, given
  *
  * <pre>SELECT t.a, a FROM (VALUES 1) t(a)</pre>
- *
+ * <p>
  * "t.a" and "a" are considered equal because they reference the same field of "t"
- *
+ * <p>
  * Limitation: the expressions in the following query are currently not considered equal to each other, even though they refer to the same field from the same table or
  * named query "t". This is because we currently don't assign identity to table references. (TODO: implement this)
  *
@@ -55,7 +58,7 @@ public class ScopeAware<T extends Node>
         this.queryScope = scope.getQueryBoundaryScope();
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.node = requireNonNull(node, "node is null");
-        this.hash = hash(node);
+        this.hash = treeHash(node, this::scopeAwareHash);
     }
 
     public static <T extends Node> ScopeAware<T> scopeAwareKey(T node, Analysis analysis, Scope scope)
@@ -87,7 +90,7 @@ public class ScopeAware<T extends Node>
         ScopeAware<T> other = (ScopeAware<T>) o;
         checkArgument(this.queryScope == other.queryScope, "Expressions must be in the same local scope");
 
-        return equal(node, other.node);
+        return treeEqual(node, other.node, this::scopeAwareComparison);
     }
 
     @Override
@@ -96,7 +99,7 @@ public class ScopeAware<T extends Node>
         return "ScopeAware(" + node + ")";
     }
 
-    private boolean equal(Node left, Node right)
+    private Boolean scopeAwareComparison(Node left, Node right)
     {
         if (left instanceof Expression && right instanceof Expression) {
             Expression leftExpression = (Expression) left;
@@ -131,23 +134,10 @@ public class ScopeAware<T extends Node>
             return false;
         }
 
-        List<? extends Node> leftChildren = left.getChildren();
-        List<? extends Node> rightChildren = right.getChildren();
-
-        if (leftChildren.size() != rightChildren.size()) {
-            return false;
-        }
-
-        for (int i = 0; i < leftChildren.size(); i++) {
-            if (!equal(leftChildren.get(i), rightChildren.get(i))) {
-                return false;
-            }
-        }
-
-        return true;
+        return null;
     }
 
-    private int hash(Node node)
+    private OptionalInt scopeAwareHash(Node node)
     {
         if (node instanceof Expression) {
             Expression expression = (Expression) node;
@@ -156,25 +146,17 @@ public class ScopeAware<T extends Node>
 
                 Scope resolvedScope = field.getScope();
                 if (resolvedScope.hasOuterParent(queryScope)) {
-                    return expression.hashCode();
+                    return OptionalInt.of(expression.hashCode());
                 }
 
-                return field.getFieldId().hashCode();
+                return OptionalInt.of(field.getFieldId().hashCode());
+            }
+            else if (expression instanceof Identifier || expression.getChildren().isEmpty()) {
+                // Calculate shallow hash since node doesn't have any children
+                return OptionalInt.of(expression.hashCode());
             }
         }
 
-        List<? extends Node> children = node.getChildren();
-
-        if (children.isEmpty()) {
-            // Calculate shallow hash since node doesn't have any children
-            return node.hashCode();
-        }
-
-        int result = node.getClass().hashCode();
-        for (Node element : children) {
-            result = 31 * result + hash(element);
-        }
-
-        return result;
+        return OptionalInt.empty();
     }
 }
