@@ -16,7 +16,9 @@ package io.prestosql.server.security;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -35,15 +37,18 @@ public class TestCertificateConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path userMappingFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http-server.authentication.certificate.user-mapping.pattern", "(.*)@something")
-                .put("http-server.authentication.certificate.user-mapping.file", "some-file")
+                .put("http-server.authentication.certificate.user-mapping.file", userMappingFile.toString())
                 .build();
 
         CertificateConfig expected = new CertificateConfig()
                 .setUserMappingPattern("(.*)@something")
-                .setUserMappingFile(new File("some-file"));
+                .setUserMappingFile(userMappingFile.toFile());
 
         assertFullMapping(properties, expected);
     }
