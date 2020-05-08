@@ -311,8 +311,10 @@ public class TestLocalDynamicFilterConsumer
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 7L))));
+
+        // TODO: hard-coding symbol names makes tests brittle
         assertEquals(filter.getNodeLocalDynamicFilterForSymbols().get(), ImmutableMap.of(
-                new Symbol("partkey"), Domain.singleValue(BIGINT, 7L),
+                new Symbol("partkey_0"), Domain.singleValue(BIGINT, 7L),
                 new Symbol("suppkey"), Domain.singleValue(BIGINT, 7L)));
     }
 

@@ -797,6 +797,32 @@ class QueryPlanner
                 analysis.isTypeOnlyCoercion(original));
     }
 
+    public static NodeAndMappings coerce(PlanNode node, List<Symbol> fields, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        checkArgument(fields.size() == types.size());
+
+        Assignments.Builder assignments = Assignments.builder();
+
+        ImmutableList.Builder<Symbol> mappings = ImmutableList.builder();
+        for (int i = 0; i < types.size(); i++) {
+            Symbol input = fields.get(i);
+            Type type = types.get(i);
+
+            if (!symbolAllocator.getTypes().get(input).equals(type)) {
+                Symbol coerced = symbolAllocator.newSymbol(input.getName(), type);
+                assignments.put(coerced, new Cast(input.toSymbolReference(), toSqlType(type)));
+                mappings.add(coerced);
+            }
+            else {
+                assignments.putIdentity(input);
+                mappings.add(input);
+            }
+        }
+
+        ProjectNode coerced = new ProjectNode(idAllocator.getNextId(), node, assignments.build());
+        return new NodeAndMappings(coerced, mappings.build());
+    }
+
     private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<Expression> expressions)
     {
         if (node.getSelect().isDistinct()) {
@@ -982,6 +1008,28 @@ class QueryPlanner
         public Aggregation getRewritten()
         {
             return aggregation;
+        }
+    }
+
+    public static class NodeAndMappings
+    {
+        private final PlanNode node;
+        private final List<Symbol> fields;
+
+        public NodeAndMappings(PlanNode node, List<Symbol> fields)
+        {
+            this.node = requireNonNull(node, "node is null");
+            this.fields = requireNonNull(fields, "fields is null");
+        }
+
+        public PlanNode getNode()
+        {
+            return node;
+        }
+
+        public List<Symbol> getFields()
+        {
+            return fields;
         }
     }
 }
