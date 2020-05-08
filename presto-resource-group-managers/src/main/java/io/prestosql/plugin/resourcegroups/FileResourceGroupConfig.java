@@ -14,6 +14,7 @@
 package io.prestosql.plugin.resourcegroups;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -22,6 +23,7 @@ public class FileResourceGroupConfig
     private String configFile;
 
     @NotNull
+    @FileExists
     public String getConfigFile()
     {
         return configFile;
