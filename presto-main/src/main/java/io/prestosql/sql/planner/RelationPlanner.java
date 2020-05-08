@@ -26,7 +26,6 @@ import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analysis.UnnestAnalysis;
 import io.prestosql.sql.analyzer.Field;
-import io.prestosql.sql.analyzer.RelationId;
 import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.QueryPlanner.NodeAndMappings;
@@ -69,7 +68,6 @@ import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.SetOperation;
 import io.prestosql.sql.tree.SubqueryExpression;
-import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.TableSubquery;
 import io.prestosql.sql.tree.Union;
@@ -87,7 +85,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -163,13 +160,15 @@ class RelationPlanner
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
-            List<Type> types = scope.getRelationType()
+
+            List<Type> types = analysis.getOutputDescriptor(node)
                     .getAllFields().stream()
                     .map(Field::getType)
                     .collect(toImmutableList());
-            RelationPlan withCoercions = addCoercions(subPlan, types);
 
-            plan = new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings(), outerContext);
+            NodeAndMappings coerced = coerce(subPlan.getRoot(), visibleFields(subPlan), types, symbolAllocator, idAllocator);
+
+            plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
         }
         else {
             TableHandle handle = analysis.getTableHandle(node);
@@ -823,53 +822,6 @@ class RelationPlanner
         PlanNode values = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of()));
         TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of());
         return new PlanBuilder(translations, values);
-    }
-
-    private RelationPlan addCoercions(RelationPlan plan, List<Type> targetColumnTypes)
-    {
-        List<Symbol> oldSymbols = plan.getFieldMappings();
-        RelationType oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
-        verify(targetColumnTypes.size() == oldSymbols.size());
-        ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
-        Field[] newFields = new Field[targetColumnTypes.size()];
-        Assignments.Builder assignments = Assignments.builder();
-        for (int i = 0; i < targetColumnTypes.size(); i++) {
-            Symbol inputSymbol = oldSymbols.get(i);
-            Type inputType = symbolAllocator.getTypes().get(inputSymbol);
-            Type outputType = targetColumnTypes.get(i);
-            if (!outputType.equals(inputType)) {
-                Expression cast = new Cast(inputSymbol.toSymbolReference(), toSqlType(outputType));
-                Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
-                assignments.put(outputSymbol, cast);
-                newSymbols.add(outputSymbol);
-            }
-            else {
-                SymbolReference symbolReference = inputSymbol.toSymbolReference();
-                Symbol outputSymbol = symbolAllocator.newSymbol(symbolReference, outputType);
-                assignments.put(outputSymbol, symbolReference);
-                newSymbols.add(outputSymbol);
-            }
-            Field oldField = oldDescriptor.getFieldByIndex(i);
-            newFields[i] = new Field(
-                    oldField.getRelationAlias(),
-                    oldField.getName(),
-                    targetColumnTypes.get(i),
-                    oldField.isHidden(),
-                    oldField.getOriginTable(),
-                    oldField.getOriginColumnName(),
-                    oldField.isAliased());
-        }
-        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
-
-        return new RelationPlan(
-                projectNode,
-                // Synthetic scope to track the relation type. This scope is not used for resolution, so it's
-                // not wired within the scope hierarchy
-                Scope.builder()
-                        .withRelationType(RelationId.anonymous(), new RelationType(newFields))
-                        .build(),
-                newSymbols.build(),
-                outerContext);
     }
 
     @Override
