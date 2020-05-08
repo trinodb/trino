@@ -162,7 +162,10 @@ class RelationPlanner
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
-            Type[] types = scope.getRelationType().getAllFields().stream().map(Field::getType).toArray(Type[]::new);
+            Type[] types = scope.getRelationType()
+                    .getAllFields().stream()
+                    .map(Field::getType)
+                    .toArray(Type[]::new);
             RelationPlan withCoercions = addCoercions(subPlan, types);
 
             plan = new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings(), outerContext);
