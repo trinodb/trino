@@ -19,7 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static com.datastax.driver.core.ProtocolVersion.V2;
@@ -71,7 +73,11 @@ public class TestCassandraClientConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cassandra.contact-points", "host1,host2")
                 .put("cassandra.native-protocol-port", "9999")
@@ -100,9 +106,9 @@ public class TestCassandraClientConfig
                 .put("cassandra.speculative-execution.delay", "101s")
                 .put("cassandra.protocol-version", "V2")
                 .put("cassandra.tls.enabled", "true")
-                .put("cassandra.tls.keystore-path", "/tmp/keystore")
+                .put("cassandra.tls.keystore-path", keystoreFile.toString())
                 .put("cassandra.tls.keystore-password", "keystore-password")
-                .put("cassandra.tls.truststore-path", "/tmp/truststore")
+                .put("cassandra.tls.truststore-path", truststoreFile.toString())
                 .put("cassandra.tls.truststore-password", "truststore-password")
                 .build();
 
@@ -134,9 +140,9 @@ public class TestCassandraClientConfig
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
                 .setProtocolVersion(V2)
                 .setTlsEnabled(true)
-                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")
-                .setTruststorePath(new File("/tmp/truststore"))
+                .setTruststorePath(truststoreFile.toFile())
                 .setTruststorePassword("truststore-password");
 
         assertFullMapping(properties, expected);
