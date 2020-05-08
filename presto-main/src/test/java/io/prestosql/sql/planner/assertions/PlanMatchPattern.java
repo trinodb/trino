@@ -91,6 +91,7 @@ import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
 import static io.prestosql.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.prestosql.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
@@ -494,6 +495,36 @@ public final class PlanMatchPattern
     public static PlanMatchPattern unnest(PlanMatchPattern source)
     {
         return node(UnnestNode.class, source);
+    }
+
+    public static PlanMatchPattern unnest(List<String> replicateSymbols, Map<String, UnnestedSymbolMatcher> mappings, PlanMatchPattern source)
+    {
+        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
+    }
+
+    public static PlanMatchPattern unnest(
+            List<String> replicateSymbols,
+            Map<String, UnnestedSymbolMatcher> mappings,
+            Optional<String> ordinalitySymbol,
+            Type type,
+            Optional<String> filter,
+            PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(UnnestNode.class, source)
+                .with(new UnnestMatcher(
+                        replicateSymbols,
+                        mappings.values().stream()
+                                .map(UnnestedSymbolMatcher::getSymbol)
+                                .collect(toImmutableList()),
+                        ordinalitySymbol,
+                        type,
+                        filter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate, new ParsingOptions())))));
+        for (Map.Entry<String, UnnestedSymbolMatcher> mapping : mappings.entrySet()) {
+            result.withAlias(mapping.getKey(), mapping.getValue());
+        }
+        ordinalitySymbol.ifPresent(symbol -> result.withAlias(symbol, new OrdinalitySymbolMatcher()));
+
+        return result;
     }
 
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)

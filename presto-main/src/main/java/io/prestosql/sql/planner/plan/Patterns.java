@@ -167,6 +167,11 @@ public final class Patterns
         return typeOf(ValuesNode.class);
     }
 
+    public static Pattern<UnnestNode> unnest()
+    {
+        return typeOf(UnnestNode.class);
+    }
+
     public static Pattern<WindowNode> window()
     {
         return typeOf(WindowNode.class);
