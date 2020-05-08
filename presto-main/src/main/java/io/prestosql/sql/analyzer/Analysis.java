@@ -239,11 +239,9 @@ public class Analysis
         return type;
     }
 
-    public Type[] getRelationCoercion(Relation relation)
+    public List<Type> getRelationCoercion(Relation relation)
     {
-        return Optional.ofNullable(relationCoercions.get(NodeRef.of(relation)))
-                .map(types -> types.stream().toArray(Type[]::new))
-                .orElse(null);
+        return relationCoercions.get(NodeRef.of(relation));
     }
 
     public void addRelationCoercion(Relation relation, Type[] types)

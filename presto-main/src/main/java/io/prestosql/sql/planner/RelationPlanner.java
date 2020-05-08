@@ -162,10 +162,10 @@ class RelationPlanner
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
-            Type[] types = scope.getRelationType()
+            List<Type> types = scope.getRelationType()
                     .getAllFields().stream()
                     .map(Field::getType)
-                    .toArray(Type[]::new);
+                    .collect(toImmutableList());
             RelationPlan withCoercions = addCoercions(subPlan, types);
 
             plan = new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings(), outerContext);
@@ -826,7 +826,7 @@ class RelationPlanner
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
     {
-        Type[] coerceToTypes = analysis.getRelationCoercion(node);
+        List<Type> coerceToTypes = analysis.getRelationCoercion(node);
 
         RelationPlan plan = this.process(node, context);
 
@@ -837,18 +837,18 @@ class RelationPlanner
         return addCoercions(plan, coerceToTypes);
     }
 
-    private RelationPlan addCoercions(RelationPlan plan, Type[] targetColumnTypes)
+    private RelationPlan addCoercions(RelationPlan plan, List<Type> targetColumnTypes)
     {
         List<Symbol> oldSymbols = plan.getFieldMappings();
         RelationType oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
-        verify(targetColumnTypes.length == oldSymbols.size());
+        verify(targetColumnTypes.size() == oldSymbols.size());
         ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
-        Field[] newFields = new Field[targetColumnTypes.length];
+        Field[] newFields = new Field[targetColumnTypes.size()];
         Assignments.Builder assignments = Assignments.builder();
-        for (int i = 0; i < targetColumnTypes.length; i++) {
+        for (int i = 0; i < targetColumnTypes.size(); i++) {
             Symbol inputSymbol = oldSymbols.get(i);
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
-            Type outputType = targetColumnTypes[i];
+            Type outputType = targetColumnTypes.get(i);
             if (!outputType.equals(inputType)) {
                 Expression cast = new Cast(inputSymbol.toSymbolReference(), toSqlType(outputType));
                 Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
@@ -865,7 +865,7 @@ class RelationPlanner
             newFields[i] = new Field(
                     oldField.getRelationAlias(),
                     oldField.getName(),
-                    targetColumnTypes[i],
+                    targetColumnTypes.get(i),
                     oldField.isHidden(),
                     oldField.getOriginTable(),
                     oldField.getOriginColumnName(),
