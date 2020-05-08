@@ -15,12 +15,14 @@ package io.prestosql.plugin.localfile;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 
 public class LocalFileConfig
 {
     private String httpRequestLogLocation = "var/log/http-request.log";
     private String httpRequestLogFileNamePattern;
 
+    @FileExists
     public String getHttpRequestLogLocation()
     {
         return httpRequestLogLocation;

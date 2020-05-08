@@ -16,6 +16,9 @@ package io.prestosql.plugin.localfile;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -34,14 +37,17 @@ public class TestLocalFileConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path httpRequestLogFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("presto-logs.http-request-log.location", "/data/foo.log")
+                .put("presto-logs.http-request-log.location", httpRequestLogFile.toString())
                 .put("presto-logs.http-request-log.pattern", "bar")
                 .build();
 
         LocalFileConfig expected = new LocalFileConfig()
-                .setHttpRequestLogLocation("/data/foo.log")
+                .setHttpRequestLogLocation(httpRequestLogFile.toString())
                 .setHttpRequestLogFileNamePattern("bar");
 
         assertFullMapping(properties, expected);
