@@ -16,6 +16,7 @@ package io.prestosql.plugin.password.ldap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -77,6 +78,7 @@ public class LdapConfig
         return nullToEmpty(ldapUrl).startsWith("ldaps://") || allowInsecure;
     }
 
+    @FileExists
     public File getTrustCertificate()
     {
         return trustCertificate;

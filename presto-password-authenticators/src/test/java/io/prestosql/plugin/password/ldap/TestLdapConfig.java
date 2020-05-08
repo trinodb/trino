@@ -22,7 +22,9 @@ import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -52,11 +54,14 @@ public class TestLdapConfig
 
     @Test
     public void testExplicitConfig()
+            throws IOException
     {
+        Path trustCertificateFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("ldap.url", "ldaps://localhost:636")
                 .put("ldap.allow-insecure", "true")
-                .put("ldap.ssl-trust-certificate", "/trust.pem")
+                .put("ldap.ssl-trust-certificate", trustCertificateFile.toString())
                 .put("ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com")
                 .put("ldap.user-base-dn", "dc=test,dc=com")
                 .put("ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
@@ -69,7 +74,7 @@ public class TestLdapConfig
         LdapConfig expected = new LdapConfig()
                 .setLdapUrl("ldaps://localhost:636")
                 .setAllowInsecure(true)
-                .setTrustCertificate(new File("/trust.pem"))
+                .setTrustCertificate(trustCertificateFile.toFile())
                 .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
