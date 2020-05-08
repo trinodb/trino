@@ -16,6 +16,9 @@ package io.prestosql.server;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -38,22 +41,26 @@ public class TestInternalCommunicationConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("internal-communication.shared-secret", "secret")
                 .put("internal-communication.https.required", "true")
-                .put("internal-communication.https.keystore.path", "key-path")
+                .put("internal-communication.https.keystore.path", keystoreFile.toString())
                 .put("internal-communication.https.keystore.key", "key-key")
-                .put("internal-communication.https.truststore.path", "trust-path")
+                .put("internal-communication.https.truststore.path", truststoreFile.toString())
                 .put("internal-communication.https.truststore.key", "trust-key")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
                 .setSharedSecret("secret")
                 .setHttpsRequired(true)
-                .setKeyStorePath("key-path")
+                .setKeyStorePath(keystoreFile.toString())
                 .setKeyStorePassword("key-key")
-                .setTrustStorePath("trust-path")
+                .setTrustStorePath(truststoreFile.toString())
                 .setTrustStorePassword("trust-key");
 
         assertFullMapping(properties, expected);

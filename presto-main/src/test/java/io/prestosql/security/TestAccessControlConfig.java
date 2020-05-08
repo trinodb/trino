@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 public class TestAccessControlConfig
@@ -32,13 +34,17 @@ public class TestAccessControlConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path config1 = Files.createTempFile(null, null);
+        Path config2 = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("access-control.config-files", "a,b,c")
+                .put("access-control.config-files", config1.toString() + "," + config2.toString())
                 .build();
 
         AccessControlConfig expected = new AccessControlConfig()
-                .setAccessControlFiles(ImmutableList.of(new File("a"), new File("b"), new File("c")));
+                .setAccessControlFiles(ImmutableList.of(config1.toFile(), config2.toFile()));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
