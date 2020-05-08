@@ -94,7 +94,7 @@ public final class Cast
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(expression);
+        return ImmutableList.of(expression, type);
     }
 
     @Override
@@ -128,7 +128,6 @@ public final class Cast
 
         Cast otherCast = (Cast) other;
         return safe == otherCast.safe &&
-                typeOnly == otherCast.typeOnly &&
-                type.equals(otherCast.type); // type is currently not returned via getChildren(), so it's considered part of the shallow state
+                typeOnly == otherCast.typeOnly;
     }
 }
