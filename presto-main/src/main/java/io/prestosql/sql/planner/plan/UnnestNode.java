@@ -16,8 +16,10 @@ package io.prestosql.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.plan.JoinNode.Type;
 import io.prestosql.sql.tree.Expression;
 
@@ -26,6 +28,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -62,6 +65,10 @@ public class UnnestNode
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
         this.joinType = requireNonNull(joinType, "type is null");
         this.filter = requireNonNull(filter, "filter is null");
+        if (filter.isPresent()) {
+            Set<Symbol> outputs = ImmutableSet.copyOf(getOutputSymbols());
+            checkArgument(outputs.containsAll(SymbolsExtractor.extractUnique(filter.get())), "Outputs do not contain all filter symbols");
+        }
     }
 
     @Override
