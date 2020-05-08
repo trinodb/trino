@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner;
 
 import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.CanonicalizationAware;
 import io.prestosql.sql.analyzer.ResolvedField;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.tree.Expression;
@@ -121,12 +122,15 @@ public class ScopeAware<T extends Node>
                 // If both fields have the same field id, by definition they will produce the same result for hasOuterParent().
                 checkState(leftScope.hasOuterParent(queryScope) == rightScope.hasOuterParent(queryScope));
                 if (leftScope.hasOuterParent(queryScope) && rightScope.hasOuterParent(queryScope)) {
-                    return leftExpression.equals(rightExpression);
+                    return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);
                 }
 
                 // Otherwise, for references that come from the current query scope or an outer scope of the current
                 // expression, compare by resolved field
                 return leftField.getFieldId().equals(rightField.getFieldId());
+            }
+            else if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
+                return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);
             }
         }
 
@@ -146,12 +150,15 @@ public class ScopeAware<T extends Node>
 
                 Scope resolvedScope = field.getScope();
                 if (resolvedScope.hasOuterParent(queryScope)) {
-                    return OptionalInt.of(expression.hashCode());
+                    return OptionalInt.of(treeHash(expression, CanonicalizationAware::canonicalizationAwareHash));
                 }
 
                 return OptionalInt.of(field.getFieldId().hashCode());
             }
-            else if (expression instanceof Identifier || expression.getChildren().isEmpty()) {
+            else if (expression instanceof Identifier) {
+                return OptionalInt.of(treeHash(expression, CanonicalizationAware::canonicalizationAwareHash));
+            }
+            else if (node.getChildren().isEmpty()) {
                 // Calculate shallow hash since node doesn't have any children
                 return OptionalInt.of(expression.hashCode());
             }
