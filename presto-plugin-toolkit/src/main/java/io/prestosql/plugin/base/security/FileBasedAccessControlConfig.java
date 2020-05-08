@@ -14,6 +14,7 @@
 package io.prestosql.plugin.base.security;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -28,6 +29,7 @@ public class FileBasedAccessControlConfig
     private Duration refreshPeriod;
 
     @NotNull
+    @FileExists
     public String getConfigFile()
     {
         return configFile;
