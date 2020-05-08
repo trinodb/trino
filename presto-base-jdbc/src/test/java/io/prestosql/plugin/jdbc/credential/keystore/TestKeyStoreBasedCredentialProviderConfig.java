@@ -16,6 +16,9 @@ package io.prestosql.plugin.jdbc.credential.keystore;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -39,9 +42,12 @@ public class TestKeyStoreBasedCredentialProviderConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("keystore-file-path", "/presto/credentials.jceks")
+                .put("keystore-file-path", keystoreFile.toString())
                 .put("keystore-type", "JCEKS")
                 .put("keystore-password", "keystore_password")
                 .put("keystore-user-credential-name", "userName")
@@ -51,7 +57,7 @@ public class TestKeyStoreBasedCredentialProviderConfig
                 .build();
 
         KeyStoreBasedCredentialProviderConfig expected = new KeyStoreBasedCredentialProviderConfig()
-                .setKeyStoreFilePath("/presto/credentials.jceks")
+                .setKeyStoreFilePath(keystoreFile.toString())
                 .setKeyStoreType("JCEKS")
                 .setKeyStorePassword("keystore_password")
                 .setUserCredentialName("userName")
