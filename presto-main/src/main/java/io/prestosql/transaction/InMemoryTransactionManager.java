@@ -46,7 +46,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -101,7 +100,7 @@ public class InMemoryTransactionManager
             TransactionManagerConfig config,
             ScheduledExecutorService idleCheckExecutor,
             CatalogManager catalogManager,
-            ExecutorService finishingExecutor)
+            Executor finishingExecutor)
     {
         InMemoryTransactionManager transactionManager = new InMemoryTransactionManager(config.getIdleTimeout(), config.getMaxFinishingConcurrency(), catalogManager, finishingExecutor);
         transactionManager.scheduleIdleChecks(config.getIdleCheckInterval(), idleCheckExecutor);
