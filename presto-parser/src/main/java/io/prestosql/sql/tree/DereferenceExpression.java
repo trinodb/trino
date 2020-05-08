@@ -55,7 +55,7 @@ public class DereferenceExpression
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(base);
+        return ImmutableList.of(base, field);
     }
 
     public Expression getBase()
@@ -130,10 +130,6 @@ public class DereferenceExpression
     @Override
     public boolean shallowEquals(Node other)
     {
-        if (!sameClass(this, other)) {
-            return false;
-        }
-
-        return field.equals(((DereferenceExpression) other).field);
+        return sameClass(this, other);
     }
 }
