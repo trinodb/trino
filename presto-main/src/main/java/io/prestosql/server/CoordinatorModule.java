@@ -152,6 +152,7 @@ import io.prestosql.transaction.ForTransactionManager;
 import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
+import io.prestosql.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -420,10 +421,11 @@ public class CoordinatorModule
     public static TransactionManager createTransactionManager(
             TransactionManagerConfig config,
             CatalogManager catalogManager,
+            EmbedVersion embedVersion,
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, embedVersion.embedVersion(finishingExecutor));
     }
 
     private static <T extends Statement> void bindDataDefinitionTask(
