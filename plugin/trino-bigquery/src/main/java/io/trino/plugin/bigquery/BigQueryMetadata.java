@@ -13,8 +13,13 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
+import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.ViewDefinition;
@@ -61,6 +66,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -284,6 +290,44 @@ public class BigQueryMetadata
     {
         log.debug("getTableProperties(session=%s, prefix=%s)", session, table);
         return new ConnectorTableProperties();
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        try {
+            createTable(tableMetadata);
+        }
+        catch (BigQueryException e) {
+            if (ignoreExisting && e.getCode() == 409) {
+                return;
+            }
+            throw e;
+        }
+    }
+
+    private void createTable(ConnectorTableMetadata tableMetadata)
+    {
+        SchemaTableName schemaTableName = tableMetadata.getTable();
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+        List<Field> fields = tableMetadata.getColumns().stream()
+                .map(column -> toField(column.getName(), column.getType()))
+                .collect(toImmutableList());
+
+        TableId tableId = TableId.of(schemaName, tableName);
+        TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
+        TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
+
+        bigQueryClient.createTable(tableInfo);
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
+        TableId tableId = bigQueryTable.getRemoteTableName().toTableId();
+        bigQueryClient.dropTable(tableId);
     }
 
     @Override
