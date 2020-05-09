@@ -41,4 +41,5 @@ If you are looking for more information about a specific function or operator,
     functions/color
     functions/session
     functions/teradata
+    functions/ml
     functions/list

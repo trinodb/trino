@@ -83,6 +83,7 @@ C
 - :func:`checksum`
 - :func:`char2hexint`
 - :func:`chr`
+- :func:`classify`
 - :ref:`coalesce <coalesce_function>`
 - :func:`codepoint`
 - :func:`color`
@@ -135,6 +136,7 @@ E
 
 F
 
+- :func:`features`
 - :func:`filter`
 - :func:`first_value`
 - :func:`flatten`
@@ -212,6 +214,10 @@ L
 - :func:`last_day_of_month`
 - :func:`last_value`
 - :func:`lead`
+- :func:`learn_classifier`
+- :func:`learn_libsvm_classifier`
+- :func:`learn_libsvm_regressor`
+- :func:`learn_regressor`
 - :func:`least`
 - :func:`length`
 - :func:`levenshtein_distance`
@@ -301,6 +307,7 @@ R
 - :func:`regexp_position`
 - :func:`regexp_replace`
 - :func:`regexp_split`
+- :func:`regress`
 - :func:`regr_intercept`
 - :func:`regr_slope`
 - :func:`render`
