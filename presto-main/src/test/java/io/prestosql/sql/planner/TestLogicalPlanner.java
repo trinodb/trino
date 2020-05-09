@@ -1377,6 +1377,30 @@ public class TestLogicalPlanner
                         values(ImmutableList.of("regionkey"))));
     }
 
+    @Test
+    public void testGroupingSetsWithDefaultValue()
+    {
+        assertDistributedPlan("SELECT orderkey, COUNT(DISTINCT k) FROM (SELECT orderkey, 1 k FROM orders) GROUP BY GROUPING SETS ((), orderkey)",
+                output(
+                        anyTree(
+                                aggregation(
+                                        ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count"))),
+                                        FINAL,
+                                        exchange(
+                                                LOCAL,
+                                                REPARTITION,
+                                                exchange(
+                                                        REMOTE,
+                                                        REPARTITION,
+                                                        aggregation(
+                                                                ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("CONSTANT"))),
+                                                                PARTIAL,
+                                                                anyTree(
+                                                                        project(
+                                                                                ImmutableMap.of("CONSTANT", expression("1")),
+                                                                                tableScan("orders"))))))))));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getQueryRunner().getDefaultSession())

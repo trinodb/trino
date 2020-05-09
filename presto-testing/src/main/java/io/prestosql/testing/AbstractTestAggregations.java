@@ -1307,4 +1307,12 @@ public abstract class AbstractTestAggregations
     {
         assertQuery("SELECT count(1) FROM (SELECT count(custkey) FROM orders LIMIT 10) a");
     }
+
+    @Test
+    public void testGroupingSetsWithDefaultValue()
+    {
+        assertQuery(
+                "SELECT orderkey, COUNT(DISTINCT k) FROM (SELECT orderkey, 1 k FROM orders) GROUP BY GROUPING SETS ((), orderkey) HAVING orderkey IS NULL",
+                "VALUES (null, 1)");
+    }
 }
