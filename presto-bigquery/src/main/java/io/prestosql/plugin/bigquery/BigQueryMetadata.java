@@ -54,6 +54,8 @@ import java.util.Set;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.bigquery.BigQueryTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.prestosql.plugin.bigquery.BigQueryTableProperties.getPartitionedBy;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -157,7 +159,12 @@ public class BigQueryMetadata
                 schema.getFields().stream()
                         .map(Conversions::toColumnMetadata)
                         .collect(toImmutableList());
-        return new ConnectorTableMetadata(schemaTableName, columns);
+
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        getPartitionedBy(table.getDefinition())
+                .ifPresent(partitionedBy -> properties.put(PARTITIONED_BY_PROPERTY, partitionedBy));
+
+        return new ConnectorTableMetadata(schemaTableName, columns, properties.build());
     }
 
     @Override
