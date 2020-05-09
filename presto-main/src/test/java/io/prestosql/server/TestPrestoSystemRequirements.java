@@ -13,8 +13,6 @@
  */
 package io.prestosql.server;
 
-import com.google.common.base.StandardSystemProperty;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
@@ -25,13 +23,6 @@ public class TestPrestoSystemRequirements
     @Test
     public void testVerifyJvmRequirements()
     {
-        // TODO: remove when we stop running tests with Java 8 on CI
-        String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
-        JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() < 11) {
-            throw new SkipException("Incompatible Java version: " + javaVersion);
-        }
-
         verifyJvmRequirements();
     }
 
