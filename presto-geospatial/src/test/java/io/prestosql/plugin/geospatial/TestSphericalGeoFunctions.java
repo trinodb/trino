@@ -130,9 +130,9 @@ public class TestSphericalGeoFunctions
     @Test
     public void testDistance()
     {
-        assertDistance("POINT (-86.67 36.12)", "POINT (-118.40 33.94)", 2886448.973436703);
-        assertDistance("POINT (-118.40 33.94)", "POINT (-86.67 36.12)", 2886448.973436703);
-        assertDistance("POINT (-71.0589 42.3601)", "POINT (-71.2290 42.4430)", 16734.69743457461);
+        assertDistance("POINT (-86.67 36.12)", "POINT (-118.40 33.94)", 2886448.9734367016);
+        assertDistance("POINT (-118.40 33.94)", "POINT (-86.67 36.12)", 2886448.9734367016);
+        assertDistance("POINT (-71.0589 42.3601)", "POINT (-71.2290 42.4430)", 16734.69743457383);
         assertDistance("POINT (-86.67 36.12)", "POINT (-86.67 36.12)", 0.0);
 
         assertDistance("POINT EMPTY", "POINT (40 30)", null);

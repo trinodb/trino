@@ -175,7 +175,7 @@ public final class TestRun
                                 .add("bash", "-xeuc", "nc -l \"$1\" < /dev/null; shift; exec \"$@\"", "-")
                                 .add(Integer.toString(TESTS_READY_PORT))
                                 .add(
-                                        "java",
+                                        "/usr/lib/jvm/zulu-11/bin/java",
                                         "-Xmx1g",
                                         // Force Parallel GC to ensure MaxHeapFreeRatio is respected
                                         "-XX:+UseParallelGC",
