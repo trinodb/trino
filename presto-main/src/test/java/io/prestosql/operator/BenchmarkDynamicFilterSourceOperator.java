@@ -50,6 +50,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
+import static io.prestosql.SystemSessionProperties.getDynamicFilteringRangeRowLimitPerDriver;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -89,7 +90,8 @@ public class BenchmarkDynamicFilterSourceOperator
                     (tupleDomain -> {}),
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel(new DynamicFilterId("0"), BIGINT, 0)),
                     getDynamicFilteringMaxPerDriverRowCount(TEST_SESSION),
-                    getDynamicFilteringMaxPerDriverSize(TEST_SESSION));
+                    getDynamicFilteringMaxPerDriverSize(TEST_SESSION),
+                    getDynamicFilteringRangeRowLimitPerDriver(TEST_SESSION));
         }
 
         @TearDown
