@@ -34,6 +34,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.SystemSessionProperties.DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.server.DynamicFilterService.DynamicFilterDomainStats;
@@ -73,7 +74,7 @@ public class TestHiveDynamicPartitionPruning
         super.init();
         // setup partitioned fact table for dynamic partition pruning
         @Language("SQL") String sql = format("CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array['suppkey']) AS " +
-                "SELECT orderkey, partkey, linenumber, suppkey FROM %s", PARTITIONED_LINEITEM, "tpch.tiny.lineitem");
+                "SELECT orderkey, partkey, suppkey FROM %s", PARTITIONED_LINEITEM, "tpch.tiny.lineitem");
         long start = System.nanoTime();
         long rows = (Long) getQueryRunner().execute(sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, PARTITIONED_LINEITEM, nanosSince(start).convertToMostSuccinctTimeUnit());
@@ -85,6 +86,7 @@ public class TestHiveDynamicPartitionPruning
         return Session.builder(super.getSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name()) // Avoid node local DF
+                .setSystemProperty(DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER, "100000")
                 .build();
     }
 
@@ -182,7 +184,11 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.all(INTEGER).toString(getSession().toConnectorSession()));
+        assertEquals(
+                domainStats.getSimplifiedDomain(),
+                Domain.create(
+                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
+                        .toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
         assertEquals(domainStats.getRangeCount(), 1);
     }
@@ -310,7 +316,11 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.all(INTEGER).toString(getSession().toConnectorSession()));
+        assertEquals(
+                domainStats.getSimplifiedDomain(),
+                Domain.create(
+                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
+                        .toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
         assertEquals(domainStats.getRangeCount(), 1);
     }

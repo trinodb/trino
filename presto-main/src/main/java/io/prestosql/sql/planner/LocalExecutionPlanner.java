@@ -229,6 +229,7 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.prestosql.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
+import static io.prestosql.SystemSessionProperties.getDynamicFilteringRangeRowLimitPerDriver;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
@@ -2149,7 +2150,8 @@ public class LocalExecutionPlanner
                     dynamicFilter.getTupleDomainConsumer(),
                     filterBuildChannels,
                     getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
-                    getDynamicFilteringMaxPerDriverSize(context.getSession()));
+                    getDynamicFilteringMaxPerDriverSize(context.getSession()),
+                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession()));
         }
 
         private Optional<LocalDynamicFilterConsumer> createDynamicFilter(PhysicalOperation buildSource, JoinNode node, LocalExecutionPlanContext context, int partitionCount)
@@ -2259,7 +2261,8 @@ public class LocalExecutionPlanner
                         filterConsumer.getTupleDomainConsumer(),
                         ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
                         getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
-                        getDynamicFilteringMaxPerDriverSize(context.getSession())));
+                        getDynamicFilteringMaxPerDriverSize(context.getSession()),
+                        getDynamicFilteringRangeRowLimitPerDriver(context.getSession())));
             });
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));

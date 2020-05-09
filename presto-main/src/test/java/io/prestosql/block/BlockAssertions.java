@@ -440,7 +440,7 @@ public final class BlockAssertions
         return createBlockOfReals(Arrays.asList(values));
     }
 
-    private static Block createBlockOfReals(Iterable<Float> values)
+    public static Block createBlockOfReals(Iterable<Float> values)
     {
         BlockBuilder builder = REAL.createBlockBuilder(null, 100);
         for (Float value : values) {
