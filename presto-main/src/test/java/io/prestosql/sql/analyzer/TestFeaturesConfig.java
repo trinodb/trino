@@ -114,6 +114,7 @@ public class TestFeaturesConfig
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
                 .setDynamicFilteringRefreshInterval(new Duration(200, MILLISECONDS))
+                .setDynamicFilteringRangeRowLimitPerDriver(0)
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
                 .setIterativeRuleBasedColumnPruning(true));
@@ -191,6 +192,7 @@ public class TestFeaturesConfig
                 .put("dynamic-filtering-max-per-driver-row-count", "256")
                 .put("dynamic-filtering-max-per-driver-size", "64kB")
                 .put("experimental.dynamic-filtering-refresh-interval", "300ms")
+                .put("dynamic-filtering-range-row-limit-per-driver", "10000")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("optimizer.iterative-rule-based-column-pruning", "false")
@@ -265,6 +267,7 @@ public class TestFeaturesConfig
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
                 .setDynamicFilteringRefreshInterval(new Duration(300, MILLISECONDS))
+                .setDynamicFilteringRangeRowLimitPerDriver(10000)
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
                 .setIterativeRuleBasedColumnPruning(false);

@@ -121,6 +121,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
+    public static final String DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER = "dynamic_filtering_range_row_limit_per_driver";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String ITERATIVE_COLUMN_PRUNING = "iterative_rule_based_column_pruning";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
@@ -547,6 +548,11 @@ public final class SystemSessionProperties
                         DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE,
                         "Experimental: maximum number of bytes to be collected for dynamic filtering per-driver",
                         featuresConfig.getDynamicFilteringMaxPerDriverSize(),
+                        false),
+                integerProperty(
+                        DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER,
+                        "Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering",
+                        featuresConfig.getDynamicFilteringRangeRowLimitPerDriver(),
                         false),
                 booleanProperty(
                         IGNORE_DOWNSTREAM_PREFERENCES,
@@ -1004,6 +1010,11 @@ public final class SystemSessionProperties
     public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
+    }
+
+    public static int getDynamicFilteringRangeRowLimitPerDriver(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER, Integer.class);
     }
 
     public static boolean ignoreDownStreamPreferences(Session session)
