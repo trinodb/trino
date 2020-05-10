@@ -153,6 +153,32 @@ public class TestBigQueryIntegrationSmokeTest
         executeBigQuerySql(client, "DROP VIEW " + viewName);
     }
 
+    @Test
+    public void testViewDefinitionSystemTable()
+    {
+        BigQuery client = createBigQueryClient();
+
+        String schemaName = "test";
+        String tableName = "views_system_table_base_" + randomTableSuffix();
+        String viewName = "views_system_table_view_" + randomTableSuffix();
+
+        executeBigQuerySql(client, format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+        executeBigQuerySql(client, format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
+        executeBigQuerySql(client, format("CREATE TABLE %s.%s (a INT64, b INT64, c INT64)", schemaName, tableName));
+        executeBigQuerySql(client, format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaName, viewName, schemaName, tableName));
+
+        assertEquals(
+                computeScalar(format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, viewName)),
+                format("SELECT * FROM %s.%s", schemaName, tableName));
+
+        assertQueryFails(
+                format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, tableName),
+                format("Table '%s.%s\\$view_definition' not found", schemaName, tableName));
+
+        executeBigQuerySql(client, format("DROP TABLE %s.%s", schemaName, tableName));
+        executeBigQuerySql(client, format("DROP VIEW %s.%s", schemaName, viewName));
+    }
+
     private static void executeBigQuerySql(BigQuery bigquery, String query)
     {
         QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query)
