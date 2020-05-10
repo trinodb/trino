@@ -161,6 +161,13 @@ BigQuery       Trino                        Notes
 ``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE`` Time zone is UTC
 =============  ============================ =============================================================================================================
 
+System tables
+-------------
+
+For each Trino table which maps to BigQuery view there exists a system table which exposes BigQuery view definition.
+Given a BigQuery view ``customer_view`` you can send query
+``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
+
 FAQ
 ---
 

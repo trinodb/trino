@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
+import com.google.cloud.bigquery.ViewDefinition;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,16 +34,22 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
@@ -50,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
@@ -66,6 +74,7 @@ public class BigQueryMetadata
     static final int NUMERIC_DATA_TYPE_PRECISION = 38;
     static final int NUMERIC_DATA_TYPE_SCALE = 9;
     static final String INFORMATION_SCHEMA = "information_schema";
+    private static final String VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX = "$view_definition";
 
     private final BigQueryClient bigQueryClient;
     private final String projectId;
@@ -158,6 +167,32 @@ public class BigQueryMetadata
                         .map(Conversions::toColumnMetadata)
                         .collect(toImmutableList());
         return new ConnectorTableMetadata(schemaTableName, columns);
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (isViewDefinitionSystemTable(tableName)) {
+            return getViewDefinitionSystemTable(tableName, getViewDefinitionSourceTableName(tableName));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<SystemTable> getViewDefinitionSystemTable(SchemaTableName viewDefinitionTableName, SchemaTableName sourceTableName)
+    {
+        TableInfo tableInfo = getBigQueryTable(sourceTableName);
+        if (tableInfo == null || !(tableInfo.getDefinition() instanceof ViewDefinition)) {
+            throw new TableNotFoundException(viewDefinitionTableName);
+        }
+
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("query", VarcharType.VARCHAR));
+        List<Type> types = columns.stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+        Optional<String> query = Optional.ofNullable(((ViewDefinition) tableInfo.getDefinition()).getQuery());
+        Iterable<List<Object>> propertyValues = ImmutableList.of(ImmutableList.of(query.orElse("NULL")));
+
+        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), constraint -> new InMemoryRecordSet(types, propertyValues).cursor()));
     }
 
     @Override
@@ -310,5 +345,42 @@ public class BigQueryMetadata
     private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
     {
         return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
+    }
+
+    private static boolean isViewDefinitionSystemTable(SchemaTableName table)
+    {
+        return table.getTableName().endsWith(VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX) &&
+                (table.getTableName().length() > VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX.length());
+    }
+
+    private static SchemaTableName getViewDefinitionSourceTableName(SchemaTableName table)
+    {
+        return new SchemaTableName(
+                table.getSchemaName(),
+                table.getTableName().substring(0, table.getTableName().length() - VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX.length()));
+    }
+
+    private static SystemTable createSystemTable(ConnectorTableMetadata metadata, Function<TupleDomain<Integer>, RecordCursor> cursor)
+    {
+        return new SystemTable()
+        {
+            @Override
+            public Distribution getDistribution()
+            {
+                return Distribution.SINGLE_COORDINATOR;
+            }
+
+            @Override
+            public ConnectorTableMetadata getTableMetadata()
+            {
+                return metadata;
+            }
+
+            @Override
+            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+            {
+                return cursor.apply(constraint);
+            }
+        };
     }
 }
