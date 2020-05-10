@@ -322,13 +322,23 @@ Property Name                                        Description
                                                      running in EC2, or when the catalog is in a different region.
                                                      Example: ``us-east-1``
 
+``hive.metastore.glue.endpoint-url``                 Glue API endpoint URL (optional).
+                                                     Example: ``https://glue.us-east-1.amazonaws.com``
+
 ``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
                                                      where Presto is running, defaults to ``false``.
 
 ``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
                                                      defaults to ``5``.
 
-``hive.metastore.glue.default-warehouse-dir``        Hive Glue metastore default warehouse directory
+``hive.metastore.glue.default-warehouse-dir``        Default warehouse directory for schemas created without an
+                                                     explicit ``location`` property.
+
+``hive.metastore.glue.catalogid``                    Glue Catalog ID (optional).
+
+``hive.metastore.glue.aws-credentials-provider``     Fully qualified name of the Java class to use for obtaining
+                                                     AWS credentials. Can be used to supply a custom credentials
+                                                     provider.
 
 ``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
                                                      specified along with ``hive.metastore.glue.aws-secret-key``,
@@ -345,6 +355,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.external-id``                  External ID for the IAM role trust policy when connecting
                                                      to the Glue Catalog.
+
+``hive.metastore.glue.partitions-segments``          Number of segments for partitioned Glue tables, defaults
+                                                     to ``5``.
+
+``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue,
+                                                     defaults to ``20``.
 ==================================================== ============================================================
 
 .. _hive-s3:
