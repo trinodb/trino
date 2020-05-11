@@ -20,7 +20,6 @@ import io.prestosql.connector.ConnectorAwareNodeManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.PagesIndex;
-import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
@@ -37,7 +36,7 @@ public final class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
-    private final VersionEmbedder versionEmbedder = new EmbedVersion(new ServerConfig());
+    private final VersionEmbedder versionEmbedder = new EmbedVersion("testversion");
     private final TypeManager typeManager;
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory;

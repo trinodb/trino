@@ -55,6 +55,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
@@ -63,17 +64,19 @@ import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsRea
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 public class PrestoServer
-        implements Runnable
 {
     public static void main(String[] args)
     {
-        // We use builtin version. This is used for system startup only.
-        EmbedVersion embedVersion = new EmbedVersion(new ServerConfig());
-        embedVersion.embedVersion(new PrestoServer()::run).run();
+        String version = PrestoServer.class.getPackage().getImplementationVersion();
+        new PrestoServer().start(firstNonNull(version, "unknown"));
     }
 
-    @Override
-    public void run()
+    public void start(String prestoVersion)
+    {
+        new EmbedVersion(prestoVersion).embedVersion(() -> doStart(prestoVersion)).run();
+    }
+
+    public void doStart(String prestoVersion)
     {
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
@@ -99,7 +102,7 @@ public class PrestoServer
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
-                new ServerMainModule(),
+                new ServerMainModule(prestoVersion),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
 

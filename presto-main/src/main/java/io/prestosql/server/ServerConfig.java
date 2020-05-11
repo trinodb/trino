@@ -16,14 +16,11 @@ package io.prestosql.server;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 
-import javax.validation.constraints.NotNull;
-
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
 {
     private boolean coordinator = true;
-    private String prestoVersion = getClass().getPackage().getImplementationVersion();
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean enhancedErrorReporting = true;
@@ -37,19 +34,6 @@ public class ServerConfig
     public ServerConfig setCoordinator(boolean coordinator)
     {
         this.coordinator = coordinator;
-        return this;
-    }
-
-    @NotNull(message = "presto.version must be provided when it cannot be automatically determined")
-    public String getPrestoVersion()
-    {
-        return prestoVersion;
-    }
-
-    @Config("presto.version")
-    public ServerConfig setPrestoVersion(String prestoVersion)
-    {
-        this.prestoVersion = prestoVersion;
         return this;
     }
 
