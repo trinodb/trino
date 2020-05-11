@@ -58,6 +58,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestRemoveUnsupportedDynamicFilters
@@ -98,7 +99,7 @@ public class TestRemoveUnsupportedDynamicFilters
     {
         PlanNode root = builder.join(
                 INNER,
-                builder.filter(PlanBuilder.expression("ORDERS_OK > 0"), ordersTableScanNode),
+                builder.filter(expression("ORDERS_OK > 0"), ordersTableScanNode),
                 lineitemTableScanNode,
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
@@ -156,7 +157,7 @@ public class TestRemoveUnsupportedDynamicFilters
                         builder.filter(
                                 combineConjuncts(
                                         metadata,
-                                        PlanBuilder.expression("LINEITEM_OK > 0"),
+                                        expression("LINEITEM_OK > 0"),
                                         createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
@@ -190,11 +191,11 @@ public class TestRemoveUnsupportedDynamicFilters
                                         metadata,
                                         combineDisjuncts(
                                                 metadata,
-                                                PlanBuilder.expression("LINEITEM_OK IS NULL"),
+                                                expression("LINEITEM_OK IS NULL"),
                                                 createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                         combineDisjuncts(
                                                 metadata,
-                                                PlanBuilder.expression("LINEITEM_OK IS NOT NULL"),
+                                                expression("LINEITEM_OK IS NOT NULL"),
                                                 createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
@@ -225,11 +226,11 @@ public class TestRemoveUnsupportedDynamicFilters
                                         metadata,
                                         combineConjuncts(
                                                 metadata,
-                                                PlanBuilder.expression("LINEITEM_OK IS NULL"),
+                                                expression("LINEITEM_OK IS NULL"),
                                                 createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                         combineConjuncts(
                                                 metadata,
-                                                PlanBuilder.expression("LINEITEM_OK IS NOT NULL"),
+                                                expression("LINEITEM_OK IS NOT NULL"),
                                                 createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
@@ -248,8 +249,8 @@ public class TestRemoveUnsupportedDynamicFilters
                                 filter(
                                         combineDisjuncts(
                                                 metadata,
-                                                PlanBuilder.expression("LINEITEM_OK IS NULL"),
-                                                PlanBuilder.expression("LINEITEM_OK IS NOT NULL")),
+                                                expression("LINEITEM_OK IS NULL"),
+                                                expression("LINEITEM_OK IS NOT NULL")),
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
@@ -266,7 +267,7 @@ public class TestRemoveUnsupportedDynamicFilters
                         builder.values(leftSymbol),
                         builder.values(rightSymbol),
                         ImmutableList.of(leftSymbol, rightSymbol),
-                        createDynamicFilterExpression(metadata, "DF", BIGINT, PlanBuilder.expression("LEFT_SYMBOL + RIGHT_SYMBOL"))));
+                        createDynamicFilterExpression(metadata, "DF", BIGINT, expression("LEFT_SYMBOL + RIGHT_SYMBOL"))));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
                 output(
