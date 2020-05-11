@@ -110,7 +110,8 @@ public class TestRemoveUnsupportedDynamicFilters
                 ImmutableMap.of("DF", lineitemOrderKeySymbol));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                join(INNER,
+                join(
+                        INNER,
                         ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                         filter("ORDERS_OK > 0",
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
@@ -243,7 +244,8 @@ public class TestRemoveUnsupportedDynamicFilters
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
                 output(
-                        join(INNER,
+                        join(
+                                INNER,
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 filter(

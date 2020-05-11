@@ -206,7 +206,8 @@ public class RemoveUnsupportedDynamicFilters
             }
 
             if (!original.equals(modified) || source != node.getSource()) {
-                return new PlanWithConsumedDynamicFilters(new FilterNode(node.getId(), source, modified),
+                return new PlanWithConsumedDynamicFilters(
+                        new FilterNode(node.getId(), source, modified),
                         consumedDynamicFilterIds.build());
             }
 
@@ -240,7 +241,8 @@ public class RemoveUnsupportedDynamicFilters
             return combineConjuncts(metadata, extractResult.getStaticConjuncts());
         }
 
-        private Expression removeNestedDynamicFilters(Expression expression) {
+        private Expression removeNestedDynamicFilters(Expression expression)
+        {
             return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
             {
                 @Override
