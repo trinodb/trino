@@ -307,16 +307,26 @@ public class TestBackgroundHiveSplitLoader
     @Test
     public void testGetBucketNumber()
     {
+        // legacy Presto naming pattern
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789"), OptionalInt.of(56789));
+
+        // Hive
         assertEquals(getBucketNumber("0234_0"), OptionalInt.of(234));
         assertEquals(getBucketNumber("000234_0"), OptionalInt.of(234));
         assertEquals(getBucketNumber("0234_99"), OptionalInt.of(234));
         assertEquals(getBucketNumber("0234_0.txt"), OptionalInt.of(234));
         assertEquals(getBucketNumber("0234_0_copy_1"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789"), OptionalInt.of(56789));
+        // starts with non-zero
+        assertEquals(getBucketNumber("234_99"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("1234_0_copy_1"), OptionalInt.of(1234));
 
-        assertEquals(getBucketNumber("234_99"), OptionalInt.empty());
+        // Hive ACID
+        assertEquals(getBucketNumber("bucket_1234"), OptionalInt.of(1234));
+        assertEquals(getBucketNumber("bucket_01234"), OptionalInt.of(1234));
+
+        // not matching
         assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
         assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
     }
