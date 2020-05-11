@@ -43,6 +43,7 @@ import io.prestosql.metadata.StaticCatalogStore;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AccessControlModule;
 import io.prestosql.security.GroupProviderManager;
+import io.prestosql.server.security.CertificateAuthenticatorManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.version.EmbedVersion;
@@ -121,6 +122,7 @@ public class Server
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
+            injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
 
             injector.getInstance(Announcer.class).start();
 
