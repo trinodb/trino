@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
@@ -47,6 +48,12 @@ public final class DynamicFilters
     private DynamicFilters() {}
 
     public static Expression createDynamicFilterExpression(Metadata metadata, String id, Type inputType, SymbolReference input)
+    {
+        return createDynamicFilterExpression(metadata, id, inputType, (Expression) input);
+    }
+
+    @VisibleForTesting
+    public static Expression createDynamicFilterExpression(Metadata metadata, String id, Type inputType, Expression input)
     {
         return new FunctionCallBuilder(metadata)
                 .setName(QualifiedName.of(Function.NAME))

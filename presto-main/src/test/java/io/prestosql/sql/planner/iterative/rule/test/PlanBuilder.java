@@ -73,6 +73,7 @@ import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SampleNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
+import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -796,6 +797,25 @@ public class PlanBuilder
                 criteria,
                 probeHashSymbol,
                 indexHashSymbol);
+    }
+
+    public PlanNode spatialJoin(
+            SpatialJoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<Symbol> outputSymbols,
+            Expression filter)
+    {
+        return new SpatialJoinNode(
+                idAllocator.getNextId(),
+                type,
+                left,
+                right,
+                outputSymbols,
+                filter,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public UnionNode union(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
