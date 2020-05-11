@@ -153,6 +153,7 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -161,6 +162,13 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class ServerMainModule
         extends AbstractConfigurationAwareModule
 {
+    private final String nodeVersion;
+
+    public ServerMainModule(String nodeVersion)
+    {
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -374,13 +382,10 @@ public class ServerMainModule
         // split monitor
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
 
-        // Determine the NodeVersion
-        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
-        binder.bind(NodeVersion.class).toInstance(nodeVersion);
-
-        // presto announcement
+        // version and announcement
+        binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
         discoveryBinder(binder).bindHttpAnnouncement("presto")
-                .addProperty("node_version", nodeVersion.toString())
+                .addProperty("node_version", nodeVersion)
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()));
 
         // server info resource
