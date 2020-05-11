@@ -44,6 +44,9 @@ import io.prestosql.spi.block.ShortArrayBlockEncoding;
 import io.prestosql.spi.block.SingleMapBlockEncoding;
 import io.prestosql.spi.block.SingleRowBlockEncoding;
 import io.prestosql.spi.block.VariableWidthBlockEncoding;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
+import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -1109,6 +1112,57 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<AggregationApplicationResult<TableHandle>> applyAggregation(
+            Session session,
+            TableHandle table,
+            List<AggregateFunction> aggregations,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyAggregation(connectorSession, table.getConnectorHandle(), aggregations, assignments, groupingSets)
+                .map(result -> {
+                    verifyProjection(table, result.getProjections(), result.getAssignments(), aggregations.size());
+
+                    return new AggregationApplicationResult<>(
+                            new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                            result.getProjections(),
+                            result.getAssignments(),
+                            result.getGroupingColumnMapping());
+                });
+    }
+
+    private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, int expectedProjectionSize)
+    {
+        projections.forEach(projection -> requireNonNull(projection, "one of the projections is null"));
+        assignments.forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
+
+        verify(
+                expectedProjectionSize == projections.size(),
+                "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
+                projections.size(),
+                expectedProjectionSize,
+                table);
+
+        Set<String> assignedVariables = assignments.stream()
+                .map(Assignment::getVariable)
+                .collect(toImmutableSet());
+        projections.stream()
+                .flatMap(connectorExpression -> ConnectorExpressions.extractVariables(connectorExpression).stream())
+                .map(Variable::getName)
+                .filter(variableName -> !assignedVariables.contains(variableName))
+                .findAny()
+                .ifPresent(variableName -> { throw new IllegalStateException("Unbound variable: " + variableName); });
+    }
+
+    @Override
     public void validateScan(Session session, TableHandle table)
     {
         CatalogName catalogName = table.getCatalogName();
@@ -1146,24 +1200,7 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyProjection(connectorSession, table.getConnectorHandle(), projections, assignments)
                 .map(result -> {
-                    result.getProjections().forEach(projection -> requireNonNull(projection, "one of the projections is null"));
-                    result.getAssignments().forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
-
-                    verify(
-                            projections.size() == result.getProjections().size(),
-                            "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
-                            result.getProjections().size(),
-                            projections.size(),
-                            table);
-
-                    Set<String> assignedVariables = result.getAssignments().stream()
-                            .map(ProjectionApplicationResult.Assignment::getVariable)
-                            .collect(toImmutableSet());
-                    result.getProjections().stream()
-                            .flatMap(connectorExpression -> ConnectorExpressions.extractVariables(connectorExpression).stream())
-                            .map(Variable::getName)
-                            .filter(variableName -> !assignedVariables.contains(variableName))
-                            .findAny().ifPresent(variableName -> { throw new IllegalStateException("Unbound variable: " + variableName); });
+                    verifyProjection(table, result.getProjections(), result.getAssignments(), projections.size());
 
                     return new ProjectionApplicationResult<>(
                             new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),

@@ -16,20 +16,30 @@ package io.prestosql.spi.connector;
 import io.prestosql.spi.expression.ConnectorExpression;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class ProjectionApplicationResult<T>
+public class AggregationApplicationResult<T>
 {
     private final T handle;
     private final List<ConnectorExpression> projections;
     private final List<Assignment> assignments;
+    private final Map<ColumnHandle, ColumnHandle> groupingColumnMapping;
 
-    public ProjectionApplicationResult(T handle, List<ConnectorExpression> projections, List<Assignment> assignments)
+    public AggregationApplicationResult(
+            T handle,
+            List<ConnectorExpression> projections,
+            List<Assignment> assignments,
+            Map<ColumnHandle, ColumnHandle> groupingColumnMapping)
     {
         this.handle = requireNonNull(handle, "handle is null");
-        this.projections = List.copyOf(requireNonNull(projections, "projections is null"));
-        this.assignments = List.copyOf(requireNonNull(assignments, "assignments is null"));
+        requireNonNull(groupingColumnMapping, "goupingSetMapping is null");
+        requireNonNull(projections, "projections is null");
+        requireNonNull(assignments, "assignment is null");
+        this.groupingColumnMapping = Map.copyOf(groupingColumnMapping);
+        this.projections = List.copyOf(projections);
+        this.assignments = List.copyOf(assignments);
     }
 
     public T getHandle()
@@ -45,5 +55,10 @@ public class ProjectionApplicationResult<T>
     public List<Assignment> getAssignments()
     {
         return assignments;
+    }
+
+    public Map<ColumnHandle, ColumnHandle> getGroupingColumnMapping()
+    {
+        return groupingColumnMapping;
     }
 }

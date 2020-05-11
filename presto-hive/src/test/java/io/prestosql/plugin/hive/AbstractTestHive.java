@@ -60,6 +60,7 @@ import io.prestosql.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -84,7 +85,6 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
-import io.prestosql.spi.connector.ProjectionApplicationResult.Assignment;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -3057,7 +3057,7 @@ public abstract class AbstractTestHive
             assertProjectionResult(projectionResult, false, expectedProjections, expectedAssignments);
 
             // Round-2: input projections [symbol_2.int0 and onelevelrow0#f_int0]. Virtual handle is reused.
-            ProjectionApplicationResult.Assignment newlyCreatedColumn = getOnlyElement(projectionResult.get().getAssignments().stream()
+            Assignment newlyCreatedColumn = getOnlyElement(projectionResult.get().getAssignments().stream()
                     .filter(handle -> handle.getVariable().equals("onelevelrow0#f_int0"))
                     .collect(toList()));
             inputAssignments = ImmutableMap.<String, ColumnHandle>builder()

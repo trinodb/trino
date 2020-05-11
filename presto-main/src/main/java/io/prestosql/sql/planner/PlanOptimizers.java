@@ -106,6 +106,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneUnnestColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnnestSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
+import io.prestosql.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDeleteIntoConnector;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
@@ -508,6 +509,7 @@ public class PlanOptimizers
                                 .add(new PushLimitIntoTableScan(metadata))
                                 .add(new PushPredicateIntoTableScan(metadata, typeAnalyzer))
                                 .add(new PushSampleIntoTableScan(metadata))
+                                .add(new PushAggregationIntoTableScan(metadata))
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
