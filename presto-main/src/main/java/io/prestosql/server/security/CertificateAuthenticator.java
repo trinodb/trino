@@ -16,11 +16,12 @@ package io.prestosql.server.security;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
-import javax.security.auth.x500.X500Principal;
 import javax.servlet.http.HttpServletRequest;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
+import java.util.List;
 
 import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
@@ -30,32 +31,45 @@ public class CertificateAuthenticator
 {
     private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
 
+    private final CertificateAuthenticatorManager authenticatorManager;
     private final UserMapping userMapping;
 
     @Inject
-    public CertificateAuthenticator(CertificateConfig config)
+    public CertificateAuthenticator(CertificateAuthenticatorManager authenticatorManager, CertificateConfig config)
     {
         requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
+        this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
+        authenticatorManager.setRequired();
     }
 
     @Override
     public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
-        X509Certificate[] certs = (X509Certificate[]) request.getAttribute(X509_ATTRIBUTE);
-        if ((certs == null) || (certs.length == 0)) {
+        List<X509Certificate> certificates;
+        if (request.getAttribute(X509_ATTRIBUTE) == null) {
             throw new AuthenticationException(null);
         }
-        X500Principal principal = certs[0].getSubjectX500Principal();
+        else {
+            certificates = Arrays.asList((X509Certificate[]) request.getAttribute(X509_ATTRIBUTE));
+        }
+
+        if ((certificates == null) || (certificates.size() == 0)) {
+            throw new AuthenticationException(null);
+        }
+        Principal principal = authenticatorManager.getAuthenticator().authenticate(certificates);
         try {
-            String authenticatedUser = userMapping.mapUser(((Principal) principal).toString());
+            String authenticatedUser = userMapping.mapUser(principal.toString());
             return Identity.forUser(authenticatedUser)
                     .withPrincipal(principal)
                     .build();
         }
         catch (UserMappingException e) {
             throw new AuthenticationException(e.getMessage());
+        }
+        catch (RuntimeException e) {
+            throw new RuntimeException("Authentication error", e);
         }
     }
 }
