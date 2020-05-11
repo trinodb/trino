@@ -37,6 +37,7 @@ import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.sanity.DynamicFiltersChecker;
 import io.prestosql.testing.TestingTransactionHandle;
@@ -54,7 +55,9 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestRemoveUnsupportedDynamicFilters
@@ -248,6 +251,29 @@ public class TestRemoveUnsupportedDynamicFilters
                                                 PlanBuilder.expression("LINEITEM_OK IS NULL"),
                                                 PlanBuilder.expression("LINEITEM_OK IS NOT NULL")),
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
+    public void testSpatialJoin()
+    {
+        Symbol leftSymbol = builder.symbol("LEFT_SYMBOL", BIGINT);
+        Symbol rightSymbol = builder.symbol("RIGHT_SYMBOL", BIGINT);
+        PlanNode root = builder.output(
+                ImmutableList.of(),
+                ImmutableList.of(),
+                builder.spatialJoin(
+                        SpatialJoinNode.Type.INNER,
+                        builder.values(leftSymbol),
+                        builder.values(rightSymbol),
+                        ImmutableList.of(leftSymbol, rightSymbol),
+                        createDynamicFilterExpression(metadata, "DF", BIGINT, PlanBuilder.expression("LEFT_SYMBOL + RIGHT_SYMBOL"))));
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                output(
+                        spatialJoin(
+                                "true",
+                                values("LEFT_SYMBOL"),
+                                values("RIGHT_SYMBOL"))));
     }
 
     PlanNode removeUnsupportedDynamicFilters(PlanNode root)
