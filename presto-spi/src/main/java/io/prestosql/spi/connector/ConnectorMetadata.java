@@ -16,6 +16,8 @@ package io.prestosql.spi.connector;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Constant;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -836,6 +838,89 @@ public interface ConnectorMetadata
      * </p>
      */
     default Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Attempt to push down the aggregates into the table.
+     * <p>
+     * Connectors can indicate whether they don't support aggregate pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * </p>
+     * <b>Note</b>: it's critical for connectors to return {@link Optional#empty()} if calling this method has no effect for that
+     * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
+     * to loop indefinitely.
+     * <p>
+     * If the method returns a result, the list of assignments in the result will be merged with existing assignments. The projections
+     * returned by the method must have the same order as the given input list of aggregates.
+     * </p>
+     * As an example, given the following plan:
+     *
+     * <pre>
+     *  - aggregation  (GROUP BY c)
+     *          variable0 = agg_fn1(a)
+     *          variable1 = agg_fn2(b, 2)
+     *          variable2 = c
+     *          - scan (TH0)
+     *              a = CH0
+     *              b = CH1
+     *              c = CH2
+     * </pre>
+     * <p>
+     * The optimizer would call this method with the following arguments:
+     *
+     * <pre>
+     *      handle = TH0
+     *      aggregates = [
+     *              { functionName=agg_fn1, outputType = «some presto type» inputs = [{@link Variable} a]} ,
+     *              { functionName=agg_fn2, outputType = «some presto type» inputs = [{@link Variable} b, {@link Constant} 2]}
+     *      ]
+     *      groupingSets=[[{@link ColumnHandle} CH2]]
+     *      assignments = {a = CH0, b = CH1, c = CH2}
+     * </pre>
+     * </p>
+     *
+     * Assuming the connector knows how to handle {@code agg_fn1(...)} and {@code agg_fn2(...)}, it would return:
+     * <pre>
+     *
+     * {@link AggregationApplicationResult} {
+     *      handle = TH1
+     *      projections = [{@link Variable} synthetic_name0, {@link Variable} synthetic_name1] -- <b>The order in the list must be same as input list of aggregates</b>
+     *      assignments = {
+     *          synthetic_name0 = CH3 (synthetic column for agg_fn1(a))
+     *          synthetic_name1 = CH4 (synthetic column for agg_fn2(b,2))
+     *      }
+     * }
+     * </pre>
+     *
+     * if the connector only knows how to handle {@code agg_fn1(...)}, but not {@code agg_fn2}, it should return {@link Optional#empty()}.
+     *
+     * <p>
+     * Another example is where the connector wants to handle the aggregate function by pointing to a pre-materialized table.
+     * In this case the input can stay same as in the above example and the connector can return
+     * <pre>
+     * {@link AggregationApplicationResult} {
+     *      handle = TH1 (could capture information about which pre-materialized table to use)
+     *      projections = [{@link Variable} synthetic_name0, {@link Variable} synthetic_name1] -- <b>The order in the list must be same as input list of aggregates</b>
+     *      assignments = {
+     *          synthetic_name0 = CH3 (reference to the column in pre-materialized table that has agg_fn1(a) calculated)
+     *          synthetic_name1 = CH4 (reference to the column in pre-materialized table that has agg_fn2(b,2) calculated)
+     *          synthetic_name2 = CH5 (reference to the column in pre-materialized table that has the group by column c)
+     *      }
+     *      groupingColumnMapping = {
+     *          CH2 -> CH5 (CH2 in the original assignment should now be replaced by CH5 in the new assignment)
+     *      }
+     * }
+     * </pre>
+     * </p>
+     */
+    default Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
     {
         return Optional.empty();
     }
