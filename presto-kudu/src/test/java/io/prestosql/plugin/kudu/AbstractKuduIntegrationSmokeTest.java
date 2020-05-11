@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -160,6 +161,12 @@ public abstract class AbstractKuduIntegrationSmokeTest
         assertQuery("SELECT id, 'test' FROM test_projection ORDER BY id", "VALUES (0, 'test'), (1, 'test'), (2, 'test')");
 
         assertUpdate("DROP TABLE test_projection");
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
     }
 
     private void assertTableProperty(String tableProperties, String key, String regexValue)
