@@ -22,7 +22,7 @@
 
     <!-- Server -->
     <artifactSet to="lib">
-        <artifact id="${project.groupId}:presto-main:${project.version}" />
+        <artifact id="${project.groupId}:presto-server-main:${project.version}" />
     </artifactSet>
 
     <!-- Plugins -->
