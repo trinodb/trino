@@ -81,6 +81,11 @@ Property Name                                Description
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              skips data that may be expected to be part of the table
                                              or partition. Defaults to ``false``.
+
+``hive.s3.streaming.enabled``                Use S3 multipart upload API to upload file in streaming way,
+                                             without staging file to be created in the local file system.
+
+``hive.s3.streaming.part-size``              The part size for S3 streaming upload. Defaults to ``16MB``.
 ============================================ =================================================================
 
 .. _hive-s3-credentials:
