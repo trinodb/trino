@@ -21,6 +21,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
@@ -65,6 +66,8 @@ public class HiveS3Config
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
+    private boolean s3StreamingUploadEnabled;
+    private DataSize s3StreamingPartSize = DataSize.of(16, MEGABYTE);
 
     public String getS3AwsAccessKey()
     {
@@ -460,6 +463,34 @@ public class HiveS3Config
     public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
     {
         this.requesterPaysEnabled = requesterPaysEnabled;
+        return this;
+    }
+
+    public boolean isS3StreamingUploadEnabled()
+    {
+        return s3StreamingUploadEnabled;
+    }
+
+    @Config("hive.s3.streaming.enabled")
+    public HiveS3Config setS3StreamingUploadEnabled(boolean s3StreamingUploadEnabled)
+    {
+        this.s3StreamingUploadEnabled = s3StreamingUploadEnabled;
+        return this;
+    }
+
+    @NotNull
+    @MinDataSize("5MB")
+    @MaxDataSize("256MB")
+    public DataSize getS3StreamingPartSize()
+    {
+        return s3StreamingPartSize;
+    }
+
+    @Config("hive.s3.streaming.part-size")
+    @ConfigDescription("Part size for S3 streaming upload")
+    public HiveS3Config setS3StreamingPartSize(DataSize s3StreamingPartSize)
+    {
+        this.s3StreamingPartSize = s3StreamingPartSize;
         return this;
     }
 }

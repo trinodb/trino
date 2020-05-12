@@ -13,11 +13,17 @@
  */
 package io.prestosql.plugin.hive.s3;
 
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AbstractAmazonS3;
+import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadResult;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -26,10 +32,15 @@ import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.StorageClass;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import static java.net.HttpURLConnection.HTTP_OK;
+import static java.util.UUID.randomUUID;
 
 public class MockAmazonS3
         extends AbstractAmazonS3
@@ -40,6 +51,7 @@ public class MockAmazonS3
     private CannedAccessControlList acl;
     private boolean hasGlacierObjects;
     private boolean hasHadoopFolderMarkerObjects;
+    private final List<UploadPartRequest> uploadParts = new ArrayList<>();
 
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
@@ -69,6 +81,11 @@ public class MockAmazonS3
     public GetObjectMetadataRequest getGetObjectMetadataRequest()
     {
         return getObjectMetadataRequest;
+    }
+
+    public List<UploadPartRequest> getUploadParts()
+    {
+        return uploadParts;
     }
 
     @Override
@@ -154,6 +171,38 @@ public class MockAmazonS3
     public PutObjectResult putObject(String bucketName, String key, String content)
     {
         return new PutObjectResult();
+    }
+
+    @Override
+    public InitiateMultipartUploadResult initiateMultipartUpload(InitiateMultipartUploadRequest request)
+            throws SdkClientException
+    {
+        this.acl = request.getCannedACL();
+
+        InitiateMultipartUploadResult result = new InitiateMultipartUploadResult();
+        result.setUploadId(randomUUID().toString());
+        return result;
+    }
+
+    @Override
+    public UploadPartResult uploadPart(UploadPartRequest request)
+            throws SdkClientException
+    {
+        uploadParts.add(request);
+        return new UploadPartResult();
+    }
+
+    @Override
+    public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request)
+            throws SdkClientException
+    {
+        return new CompleteMultipartUploadResult();
+    }
+
+    @Override
+    public void abortMultipartUpload(AbortMultipartUploadRequest request)
+            throws SdkClientException
+    {
     }
 
     @Override

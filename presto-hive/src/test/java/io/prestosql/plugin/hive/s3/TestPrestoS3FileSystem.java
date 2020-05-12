@@ -34,6 +34,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.StorageClass;
+import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClient;
 import com.google.common.base.VerifyException;
@@ -50,7 +51,10 @@ import org.testng.annotations.Test;
 
 import javax.crypto.spec.SecretKeySpec;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -63,6 +67,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.repeat;
+import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -84,11 +90,14 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SESSION_TOKEN;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -699,6 +708,37 @@ public class TestPrestoS3FileSystem
                 // initiate an upload by creating a stream & closing it immediately
             }
             assertEquals(CannedAccessControlList.BucketOwnerFullControl, s3.getAcl());
+        }
+    }
+
+    @Test
+    public void testStreamingUpload()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+        config.set(S3_STREAMING_UPLOAD_ENABLED, "true");
+        config.set(S3_STREAMING_UPLOAD_PART_SIZE, "10");
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            String expectedBucketName = "test-bucket";
+            fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
+            fs.setS3Client(s3);
+            try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
+                stream.write('a');
+                stream.write(repeat("foo", 2).getBytes(US_ASCII));
+                stream.write(repeat("bar", 3).getBytes(US_ASCII));
+                stream.write(repeat("presto", 4).getBytes(US_ASCII), 6, 12);
+            }
+
+            List<UploadPartRequest> parts = s3.getUploadParts();
+            assertThat(parts).size().isEqualTo(3);
+
+            InputStream concatInputStream = parts.stream()
+                    .map(UploadPartRequest::getInputStream)
+                    .reduce(new ByteArrayInputStream(new byte[0]), SequenceInputStream::new);
+            String data = new String(toByteArray(concatInputStream), US_ASCII);
+            assertEquals(data, "afoofoobarbarbarprestopresto");
         }
     }
 
