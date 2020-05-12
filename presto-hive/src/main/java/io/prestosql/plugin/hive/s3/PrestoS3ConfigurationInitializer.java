@@ -51,6 +51,8 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSL_ENABLED;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STORAGE_CLASS;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 
 public class PrestoS3ConfigurationInitializer
@@ -86,6 +88,8 @@ public class PrestoS3ConfigurationInitializer
     private final String signerClass;
     private final boolean requesterPaysEnabled;
     private final boolean skipGlacierObjects;
+    private final boolean s3StreamingUploadEnabled;
+    private final DataSize streamingPartSize;
 
     @Inject
     public PrestoS3ConfigurationInitializer(HiveS3Config config)
@@ -120,6 +124,8 @@ public class PrestoS3ConfigurationInitializer
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
         this.requesterPaysEnabled = config.isRequesterPaysEnabled();
+        this.s3StreamingUploadEnabled = config.isS3StreamingUploadEnabled();
+        this.streamingPartSize = config.getS3StreamingPartSize();
     }
 
     @Override
@@ -180,5 +186,7 @@ public class PrestoS3ConfigurationInitializer
         config.set(S3_ACL_TYPE, aclType.name());
         config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);
         config.setBoolean(S3_REQUESTER_PAYS_ENABLED, requesterPaysEnabled);
+        config.setBoolean(S3_STREAMING_UPLOAD_ENABLED, s3StreamingUploadEnabled);
+        config.setLong(S3_STREAMING_UPLOAD_PART_SIZE, streamingPartSize.toBytes());
     }
 }
