@@ -26,7 +26,7 @@ General Changes
 Server Changes
 --------------
 
-* Require running on Java 11 or above. (:issue:`2799`)
+* Require running on :ref:`Java 11 or above <requirements-java>`. (:issue:`2799`)
 
 Server RPM Changes
 ------------------
