@@ -16,7 +16,7 @@ General Changes
 Server RPM Changes
 ------------------
 
-* Allow running Presto with Java 11 or newer. (:issue:`2057`)
+* Allow running Presto with :ref:`Java 11 or above <requirements-java>`. (:issue:`2057`)
 
 Security Changes
 ----------------
