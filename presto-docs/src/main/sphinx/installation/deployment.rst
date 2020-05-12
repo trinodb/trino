@@ -2,6 +2,30 @@
 Deploying Presto
 ================
 
+Requirements
+------------
+
+Linux Operating System
+^^^^^^^^^^^^^^^^^^^^^^
+
+* 64-bit required
+* newer release preferred, especially when running on containers
+
+.. _requirements-java:
+
+Java Runtime Environment
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* 64-bit required
+* version 11 recommended (higher versions are less tested)
+* Azul Zulu recommended (most tested)
+
+Python
+^^^^^^
+
+* version 2.6.x, 2.7.x, or 3.x
+* required by the ``bin/launcher`` script only
+
 Installing Presto
 -----------------
 
