@@ -103,6 +103,7 @@
         <module>presto-postgresql</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
+        <module>presto-sybase</module>
         <module>presto-mongodb</module>
         <module>presto-client</module>
         <module>presto-parser</module>
@@ -435,6 +436,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-sqlserver</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-sybase</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
