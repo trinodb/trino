@@ -30,10 +30,10 @@ Time Zone Conversion
 The ``AT TIME ZONE`` operator sets the time zone of a timestamp::
 
     SELECT timestamp '2012-10-31 01:00 UTC';
-    2012-10-31 01:00:00.000 UTC
+    -- 2012-10-31 01:00:00.000 UTC
 
     SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
-    2012-10-30 18:00:00.000 America/Los_Angeles
+    -- 2012-10-30 18:00:00.000 America/Los_Angeles
 
 Date and Time Functions
 -----------------------
@@ -65,11 +65,33 @@ Date and Time Functions
 
 .. function:: from_iso8601_timestamp(string) -> timestamp with time zone
 
-    Parses the ISO 8601 formatted ``string`` into a ``timestamp with time zone``.
+    Parses the ISO 8601 formatted date ``string``, optionally with
+    time and time zone, into a ``timestamp with time zone``. The time defaults
+    to zero, and the time zone defaults to the session time zone::
+
+        SELECT from_iso8601_timestamp('2020-05-11');
+        -- 2020-05-11 00:00:00.000 America/Vancouver
+
+        SELECT from_iso8601_timestamp('2020-05-11T11:15:05');
+        -- 2020-05-11 11:15:05.000 America/Vancouver
+
+        SELECT from_iso8601_timestamp('2020-05-11T11:15:05.055+01:00');
+        -- 2020-05-11 11:15:05.055 +01:00
 
 .. function:: from_iso8601_date(string) -> date
 
-    Parses the ISO 8601 formatted ``string`` into a ``date``.
+    Parses the ISO 8601 formatted date ``string`` into a ``date``. The date can
+    be a calendar date, a week date using ISO week numbering, or year and day
+    of year combined::
+
+        SELECT from_iso8601_date('2020-05-11');
+        -- 2020-05-11
+
+        SELECT from_iso8601_date('2020-W10');
+        -- 2020-03-02
+
+        SELECT from_iso8601_date('2020-123');
+        -- 2020-05-02
 
 .. function:: at_timezone(timestamp, zone) -> timestamp with time zone
 
@@ -176,17 +198,27 @@ Unit              Description
     Adds an interval ``value`` of type ``unit`` to ``timestamp``.
     Subtraction can be performed by using a negative value::
 
-        SELECT date_add('second', 86, TIMESTAMP '2020-03-01 00:00:00'); -- 2020-03-01 00:01:26.000
-        SELECT date_add('hour', 9, TIMESTAMP '2020-03-01 00:00:00'); -- 2020-03-01 09:00:00.000
-        SELECT date_add('day', -1, TIMESTAMP '2020-03-01 00:00:00 UTC'); -- 2020-02-29 00:00:00.000 UTC
+        SELECT date_add('second', 86, TIMESTAMP '2020-03-01 00:00:00');
+        -- 2020-03-01 00:01:26.000
+
+        SELECT date_add('hour', 9, TIMESTAMP '2020-03-01 00:00:00');
+        -- 2020-03-01 09:00:00.000
+
+        SELECT date_add('day', -1, TIMESTAMP '2020-03-01 00:00:00 UTC');
+        -- 2020-02-29 00:00:00.000 UTC
 
 .. function:: date_diff(unit, timestamp1, timestamp2) -> bigint
 
     Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``::
 
-        SELECT date_diff('second', TIMESTAMP '2020-03-01 00:00:00', TIMESTAMP '2020-03-02 00:00:00'); -- 86400
-        SELECT date_diff('hour', TIMESTAMP '2020-03-01 00:00:00 UTC', TIMESTAMP '2020-03-02 00:00:00 UTC'); -- 24
-        SELECT date_diff('day', DATE '2020-03-01', DATE '2020-03-02'); -- 1
+        SELECT date_diff('second', TIMESTAMP '2020-03-01 00:00:00', TIMESTAMP '2020-03-02 00:00:00');
+        -- 86400
+
+        SELECT date_diff('hour', TIMESTAMP '2020-03-01 00:00:00 UTC', TIMESTAMP '2020-03-02 00:00:00 UTC');
+        -- 24
+
+        SELECT date_diff('day', DATE '2020-03-01', DATE '2020-03-02');
+        -- 1
 
 Duration Function
 -----------------
@@ -210,9 +242,14 @@ Unit    Description
     Parses ``string`` of format ``value unit`` into an interval, where
     ``value`` is fractional number of ``unit`` values::
 
-        SELECT parse_duration('42.8ms'); -- 0 00:00:00.043
-        SELECT parse_duration('3.81 d'); -- 3 19:26:24.000
-        SELECT parse_duration('5m');     -- 0 00:05:00.000
+        SELECT parse_duration('42.8ms');
+        -- 0 00:00:00.043
+
+        SELECT parse_duration('3.81 d');
+        -- 3 19:26:24.000
+
+        SELECT parse_duration('5m');
+        -- 0 00:05:00.000
 
 MySQL Date Functions
 --------------------
