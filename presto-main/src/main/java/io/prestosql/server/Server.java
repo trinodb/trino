@@ -55,7 +55,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
@@ -63,14 +62,8 @@ import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements
 import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
-public class PrestoServer
+public class Server
 {
-    public static void main(String[] args)
-    {
-        String version = PrestoServer.class.getPackage().getImplementationVersion();
-        new PrestoServer().start(firstNonNull(version, "unknown"));
-    }
-
     public void start(String prestoVersion)
     {
         new EmbedVersion(prestoVersion).embedVersion(() -> doStart(prestoVersion)).run();
@@ -81,7 +74,7 @@ public class PrestoServer
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
-        Logger log = Logger.get(PrestoServer.class);
+        Logger log = Logger.get(Server.class);
         log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
 
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
