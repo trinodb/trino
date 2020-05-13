@@ -81,6 +81,16 @@ String Functions
 
     Removes leading whitespace from ``string``.
 
+.. function:: position(substring IN string) -> bigint
+
+    Returns the starting position of the first instance of ``substring`` in
+    ``string``. Positions start with ``1``. If not found, ``0`` is returned.
+
+    .. note::
+
+        This SQL-standard function has special syntax and uses the
+        ``IN`` keyword for the arguments. See also :func:`strpos`.
+
 .. function:: replace(string, search) -> varchar
 
     Removes all instances of ``search`` from ``string``.
@@ -143,11 +153,6 @@ String Functions
     Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
     When ``instance`` is a negative number the search will start from the end of ``string``.
     Positions start with ``1``. If not found, ``0`` is returned.
-
-.. function:: position(substring IN string) -> bigint
-
-    Returns the starting position of the first instance of ``substring`` in
-    ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
 .. function:: starts_with(string, substring) -> boolean
 
