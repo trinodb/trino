@@ -24,13 +24,15 @@ import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Optional;
 
-@DefunctConfig("http.server.authentication.enabled")
+@DefunctConfig({
+        "http.server.authentication.enabled",
+        "http-server.authentication.allow-forwarded-https",
+        "dispatcher.forwarded-header"})
 public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<String> authenticationTypes = ImmutableList.of();
-    private boolean enableForwardingHttps;
 
     @NotNull
     public List<String> getAuthenticationTypes()
@@ -49,19 +51,6 @@ public class SecurityConfig
     public SecurityConfig setAuthenticationTypes(String types)
     {
         authenticationTypes = Optional.ofNullable(types).map(SPLITTER::splitToList).orElse(null);
-        return this;
-    }
-
-    public boolean getEnableForwardingHttps()
-    {
-        return enableForwardingHttps;
-    }
-
-    @Config("http-server.authentication.allow-forwarded-https")
-    @ConfigDescription("Enable forwarding HTTPS requests")
-    public SecurityConfig setEnableForwardingHttps(boolean enableForwardingHttps)
-    {
-        this.enableForwardingHttps = enableForwardingHttps;
         return this;
     }
 }

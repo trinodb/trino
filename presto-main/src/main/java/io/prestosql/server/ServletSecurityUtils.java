@@ -13,7 +13,6 @@
  */
 package io.prestosql.server;
 
-import com.google.common.net.HttpHeaders;
 import io.prestosql.spi.security.Identity;
 
 import javax.servlet.FilterChain;
@@ -38,14 +37,6 @@ import static java.util.Objects.requireNonNull;
 public final class ServletSecurityUtils
 {
     private ServletSecurityUtils() {}
-
-    public static boolean isSecure(HttpServletRequest request, boolean httpsForwardingEnabled)
-    {
-        if (request.isSecure()) {
-            return true;
-        }
-        return httpsForwardingEnabled && "https".equalsIgnoreCase(request.getHeader(HttpHeaders.X_FORWARDED_PROTO));
-    }
 
     public static void sendErrorMessage(HttpServletResponse response, int errorCode, String errorMessage)
             throws IOException
