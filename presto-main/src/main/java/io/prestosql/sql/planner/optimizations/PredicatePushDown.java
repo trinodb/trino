@@ -580,7 +580,7 @@ public class PredicatePushDown
                 for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
                     Symbol probeSymbol = clause.getLeft();
                     Symbol buildSymbol = clause.getRight();
-                    String id = idAllocator.getNextId().toString();
+                    String id = "df_" + idAllocator.getNextId().toString();
                     predicatesBuilder.add(createDynamicFilterExpression(metadata, id, symbolAllocator.getTypes().get(probeSymbol), probeSymbol.toSymbolReference()));
                     dynamicFiltersBuilder.put(id, buildSymbol);
                 }
