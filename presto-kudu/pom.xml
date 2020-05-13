@@ -18,6 +18,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.kudu</groupId>
             <artifactId>kudu-client</artifactId>
             <version>${kudu.version}</version>

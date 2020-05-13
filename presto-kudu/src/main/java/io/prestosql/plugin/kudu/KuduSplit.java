@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class KuduSplit
@@ -29,15 +30,19 @@ public class KuduSplit
     private final KuduTableHandle tableHandle;
     private final int primaryKeyColumnCount;
     private final byte[] serializedScanToken;
+    private final int bucketNumber;
 
     @JsonCreator
     public KuduSplit(@JsonProperty("tableHandle") KuduTableHandle tableHandle,
             @JsonProperty("primaryKeyColumnCount") int primaryKeyColumnCount,
-            @JsonProperty("serializedScanToken") byte[] serializedScanToken)
+            @JsonProperty("serializedScanToken") byte[] serializedScanToken,
+            @JsonProperty("bucketNumber") int bucketNumber)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.primaryKeyColumnCount = primaryKeyColumnCount;
         this.serializedScanToken = requireNonNull(serializedScanToken, "serializedScanToken is null");
+        checkArgument(bucketNumber >= 0, "bucketNumber is negative");
+        this.bucketNumber = bucketNumber;
     }
 
     @JsonProperty
@@ -56,6 +61,12 @@ public class KuduSplit
     public int getPrimaryKeyColumnCount()
     {
         return primaryKeyColumnCount;
+    }
+
+    @JsonProperty
+    public int getBucketNumber()
+    {
+        return bucketNumber;
     }
 
     @Override
