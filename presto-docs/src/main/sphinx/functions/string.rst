@@ -45,6 +45,11 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: format(format, args...) -> varchar
+    :noindex:
+
+    See :func:`format`.
+
 .. function:: hamming_distance(string1, string2) -> bigint
 
     Returns the Hamming distance of ``string1`` and ``string2``,
