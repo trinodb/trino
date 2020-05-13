@@ -90,7 +90,11 @@ public class TestServer
     @BeforeClass
     public void setup()
     {
-        server = TestingPrestoServer.create();
+        server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.process-forwarded", "true")
+                        .build())
+                .build();
         client = new JettyHttpClient();
     }
 
@@ -265,7 +269,7 @@ public class TestServer
                 .build();
         response = client.execute(request, createStatusResponseHandler());
         assertEquals(response.getStatusCode(), SEE_OTHER.getStatusCode(), "Status code");
-        assertEquals(response.getHeader("Location"), "https://my-load-balancer.local:443/ui/", "Location");
+        assertEquals(response.getHeader("Location"), "https://my-load-balancer.local/ui/", "Location");
     }
 
     private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)

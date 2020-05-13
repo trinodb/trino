@@ -21,7 +21,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session.ResourceEstimateBuilder;
-import io.prestosql.dispatcher.DispatcherConfig.HeaderSupport;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.GroupProvider;
@@ -57,7 +56,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
@@ -75,8 +73,6 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
-import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.ACCEPT;
-import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.IGNORE;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -115,7 +111,7 @@ public final class HttpRequestSessionContext
     private final boolean clientTransactionSupport;
     private final String clientInfo;
 
-    public HttpRequestSessionContext(HeaderSupport forwardedHeaderSupport, MultivaluedMap<String, String> headers, String remoteAddress, Optional<Identity> authenticatedIdentity, GroupProvider groupProvider)
+    public HttpRequestSessionContext(MultivaluedMap<String, String> headers, String remoteAddress, Optional<Identity> authenticatedIdentity, GroupProvider groupProvider)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(headers.getFirst(PRESTO_CATALOG));
@@ -129,7 +125,7 @@ public final class HttpRequestSessionContext
         source = headers.getFirst(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(PRESTO_TRACE_TOKEN)));
         userAgent = headers.getFirst(USER_AGENT);
-        remoteUserAddress = getRemoteUserAddress(forwardedHeaderSupport, headers.getFirst(X_FORWARDED_FOR), remoteAddress);
+        remoteUserAddress = remoteAddress;
         timeZoneId = headers.getFirst(PRESTO_TIME_ZONE);
         language = headers.getFirst(PRESTO_LANGUAGE);
         clientInfo = headers.getFirst(PRESTO_CLIENT_INFO);
@@ -216,34 +212,6 @@ public final class HttpRequestSessionContext
                 .withAdditionalExtraCredentials(parseExtraCredentials(headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();
-    }
-
-    private static String getRemoteUserAddress(HeaderSupport forwardedHeaderSupport, String xForwarderForHeader, String remoteAddress)
-    {
-        // TODO support 'Forwarder' header (here & where other X-Forwarder-* are supported)
-
-        switch (forwardedHeaderSupport) {
-            case WARN:
-                if (xForwarderForHeader != null) {
-                    log.warn("Unsupported HTTP header '%s'. Presto needs to be explicitly configured to %s or %s this header", X_FORWARDED_FOR, IGNORE, ACCEPT);
-                }
-                return remoteAddress;
-
-            case IGNORE:
-                return remoteAddress;
-
-            case ACCEPT:
-                if (xForwarderForHeader != null) {
-                    List<String> addresses = Splitter.on(",").trimResults().omitEmptyStrings().splitToList(xForwarderForHeader);
-                    if (!addresses.isEmpty()) {
-                        return addresses.get(0);
-                    }
-                }
-                return remoteAddress;
-
-            default:
-                throw new UnsupportedOperationException("Unexpected forwardedHeaderSupport: " + forwardedHeaderSupport);
-        }
     }
 
     @Override
