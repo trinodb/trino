@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
+import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.tpch.TpchTable.getTables;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -57,7 +57,7 @@ public class TestHiveDistributedQueries
     {
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
     @Override
