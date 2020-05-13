@@ -66,7 +66,7 @@ public class RubixInitializer
         ListenableFuture<Boolean> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
         {
             while (!(nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) &&
-                nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator))) {
+                    nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator))) {
                 try {
                     Thread.sleep(100);
                 }
