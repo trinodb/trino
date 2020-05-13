@@ -70,6 +70,7 @@ public class TestWebUi
             .put("http-server.https.enabled", "true")
             .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
             .put("http-server.https.keystore.key", "")
+            .put("http-server.process-forwarded", "true")
             .build();
     private static final String TEST_USER = "test-user";
     private static final String TEST_PASSWORD = "test-password";
@@ -433,11 +434,11 @@ public class TestWebUi
 
         assertOk(authorizedClient, getValidApiLocation(baseUri));
 
-        assertRedirect(authorizedClient, getLoginHtmlLocation(baseUri), getUiLocation(baseUri));
+        assertRedirect(authorizedClient, getLoginHtmlLocation(baseUri), getUiLocation(baseUri), false);
 
-        assertRedirect(authorizedClient, getLoginLocation(baseUri), getUiLocation(baseUri));
+        assertRedirect(authorizedClient, getLoginLocation(baseUri), getUiLocation(baseUri), false);
 
-        assertRedirect(authorizedClient, getLogoutLocation(baseUri), getUiLocation(baseUri));
+        assertRedirect(authorizedClient, getLogoutLocation(baseUri), getUiLocation(baseUri), false);
 
         assertResponseCode(authorizedClient, getLocation(baseUri, "/ui/unknown"), SC_NOT_FOUND);
 
@@ -580,16 +581,6 @@ public class TestWebUi
                                 .host("my-load-balancer.local")
                                 .defaultPort()
                                 .toString());
-            }
-
-            // X-Forwarded-Port not recognized as valid forwarding
-            request = new Request.Builder()
-                    .url(url)
-                    .header(X_FORWARDED_PORT, "123")
-                    .build();
-            try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(response.header(LOCATION), redirectLocation);
             }
         }
     }

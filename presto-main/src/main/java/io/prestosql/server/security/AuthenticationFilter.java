@@ -38,7 +38,6 @@ import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
-import static io.prestosql.server.ServletSecurityUtils.isSecure;
 import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
 import static io.prestosql.server.ServletSecurityUtils.skipRequestBody;
 import static io.prestosql.server.ServletSecurityUtils.withAuthenticatedIdentity;
@@ -51,7 +50,6 @@ public class AuthenticationFilter
         implements Filter
 {
     private final List<Authenticator> authenticators;
-    private final boolean httpsForwardingEnabled;
     private final InternalAuthenticationManager internalAuthenticationManager;
     private final WebUiAuthenticationManager uiAuthenticationManager;
 
@@ -62,7 +60,6 @@ public class AuthenticationFilter
             WebUiAuthenticationManager uiAuthenticationManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
-        this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
         this.uiAuthenticationManager = requireNonNull(uiAuthenticationManager, "uiAuthenticationManager is null");
     }
@@ -171,6 +168,6 @@ public class AuthenticationFilter
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
     {
-        return !authenticators.isEmpty() && isSecure(request, httpsForwardingEnabled);
+        return !authenticators.isEmpty() && request.isSecure();
     }
 }

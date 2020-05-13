@@ -15,8 +15,6 @@ package io.prestosql.server.ui;
 
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
-import com.google.common.net.HostAndPort;
-import com.google.common.primitives.Ints;
 import io.airlift.http.client.HttpUriBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -25,7 +23,6 @@ import io.prestosql.server.ServletSecurityUtils;
 import io.prestosql.server.security.AuthenticationException;
 import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
-import io.prestosql.server.security.SecurityConfig;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
@@ -53,15 +50,10 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.HOST;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
-import static io.prestosql.server.ServletSecurityUtils.isSecure;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -80,14 +72,12 @@ public class FormWebUiAuthenticationManager
 
     private final Function<String, String> jwtParser;
     private final Function<String, String> jwtGenerator;
-    private final boolean httpsForwardingEnabled;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final Optional<Authenticator> authenticator;
 
     @Inject
     public FormWebUiAuthenticationManager(
             FormWebUiConfig config,
-            SecurityConfig securityConfig,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             @ForWebUi Optional<Authenticator> authenticator)
     {
@@ -104,8 +94,6 @@ public class FormWebUiAuthenticationManager
 
         long sessionTimeoutNanos = config.getSessionTimeout().roundTo(NANOSECONDS);
         this.jwtGenerator = username -> generateJwt(hmac, username, sessionTimeoutNanos);
-
-        this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
 
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.authenticator = requireNonNull(authenticator, "authenticator is null");
@@ -126,7 +114,7 @@ public class FormWebUiAuthenticationManager
         }
 
         // authenticator over a secure connection bypasses the form login
-        if (authenticator.isPresent() && isSecure(request, httpsForwardingEnabled)) {
+        if (authenticator.isPresent() && request.isSecure()) {
             handleProtocolLoginRequest(authenticator.get(), request, response, nextFilter);
             return;
         }
@@ -259,7 +247,7 @@ public class FormWebUiAuthenticationManager
             return Optional.empty();
         }
 
-        if (!isSecure(request, httpsForwardingEnabled)) {
+        if (!request.isSecure()) {
             return Optional.of(username);
         }
 
@@ -321,7 +309,7 @@ public class FormWebUiAuthenticationManager
     {
         String jwt = jwtGenerator.apply(userName);
         Cookie cookie = new Cookie(PRESTO_UI_COOKIE, jwt);
-        cookie.setSecure(isSecure(request, httpsForwardingEnabled));
+        cookie.setSecure(request.isSecure());
         cookie.setHttpOnly(true);
         cookie.setPath("/ui");
         return cookie;
@@ -331,7 +319,7 @@ public class FormWebUiAuthenticationManager
     {
         Cookie cookie = new Cookie(PRESTO_UI_COOKIE, "delete");
         cookie.setMaxAge(0);
-        cookie.setSecure(isSecure(request, httpsForwardingEnabled));
+        cookie.setSecure(request.isSecure());
         cookie.setHttpOnly(true);
         return cookie;
     }
@@ -375,8 +363,11 @@ public class FormWebUiAuthenticationManager
 
     static String getRedirectLocation(HttpServletRequest request, String path, String queryParameter)
     {
-        HttpUriBuilder builder = toUriBuilderWithForwarding(request);
-        builder.replacePath(path);
+        HttpUriBuilder builder = uriBuilder()
+                .scheme(request.getScheme())
+                .host(request.getServerName())
+                .port(request.getServerPort())
+                .replacePath(path);
         if (queryParameter != null) {
             builder.addParameter(queryParameter);
         }
@@ -387,7 +378,7 @@ public class FormWebUiAuthenticationManager
     {
         // unsecured requests support username-only authentication (no password)
         // secured requests require a password authenticator or a protocol level authenticator
-        return !isSecure(request, httpsForwardingEnabled) || passwordAuthenticatorManager.isLoaded() || authenticator.isPresent();
+        return !request.isSecure() || passwordAuthenticatorManager.isLoaded() || authenticator.isPresent();
     }
 
     private static String generateJwt(byte[] hmac, String username, long sessionTimeoutNanos)
@@ -408,28 +399,6 @@ public class FormWebUiAuthenticationManager
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();
-    }
-
-    private static HttpUriBuilder toUriBuilderWithForwarding(HttpServletRequest request)
-    {
-        HttpUriBuilder builder;
-        if (isNullOrEmpty(request.getHeader(X_FORWARDED_PROTO)) && isNullOrEmpty(request.getHeader(X_FORWARDED_HOST))) {
-            // not forwarded
-            builder = uriBuilder()
-                    .scheme(request.getScheme())
-                    .hostAndPort(HostAndPort.fromString(request.getHeader(HOST)));
-        }
-        else {
-            // forwarded
-            builder = uriBuilder()
-                    .scheme(firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_PROTO)), request.getScheme()))
-                    .hostAndPort(HostAndPort.fromString(firstNonNull(emptyToNull(request.getHeader(X_FORWARDED_HOST)), request.getHeader(HOST))));
-
-            Optional.ofNullable(emptyToNull(request.getHeader(X_FORWARDED_PORT)))
-                    .map(Ints::tryParse)
-                    .ifPresent(builder::port);
-        }
-        return builder;
     }
 
     public static boolean redirectAllFormLoginToUi(HttpServletRequest request, HttpServletResponse response)

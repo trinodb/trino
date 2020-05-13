@@ -19,5 +19,5 @@ import java.net.URI;
 
 public interface CoordinatorLocation
 {
-    URI getUri(UriInfo uriInfo, String xForwardedProto);
+    URI getUri(UriInfo uriInfo);
 }
