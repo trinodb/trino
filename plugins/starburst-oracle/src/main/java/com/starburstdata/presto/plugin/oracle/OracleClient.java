@@ -673,7 +673,7 @@ public class OracleClient
                                 .orElseGet(Estimate::unknown))
                         .setDataSize(result.getAverageColumnLength()
                                 /*
-                                 * ALL_TAB_COL_STATISTICS.AVG_COL_LEN is hard to interpret precisely:
+                                 * ALL_TAB_COLUMNS.AVG_COL_LEN is hard to interpret precisely:
                                  * - it can be `0` for all-null column
                                  * - it can be `len+1` for varchar column filled with constant of length `len`, as if each row contained a is-null byte or length
                                  * - it can be `len/2+1` for varchar column half-filled with constant (or random) of length `len`, as if each row contained a is-null byte or length
@@ -715,7 +715,10 @@ public class OracleClient
 
         List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName)
         {
-            return handle.createQuery("SELECT COLUMN_NAME, NUM_NULLS, NUM_DISTINCT, AVG_COL_LEN FROM ALL_TAB_COL_STATISTICS WHERE OWNER = :schema AND TABLE_NAME = :table_name")
+            // [PRESTO-3425] we are not using ALL_TAB_COL_STATISTICS, here because we observed queries which took multiple minutes when obtaining statistics for partitioned tables.
+            //               It adds slight risk, because the statistics-related columns in ALL_TAB_COLUMNS are marked as deprecated and present only for backward
+            //               compatibility with Oracle 7 (see: https://docs.oracle.com/cd/B14117_01/server.101/b10755/statviews_1180.htm)
+            return handle.createQuery("SELECT COLUMN_NAME, NUM_NULLS, NUM_DISTINCT, AVG_COL_LEN FROM ALL_TAB_COLUMNS WHERE OWNER = :schema AND TABLE_NAME = :table_name")
                     .bind("schema", schema)
                     .bind("table_name", tableName)
                     .map((rs, ctx) -> new ColumnStatisticsResult(
