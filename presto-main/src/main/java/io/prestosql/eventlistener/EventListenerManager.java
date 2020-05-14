@@ -16,6 +16,7 @@ package io.prestosql.eventlistener;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
@@ -111,7 +112,10 @@ public class EventListenerManager
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
         checkArgument(eventListenerFactory != null, "Event listener factory '%s' is not registered. Available factories: %s", name, eventListenerFactories.keySet());
 
-        EventListener eventListener = eventListenerFactory.create(properties);
+        EventListener eventListener;
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(eventListenerFactory.getClass().getClassLoader())) {
+            eventListener = eventListenerFactory.create(properties);
+        }
 
         log.info("-- Loaded event listener %s --", configFile);
         return eventListener;
