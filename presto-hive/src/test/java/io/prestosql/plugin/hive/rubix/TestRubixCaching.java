@@ -56,7 +56,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.client.NodeVersion.UNKNOWN;
-import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -149,15 +148,12 @@ public class TestRubixCaching
             RubixConfigurationInitializer rubixConfigInitializer)
             throws IOException
     {
-        HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(
-                config,
-                ImmutableSet.of(rubixConfigInitializer));
+        HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
         HiveHdfsConfiguration configuration = new HiveHdfsConfiguration(configurationInitializer, ImmutableSet.of(
                 (dynamicConfig, ignoredContext, ignoredUri) -> {
-                    // make sure a new FS is created with Rubix caching enabled
-                    setCacheKey(dynamicConfig, "rubix");
                     dynamicConfig.set("fs.file.impl", CachingLocalFileSystem.class.getName());
-                }));
+                },
+                rubixConfigInitializer));
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
         return environment.getFileSystem(context, path);
     }
