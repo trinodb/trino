@@ -59,4 +59,21 @@ public class TestHiveHadoop2Plugin
                     .shutdown();
         }).hasMessageContaining("Use of GCS access token is not compatible with Hive caching");
     }
+
+    @Test
+    public void testRubixCache()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
+
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.cache.location", "/tmp/cache")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+    }
 }
