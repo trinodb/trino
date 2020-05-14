@@ -259,7 +259,6 @@
         <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

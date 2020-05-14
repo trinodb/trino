@@ -25,15 +25,20 @@ import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PrestoException;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 
 /*
  * Responsibilities of this initializer:
@@ -43,6 +48,13 @@ import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfigu
  */
 public class RubixInitializer
 {
+    private static final RetryPolicy<?> RETRY_POLICY =
+            new RetryPolicy<>()
+                    // unlimited attempts
+                    .withMaxAttempts(-1)
+                    .withDelay(Duration.ofMillis(100))
+                    .withMaxDuration(Duration.ofDays(1));
+
     private static final Logger log = Logger.get(RubixInitializer.class);
 
     private final CatalogName catalogName;
@@ -64,17 +76,13 @@ public class RubixInitializer
     {
         ExecutorService initializerService = Executors.newSingleThreadExecutor();
         ListenableFuture<?> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
-        {
-            while (!(nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) &&
-                    nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator))) {
-                try {
-                    Thread.sleep(100);
-                }
-                catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
+                Failsafe.with(RETRY_POLICY).run(() -> {
+                    if (!nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) ||
+                            !nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator)) {
+                        // Failsafe will propagate this exception only when timeout reached.
+                        throw new PrestoException(EXCEEDED_TIME_LIMIT, "Exceeded timeout while waiting for coordinator node");
+                    }
+                }));
 
         addSuccessCallback(
                 nodeJoinFuture,
