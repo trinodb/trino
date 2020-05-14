@@ -102,18 +102,22 @@ public class EventListenerManager
     private EventListener createEventListener(File configFile)
     {
         log.info("-- Loading event listener %s --", configFile);
+
         configFile = configFile.getAbsoluteFile();
         Map<String, String> properties = loadEventListenerProperties(configFile);
         String name = properties.remove(EVENT_LISTENER_NAME_PROPERTY);
         checkArgument(!isNullOrEmpty(name), "EventListener plugin configuration for %s does not contain %s", configFile, EVENT_LISTENER_NAME_PROPERTY);
+
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
         checkArgument(eventListenerFactory != null, "Event listener factory '%s' is not registered. Available factories: %s", name, eventListenerFactories.keySet());
+
         EventListener eventListener = eventListenerFactory.create(properties);
+
         log.info("-- Loaded event listener %s --", configFile);
         return eventListener;
     }
 
-    private Map<String, String> loadEventListenerProperties(File configFile)
+    private static Map<String, String> loadEventListenerProperties(File configFile)
     {
         try {
             return new HashMap<>(loadPropertiesFrom(configFile.getPath()));
