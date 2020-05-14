@@ -30,8 +30,6 @@ import io.prestosql.plugin.hive.PartitionNotFoundException;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.SchemaAlreadyExistsException;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
@@ -162,7 +160,7 @@ public class ThriftHiveMetastore
     private final int maxRetries;
     private final boolean impersonationEnabled;
     private final boolean deleteFilesOnDrop;
-    private final HiveMetastoreAuthenticationType authenticationType;
+    private final boolean authenticationEnabled;
     private final boolean translateHiveViews;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -176,7 +174,12 @@ public class ThriftHiveMetastore
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9]*$");
 
     @Inject
-    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, HiveConfig hiveConfig, ThriftMetastoreConfig thriftConfig, HiveAuthenticationConfig authenticationConfig, HdfsEnvironment hdfsEnvironment)
+    public ThriftHiveMetastore(
+            MetastoreLocator metastoreLocator,
+            HiveConfig hiveConfig,
+            ThriftMetastoreConfig thriftConfig,
+            HiveMetastoreAuthenticationConfiguration authenticationConfiguration,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
@@ -188,7 +191,7 @@ public class ThriftHiveMetastore
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
-        this.authenticationType = authenticationConfig.getHiveMetastoreAuthenticationType();
+        this.authenticationEnabled = authenticationConfiguration.isMetastoreAuthenticationEnabled();
         this.translateHiveViews = hiveConfig.isTranslateHiveViews();
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
     }
@@ -1782,22 +1785,18 @@ public class ThriftHiveMetastore
         }
 
         String username = identity.getUsername().orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
-        switch (authenticationType) {
-            case KERBEROS:
-                String delegationToken;
-                try (ThriftMetastoreClient client = createMetastoreClient()) {
-                    delegationToken = client.getDelegationToken(username);
-                }
-                return clientProvider.createMetastoreClient(Optional.of(delegationToken));
 
-            case NONE:
-                ThriftMetastoreClient client = createMetastoreClient();
-                setMetastoreUserOrClose(client, username);
-                return client;
-
-            default:
-                throw new IllegalStateException("Unsupported authentication type: " + authenticationType);
+        if (authenticationEnabled) {
+            String delegationToken;
+            try (ThriftMetastoreClient client = createMetastoreClient()) {
+                delegationToken = client.getDelegationToken(username);
+            }
+            return clientProvider.createMetastoreClient(Optional.of(delegationToken));
         }
+
+        ThriftMetastoreClient client = createMetastoreClient();
+        setMetastoreUserOrClose(client, username);
+        return client;
     }
 
     private static void setMetastoreUserOrClose(ThriftMetastoreClient client, String username)

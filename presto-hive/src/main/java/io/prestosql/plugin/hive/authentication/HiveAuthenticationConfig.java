@@ -15,10 +15,14 @@ package io.prestosql.plugin.hive.authentication;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.prestosql.plugin.hive.metastore.thrift.HiveMetastoreAuthenticationConfiguration;
 
 import javax.validation.constraints.NotNull;
 
+import static io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType.NONE;
+
 public class HiveAuthenticationConfig
+        implements HiveMetastoreAuthenticationConfiguration
 {
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
@@ -42,6 +46,12 @@ public class HiveAuthenticationConfig
     {
         this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
         return this;
+    }
+
+    @Override
+    public boolean isMetastoreAuthenticationEnabled()
+    {
+        return getHiveMetastoreAuthenticationType() != NONE;
     }
 
     public enum HdfsAuthenticationType

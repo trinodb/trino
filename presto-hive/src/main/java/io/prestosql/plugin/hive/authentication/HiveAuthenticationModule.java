@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
+import io.prestosql.plugin.hive.metastore.thrift.HiveMetastoreAuthenticationConfiguration;
 
 import java.util.function.Predicate;
 
@@ -35,6 +36,8 @@ public class HiveAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(HiveMetastoreAuthenticationConfiguration.class).to(HiveAuthenticationConfig.class);
+
         bindAuthenticationModule(
                 config -> config.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.NONE,
                 noHiveMetastoreAuthenticationModule());

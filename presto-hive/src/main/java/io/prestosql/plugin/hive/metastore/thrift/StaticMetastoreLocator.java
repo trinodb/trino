@@ -16,8 +16,6 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.base.Ticker;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
 import io.prestosql.plugin.hive.metastore.thrift.FailureAwareThriftMetastoreClient.Callback;
 import org.apache.thrift.TException;
 
@@ -52,15 +50,14 @@ public class StaticMetastoreLocator
     private final String metastoreUsername;
 
     @Inject
-    public StaticMetastoreLocator(StaticMetastoreConfig config, HiveAuthenticationConfig hiveAuthenticationConfig, ThriftMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(StaticMetastoreConfig config, HiveMetastoreAuthenticationConfiguration authenticationConfiguration, ThriftMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
 
         checkArgument(
-                isNullOrEmpty(metastoreUsername) || hiveAuthenticationConfig.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.NONE,
-                "%s cannot be used together with %s authentication",
-                HIVE_METASTORE_USERNAME,
-                hiveAuthenticationConfig.getHiveMetastoreAuthenticationType());
+                isNullOrEmpty(metastoreUsername) || !authenticationConfiguration.isMetastoreAuthenticationEnabled(),
+                "%s cannot be used together with metastore authentication",
+                HIVE_METASTORE_USERNAME);
     }
 
     public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
