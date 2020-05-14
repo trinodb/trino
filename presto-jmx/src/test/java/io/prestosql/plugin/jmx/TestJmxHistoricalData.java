@@ -24,7 +24,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestJmxHistoricalData
 {
-    private static final String TABLE_NAME = "java.lang:name=ps old gen,type=memorypool";
+    private static final String TABLE_NAME = "java.lang:type=classloading";
     private static final String NOT_EXISTING_TABLE_NAME = "not-existing-test";
     private static final int MAX_ENTRIES = 2;
 
@@ -69,13 +69,8 @@ public class TestJmxHistoricalData
     @Test
     public void testWildCardPatterns()
     {
-        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of("java.lang:name=ps*"), getPlatformMBeanServer());
+        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of("java.lang:type=c*"), getPlatformMBeanServer());
 
-        assertEquals(jmxHistoricalData.getTables(), ImmutableSet.of(
-                "java.lang:name=ps old gen,type=memorypool",
-                "java.lang:name=ps scavenge,type=garbagecollector",
-                "java.lang:name=ps eden space,type=memorypool",
-                "java.lang:name=ps survivor space,type=memorypool",
-                "java.lang:name=ps marksweep,type=garbagecollector"));
+        assertEquals(jmxHistoricalData.getTables(), ImmutableSet.of("java.lang:type=classloading", "java.lang:type=compilation"));
     }
 }
