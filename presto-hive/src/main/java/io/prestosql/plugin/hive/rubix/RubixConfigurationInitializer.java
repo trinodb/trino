@@ -18,11 +18,14 @@ import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import com.qubole.rubix.prestosql.PrestoClusterManager;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.spi.HostAddress;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
+
+import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.qubole.rubix.spi.CacheConfig.enableHeartbeat;
@@ -40,9 +43,10 @@ import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
 import static com.qubole.rubix.spi.CacheConfig.setRubixClusterType;
 import static com.qubole.rubix.spi.CacheConfig.setWorkerNodeInfoExpiryPeriod;
 import static com.qubole.rubix.spi.ClusterType.PRESTOSQL_CLUSTER_MANAGER;
+import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 
 public class RubixConfigurationInitializer
-        implements ConfigurationInitializer
+        implements DynamicConfigurationProvider
 {
     private static final String RUBIX_S3_FS_CLASS_NAME = CachingPrestoS3FileSystem.class.getName();
     private static final String RUBIX_AZURE_FS_CLASS_NAME = CachingPrestoNativeAzureFileSystem.class.getName();
@@ -69,17 +73,18 @@ public class RubixConfigurationInitializer
     }
 
     @Override
-    public void initializeConfiguration(Configuration config)
+    public void updateConfiguration(Configuration config, HdfsContext context, URI uri)
     {
         if (!cacheReady) {
             setCacheDataEnabled(config, false);
+            setCacheKey(config, "rubix_disabled");
             return;
         }
 
         updateConfiguration(config);
     }
 
-    public Configuration updateConfiguration(Configuration config)
+    void updateConfiguration(Configuration config)
     {
         checkState(masterAddress != null, "masterAddress is not set");
         setCacheDataEnabled(config, true);
@@ -105,7 +110,8 @@ public class RubixConfigurationInitializer
         config.set("fs.s3n.impl", RUBIX_S3_FS_CLASS_NAME);
         config.set("fs.wasb.impl", RUBIX_AZURE_FS_CLASS_NAME);
         config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
-        return config;
+
+        setCacheKey(config, "rubix_enabled");
     }
 
     public void setMaster(boolean master)

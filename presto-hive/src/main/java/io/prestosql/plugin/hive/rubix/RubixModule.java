@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.rubix;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -29,7 +29,7 @@ public class RubixModule
     {
         configBinder(binder).bindConfig(RubixConfig.class);
         binder.bind(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(RubixInitializer.class).in(Scopes.SINGLETON);
     }
 }
