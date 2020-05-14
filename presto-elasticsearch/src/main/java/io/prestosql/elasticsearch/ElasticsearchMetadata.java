@@ -13,13 +13,18 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
+import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.elasticsearch.client.IndexMetadata;
 import io.prestosql.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.prestosql.elasticsearch.client.IndexMetadata.ObjectType;
 import io.prestosql.elasticsearch.client.IndexMetadata.PrimitiveType;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -51,6 +56,9 @@ import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
+import static io.prestosql.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
+import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -61,12 +69,20 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
+    private static final ObjectMapper JSON_PARSER = new ObjectMapperProvider().get();
+
+    private static final String PASSTHROUGH_QUERY_SUFFIX = "$query";
+    private final Map<String, ColumnHandle> queryTableColumns;
+    private final ColumnMetadata queryResultColumnMetadata;
+
     private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
@@ -79,6 +95,16 @@ public class ElasticsearchMetadata
         this.client = requireNonNull(client, "client is null");
         requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
+
+        Type jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+        queryResultColumnMetadata = ColumnMetadata.builder()
+                .setName("result")
+                .setType(jsonType)
+                .setNullable(true)
+                .setHidden(false)
+                .build();
+
+        queryTableColumns = ImmutableMap.of("result", new ElasticsearchColumnHandle("result", jsonType, false));
     }
 
     @Override
@@ -96,12 +122,37 @@ public class ElasticsearchMetadata
             String[] parts = tableName.getTableName().split(":", 2);
             String table = parts[0];
             Optional<String> query = Optional.empty();
+            ElasticsearchTableHandle.Type type = SCAN;
             if (parts.length == 2) {
-                query = Optional.of(parts[1]);
+                if (table.endsWith(PASSTHROUGH_QUERY_SUFFIX)) {
+                    table = table.substring(0, table.length() - PASSTHROUGH_QUERY_SUFFIX.length());
+                    byte[] decoded;
+                    try {
+                        decoded = BaseEncoding.base32().decode(parts[1].toUpperCase(ENGLISH));
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw new PrestoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not base32-encoded correctly", table), e);
+                    }
+
+                    String queryJson = new String(decoded, UTF_8);
+                    try {
+                        // Ensure this is valid json
+                        JSON_PARSER.readTree(queryJson);
+                    }
+                    catch (JsonProcessingException e) {
+                        throw new PrestoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not valid JSON", table), e);
+                    }
+
+                    query = Optional.of(queryJson);
+                    type = QUERY;
+                }
+                else {
+                    query = Optional.of(parts[1]);
+                }
             }
 
             if (listTables(session, Optional.of(schemaName)).contains(new SchemaTableName(schemaName, table))) {
-                return new ElasticsearchTableHandle(schemaName, table, query);
+                return new ElasticsearchTableHandle(type, schemaName, table, query);
             }
         }
 
@@ -112,6 +163,12 @@ public class ElasticsearchMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (isPassthroughQuery(handle)) {
+            return new ConnectorTableMetadata(
+                    new SchemaTableName(handle.getSchema(), handle.getIndex()),
+                    ImmutableList.of(queryResultColumnMetadata));
+        }
         return getTableMetadata(handle.getSchema(), handle.getIndex());
     }
 
@@ -298,18 +355,33 @@ public class ElasticsearchMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle);
+        ElasticsearchTableHandle table = (ElasticsearchTableHandle) tableHandle;
 
+        if (isPassthroughQuery(table)) {
+            return queryTableColumns;
+        }
+
+        InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle);
         return tableMetadata.getColumnHandles();
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        ElasticsearchColumnHandle handle = (ElasticsearchColumnHandle) columnHandle;
+        ElasticsearchTableHandle table = (ElasticsearchTableHandle) tableHandle;
+        ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) columnHandle;
+
+        if (isPassthroughQuery(table)) {
+            if (column.getName().equals(queryResultColumnMetadata.getName())) {
+                return queryResultColumnMetadata;
+            }
+
+            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.getName()));
+        }
+
         return ColumnMetadata.builder()
-                .setName(handle.getName())
-                .setType(handle.getType())
+                .setName(column.getName())
+                .setType(column.getType())
                 .build();
     }
 
@@ -354,11 +426,17 @@ public class ElasticsearchMetadata
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
 
+        if (isPassthroughQuery(handle)) {
+            // limit pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
+
         if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
         handle = new ElasticsearchTableHandle(
+                handle.getType(),
                 handle.getSchema(),
                 handle.getIndex(),
                 handle.getConstraint(),
@@ -372,6 +450,11 @@ public class ElasticsearchMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (isPassthroughQuery(handle)) {
+            // filter pushdown currently not supported for passthrough query
+            return Optional.empty();
+        }
 
         Map<ColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
@@ -395,6 +478,7 @@ public class ElasticsearchMetadata
         }
 
         handle = new ElasticsearchTableHandle(
+                handle.getType(),
                 handle.getSchema(),
                 handle.getIndex(),
                 newDomain,
@@ -402,6 +486,11 @@ public class ElasticsearchMetadata
                 handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported)));
+    }
+
+    private static boolean isPassthroughQuery(ElasticsearchTableHandle table)
+    {
+        return table.getType().equals(QUERY);
     }
 
     private static class InternalTableMetadata
