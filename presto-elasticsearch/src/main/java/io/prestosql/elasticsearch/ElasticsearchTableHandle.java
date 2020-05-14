@@ -28,14 +28,21 @@ import static java.util.Objects.requireNonNull;
 public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
+    public enum Type
+    {
+        SCAN, QUERY
+    }
+
+    private final Type type;
     private final String schema;
     private final String index;
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<String> query;
     private final OptionalLong limit;
 
-    public ElasticsearchTableHandle(String schema, String index, Optional<String> query)
+    public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
     {
+        this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
         this.query = requireNonNull(query, "query is null");
@@ -46,17 +53,25 @@ public final class ElasticsearchTableHandle
 
     @JsonCreator
     public ElasticsearchTableHandle(
+            @JsonProperty("type") Type type,
             @JsonProperty("schema") String schema,
             @JsonProperty("index") String index,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("query") Optional<String> query,
             @JsonProperty("limit") OptionalLong limit)
     {
+        this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.query = requireNonNull(query, "query is null");
         this.limit = requireNonNull(limit, "limit is null");
+    }
+
+    @JsonProperty
+    public Type getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -78,15 +93,15 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getQuery()
-    {
-        return query;
-    }
-
-    @JsonProperty
     public OptionalLong getLimit()
     {
         return limit;
+    }
+
+    @JsonProperty
+    public Optional<String> getQuery()
+    {
+        return query;
     }
 
     @Override
@@ -99,7 +114,8 @@ public final class ElasticsearchTableHandle
             return false;
         }
         ElasticsearchTableHandle that = (ElasticsearchTableHandle) o;
-        return schema.equals(that.schema) &&
+        return type == that.type &&
+                schema.equals(that.schema) &&
                 index.equals(that.index) &&
                 constraint.equals(that.constraint) &&
                 query.equals(that.query) &&
@@ -109,6 +125,6 @@ public final class ElasticsearchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, index, constraint, query, limit);
+        return Objects.hash(type, schema, index, constraint, query, limit);
     }
 }

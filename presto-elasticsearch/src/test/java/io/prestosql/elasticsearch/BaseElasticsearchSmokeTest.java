@@ -16,6 +16,7 @@ package io.prestosql.elasticsearch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
@@ -40,6 +41,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseElasticsearchSmokeTest
@@ -745,6 +747,34 @@ public abstract class BaseElasticsearchSmokeTest
         assertQuery(
                 "SELECT count(*) FROM multi_alias",
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
+    }
+
+    @Test
+    public void testPassthroughQuery()
+    {
+        @Language("JSON")
+        String query = "{\n" +
+                "    \"size\": 0,\n" +
+                "    \"aggs\" : {\n" +
+                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
+                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
+                "    }\n" +
+                "}";
+
+        assertQuery(
+                format("WITH data(r) AS (" +
+                        "   SELECT CAST(result AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   FROM \"orders$query:%s\") " +
+                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                        "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
+                "VALUES (60000, 449872500)");
+
+        assertQueryFails(
+                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
+                "Elasticsearch query for 'orders' is not base32-encoded correctly");
+        assertQueryFails(
+                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
+                "Elasticsearch query for 'orders' is not valid JSON");
     }
 
     protected abstract String indexEndpoint(String index, String docId);
