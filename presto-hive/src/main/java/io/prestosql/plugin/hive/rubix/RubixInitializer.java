@@ -80,33 +80,35 @@ public class RubixInitializer
         Futures.transform(nodeJoinFuture,
                 nodeJoined ->
                 {
-                    if (nodeJoined) {
-                        Node master = nodeManager.getAllNodes().stream().filter(node -> node.isCoordinator()).findFirst().get();
-                        boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
-
-                        rubixConfigurationInitializer.setMaster(isMaster);
-                        rubixConfigurationInitializer.setMasterAddress(master.getHostAndPort());
-                        rubixConfigurationInitializer.setCurrentNodeAddress(nodeManager.getCurrentNode().getHost());
-
-                        Configuration configuration = getInitialConfiguration();
-                        // Perform standard HDFS configuration initialization.
-                        // This will also call out to RubixConfigurationInitializer but this will be no-op because
-                        // cacheReady is not yet set.
-                        hdfsConfigurationInitializer.initializeConfiguration(configuration);
-                        // Apply RubixConfigurationInitializer directly suppressing cacheReady check
-                        rubixConfigurationInitializer.updateConfiguration(configuration);
-
-                        MetricRegistry metricRegistry = new MetricRegistry();
-                        BookKeeperServer bookKeeperServer = new BookKeeperServer();
-                        BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
-                        LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
-
-                        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
-                        log.info("Rubix initialized successfully");
-                        rubixConfigurationInitializer.initializationDone();
+                    if (!nodeJoined) {
+                        // In case of node join failing, let the Rubix cache be in default disabled state
+                        return null;
                     }
 
-                    // In case of node join failing, let the Rubix cache be in default disabled state
+                    Node master = nodeManager.getAllNodes().stream().filter(node -> node.isCoordinator()).findFirst().get();
+                    boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
+
+                    rubixConfigurationInitializer.setMaster(isMaster);
+                    rubixConfigurationInitializer.setMasterAddress(master.getHostAndPort());
+                    rubixConfigurationInitializer.setCurrentNodeAddress(nodeManager.getCurrentNode().getHost());
+
+                    Configuration configuration = getInitialConfiguration();
+                    // Perform standard HDFS configuration initialization.
+                    // This will also call out to RubixConfigurationInitializer but this will be no-op because
+                    // cacheReady is not yet set.
+                    hdfsConfigurationInitializer.initializeConfiguration(configuration);
+                    // Apply RubixConfigurationInitializer directly suppressing cacheReady check
+                    rubixConfigurationInitializer.updateConfiguration(configuration);
+
+                    MetricRegistry metricRegistry = new MetricRegistry();
+                    BookKeeperServer bookKeeperServer = new BookKeeperServer();
+                    BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
+                    LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
+
+                    CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
+                    log.info("Rubix initialized successfully");
+                    rubixConfigurationInitializer.initializationDone();
+
                     return null;
                 },
                 initializerService);
