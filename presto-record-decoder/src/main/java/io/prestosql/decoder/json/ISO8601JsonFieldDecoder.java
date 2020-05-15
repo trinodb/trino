@@ -103,22 +103,22 @@ public class ISO8601JsonFieldDecoder
 
             try {
                 String textValue = value.asText();
-                if (columnType == TIMESTAMP) {
+                if (columnType.equals(TIMESTAMP)) {
                     // Equivalent to: ISO_DATE_TIME.parse(textValue, LocalDateTime::from).toInstant(UTC).toEpochMilli();
                     TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
                     return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
                 }
-                if (columnType == TIMESTAMP_WITH_TIME_ZONE) {
+                if (columnType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     // Equivalent to:
                     // ZonedDateTime dateTime = ISO_OFFSET_DATE_TIME.parse(textValue, ZonedDateTime::from);
                     // packDateTimeWithZone(dateTime.toInstant().toEpochMilli(), getTimeZoneKey(dateTime.getZone().getId()));
                     TemporalAccessor parseResult = ISO_OFFSET_DATE_TIME.parse(textValue);
                     return packDateTimeWithZone(parseResult.getLong(INSTANT_SECONDS) * 1000 + parseResult.getLong(MILLI_OF_SECOND), getTimeZoneKey(ZoneId.from(parseResult).getId()));
                 }
-                if (columnType == TIME) {
+                if (columnType.equals(TIME)) {
                     return ISO_TIME.parse(textValue).getLong(MILLI_OF_DAY);
                 }
-                if (columnType == TIME_WITH_TIME_ZONE) {
+                if (columnType.equals(TIME_WITH_TIME_ZONE)) {
                     TemporalAccessor parseResult = ISO_OFFSET_TIME.parse(textValue);
                     return packDateTimeWithZone(parseResult.get(MILLI_OF_DAY), getTimeZoneKey(ZoneId.from(parseResult).getId()));
                 }

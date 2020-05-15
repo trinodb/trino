@@ -55,7 +55,7 @@ public abstract class AbstractDateTimeJsonValueProvider
 
         Type type = columnHandle.getType();
 
-        if (type == TIME || type == TIME_WITH_TIME_ZONE) {
+        if (type.equals(TIME) || type.equals(TIME_WITH_TIME_ZONE)) {
             if (millis < 0 || millis >= TimeUnit.DAYS.toMillis(1)) {
                 throw new PrestoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
