@@ -220,7 +220,7 @@ public class HiveWriterFactory
         }
         else {
             Optional<Table> table = pageSinkMetadataProvider.getTable();
-            if (!table.isPresent()) {
+            if (table.isEmpty()) {
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName));
             }
             this.table = table.get();
@@ -265,7 +265,7 @@ public class HiveWriterFactory
             checkArgument(bucketNumber.getAsInt() < bucketCount.getAsInt(), "Bucket number %s must be less than bucket count %s", bucketNumber, bucketCount);
         }
         else {
-            checkArgument(!bucketNumber.isPresent(), "Bucket number provided by for table that is not bucketed");
+            checkArgument(bucketNumber.isEmpty(), "Bucket number provided by for table that is not bucketed");
         }
 
         String fileName;
@@ -296,7 +296,7 @@ public class HiveWriterFactory
         Properties schema;
         WriteInfo writeInfo;
         StorageFormat outputStorageFormat;
-        if (!partition.isPresent()) {
+        if (partition.isEmpty()) {
             if (table == null) {
                 // Write to: a new partition in a new partitioned table,
                 //           or a new unpartitioned table.
@@ -311,7 +311,7 @@ public class HiveWriterFactory
                         .map(HiveTypeName::toString)
                         .collect(joining(":")));
 
-                if (!partitionName.isPresent()) {
+                if (partitionName.isEmpty()) {
                     // new unpartitioned table
                     writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                 }

@@ -49,12 +49,12 @@ public class RenameViewTask
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
         Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, viewName);
-        if (!viewDefinition.isPresent()) {
+        if (viewDefinition.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
-        if (!metadata.getCatalogHandle(session, target.getCatalogName()).isPresent()) {
+        if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
         if (metadata.getView(session, target).isPresent()) {

@@ -506,7 +506,7 @@ public class QueryMonitor
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
     {
-        if (!queryInfo.getOutputStage().isPresent()) {
+        if (queryInfo.getOutputStage().isEmpty()) {
             return ImmutableList.of();
         }
 

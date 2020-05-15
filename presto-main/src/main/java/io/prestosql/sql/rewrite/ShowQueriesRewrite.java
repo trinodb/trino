@@ -228,8 +228,8 @@ final class ShowQueriesRewrite
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
 
-                if (!metadata.getView(session, qualifiedTableName).isPresent() &&
-                        !metadata.getTableHandle(session, qualifiedTableName).isPresent()) {
+                if (metadata.getView(session, qualifiedTableName).isEmpty() &&
+                        metadata.getTableHandle(session, qualifiedTableName).isEmpty()) {
                     throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                 }
 
@@ -276,7 +276,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
-            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+            if (node.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
@@ -299,7 +299,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
         {
-            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+            if (node.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
@@ -320,7 +320,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowSchemas(ShowSchemas node, Void context)
         {
-            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+            if (node.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
@@ -374,8 +374,8 @@ final class ShowQueriesRewrite
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
 
-            if (!metadata.getView(session, tableName).isPresent() &&
-                    !metadata.getTableHandle(session, tableName).isPresent()) {
+            if (metadata.getView(session, tableName).isEmpty() &&
+                    metadata.getTableHandle(session, tableName).isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
@@ -446,7 +446,7 @@ final class ShowQueriesRewrite
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
                 Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
-                if (!viewDefinition.isPresent()) {
+                if (viewDefinition.isEmpty()) {
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
@@ -474,7 +474,7 @@ final class ShowQueriesRewrite
                 }
 
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
-                if (!tableHandle.isPresent()) {
+                if (tableHandle.isEmpty()) {
                     throw semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName);
                 }
 

@@ -92,7 +92,7 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
-        if (!queryInfo.isPresent()) {
+        if (queryInfo.isEmpty()) {
             return Response.status(Status.GONE).build();
         }
         try {

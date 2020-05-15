@@ -356,7 +356,7 @@ public class AddLocalExchanges
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
             List<Symbol> preGroupedSymbols = ImmutableList.of();
-            if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isPresent()) {
+            if (LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isEmpty()) {
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
             }
@@ -405,7 +405,7 @@ public class AddLocalExchanges
 
             int preSortedOrderPrefix = 0;
             if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getPartitionBy()))) {
-                while (matchIterator.hasNext() && !matchIterator.next().isPresent()) {
+                while (matchIterator.hasNext() && matchIterator.next().isEmpty()) {
                     preSortedOrderPrefix++;
                 }
             }
@@ -538,7 +538,7 @@ public class AddLocalExchanges
                         .map(scheme -> scheme.getPartitioning().getHandle())
                         .filter(isEqual(FIXED_HASH_DISTRIBUTION))
                         .isPresent();
-                if (!node.getPartitioningScheme().isPresent()) {
+                if (node.getPartitioningScheme().isEmpty()) {
                     requiredProperties = fixedParallelism();
                     preferredProperties = fixedParallelism();
                 }
@@ -768,7 +768,7 @@ public class AddLocalExchanges
             }
 
             Optional<List<Symbol>> requiredPartitionColumns = requiredProperties.getPartitioningColumns();
-            if (!requiredPartitionColumns.isPresent()) {
+            if (requiredPartitionColumns.isEmpty()) {
                 // unpartitioned parallel streams required
                 ExchangeNode exchangeNode = partitionedExchange(
                         idAllocator.getNextId(),

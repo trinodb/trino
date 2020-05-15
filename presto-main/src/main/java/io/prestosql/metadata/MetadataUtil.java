@@ -56,7 +56,7 @@ public final class MetadataUtil
         schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
         tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
 
-        checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
+        checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
@@ -105,7 +105,7 @@ public final class MetadataUtil
         String catalog = session.getCatalog().orElseThrow(() ->
                 semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
-        if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
+        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
             throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
@@ -201,7 +201,7 @@ public final class MetadataUtil
 
     public static boolean tableExists(Metadata metadata, Session session, String table)
     {
-        if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
+        if (session.getCatalog().isEmpty() || session.getSchema().isEmpty()) {
             return false;
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);

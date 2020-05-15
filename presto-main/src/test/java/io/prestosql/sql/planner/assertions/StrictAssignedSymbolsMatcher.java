@@ -46,7 +46,7 @@ public class StrictAssignedSymbolsMatcher
         ImmutableSet.Builder<Symbol> expected = ImmutableSet.builder();
         for (RvalueMatcher matcher : getExpected) {
             Optional<Symbol> assigned = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
-            if (!assigned.isPresent()) {
+            if (assigned.isEmpty()) {
                 return null;
             }
 

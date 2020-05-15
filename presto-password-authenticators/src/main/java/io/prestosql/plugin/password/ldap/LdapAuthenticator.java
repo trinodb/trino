@@ -89,13 +89,13 @@ public class LdapAuthenticator
         this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
 
         checkArgument(
-                !groupAuthorizationSearchPattern.isPresent() || userBaseDistinguishedName.isPresent(),
+                groupAuthorizationSearchPattern.isEmpty() || userBaseDistinguishedName.isPresent(),
                 "Base distinguished name (DN) for user must be provided");
         checkArgument(
                 bindDistinguishedName.isPresent() == bindPassword.isPresent(),
                 "Both bind distinguished name and bind password must be provided together");
         checkArgument(
-                !bindDistinguishedName.isPresent() || groupAuthorizationSearchPattern.isPresent(),
+                bindDistinguishedName.isEmpty() || groupAuthorizationSearchPattern.isPresent(),
                 "Group authorization search pattern must be provided when bind distinguished name is used");
         checkArgument(
                 bindDistinguishedName.isPresent() || userBindSearchPattern.isPresent(),

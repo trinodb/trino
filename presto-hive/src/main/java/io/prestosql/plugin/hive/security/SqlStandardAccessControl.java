@@ -451,7 +451,7 @@ public class SqlStandardAccessControl
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
         Optional<Database> databaseMetadata = metastore.getDatabase(databaseName);
-        if (!databaseMetadata.isPresent()) {
+        if (databaseMetadata.isEmpty()) {
             return false;
         }
 

@@ -278,7 +278,7 @@ public class RowNumberOperator
 
     private boolean isSinglePartition()
     {
-        return !groupByHash.isPresent();
+        return groupByHash.isEmpty();
     }
 
     private Page getRowsWithRowNumber()

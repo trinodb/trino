@@ -100,7 +100,7 @@ public class InformationSchemaPageSource
         table = tableHandle.getTable();
         prefixIterator = Suppliers.memoize(() -> {
             Set<QualifiedTablePrefix> prefixes = tableHandle.getPrefixes();
-            if (!tableHandle.getLimit().isPresent()) {
+            if (tableHandle.getLimit().isEmpty()) {
                 // no limit is used, therefore it doesn't make sense to split information schema query into smaller ones
                 return prefixes.iterator();
             }

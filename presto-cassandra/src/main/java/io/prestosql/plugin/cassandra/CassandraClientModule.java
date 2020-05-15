@@ -175,7 +175,7 @@ public class CassandraClientModule
             Optional<File> truststorePath,
             Optional<String> truststorePassword)
     {
-        if (!keystorePath.isPresent() && !truststorePath.isPresent()) {
+        if (keystorePath.isEmpty() && truststorePath.isEmpty()) {
             return Optional.empty();
         }
 

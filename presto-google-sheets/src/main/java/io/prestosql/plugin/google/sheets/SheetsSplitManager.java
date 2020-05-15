@@ -53,7 +53,7 @@ public class SheetsSplitManager
         Optional<SheetsTable> table = sheetsClient.getTable(tableHandle.getTableName());
 
         // this can happen if table is removed during a query
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(tableHandle.toSchemaTableName());
         }
 

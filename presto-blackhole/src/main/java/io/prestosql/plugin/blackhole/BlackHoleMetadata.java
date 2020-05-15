@@ -122,7 +122,7 @@ public class BlackHoleMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return tables.values().stream()
-                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
+                .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
     }

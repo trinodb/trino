@@ -89,7 +89,7 @@ public class KuduMetadata
         requireNonNull(prefix, "SchemaTablePrefix is null");
 
         List<SchemaTableName> tables;
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             tables = listTables(session, prefix.getSchema());
         }
         else {

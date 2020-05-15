@@ -226,7 +226,7 @@ public class SemiTransactionalHiveMetastore
     {
         checkReadable();
         Optional<Table> table = getTable(identity, databaseName, tableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return ImmutableMap.of();
         }
         TableSource tableSource = getTableSource(databaseName, tableName);
@@ -293,7 +293,7 @@ public class SemiTransactionalHiveMetastore
     {
         checkReadable();
         Optional<Table> table = getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return new HivePageSinkMetadata(schemaTableName, Optional.empty(), ImmutableMap.of());
         }
         Map<List<String>, Action<PartitionAndMore>> partitionActionMap = partitionActions.get(schemaTableName);
@@ -539,7 +539,7 @@ public class SemiTransactionalHiveMetastore
         checkReadable();
         Optional<Table> table = getTable(new HiveIdentity(session), databaseName, tableName);
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(schemaTableName);
         }
         if (!table.get().getTableType().equals(MANAGED_TABLE.toString())) {
@@ -579,7 +579,7 @@ public class SemiTransactionalHiveMetastore
 
         checkReadable();
         Optional<Table> table = getTable(identity, databaseName, tableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return Optional.empty();
         }
         List<String> partitionNames;
@@ -596,7 +596,7 @@ public class SemiTransactionalHiveMetastore
                 else {
                     partitionNameResult = delegate.getPartitionNames(identity, databaseName, tableName);
                 }
-                if (!partitionNameResult.isPresent()) {
+                if (partitionNameResult.isEmpty()) {
                     throw new PrestoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName));
                 }
                 partitionNames = partitionNameResult.get();
@@ -635,7 +635,7 @@ public class SemiTransactionalHiveMetastore
             for (Action<PartitionAndMore> partitionAction : partitionActionsOfTable.values()) {
                 if (partitionAction.getType() == ActionType.ADD) {
                     List<String> values = partitionAction.getData().getPartition().getValues();
-                    if (!parts.isPresent() || partitionValuesMatch(values, parts.get())) {
+                    if (parts.isEmpty() || partitionValuesMatch(values, parts.get())) {
                         resultBuilder.add(makePartName(columnNames, values));
                     }
                 }
@@ -1002,7 +1002,7 @@ public class SemiTransactionalHiveMetastore
 
         synchronized (this) {
             checkState(
-                    !currentQueryId.isPresent() && !hiveTransactionSupplier.isPresent(),
+                    currentQueryId.isEmpty() && hiveTransactionSupplier.isEmpty(),
                     "Query already begun: %s while starting query %s",
                     currentQueryId,
                     queryId);
@@ -1042,7 +1042,7 @@ public class SemiTransactionalHiveMetastore
             return Optional.empty();
         }
 
-        if (!currentHiveTransaction.isPresent()) {
+        if (currentHiveTransaction.isEmpty()) {
             currentHiveTransaction = Optional.of(hiveTransactionSupplier
                     .orElseThrow(() -> new IllegalStateException("hiveTransactionSupplier is not set"))
                     .get());
@@ -1061,7 +1061,7 @@ public class SemiTransactionalHiveMetastore
         currentHiveTransaction = Optional.empty();
         hiveTransactionSupplier = Optional.empty();
 
-        if (!transaction.isPresent()) {
+        if (transaction.isEmpty()) {
             return;
         }
 
@@ -1370,7 +1370,7 @@ public class SemiTransactionalHiveMetastore
             Partition partition = partitionAndMore.getPartition();
             String targetLocation = partition.getStorage().getLocation();
             Optional<Partition> oldPartition = delegate.getPartition(identity, partition.getDatabaseName(), partition.getTableName(), partition.getValues());
-            if (!oldPartition.isPresent()) {
+            if (oldPartition.isEmpty()) {
                 throw new PrestoException(
                         TRANSACTION_CONFLICT,
                         format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
@@ -2242,8 +2242,8 @@ public class SemiTransactionalHiveMetastore
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
 
-            checkArgument(!table.getStorage().getLocation().isEmpty() || !currentLocation.isPresent(), "currentLocation cannot be supplied for table without location");
-            checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
+            checkArgument(!table.getStorage().getLocation().isEmpty() || currentLocation.isEmpty(), "currentLocation cannot be supplied for table without location");
+            checkArgument(fileNames.isEmpty() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
 
         public boolean isIgnoreExisting()

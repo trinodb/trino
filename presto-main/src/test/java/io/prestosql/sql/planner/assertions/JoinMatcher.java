@@ -81,7 +81,7 @@ final class JoinMatcher
         }
 
         if (filter.isPresent()) {
-            if (!joinNode.getFilter().isPresent()) {
+            if (joinNode.getFilter().isEmpty()) {
                 return NO_MATCH;
             }
             if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter().get(), filter.get())) {

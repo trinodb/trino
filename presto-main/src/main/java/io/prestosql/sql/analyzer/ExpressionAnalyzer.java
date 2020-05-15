@@ -531,7 +531,7 @@ public class ExpressionAnalyzer
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
 
-            if (!typeCoercion.getCommonSuperType(firstType, secondType).isPresent()) {
+            if (typeCoercion.getCommonSuperType(firstType, secondType).isEmpty()) {
                 throw semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
             }
 
@@ -607,7 +607,7 @@ public class ExpressionAnalyzer
 
                 Optional<Type> operandCommonType = typeCoercion.getCommonSuperType(commonType, whenOperandType);
 
-                if (!operandCommonType.isPresent()) {
+                if (operandCommonType.isEmpty()) {
                     throw semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType);
                 }
 
@@ -1452,7 +1452,7 @@ public class ExpressionAnalyzer
             Type superType = UNKNOWN;
             for (Expression expression : expressions) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, process(expression, context));
-                if (!newSuperType.isPresent()) {
+                if (newSuperType.isEmpty()) {
                     throw semanticException(TYPE_MISMATCH, expression, message, superType);
                 }
                 superType = newSuperType.get();

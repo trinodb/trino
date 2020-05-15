@@ -64,7 +64,7 @@ public class DetermineSemiJoinDistributionType
     private final TaskCountEstimator taskCountEstimator;
     private final CostComparator costComparator;
 
-    private static final Pattern<SemiJoinNode> PATTERN = semiJoin().matching(semiJoin -> !semiJoin.getDistributionType().isPresent());
+    private static final Pattern<SemiJoinNode> PATTERN = semiJoin().matching(semiJoin -> semiJoin.getDistributionType().isEmpty());
 
     public DetermineSemiJoinDistributionType(CostComparator costComparator, TaskCountEstimator taskCountEstimator)
     {

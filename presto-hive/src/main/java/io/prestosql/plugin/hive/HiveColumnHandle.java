@@ -203,7 +203,7 @@ public class HiveColumnHandle
 
     public boolean isBaseColumn()
     {
-        return !hiveColumnProjectionInfo.isPresent();
+        return hiveColumnProjectionInfo.isEmpty();
     }
 
     @Override

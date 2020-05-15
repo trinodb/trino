@@ -287,7 +287,7 @@ public class WindowFilterPushDown
 
         private boolean canReplaceWithRowNumber(WindowNode node)
         {
-            return canOptimizeWindowFunction(node) && !node.getOrderingScheme().isPresent();
+            return canOptimizeWindowFunction(node) && node.getOrderingScheme().isEmpty();
         }
 
         private boolean canOptimizeWindowFunction(WindowNode node)

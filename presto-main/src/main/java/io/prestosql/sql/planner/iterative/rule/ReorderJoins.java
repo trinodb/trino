@@ -109,7 +109,7 @@ public class ReorderJoins
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.pattern = join().matching(
-                joinNode -> !joinNode.getDistributionType().isPresent()
+                joinNode -> joinNode.getDistributionType().isEmpty()
                         && joinNode.getType() == INNER
                         && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), metadata));
     }
@@ -132,7 +132,7 @@ public class ReorderJoins
         // try reorder joins with projection pushdown first
         MultiJoinNode multiJoinNode = toMultiJoinNode(metadata, joinNode, context, true);
         JoinEnumerationResult resultWithProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
-        if (!resultWithProjectionPushdown.getPlanNode().isPresent()) {
+        if (resultWithProjectionPushdown.getPlanNode().isEmpty()) {
             return Result.empty();
         }
 
@@ -143,7 +143,7 @@ public class ReorderJoins
         // try reorder joins without projection pushdown
         multiJoinNode = toMultiJoinNode(metadata, joinNode, context, false);
         JoinEnumerationResult resultWithoutProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
-        if (!resultWithoutProjectionPushdown.getPlanNode().isPresent()
+        if (resultWithoutProjectionPushdown.getPlanNode().isEmpty()
                 || costComparator.compare(context.getSession(), resultWithProjectionPushdown.cost, resultWithoutProjectionPushdown.cost) < 0) {
             return Result.ofPlanNode(resultWithProjectionPushdown.getPlanNode().get());
         }
@@ -594,7 +594,7 @@ public class ReorderJoins
                     }
 
                     Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(metadata, (ProjectNode) resolved, lookup, planNodeIdAllocator);
-                    if (!rewrittenNode.isPresent()) {
+                    if (rewrittenNode.isEmpty()) {
                         sources.add(node);
                         return;
                     }
@@ -675,7 +675,7 @@ public class ReorderJoins
         {
             this.planNode = requireNonNull(planNode, "planNode is null");
             this.cost = requireNonNull(cost, "cost is null");
-            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && !planNode.isPresent()
+            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && planNode.isEmpty()
                             || (!cost.hasUnknownComponents() || !cost.equals(PlanCostEstimate.infinite())) && planNode.isPresent(),
                     "planNode should be present if and only if cost is known");
         }

@@ -39,7 +39,7 @@ public class PartitioningHandle
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
-        checkArgument(!connectorId.isPresent() || transactionHandle.isPresent(), "transactionHandle is required when connectorId is present");
+        checkArgument(connectorId.isEmpty() || transactionHandle.isPresent(), "transactionHandle is required when connectorId is present");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 

@@ -432,7 +432,7 @@ public final class HttpRemoteTask
 
     private synchronized void updateSplitQueueSpace()
     {
-        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
+        if (whenSplitQueueHasSpaceThreshold.isEmpty()) {
             return;
         }
         splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();

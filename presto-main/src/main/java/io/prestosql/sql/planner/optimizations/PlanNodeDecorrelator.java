@@ -135,7 +135,7 @@ public class PlanNodeDecorrelator
                 childDecorrelationResultOptional = node.getSource().accept(this, null);
             }
 
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -174,7 +174,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -276,7 +276,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -389,7 +389,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -433,7 +433,7 @@ public class PlanNodeDecorrelator
         public Optional<DecorrelationResult> visitProject(ProjectNode node, Void context)
         {
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 

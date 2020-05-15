@@ -65,7 +65,7 @@ public final class ExpressionConverter
         if (tupleDomain.isAll()) {
             return alwaysTrue();
         }
-        if (!tupleDomain.getDomains().isPresent()) {
+        if (tupleDomain.getDomains().isEmpty()) {
             return alwaysFalse();
         }
         Map<IcebergColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();

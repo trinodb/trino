@@ -106,7 +106,7 @@ public class PushProjectionIntoTableScan
 
         Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
 
-        if (!result.isPresent()) {
+        if (result.isEmpty()) {
             return Result.empty();
         }
 

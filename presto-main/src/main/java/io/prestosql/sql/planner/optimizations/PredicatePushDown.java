@@ -527,7 +527,7 @@ public class PredicatePushDown
 
             boolean filtersEquivalent =
                     newJoinFilter.isPresent() == node.getFilter().isPresent() &&
-                            (!newJoinFilter.isPresent() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
+                            (newJoinFilter.isEmpty() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
 
             PlanNode output = node;
             if (leftSource != node.getLeft() ||

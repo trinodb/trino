@@ -614,7 +614,7 @@ class RelationPlanner
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
         Expression filterExpression;
-        if (!join.getCriteria().isPresent()) {
+        if (join.getCriteria().isEmpty()) {
             filterExpression = TRUE_LITERAL;
         }
         else {

@@ -258,7 +258,7 @@ public class TaskExecutor
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
-        checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
+        checkArgument(maxDriversPerTask.isEmpty() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
         log.debug("Task scheduled " + taskId);

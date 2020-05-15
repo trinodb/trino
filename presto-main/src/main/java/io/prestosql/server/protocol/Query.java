@@ -357,7 +357,7 @@ class Query
         }
 
         // if this is a request for a result after the end of the stream, return not found
-        if (!nextToken.isPresent()) {
+        if (nextToken.isEmpty()) {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
 
@@ -437,7 +437,7 @@ class Query
         closeExchangeClientIfNecessary(queryInfo);
 
         // for queries with no output, return a fake result for clients that require it
-        if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
+        if ((queryInfo.getState() == QueryState.FINISHED) && queryInfo.getOutputStage().isEmpty()) {
             columns = ImmutableList.of(createColumn("result", BooleanType.BOOLEAN));
             data = ImmutableSet.of(ImmutableList.of(true));
         }
@@ -510,7 +510,7 @@ class Query
         // is done and it does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
         if ((queryInfo.getState() == FAILED) ||
-                (queryInfo.getState().isDone() && !queryInfo.getOutputStage().isPresent())) {
+                (queryInfo.getState().isDone() && queryInfo.getOutputStage().isEmpty())) {
             exchangeClient.close();
         }
     }

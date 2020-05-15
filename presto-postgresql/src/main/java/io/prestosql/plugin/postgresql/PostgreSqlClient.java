@@ -260,7 +260,7 @@ public class PostgreSqlClient
                                 .setComment(comment)
                                 .build());
                     }
-                    if (!columnMapping.isPresent()) {
+                    if (columnMapping.isEmpty()) {
                         UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                         verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
                     }
@@ -369,7 +369,7 @@ public class PostgreSqlClient
             Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
 
             if (arrayMapping == AS_ARRAY) {
-                if (!typeHandle.getArrayDimensions().isPresent()) {
+                if (typeHandle.getArrayDimensions().isEmpty()) {
                     return Optional.empty();
                 }
                 return baseElementMapping

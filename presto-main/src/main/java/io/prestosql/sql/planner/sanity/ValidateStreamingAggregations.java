@@ -86,7 +86,7 @@ public class ValidateStreamingAggregations
             List<LocalProperty<Symbol>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedSymbols()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();
             Optional<LocalProperty<Symbol>> unsatisfiedRequirement = Iterators.getOnlyElement(matchIterator);
-            checkArgument(!unsatisfiedRequirement.isPresent(), "Streaming aggregation with input not grouped on the grouping keys");
+            checkArgument(unsatisfiedRequirement.isEmpty(), "Streaming aggregation with input not grouped on the grouping keys");
             return null;
         }
     }

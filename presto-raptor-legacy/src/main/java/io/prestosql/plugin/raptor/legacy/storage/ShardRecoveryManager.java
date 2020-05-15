@@ -124,7 +124,7 @@ public class ShardRecoveryManager
     @PostConstruct
     public void start()
     {
-        if (!backupStore.isPresent()) {
+        if (backupStore.isEmpty()) {
             return;
         }
         if (started.compareAndSet(false, true)) {

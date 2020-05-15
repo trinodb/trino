@@ -89,7 +89,7 @@ public final class WorkProcessorAssertion
             return iterator.next().transform(
                     Optional.ofNullable(element),
                     (left, right) -> left.isPresent() == right.isPresent()
-                            && (!left.isPresent() || equalsPredicate.test(left.get(), right.get())));
+                            && (left.isEmpty() || equalsPredicate.test(left.get(), right.get())));
         };
     }
 

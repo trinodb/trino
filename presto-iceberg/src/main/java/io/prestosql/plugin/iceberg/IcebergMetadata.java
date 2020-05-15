@@ -171,7 +171,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = IcebergTableHandle.from(tableName);
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return null;
         }
         if (handle.getTableType() != DATA) {
@@ -495,7 +495,7 @@ public class IcebergMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        if (!metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isPresent()) {
+        if (metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isEmpty()) {
             throw new TableNotFoundException(table);
         }
 

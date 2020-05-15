@@ -71,7 +71,7 @@ public interface TransactionManager
 
     default void activateTransaction(Session session, boolean transactionControl, AccessControl accessControl)
     {
-        if (!session.getTransactionId().isPresent()) {
+        if (session.getTransactionId().isEmpty()) {
             return;
         }
 

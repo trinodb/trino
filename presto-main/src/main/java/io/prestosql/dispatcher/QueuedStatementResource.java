@@ -369,7 +369,7 @@ public class QueuedStatementResource
             }
 
             Optional<DispatchInfo> dispatchInfo = dispatchManager.getDispatchInfo(queryId);
-            if (!dispatchInfo.isPresent()) {
+            if (dispatchInfo.isEmpty()) {
                 // query should always be found, but it may have just been determined to be abandoned
                 throw new WebApplicationException(Response
                         .status(NOT_FOUND)

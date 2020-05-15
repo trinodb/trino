@@ -71,7 +71,7 @@ public class SheetsMetadata
         }
 
         Optional<SheetsTable> table = sheetsClient.getTable(tableName.getTableName());
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return null;
         }
 
@@ -82,7 +82,7 @@ public class SheetsMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         Optional<ConnectorTableMetadata> connectorTableMetadata = getTableMetadata(((SheetsTableHandle) table).toSchemaTableName());
-        if (!connectorTableMetadata.isPresent()) {
+        if (connectorTableMetadata.isEmpty()) {
             throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + ((SheetsTableHandle) table).getTableName());
         }
         return connectorTableMetadata.get();
@@ -93,7 +93,7 @@ public class SheetsMetadata
     {
         SheetsTableHandle sheetsTableHandle = (SheetsTableHandle) tableHandle;
         Optional<SheetsTable> table = sheetsClient.getTable(sheetsTableHandle.getTableName());
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(sheetsTableHandle.toSchemaTableName());
         }
 
@@ -136,7 +136,7 @@ public class SheetsMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             throw new PrestoException(SHEETS_UNKNOWN_SCHEMA_ERROR, "Schema not present - " + schemaName);
         }
         if (schemaName.get().equalsIgnoreCase("information_schema")) {

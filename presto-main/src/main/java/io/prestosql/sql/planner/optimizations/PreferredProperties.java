@@ -253,10 +253,10 @@ class PreferredProperties
             if (distributed != parent.distributed) {
                 return this;
             }
-            if (!partitioningProperties.isPresent()) {
+            if (partitioningProperties.isEmpty()) {
                 return parent;
             }
-            if (!parent.partitioningProperties.isPresent()) {
+            if (parent.partitioningProperties.isEmpty()) {
                 return this;
             }
             return new Global(distributed, Optional.of(partitioningProperties.get().mergeWithParent(parent.partitioningProperties.get())));
@@ -313,7 +313,7 @@ class PreferredProperties
             this.partitioning = requireNonNull(partitioning, "function is null");
             this.nullsAndAnyReplicated = nullsAndAnyReplicated;
 
-            checkArgument(!partitioning.isPresent() || partitioning.get().getColumns().equals(partitioningColumns), "Partitioning input must match partitioningColumns");
+            checkArgument(partitioning.isEmpty() || partitioning.get().getColumns().equals(partitioningColumns), "Partitioning input must match partitioningColumns");
         }
 
         public PartitioningProperties withNullsAndAnyReplicated(boolean nullsAndAnyReplicated)
@@ -387,12 +387,12 @@ class PreferredProperties
                 return Optional.empty();
             }
 
-            if (!partitioning.isPresent()) {
+            if (partitioning.isEmpty()) {
                 return Optional.of(new PartitioningProperties(newPartitioningColumns, Optional.empty(), nullsAndAnyReplicated));
             }
 
             Optional<Partitioning> newPartitioning = partitioning.get().translate(new Partitioning.Translator(translator, symbol -> Optional.empty(), coalesceSymbols -> Optional.empty()));
-            if (!newPartitioning.isPresent()) {
+            if (newPartitioning.isEmpty()) {
                 return Optional.empty();
             }
 

@@ -192,7 +192,7 @@ public class ConnectorManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
         requireNonNull(connectorFactory, "connectorFactory is null");
-        checkArgument(!catalogManager.getCatalog(catalogName).isPresent(), "Catalog '%s' already exists", catalogName);
+        checkArgument(catalogManager.getCatalog(catalogName).isEmpty(), "Catalog '%s' already exists", catalogName);
 
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);

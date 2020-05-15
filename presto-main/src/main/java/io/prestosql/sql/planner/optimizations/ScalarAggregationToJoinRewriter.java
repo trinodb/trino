@@ -67,7 +67,7 @@ public class ScalarAggregationToJoinRewriter
     {
         List<Symbol> correlation = correlatedJoinNode.getCorrelation();
         Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(aggregation.getSource(), correlation);
-        if (!source.isPresent()) {
+        if (source.isEmpty()) {
             return correlatedJoinNode;
         }
 

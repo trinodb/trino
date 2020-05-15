@@ -77,7 +77,7 @@ class OutputBufferMemoryManager
         // we can also safely ignore any calls after OutputBufferMemoryManager is closed.
         // If the systemMemoryContext doesn't exist, the task is probably already
         // aborted, so we can just return (see the comment in getSystemMemoryContext()).
-        if (closed || !systemMemoryContext.isPresent()) {
+        if (closed || systemMemoryContext.isEmpty()) {
             return;
         }
 

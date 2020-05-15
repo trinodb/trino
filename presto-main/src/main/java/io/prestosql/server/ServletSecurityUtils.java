@@ -69,7 +69,7 @@ public final class ServletSecurityUtils
     public static ServletRequest withPrincipal(HttpServletRequest request, Optional<Principal> principal)
     {
         requireNonNull(principal, "principal is null");
-        if (!principal.isPresent()) {
+        if (principal.isEmpty()) {
             return request;
         }
         return new HttpServletRequestWrapper(request)

@@ -134,7 +134,7 @@ public class ValidateAggregationsWithDefaultValues
         public Optional<SeenExchanges> visitExchange(ExchangeNode node, Void context)
         {
             Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.getSources());
-            if (!seenExchangesOptional.isPresent()) {
+            if (seenExchangesOptional.isEmpty()) {
                 // No partial aggregation below
                 return Optional.empty();
             }

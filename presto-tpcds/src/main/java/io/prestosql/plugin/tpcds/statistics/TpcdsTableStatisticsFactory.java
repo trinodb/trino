@@ -85,7 +85,7 @@ public class TpcdsTableStatisticsFactory
         if (columnType instanceof VarcharType || columnType instanceof CharType || columnType.equals(TIME)) {
             return Optional.empty();
         }
-        if (!min.isPresent() || !max.isPresent()) {
+        if (min.isEmpty() || max.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new DoubleRange(toDouble(min.get(), columnType), toDouble(max.get(), columnType)));

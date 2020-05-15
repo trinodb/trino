@@ -161,7 +161,7 @@ public class ParametricAggregation
             }
         }
 
-        if (!foundImplementation.isPresent()) {
+        if (foundImplementation.isEmpty()) {
             throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();

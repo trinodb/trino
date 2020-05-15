@@ -698,7 +698,7 @@ public final class StreamPropertyDerivations
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)
         {
-            if (!partitioningColumns.isPresent()) {
+            if (partitioningColumns.isEmpty()) {
                 return false;
             }
 
@@ -736,7 +736,7 @@ public final class StreamPropertyDerivations
                         ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
                         for (Symbol partitioningColumn : partitioning) {
                             Optional<Symbol> translated = translator.apply(partitioningColumn);
-                            if (!translated.isPresent()) {
+                            if (translated.isEmpty()) {
                                 return Optional.empty();
                             }
                             newPartitioningColumns.add(translated.get());

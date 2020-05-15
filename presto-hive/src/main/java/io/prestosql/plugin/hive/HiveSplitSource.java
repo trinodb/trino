@@ -146,7 +146,7 @@ class HiveSplitSource
                     @Override
                     public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
                     {
-                        checkArgument(!bucketNumber.isPresent());
+                        checkArgument(bucketNumber.isEmpty());
                         return queue.borrowBatchAsync(maxSize, function);
                     }
 
@@ -159,7 +159,7 @@ class HiveSplitSource
                     @Override
                     public boolean isFinished(OptionalInt bucketNumber)
                     {
-                        checkArgument(!bucketNumber.isPresent());
+                        checkArgument(bucketNumber.isEmpty());
                         return queue.isFinished();
                     }
                 },

@@ -102,7 +102,7 @@ final class UnnestMatcher
         if (filter.isPresent() != unnestNode.getFilter().isPresent()) {
             return NO_MATCH;
         }
-        if (!filter.isPresent()) {
+        if (filter.isEmpty()) {
             return MatchResult.match();
         }
         if (!new ExpressionVerifier(symbolAliases).process(unnestNode.getFilter().get(), filter.get())) {

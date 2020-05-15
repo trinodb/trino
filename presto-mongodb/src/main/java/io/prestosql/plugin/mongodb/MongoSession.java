@@ -293,7 +293,7 @@ public class MongoSession
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             if (range.isSingleValue()) {
                 Optional<Object> translated = translateValue(range.getSingleValue(), type);
-                if (!translated.isPresent()) {
+                if (translated.isEmpty()) {
                     return Optional.empty();
                 }
                 singleValues.add(translated.get());
@@ -302,7 +302,7 @@ public class MongoSession
                 Document rangeConjuncts = new Document();
                 if (!range.getLow().isLowerUnbounded()) {
                     Optional<Object> translated = translateValue(range.getLow().getValue(), type);
-                    if (!translated.isPresent()) {
+                    if (translated.isEmpty()) {
                         return Optional.empty();
                     }
                     switch (range.getLow().getBound()) {
@@ -320,7 +320,7 @@ public class MongoSession
                 }
                 if (!range.getHigh().isUpperUnbounded()) {
                     Optional<Object> translated = translateValue(range.getHigh().getValue(), type);
-                    if (!translated.isPresent()) {
+                    if (translated.isEmpty()) {
                         return Optional.empty();
                     }
                     switch (range.getHigh().getBound()) {
@@ -575,7 +575,7 @@ public class MongoSession
                     .map(this::guessFieldType)
                     .collect(toList());
 
-            if (subTypes.isEmpty() || subTypes.stream().anyMatch(t -> !t.isPresent())) {
+            if (subTypes.isEmpty() || subTypes.stream().anyMatch(t -> t.isEmpty())) {
                 return Optional.empty();
             }
 

@@ -455,7 +455,7 @@ public final class DomainTranslator
         protected ExtractionResult visitComparisonExpression(ComparisonExpression node, Boolean complement)
         {
             Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
-            if (!optionalNormalized.isPresent()) {
+            if (optionalNormalized.isEmpty()) {
                 return super.visitComparisonExpression(node, complement);
             }
             NormalizedSimpleComparison normalized = optionalNormalized.get();
