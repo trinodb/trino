@@ -36,7 +36,6 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.eventlistener.EventListenerModule;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.warnings.WarningCollectorModule;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
@@ -114,11 +113,7 @@ public class Server
             injector.getInstance(StaticCatalogStore.class).loadCatalogs();
 
             // TODO: remove this huge hack
-            updateConnectorIds(
-                    injector.getInstance(Announcer.class),
-                    injector.getInstance(CatalogManager.class),
-                    injector.getInstance(ServerConfig.class),
-                    injector.getInstance(NodeSchedulerConfig.class));
+            updateConnectorIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -144,7 +139,7 @@ public class Server
         return ImmutableList.of();
     }
 
-    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
+    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
