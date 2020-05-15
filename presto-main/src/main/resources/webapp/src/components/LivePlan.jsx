@@ -125,10 +125,17 @@ class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
     }
 
     render() {
+        const details = this.props.details;
+        if (details.includes("Distribution")) {
+            var index = details.indexOf("Distribution");
+            var distribution = details.slice(index, details.length).split("\n")[0];
+        }
+
         return (
             <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
                  title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
                 <strong>{this.props.name}</strong>
+                <div>{distribution}</div>
                 <div>
                     {truncateString(this.props.identifier, 35)}
                 </div>
