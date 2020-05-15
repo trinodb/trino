@@ -46,10 +46,10 @@ import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDA
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestLocalDynamicFilter
+public class TestLocalDynamicFilterConsumer
         extends BasePlanTest
 {
-    public TestLocalDynamicFilter()
+    public TestLocalDynamicFilterConsumer()
     {
         super(ImmutableMap.of(
                 FORCE_SINGLE_NODE_OUTPUT, "false",
@@ -62,7 +62,7 @@ public class TestLocalDynamicFilter
     public void testSimple()
             throws ExecutionException, InterruptedException
     {
-        LocalDynamicFilter filter = new LocalDynamicFilter(
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of("123", new Symbol("a")),
                 ImmutableMap.of("123", 0),
                 ImmutableMap.of("123", INTEGER),
@@ -82,7 +82,7 @@ public class TestLocalDynamicFilter
     public void testMultipleProbeSymbols()
             throws ExecutionException, InterruptedException
     {
-        LocalDynamicFilter filter = new LocalDynamicFilter(
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of("123", new Symbol("a1"), "123", new Symbol("a2")),
                 ImmutableMap.of("123", 0),
                 ImmutableMap.of("123", INTEGER),
@@ -103,7 +103,7 @@ public class TestLocalDynamicFilter
     public void testMultiplePartitions()
             throws ExecutionException, InterruptedException
     {
-        LocalDynamicFilter filter = new LocalDynamicFilter(
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of("123", new Symbol("a")),
                 ImmutableMap.of("123", 0),
                 ImmutableMap.of("123", INTEGER),
@@ -128,7 +128,7 @@ public class TestLocalDynamicFilter
     public void testNone()
             throws ExecutionException, InterruptedException
     {
-        LocalDynamicFilter filter = new LocalDynamicFilter(
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of("123", new Symbol("a")),
                 ImmutableMap.of("123", 0),
                 ImmutableMap.of("123", INTEGER),
@@ -148,7 +148,7 @@ public class TestLocalDynamicFilter
     public void testMultipleColumns()
             throws ExecutionException, InterruptedException
     {
-        LocalDynamicFilter filter = new LocalDynamicFilter(
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of("123", new Symbol("a"), "456", new Symbol("b")),
                 ImmutableMap.of("123", 0, "456", 1),
                 ImmutableMap.of("123", INTEGER, "456", INTEGER),
@@ -170,7 +170,7 @@ public class TestLocalDynamicFilter
     public void testMultiplePartitionsAndColumns()
             throws ExecutionException, InterruptedException
     {
-        LocalDynamicFilter filter = new LocalDynamicFilter(
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of("123", new Symbol("a"), "456", new Symbol("b")),
                 ImmutableMap.of("123", 0, "456", 1),
                 ImmutableMap.of("123", INTEGER, "456", BIGINT),
@@ -204,7 +204,7 @@ public class TestLocalDynamicFilter
                 OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
+        LocalDynamicFilterConsumer filter = LocalDynamicFilterConsumer.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
         String filterId = getOnlyElement(filter.getBuildChannels().keySet());
         Symbol probeSymbol = getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -228,7 +228,7 @@ public class TestLocalDynamicFilter
                 false,
                 session);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
+        LocalDynamicFilterConsumer filter = LocalDynamicFilterConsumer.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
         String filterId = getOnlyElement(filter.getBuildChannels().keySet());
         assertFalse(joinNode.getDynamicFilters().isEmpty());
 
@@ -251,7 +251,7 @@ public class TestLocalDynamicFilter
                 false);
 
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
+        LocalDynamicFilterConsumer filter = LocalDynamicFilterConsumer.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
         List<String> filterIds = filter
                 .getBuildChannels()
                 .entrySet()
@@ -282,7 +282,7 @@ public class TestLocalDynamicFilter
         List<JoinNode> joinNodes = searchJoins(subplan.getChildren().get(0).getFragment()).findAll();
         assertEquals(joinNodes.size(), 2);
         for (JoinNode joinNode : joinNodes) {
-            LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
+            LocalDynamicFilterConsumer filter = LocalDynamicFilterConsumer.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
             String filterId = getOnlyElement(filter.getBuildChannels().keySet());
             Symbol probeSymbol = getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -306,7 +306,7 @@ public class TestLocalDynamicFilter
                 true);
 
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
+        LocalDynamicFilterConsumer filter = LocalDynamicFilterConsumer.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
         String filterId = getOnlyElement(filter.getBuildChannels().keySet());
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
