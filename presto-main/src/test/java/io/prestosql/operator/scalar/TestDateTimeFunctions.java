@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import java.time.Instant;
 
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
 
 public class TestDateTimeFunctions
         extends TestDateTimeFunctionsBase

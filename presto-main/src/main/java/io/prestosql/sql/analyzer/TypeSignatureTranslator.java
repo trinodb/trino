@@ -34,6 +34,7 @@ import io.prestosql.sql.tree.RowDataType;
 import io.prestosql.sql.tree.TypeParameter;
 import org.assertj.core.util.VisibleForTesting;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -48,7 +49,6 @@ import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.prestosql.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TypeSignatureParameter.namedTypeParameter;
 import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
@@ -170,7 +170,7 @@ public class TypeSignatureTranslator
     {
         boolean withTimeZone = type.isWithTimeZone();
 
-        if (type.getPrecision().isPresent()) {
+        if (type.getPrecision().isPresent() && type.getType() != DateTimeDataType.Type.TIMESTAMP) {
             throw new PrestoException(NOT_SUPPORTED, String.format("%s type with non-default precision not yet supported", type.getType()));
         }
 
@@ -179,7 +179,24 @@ public class TypeSignatureTranslator
                 if (withTimeZone) {
                     return TIMESTAMP_WITH_TIME_ZONE.getTypeSignature();
                 }
-                return TIMESTAMP.getTypeSignature();
+
+                List<TypeSignatureParameter> parameters = new ArrayList<>();
+
+                if (type.getPrecision().isPresent()) {
+                    DataTypeParameter precision = type.getPrecision().get();
+                    if (precision instanceof NumericParameter) {
+                        parameters.add(TypeSignatureParameter.numericParameter(Long.parseLong(((NumericParameter) precision).getValue())));
+                    }
+                    else if (precision instanceof TypeParameter) {
+                        DataType typeVariable = ((TypeParameter) precision).getValue();
+                        checkArgument(typeVariable instanceof GenericDataType && ((GenericDataType) typeVariable).getArguments().isEmpty());
+                        String variable = ((GenericDataType) typeVariable).getName().getValue();
+                        checkArgument(typeVariables.contains(variable), "Parameter to datetime type must be either a number or a type variable: %s", variable);
+                        parameters.add(TypeSignatureParameter.typeVariable(variable));
+                    }
+                }
+
+                return new TypeSignature(StandardTypes.TIMESTAMP, parameters);
             case TIME:
                 if (withTimeZone) {
                     return TIME_WITH_TIME_ZONE.getTypeSignature();
@@ -210,7 +227,15 @@ public class TypeSignatureTranslator
             case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                 return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, true, Optional.empty());
             case StandardTypes.TIMESTAMP:
-                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, false, Optional.empty());
+                if (typeSignature.getParameters().isEmpty()) {
+                    return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, false, Optional.empty());
+                }
+
+                Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
+                        .map(TypeSignatureTranslator::toTypeParameter)
+                        .findAny();
+
+                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, false, argument);
             case StandardTypes.TIME_WITH_TIME_ZONE:
                 return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, true, Optional.empty());
             case StandardTypes.TIME:
@@ -248,6 +273,18 @@ public class TypeSignatureTranslator
                                     }
                                 })
                                 .collect(toImmutableList()));
+        }
+    }
+
+    private static DataTypeParameter toTypeParameter(TypeSignatureParameter parameter)
+    {
+        switch (parameter.getKind()) {
+            case LONG:
+                return new NumericParameter(Optional.empty(), String.valueOf(parameter.getLongLiteral()));
+            case TYPE:
+                return new TypeParameter(toDataType(parameter.getTypeSignature()));
+            default:
+                throw new UnsupportedOperationException("Unsupported parameter kind");
         }
     }
 }

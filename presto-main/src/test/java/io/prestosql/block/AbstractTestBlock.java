@@ -402,7 +402,7 @@ public abstract class AbstractTestBlock
         return true;
     }
 
-    // Subclasses should implement this method to customize how the position is compared
+    // Subclasses can implement this method to customize how the position is compared
     // with the expected bytes
     protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
     {

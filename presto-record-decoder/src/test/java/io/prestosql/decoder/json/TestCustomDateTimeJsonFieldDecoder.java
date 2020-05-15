@@ -73,11 +73,11 @@ public class TestCustomDateTimeJsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        timestampTester.assertInvalidInput("1", TIMESTAMP, "could not parse value '1' as 'timestamp' for column 'some_column'");
-        timestampTester.assertInvalidInput("{}", TIMESTAMP, "could not parse non-value node as 'timestamp' for column 'some_column'");
-        timestampTester.assertInvalidInput("\"a\"", TIMESTAMP, "could not parse value 'a' as 'timestamp' for column 'some_column'");
-        timestampTester.assertInvalidInput("\"15:13:18\"", TIMESTAMP, "could not parse value '15:13:18' as 'timestamp' for column 'some_column'");
-        timestampTester.assertInvalidInput("\"02/2018/11\"", TIMESTAMP, "could not parse value '02/2018/11' as 'timestamp' for column 'some_column'");
+        timestampTester.assertInvalidInput("1", TIMESTAMP, "\\Qcould not parse value '1' as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("{}", TIMESTAMP, "\\Qcould not parse non-value node as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("\"a\"", TIMESTAMP, "\\Qcould not parse value 'a' as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("\"15:13:18\"", TIMESTAMP, "\\Qcould not parse value '15:13:18' as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("\"02/2018/11\"", TIMESTAMP, "\\Qcould not parse value '02/2018/11' as 'timestamp(3)' for column 'some_column'\\E");
     }
 
     @Test

@@ -43,11 +43,11 @@ public class TestTimestampWithTimeZoneLegacy
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 2 /* not 3 */, 4, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 22, 2 /* not 3 */, 4, 5, 321, session));
 
         // This TZ had switch in 2014
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 21 /* not 22 */, 23 /* not 3 */, 13, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 21 /* not 22 */, 23 /* not 3 */, 13, 5, 321, session));
     }
 }

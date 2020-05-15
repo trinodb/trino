@@ -15,6 +15,7 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
@@ -26,11 +27,6 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
-
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.function.OperatorType.CAST;
@@ -46,15 +42,13 @@ import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.printTimeWithTimeZone;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 public final class TimeWithTimeZoneOperators
 {
-    private static final long REFERENCE_TIMESTAMP_UTC = System.currentTimeMillis();
+    public static final long REFERENCE_TIMESTAMP_UTC = System.currentTimeMillis();
 
     private TimeWithTimeZoneOperators()
     {
@@ -117,24 +111,7 @@ public final class TimeWithTimeZoneOperators
     {
         // This is exactly the same operation as for TIME WITH TIME ZONE -> TIMESTAMP, as the representations
         // of those types are aligned in range that is covered by TIME WITH TIME ZONE.
-        return castToTimestamp(session, value);
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
-    {
-        if (session.isLegacyTimestamp()) {
-            return unpackMillisUtc(value);
-        }
-
-        // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
-        // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WIT TIME ZONE
-        long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
-        long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
-
-        ISOChronology chronology = getChronology(unpackZoneKey(value));
-        return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
+        return TimeWithTimezoneToTimestampCast.cast(3, session, value);
     }
 
     @ScalarOperator(CAST)

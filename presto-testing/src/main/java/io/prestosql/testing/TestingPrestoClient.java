@@ -27,6 +27,7 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.type.SqlIntervalDayTime;
@@ -63,7 +64,6 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -223,7 +223,7 @@ public class TestingPrestoClient
                 return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
             }
         }
-        else if (TIMESTAMP.equals(type)) {
+        else if (type instanceof TimestampType) {
             return SqlTimestamp.JSON_FORMATTER.parse((String) value, LocalDateTime::from);
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {

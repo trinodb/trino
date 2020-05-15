@@ -402,7 +402,7 @@ public class TestJdbcQueryBuilder
 
     private static long toPrestoTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        SqlTimestamp sqlTimestamp = DateTimeTestingUtils.sqlTimestampOf(year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
+        SqlTimestamp sqlTimestamp = DateTimeTestingUtils.sqlTimestampOf(3, year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
         if (SESSION.isLegacyTimestamp()) {
             return sqlTimestamp.getMillisUtc();
         }

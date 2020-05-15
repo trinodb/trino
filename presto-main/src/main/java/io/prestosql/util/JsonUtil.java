@@ -36,10 +36,12 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
+import io.prestosql.spi.type.ShortTimestampType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimestampType;
@@ -57,6 +59,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -87,13 +91,13 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.Timestamps.formatTimestamp;
+import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
 import static io.prestosql.type.TypeUtils.hashPosition;
 import static io.prestosql.type.TypeUtils.positionEqualsPosition;
 import static io.prestosql.util.DateTimeUtils.printDate;
-import static io.prestosql.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static io.prestosql.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Float.floatToRawIntBits;
@@ -288,7 +292,7 @@ public final class JsonUtil
                 return new JsonJsonGeneratorWriter();
             }
             if (type instanceof TimestampType) {
-                return new TimestampJsonGeneratorWriter();
+                return new TimestampJsonGeneratorWriter((TimestampType) type);
             }
             if (type instanceof DateType) {
                 return new DateGeneratorWriter();
@@ -499,6 +503,13 @@ public final class JsonUtil
     private static class TimestampJsonGeneratorWriter
             implements JsonGeneratorWriter
     {
+        private final TimestampType type;
+
+        public TimestampJsonGeneratorWriter(TimestampType type)
+        {
+            this.type = type;
+        }
+
         @Override
         public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position, ConnectorSession session)
                 throws IOException
@@ -507,14 +518,28 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                long value = TIMESTAMP.getLong(block, position);
+                long epochMicros;
+                int fraction;
 
-                if (session.isLegacyTimestamp()) {
-                    jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+                if (type instanceof ShortTimestampType) {
+                    epochMicros = type.getLong(block, position);
+                    if (type.getPrecision() <= 3) {
+                        epochMicros = scaleEpochMillisToMicros(epochMicros);
+                    }
+                    fraction = 0;
                 }
                 else {
-                    jsonGenerator.writeString(printTimestampWithoutTimeZone(value));
+                    LongTimestamp timestamp = (LongTimestamp) type.getObject(block, position);
+                    epochMicros = timestamp.getEpochMicros();
+                    fraction = timestamp.getPicosOfMicro();
                 }
+
+                ZoneId zoneId = ZoneOffset.UTC;
+                if (session.isLegacyTimestamp()) {
+                    zoneId = session.getTimeZoneKey().getZoneId();
+                }
+
+                jsonGenerator.writeString(formatTimestamp(type.getPrecision(), epochMicros, fraction, zoneId));
             }
         }
     }

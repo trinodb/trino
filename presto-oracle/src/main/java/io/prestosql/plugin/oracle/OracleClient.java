@@ -31,7 +31,6 @@ import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Chars;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import oracle.jdbc.OraclePreparedStatement;
@@ -429,7 +428,7 @@ public class OracleClient
             }
             return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction((DecimalType) type));
         }
-        if (type instanceof TimestampType) {
+        if (type.equals(TIMESTAMP)) {
             return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction(session));
         }
         WriteMapping writeMapping = WRITE_MAPPINGS.get(type);

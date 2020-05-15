@@ -1143,7 +1143,7 @@ public class TestHiveTableStatistics
                     "           REAL '123.340', DOUBLE '234.560', " +
                     "           CAST(343.0 AS DECIMAL(10, 0)), " +
                     "           CAST(345.670 AS DECIMAL(10, 5)), " +
-                    "           TIMESTAMP '2015-05-10 12:15:30', " +
+                    "           TIMESTAMP '2015-05-10 12:15:30.000', " +
                     "           DATE '2015-05-08', " +
                     "           CAST('p1 varchar' AS VARCHAR), " +
                     "           CAST('p1 varchar10' AS VARCHAR(10)), " +
@@ -1162,7 +1162,7 @@ public class TestHiveTableStatistics
                     "           DOUBLE '777.560', " +
                     "           CAST(888.0 AS DECIMAL(10, 0)), " +
                     "           CAST(999.670 AS DECIMAL(10, 5)), " +
-                    "           TIMESTAMP '2015-05-10 12:45:30', " +
+                    "           TIMESTAMP '2015-05-10 12:45:30.000', " +
                     "           DATE '2015-05-09', " +
                     "           CAST('p2 varchar' AS VARCHAR), " +
                     "           CAST('p2 varchar10' AS VARCHAR(10)), " +
