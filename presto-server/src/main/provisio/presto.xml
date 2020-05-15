@@ -122,6 +122,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/memsql">
+        <artifact id="${project.groupId}:presto-memsql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/mysql">
         <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
             <unpack />
