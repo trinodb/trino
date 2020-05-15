@@ -34,8 +34,8 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * A set containing zero or more Ranges of the same type over a continuous space of possible values.
@@ -173,9 +173,9 @@ public final class SortedRangeSet
         if (!isDiscreteSet()) {
             throw new IllegalStateException("SortedRangeSet is not a discrete set");
         }
-        return unmodifiableList(lowIndexedRanges.values().stream()
+        return lowIndexedRanges.values().stream()
                 .map(Range::getSingleValue)
-                .collect(Collectors.toList()));
+                .collect(toUnmodifiableList());
     }
 
     @Override

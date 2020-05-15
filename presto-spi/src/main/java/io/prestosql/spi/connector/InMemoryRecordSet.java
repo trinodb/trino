@@ -49,7 +49,7 @@ public class InMemoryRecordSet
 
     public InMemoryRecordSet(Collection<? extends Type> types, Iterable<? extends List<?>> records)
     {
-        this.types = Collections.unmodifiableList(new ArrayList<>(types));
+        this.types = List.copyOf(types);
         this.records = records;
     }
 
@@ -200,8 +200,7 @@ public class InMemoryRecordSet
 
         private Builder(Collection<Type> types)
         {
-            requireNonNull(types, "types is null");
-            this.types = Collections.unmodifiableList(new ArrayList<>(types));
+            this.types = List.copyOf(requireNonNull(types, "types is null"));
             checkArgument(!this.types.isEmpty(), "types is empty");
         }
 
@@ -258,6 +257,7 @@ public class InMemoryRecordSet
                 }
             }
             // Immutable list does not allow nulls
+            // noinspection Java9CollectionFactory
             records.add(Collections.unmodifiableList(new ArrayList<>(Arrays.asList(values))));
             return this;
         }
