@@ -198,15 +198,18 @@ public class TestRubixCaching
 
         // stats are propagated asynchronously, wait for them
         sleep(1000L);
-        long intermittentRemoteReads = getCacheStats().getRemoteReads();
-        assertGreaterThan(intermittentRemoteReads, beforeRemoteReads);
+        long firstRemoteReads = getCacheStats().getRemoteReads();
+        // data should be read from remote source only
+        assertGreaterThan(firstRemoteReads, beforeRemoteReads);
+        assertEquals(getCacheStats().getCachedReads(), beforeCachedReads);
 
         assertEquals(readFile(cachingFileSystem.open(file)), "Hello world");
 
         // stats are propagated asynchronously, wait for them
         sleep(1000L);
+        // data should be read from cache only
         assertGreaterThan(getCacheStats().getCachedReads(), beforeCachedReads);
-        assertEquals(getCacheStats().getRemoteReads(), intermittentRemoteReads);
+        assertEquals(getCacheStats().getRemoteReads(), firstRemoteReads);
     }
 
     @Test
