@@ -30,16 +30,15 @@ public class TestHiveHadoop2Plugin
         Plugin plugin = new HiveHadoop2Plugin();
         ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
-        assertThatThrownBy(() -> {
-            connectorFactory.create(
-                    "test",
-                    ImmutableMap.<String, String>builder()
-                            .put("hive.s3.security-mapping.config-file", "/tmp/blah.txt")
-                            .put("hive.cache.enabled", "true")
-                            .build(),
-                    new TestingConnectorContext())
-                    .shutdown();
-        }).hasMessageContaining("S3 security mapping is not compatible with Hive caching");
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.s3.security-mapping.config-file", "/tmp/blah.txt")
+                        .put("hive.cache.enabled", "true")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown())
+                .hasMessageContaining("S3 security mapping is not compatible with Hive caching");
     }
 
     @Test
@@ -48,16 +47,15 @@ public class TestHiveHadoop2Plugin
         Plugin plugin = new HiveHadoop2Plugin();
         ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
-        assertThatThrownBy(() -> {
-            connectorFactory.create(
-                    "test",
-                    ImmutableMap.<String, String>builder()
-                            .put("hive.gcs.use-access-token", "true")
-                            .put("hive.cache.enabled", "true")
-                            .build(),
-                    new TestingConnectorContext())
-                    .shutdown();
-        }).hasMessageContaining("Use of GCS access token is not compatible with Hive caching");
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.gcs.use-access-token", "true")
+                        .put("hive.cache.enabled", "true")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown())
+                .hasMessageContaining("Use of GCS access token is not compatible with Hive caching");
     }
 
     @Test
