@@ -119,7 +119,7 @@ final class PrestoSystemRequirements
     private static void verifyFileDescriptor()
     {
         OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
-        if (!maxFileDescriptorCount.isPresent()) {
+        if (maxFileDescriptorCount.isEmpty()) {
             // This should never happen since we have verified the OS and JVM above
             failRequirement("Cannot read OS file descriptor limit");
         }

@@ -107,14 +107,14 @@ public final class ShardOrganizerUtil
                             Optional<ShardRange> sortRange = Optional.empty();
                             if (includeSortColumns) {
                                 sortRange = getShardRange(sortColumns.get(), resultSet);
-                                if (!sortRange.isPresent()) {
+                                if (sortRange.isEmpty()) {
                                     continue;
                                 }
                             }
                             Optional<ShardRange> temporalRange = Optional.empty();
                             if (temporalColumn.isPresent()) {
                                 temporalRange = getShardRange(ImmutableList.of(temporalColumn.get()), resultSet);
-                                if (!temporalRange.isPresent()) {
+                                if (temporalRange.isEmpty()) {
                                     continue;
                                 }
                             }
@@ -150,12 +150,12 @@ public final class ShardOrganizerUtil
         }
 
         // Neither bucketed nor temporal, no partitioning required
-        if (!tableInfo.getBucketCount().isPresent() && !tableInfo.getTemporalColumnId().isPresent()) {
+        if (tableInfo.getBucketCount().isEmpty() && tableInfo.getTemporalColumnId().isEmpty()) {
             return ImmutableList.of(shards);
         }
 
         // if only bucketed, partition by bucket number
-        if (tableInfo.getBucketCount().isPresent() && !tableInfo.getTemporalColumnId().isPresent()) {
+        if (tableInfo.getBucketCount().isPresent() && tableInfo.getTemporalColumnId().isEmpty()) {
             return Multimaps.index(shards, shard -> shard.getBucketNumber().getAsInt()).asMap().values();
         }
 
@@ -171,7 +171,7 @@ public final class ShardOrganizerUtil
         Collection<Collection<ShardIndexInfo>> byDays = shardsByDaysBuilder.build().asMap().values();
 
         // if table is bucketed further partition by bucket number
-        if (!tableInfo.getBucketCount().isPresent()) {
+        if (tableInfo.getBucketCount().isEmpty()) {
             return byDays;
         }
 

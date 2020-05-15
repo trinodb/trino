@@ -230,7 +230,7 @@ public class QueryStateMachine
             WarningCollector warningCollector)
     {
         // If there is not an existing transaction, begin an auto commit transaction
-        if (!session.getTransactionId().isPresent() && !transactionControl) {
+        if (session.getTransactionId().isEmpty() && !transactionControl) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
@@ -973,7 +973,7 @@ public class QueryStateMachine
 
     private static boolean isScheduled(Optional<StageInfo> rootStage)
     {
-        if (!rootStage.isPresent()) {
+        if (rootStage.isEmpty()) {
             return false;
         }
         return getAllStages(rootStage).stream()
@@ -1006,7 +1006,7 @@ public class QueryStateMachine
     public void pruneQueryInfo()
     {
         Optional<QueryInfo> finalInfo = finalQueryInfo.get();
-        if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
+        if (finalInfo.isEmpty() || finalInfo.get().getOutputStage().isEmpty()) {
             return;
         }
 

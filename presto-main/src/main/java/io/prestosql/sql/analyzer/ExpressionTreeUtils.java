@@ -57,7 +57,7 @@ public final class ExpressionTreeUtils
     private static boolean isAggregation(FunctionCall functionCall, Metadata metadata)
     {
         return ((metadata.isAggregationFunction(functionCall.getName()) || functionCall.getFilter().isPresent())
-                && !functionCall.getWindow().isPresent())
+                && functionCall.getWindow().isEmpty())
                 || functionCall.getOrderBy().isPresent();
     }
 

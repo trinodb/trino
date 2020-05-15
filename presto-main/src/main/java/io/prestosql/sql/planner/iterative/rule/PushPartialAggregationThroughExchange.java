@@ -71,7 +71,7 @@ public class PushPartialAggregationThroughExchange
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(
                     exchange()
-                            .matching(node -> !node.getOrderingScheme().isPresent())
+                            .matching(node -> node.getOrderingScheme().isEmpty())
                             .capturedAs(EXCHANGE_NODE)));
 
     @Override
@@ -206,7 +206,7 @@ public class PushPartialAggregationThroughExchange
             Type intermediateType = metadata.getType(functionMetadata.getIntermediateType().orElseThrow(() -> new IllegalArgumentException("aggregation is not decomposable")));
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.getSignature().getName(), intermediateType);
 
-            checkState(!originalAggregation.getOrderingScheme().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
+            checkState(originalAggregation.getOrderingScheme().isEmpty(), "Aggregate with ORDER BY does not support partial aggregation");
             intermediateAggregation.put(
                     intermediateSymbol,
                     new AggregationNode.Aggregation(

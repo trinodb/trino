@@ -79,7 +79,7 @@ final class Util
             return false;
         }
 
-        if (!expectedDomains.isPresent()) {
+        if (expectedDomains.isEmpty()) {
             return true;
         }
 

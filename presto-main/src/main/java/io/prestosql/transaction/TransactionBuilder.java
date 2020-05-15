@@ -129,7 +129,7 @@ public class TransactionBuilder
         requireNonNull(session, "session is null");
         requireNonNull(callback, "callback is null");
 
-        boolean managedTransaction = !session.getTransactionId().isPresent();
+        boolean managedTransaction = session.getTransactionId().isEmpty();
 
         Session transactionSession;
         if (managedTransaction) {

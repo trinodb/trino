@@ -360,7 +360,7 @@ class StatementAnalyzer
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-            if (!targetTableHandle.isPresent()) {
+            if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
@@ -863,7 +863,7 @@ class StatementAnalyzer
             Set<String> names = new HashSet<>();
             for (Field field : descriptor.getVisibleFields()) {
                 Optional<String> fieldName = field.getName();
-                if (!fieldName.isPresent()) {
+                if (fieldName.isEmpty()) {
                     throw semanticException(MISSING_COLUMN_NAME, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1);
                 }
                 if (!names.add(fieldName.get())) {
@@ -921,7 +921,7 @@ class StatementAnalyzer
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
 
-                if (queryBodyScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                if (queryBodyScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(node.getOrderBy().get());
                     warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
@@ -935,7 +935,7 @@ class StatementAnalyzer
 
             if (node.getLimit().isPresent()) {
                 boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
-                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                if (requiresOrderBy && node.getOrderBy().isEmpty()) {
                     throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
             }
@@ -1013,7 +1013,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
-            if (!table.getName().getPrefix().isPresent()) {
+            if (table.getName().getPrefix().isEmpty()) {
                 // is this a reference to a WITH query?
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
                 if (withQuery.isPresent()) {
@@ -1031,8 +1031,8 @@ class StatementAnalyzer
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
-            if (!tableHandle.isPresent()) {
-                if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
+            if (tableHandle.isEmpty()) {
+                if (metadata.getCatalogHandle(session, name.getCatalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, table, "Catalog '%s' does not exist", name.getCatalogName());
                 }
                 if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
@@ -1303,7 +1303,7 @@ class StatementAnalyzer
                     verifySelectDistinct(node, outputExpressions);
                 }
 
-                if (sourceScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                if (sourceScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
                     warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
@@ -1317,7 +1317,7 @@ class StatementAnalyzer
 
             if (node.getLimit().isPresent()) {
                 boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
-                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                if (requiresOrderBy && node.getOrderBy().isEmpty()) {
                     throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
             }
@@ -1381,7 +1381,7 @@ class StatementAnalyzer
                 for (int i = 0; i < descFieldSize; i++) {
                     Type descFieldType = relationType.getFieldByIndex(i).getType();
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(outputFieldTypes[i], descFieldType);
-                    if (!commonSuperType.isPresent()) {
+                    if (commonSuperType.isEmpty()) {
                         throw semanticException(
                                 TYPE_MISMATCH,
                                 node,
@@ -1536,10 +1536,10 @@ class StatementAnalyzer
                 Optional<ResolvedField> leftField = left.tryResolveField(column);
                 Optional<ResolvedField> rightField = right.tryResolveField(column);
 
-                if (!leftField.isPresent()) {
+                if (leftField.isEmpty()) {
                     throw semanticException(COLUMN_NOT_FOUND, column, "Column '%s' is missing from left side of join", column.getValue());
                 }
-                if (!rightField.isPresent()) {
+                if (rightField.isEmpty()) {
                     throw semanticException(COLUMN_NOT_FOUND, column, "Column '%s' is missing from right side of join", column.getValue());
                 }
 
@@ -1633,7 +1633,7 @@ class StatementAnalyzer
                     Type superType = fieldTypes.get(i);
 
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(fieldType, superType);
-                    if (!commonSuperType.isPresent()) {
+                    if (commonSuperType.isEmpty()) {
                         throw semanticException(TYPE_MISMATCH,
                                 node,
                                 "Values rows have mismatched types: %s vs %s",
@@ -1722,7 +1722,7 @@ class StatementAnalyzer
                 // TODO get function requirements from window function metadata when we have it
                 String name = windowFunction.getName().toString().toLowerCase(ENGLISH);
                 if (name.equals("lag") || name.equals("lead")) {
-                    if (!window.getOrderBy().isPresent()) {
+                    if (window.getOrderBy().isEmpty()) {
                         throw semanticException(MISSING_ORDER_BY, window, "%s function requires an ORDER BY window clause", windowFunction.getName());
                     }
                     if (window.getFrame().isPresent()) {
@@ -2037,7 +2037,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    if (!field.isPresent()) {
+                    if (field.isEmpty()) {
                         if (name != null) {
                             field = Optional.of(getLast(name.getOriginalParts()));
                         }
@@ -2145,7 +2145,7 @@ class StatementAnalyzer
                 if (prefix != null) {
                     // analyze prefix as an 'asterisked identifier chain'
                     Optional<AsteriskedIdentifierChainBasis> identifierChainBasis = scope.resolveAsteriskedIdentifierChainBasis(prefix, allColumns);
-                    if (!identifierChainBasis.isPresent()) {
+                    if (identifierChainBasis.isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference %s", prefix);
                     }
                     if (identifierChainBasis.get().getBasisType() == TABLE) {
@@ -2178,7 +2178,7 @@ class StatementAnalyzer
 
                 List<Field> fields = (List<Field>) scope.getRelationType().getVisibleFields();
                 if (fields.isEmpty()) {
-                    if (!node.getFrom().isPresent()) {
+                    if (node.getFrom().isEmpty()) {
                         throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed in queries without FROM clause");
                     }
                     throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
@@ -2211,7 +2211,7 @@ class StatementAnalyzer
                     fieldExpression = new FieldReference(relationType.indexOf(field));
                 }
                 else {
-                    if (!field.getName().isPresent()) {
+                    if (field.getName().isEmpty()) {
                         throw semanticException(NOT_SUPPORTED, node.getSelect(), "SELECT * from outer scope table not supported with anonymous columns");
                     }
                     checkState(field.getRelationAlias().isPresent(), "missing relation alias");
@@ -2342,7 +2342,7 @@ class StatementAnalyzer
             List<GroupingOperation> groupingOperations = extractExpressions(Iterables.concat(outputExpressions, orderByExpressions), GroupingOperation.class);
             boolean isGroupingOperationPresent = !groupingOperations.isEmpty();
 
-            if (isGroupingOperationPresent && !node.getGroupBy().isPresent()) {
+            if (isGroupingOperationPresent && node.getGroupBy().isEmpty()) {
                 throw semanticException(
                         MISSING_GROUP_BY,
                         node,
@@ -2604,7 +2604,7 @@ class StatementAnalyzer
         private Scope analyzeWith(Query node, Optional<Scope> scope)
         {
             // analyze WITH clause
-            if (!node.getWith().isPresent()) {
+            if (node.getWith().isEmpty()) {
                 return createScope(scope);
             }
             With with = node.getWith().get();
@@ -2741,7 +2741,7 @@ class StatementAnalyzer
 
         private boolean analyzeLimit(FetchFirst node)
         {
-            if (!node.getRowCount().isPresent()) {
+            if (node.getRowCount().isEmpty()) {
                 analysis.setLimit(node, 1);
             }
             else {

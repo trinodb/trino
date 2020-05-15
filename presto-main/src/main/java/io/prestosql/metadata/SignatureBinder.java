@@ -99,7 +99,7 @@ public class SignatureBinder
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
     {
         Optional<BoundVariables> boundVariables = bindVariables(actualArgumentTypes);
-        if (!boundVariables.isPresent()) {
+        if (boundVariables.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
@@ -108,7 +108,7 @@ public class SignatureBinder
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
     {
         Optional<BoundVariables> boundVariables = bindVariables(actualArgumentTypes, actualReturnType.getTypeSignature());
-        if (!boundVariables.isPresent()) {
+        if (boundVariables.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
@@ -335,7 +335,7 @@ public class SignatureBinder
         ImmutableList.Builder<TypeSignature> formalTypeParameterTypeSignatures = ImmutableList.builder();
         for (TypeSignatureParameter formalTypeParameter : formalTypeSignature.getParameters()) {
             Optional<TypeSignature> typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature();
-            if (!typeSignature.isPresent()) {
+            if (typeSignature.isEmpty()) {
                 throw new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported");
             }
             formalTypeParameterTypeSignatures.add(typeSignature.get());
@@ -656,7 +656,7 @@ public class SignatureBinder
             }
             Type originalType = bindings.getTypeVariable(typeParameter);
             Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(originalType, actualType);
-            if (!commonSuperType.isPresent()) {
+            if (commonSuperType.isEmpty()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             if (!satisfiesConstraints(commonSuperType.get())) {
@@ -713,7 +713,7 @@ public class SignatureBinder
                     else {
                         // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
                         Optional<Type> type = typeCoercion.coerceTypeBase(actualType, formalTypeSignature.getBase());
-                        if (!type.isPresent()) {
+                        if (type.isEmpty()) {
                             return SolverReturnStatus.UNSOLVABLE;
                         }
                         TypeSignature typeSignature = type.get().getTypeSignature();
@@ -727,7 +727,7 @@ public class SignatureBinder
             }
             Type originalType = metadata.getType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
             Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(originalType, actualType);
-            if (!commonSuperType.isPresent()) {
+            if (commonSuperType.isEmpty()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             TypeSignature commonSuperTypeSignature = commonSuperType.get().getTypeSignature();
@@ -777,7 +777,7 @@ public class SignatureBinder
         public SolverReturnStatus update(BoundVariables.Builder bindings)
         {
             Optional<List<Type>> lambdaArgumentTypes = synthesizeLambdaArgumentTypes(bindings, formalLambdaArgumentsTypeSignature);
-            if (!lambdaArgumentTypes.isPresent()) {
+            if (lambdaArgumentTypes.isEmpty()) {
                 return SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
             }
             TypeSignature actualLambdaTypeSignature;

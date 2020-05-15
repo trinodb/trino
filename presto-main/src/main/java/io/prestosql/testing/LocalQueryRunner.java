@@ -280,7 +280,7 @@ public class LocalQueryRunner
     {
         requireNonNull(defaultSession, "defaultSession is null");
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
-        checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
+        checkArgument(defaultSession.getTransactionId().isEmpty() || !withInitialTransaction, "Already in transaction");
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");

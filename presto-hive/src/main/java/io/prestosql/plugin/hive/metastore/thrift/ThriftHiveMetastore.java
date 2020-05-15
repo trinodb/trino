@@ -1438,7 +1438,7 @@ public class ThriftHiveMetastore
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
                             List<HiveObjectPrivilege> hiveObjectPrivilegeList;
-                            if (!principal.isPresent()) {
+                            if (principal.isEmpty()) {
                                 HivePrincipal ownerPrincipal = new HivePrincipal(USER, tableOwner);
                                 privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, ownerPrincipal, ownerPrincipal));
                                 hiveObjectPrivilegeList = client.listPrivileges(

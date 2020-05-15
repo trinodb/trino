@@ -27,7 +27,7 @@ public final class TupleDomainConversion
 
     public static PrestoThriftTupleDomain tupleDomainToThriftTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
-        if (!tupleDomain.getDomains().isPresent()) {
+        if (tupleDomain.getDomains().isEmpty()) {
             return new PrestoThriftTupleDomain(null);
         }
         return new PrestoThriftTupleDomain(tupleDomain.getDomains().get()

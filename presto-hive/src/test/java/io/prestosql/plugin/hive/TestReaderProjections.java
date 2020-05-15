@@ -59,10 +59,10 @@ public class TestReaderProjections
         Optional<ReaderProjections> mapping;
 
         mapping = projectBaseColumns(columns);
-        assertTrue(!mapping.isPresent(), "Full columns should not require any adaptation");
+        assertTrue(mapping.isEmpty(), "Full columns should not require any adaptation");
 
         mapping = projectSufficientColumns(columns);
-        assertTrue(!mapping.isPresent(), "Full columns should not require any adaptation");
+        assertTrue(mapping.isEmpty(), "Full columns should not require any adaptation");
     }
 
     @Test

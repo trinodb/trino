@@ -841,7 +841,7 @@ public class HashGenerationOptimizer
 
         public HashComputationSet withHashComputation(Optional<HashComputation> hashComputation)
         {
-            if (!hashComputation.isPresent() || hashes.containsKey(hashComputation.get())) {
+            if (hashComputation.isEmpty() || hashes.containsKey(hashComputation.get())) {
                 return this;
             }
             return new HashComputationSet(ImmutableSetMultimap.<HashComputation, HashComputation>builder()
@@ -906,7 +906,7 @@ public class HashGenerationOptimizer
             ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
             for (Symbol field : fields) {
                 Optional<Symbol> newSymbol = translator.apply(field);
-                if (!newSymbol.isPresent()) {
+                if (newSymbol.isEmpty()) {
                     return Optional.empty();
                 }
                 newSymbols.add(newSymbol.get());

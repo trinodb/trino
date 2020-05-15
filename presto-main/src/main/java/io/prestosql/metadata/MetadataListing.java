@@ -51,7 +51,7 @@ public final class MetadataListing
         Map<String, CatalogName> catalogNames;
         if (catalogName.isPresent()) {
             Optional<CatalogName> catalogHandle = metadata.getCatalogHandle(session, catalogName.get());
-            if (!catalogHandle.isPresent()) {
+            if (catalogHandle.isEmpty()) {
                 return ImmutableSortedMap.of();
             }
             catalogNames = ImmutableSortedMap.of(catalogName.get(), catalogHandle.get());

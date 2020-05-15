@@ -3086,7 +3086,7 @@ public abstract class AbstractTestHive
     private static void assertProjectionResult(Optional<ProjectionApplicationResult<ConnectorTableHandle>> projectionResult, boolean shouldBeEmpty, List<ConnectorExpression> expectedProjections, Map<String, Type> expectedAssignments)
     {
         if (shouldBeEmpty) {
-            assertTrue(!projectionResult.isPresent(), "expected projectionResult to be empty");
+            assertTrue(projectionResult.isEmpty(), "expected projectionResult to be empty");
             return;
         }
 

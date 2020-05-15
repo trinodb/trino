@@ -74,7 +74,7 @@ public class Constraint
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
 
         // TODO remove deprecated constructors and validate that predicate is present *iff* predicateColumns is present
-        if (predicateColumns.isPresent() && !predicate.isPresent()) {
+        if (predicateColumns.isPresent() && predicate.isEmpty()) {
             throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");
         }
     }

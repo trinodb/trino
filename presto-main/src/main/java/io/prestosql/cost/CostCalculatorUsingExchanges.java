@@ -124,7 +124,7 @@ public class CostCalculatorUsingExchanges
             List<Symbol> symbols = node.getOutputSymbols();
             // when maxRowCountPerPartition is set, the RowNumberOperator
             // copies values for all the columns into a page builder
-            if (!node.getMaxRowCountPerPartition().isPresent()) {
+            if (node.getMaxRowCountPerPartition().isEmpty()) {
                 symbols = ImmutableList.<Symbol>builder()
                         .addAll(node.getPartitionBy())
                         .add(node.getRowNumberSymbol())

@@ -170,7 +170,7 @@ public class ParametricScalarImplementation
                 }
             }
             else {
-                if (!argumentNativeContainerTypes.get(i).isPresent()) {
+                if (argumentNativeContainerTypes.get(i).isEmpty()) {
                     return Optional.empty();
                 }
 

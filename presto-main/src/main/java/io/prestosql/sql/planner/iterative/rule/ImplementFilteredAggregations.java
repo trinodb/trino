@@ -76,7 +76,7 @@ public class ImplementFilteredAggregations
         return aggregation.getAggregations()
                 .values().stream()
                 .anyMatch(e -> e.getFilter().isPresent() &&
-                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
+                        e.getMask().isEmpty()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
     }
 
     @Override
@@ -103,7 +103,7 @@ public class ImplementFilteredAggregations
             if (aggregation.getFilter().isPresent()) {
                 Symbol filter = aggregation.getFilter().get();
                 Symbol symbol = context.getSymbolAllocator().newSymbol(filter.getName(), BOOLEAN);
-                verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
+                verify(mask.isEmpty(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(symbol, new SymbolReference(filter.getName()));
                 mask = Optional.of(symbol);
 

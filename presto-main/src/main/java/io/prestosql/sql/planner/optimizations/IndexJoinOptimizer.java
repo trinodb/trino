@@ -171,14 +171,14 @@ public class IndexJoinOptimizer
 
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
-                        if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
+                        if (node.getFilter().isEmpty() && rightIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
-                        if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
+                        if (node.getFilter().isEmpty() && leftIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
                         }
                         break;
@@ -306,7 +306,7 @@ public class IndexJoinOptimizer
             Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
 
             Optional<ResolvedIndex> optionalResolvedIndex = metadata.resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
-            if (!optionalResolvedIndex.isPresent()) {
+            if (optionalResolvedIndex.isEmpty()) {
                 // No index available, so give up by returning something
                 return node;
             }

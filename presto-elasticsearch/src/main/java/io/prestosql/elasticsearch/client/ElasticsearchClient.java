@@ -237,7 +237,7 @@ public class ElasticsearchClient
             Optional<File> trustStorePath,
             Optional<String> trustStorePassword)
     {
-        if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
+        if (keyStorePath.isEmpty() && trustStorePath.isEmpty()) {
             return Optional.empty();
         }
 
@@ -383,7 +383,7 @@ public class ElasticsearchClient
 
             SearchShardsResponse.Shard chosen;
             ElasticsearchNode node;
-            if (!candidate.isPresent()) {
+            if (candidate.isEmpty()) {
                 // pick an arbitrary shard with and assign to an arbitrary node
                 chosen = shardGroup.stream()
                         .min(this::shardPreference)

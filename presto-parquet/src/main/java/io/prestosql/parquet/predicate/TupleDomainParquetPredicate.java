@@ -164,7 +164,7 @@ public class TupleDomainParquetPredicate
 
         if ((type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER)) && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
             Optional<ParquetIntegerStatistics> parquetIntegerStatistics = toParquetIntegerStatistics(statistics, id, column, failOnCorruptedParquetStatistics);
-            if (!parquetIntegerStatistics.isPresent() || isStatisticsOverflow(type, parquetIntegerStatistics.get())) {
+            if (parquetIntegerStatistics.isEmpty() || isStatisticsOverflow(type, parquetIntegerStatistics.get())) {
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics.get());
@@ -172,7 +172,7 @@ public class TupleDomainParquetPredicate
 
         if (type instanceof DecimalType && ((DecimalType) type).getScale() == 0 && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
             Optional<ParquetIntegerStatistics> parquetIntegerStatistics = toParquetIntegerStatistics(statistics, id, column, failOnCorruptedParquetStatistics);
-            if (!parquetIntegerStatistics.isPresent() || isStatisticsOverflow(type, parquetIntegerStatistics.get())) {
+            if (parquetIntegerStatistics.isEmpty() || isStatisticsOverflow(type, parquetIntegerStatistics.get())) {
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics.get(), statisticsValue -> {
@@ -265,7 +265,7 @@ public class TupleDomainParquetPredicate
 
         ColumnDescriptor columnDescriptor = dictionaryDescriptor.getColumnDescriptor();
         Optional<DictionaryPage> dictionaryPage = dictionaryDescriptor.getDictionaryPage();
-        if (!dictionaryPage.isPresent()) {
+        if (dictionaryPage.isEmpty()) {
             return Domain.all(type);
         }
 

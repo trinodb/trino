@@ -25,7 +25,7 @@ public class NoHiveMetastoreAuthentication
     @Override
     public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> delegationToken)
     {
-        checkArgument(!delegationToken.isPresent(), "delegation token is not supported");
+        checkArgument(delegationToken.isEmpty(), "delegation token is not supported");
         return rawTransport;
     }
 }

@@ -82,7 +82,7 @@ public class ColumnReference
         Optional<Symbol> result = Optional.empty();
         for (Map.Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
             if (entry.getValue().equals(columnHandle)) {
-                checkState(!result.isPresent(), "Multiple ColumnHandles found for %s:%s in table scan assignments", tableName, columnName);
+                checkState(result.isEmpty(), "Multiple ColumnHandles found for %s:%s in table scan assignments", tableName, columnName);
                 result = Optional.of(entry.getKey());
             }
         }

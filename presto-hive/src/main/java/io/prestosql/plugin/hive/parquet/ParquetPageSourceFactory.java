@@ -127,7 +127,7 @@ public class ParquetPageSourceFactory
             return Optional.empty();
         }
 
-        checkArgument(!deleteDeltaLocations.isPresent(), "Delete delta is not supported");
+        checkArgument(deleteDeltaLocations.isEmpty(), "Delete delta is not supported");
 
         return Optional.of(createPageSource(
                 path,
@@ -284,7 +284,7 @@ public class ParquetPageSourceFactory
     public static Optional<org.apache.parquet.schema.Type> getColumnType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
     {
         Optional<org.apache.parquet.schema.Type> columnType = getParquetType(messageType, useParquetColumnNames, column);
-        if (!columnType.isPresent() || !column.getHiveColumnProjectionInfo().isPresent()) {
+        if (columnType.isEmpty() || column.getHiveColumnProjectionInfo().isEmpty()) {
             return columnType;
         }
         GroupType baseType = columnType.get().asGroupType();

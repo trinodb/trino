@@ -268,13 +268,13 @@ public final class GatherAndMergeWindows
 
         private static int compareOrderBy(WindowNode o1, WindowNode o2)
         {
-            if (!o1.getOrderingScheme().isPresent() && !o2.getOrderingScheme().isPresent()) {
+            if (o1.getOrderingScheme().isEmpty() && o2.getOrderingScheme().isEmpty()) {
                 return 0;
             }
-            if (o1.getOrderingScheme().isPresent() && !o2.getOrderingScheme().isPresent()) {
+            if (o1.getOrderingScheme().isPresent() && o2.getOrderingScheme().isEmpty()) {
                 return 1;
             }
-            if (!o1.getOrderingScheme().isPresent() && o2.getOrderingScheme().isPresent()) {
+            if (o1.getOrderingScheme().isEmpty() && o2.getOrderingScheme().isPresent()) {
                 return -1;
             }
 

@@ -153,7 +153,7 @@ public class AuthenticationFilter
             return;
         }
 
-        if (!basicAuthCredentials.isPresent()) {
+        if (basicAuthCredentials.isEmpty()) {
             nextFilter.doFilter(request, response);
             return;
         }

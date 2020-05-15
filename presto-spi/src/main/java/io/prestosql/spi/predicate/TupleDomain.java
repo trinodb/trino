@@ -95,7 +95,7 @@ public final class TupleDomain<T>
      */
     public static <T> Optional<Map<T, NullableValue>> extractFixedValues(TupleDomain<T> tupleDomain)
     {
-        if (!tupleDomain.getDomains().isPresent()) {
+        if (tupleDomain.getDomains().isEmpty()) {
             return Optional.empty();
         }
 
@@ -111,7 +111,7 @@ public final class TupleDomain<T>
      */
     public static <T> Optional<Map<T, List<NullableValue>>> extractDiscreteValues(TupleDomain<T> tupleDomain)
     {
-        if (!tupleDomain.getDomains().isPresent()) {
+        if (tupleDomain.getDomains().isEmpty()) {
             return Optional.empty();
         }
 
@@ -153,7 +153,7 @@ public final class TupleDomain<T>
     // Available for Jackson deserialization only!
     public static <T> TupleDomain<T> fromColumnDomains(@JsonProperty("columnDomains") Optional<List<ColumnDomain<T>>> columnDomains)
     {
-        if (!columnDomains.isPresent()) {
+        if (columnDomains.isEmpty()) {
             return none();
         }
         return withColumnDomains(columnDomains.get().stream()
@@ -194,7 +194,7 @@ public final class TupleDomain<T>
      */
     public boolean isNone()
     {
-        return !domains.isPresent();
+        return domains.isEmpty();
     }
 
     /**
@@ -416,7 +416,7 @@ public final class TupleDomain<T>
 
     public <U> TupleDomain<U> transform(Function<T, U> function)
     {
-        if (!domains.isPresent()) {
+        if (domains.isEmpty()) {
             return TupleDomain.none();
         }
 

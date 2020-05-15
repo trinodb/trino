@@ -145,7 +145,7 @@ public class TransformExistsApplyToCorrelatedJoin
                 Assignments.of(subqueryTrue, TRUE_LITERAL));
 
         PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());
-        if (!decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isPresent()) {
+        if (decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isEmpty()) {
             return Optional.empty();
         }
 

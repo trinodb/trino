@@ -99,7 +99,7 @@ public class CompactionSetCreator
 
     private static Comparator<ShardIndexInfo> getShardIndexInfoComparator(Table tableInfo)
     {
-        if (!tableInfo.getTemporalColumnId().isPresent()) {
+        if (tableInfo.getTemporalColumnId().isEmpty()) {
             return comparing(ShardIndexInfo::getUncompressedSize);
         }
 

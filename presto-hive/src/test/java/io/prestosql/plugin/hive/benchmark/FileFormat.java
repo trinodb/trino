@@ -321,7 +321,7 @@ public enum FileFormat
                         false);
 
         checkState(recordCursorWithProjections.isPresent(), "recordCursorWithProjections is not present");
-        checkState(!recordCursorWithProjections.get().getProjectedReaderColumns().isPresent(), "projections should not be required");
+        checkState(recordCursorWithProjections.get().getProjectedReaderColumns().isEmpty(), "projections should not be required");
 
         return new RecordPageSource(columnTypes, recordCursorWithProjections.get().getRecordCursor());
     }
@@ -357,7 +357,7 @@ public enum FileFormat
                         Optional.empty());
 
         checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
-        checkState(!readerPageSourceWithProjections.get().getProjectedReaderColumns().isPresent(), "projection should not be required");
+        checkState(readerPageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(), "projection should not be required");
 
         return readerPageSourceWithProjections.get().getConnectorPageSource();
     }

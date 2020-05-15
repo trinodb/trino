@@ -202,7 +202,7 @@ public class HiveSplitManager
 
         // validate bucket bucketed execution
         Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
-        if ((splitSchedulingStrategy == GROUPED_SCHEDULING) && !bucketHandle.isPresent()) {
+        if ((splitSchedulingStrategy == GROUPED_SCHEDULING) && bucketHandle.isEmpty()) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "SchedulingPolicy is bucketed, but BucketHandle is not present");
         }
 
@@ -292,7 +292,7 @@ public class HiveSplitManager
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));
             ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
             for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
-                if (!entry.getValue().isPresent()) {
+                if (entry.getValue().isEmpty()) {
                     throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
                 }
                 partitionBuilder.put(entry.getKey(), entry.getValue().get());
@@ -333,7 +333,7 @@ public class HiveSplitManager
 
                 if (bucketProperty.isPresent()) {
                     Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
-                    if (!partitionBucketProperty.isPresent()) {
+                    if (partitionBucketProperty.isEmpty()) {
                         throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                                 "Hive table (%s) is bucketed but partition (%s) is not bucketed",
                                 hivePartition.getTableName(),

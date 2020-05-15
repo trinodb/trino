@@ -312,7 +312,7 @@ public final class PartitionedLookupSourceFactory
                     .orElseThrow(() -> new IllegalStateException("A fixed distribution is required for JOIN when spilling is enabled"));
             checkState(finishedProbeOperators < operatorsCount, "%s probe operators finished out of %s declared", finishedProbeOperators + 1, operatorsCount);
 
-            if (!partitionedConsumptionParticipants.isPresent()) {
+            if (partitionedConsumptionParticipants.isEmpty()) {
                 // This is the first probe to finish after anything has been spilled.
                 partitionedConsumptionParticipants = OptionalInt.of(operatorsCount - finishedProbeOperators);
             }

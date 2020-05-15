@@ -50,7 +50,7 @@ public class RelationId
 
     public boolean isAnonymous()
     {
-        return !sourceNode.isPresent();
+        return sourceNode.isEmpty();
     }
 
     public Optional<Node> getSourceNode()

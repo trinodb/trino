@@ -202,7 +202,7 @@ public class InMemoryHashAggregationBuilder
 
     private void updateIsFull(long sizeInMemory)
     {
-        if (!partial || !maxPartialMemory.isPresent()) {
+        if (!partial || maxPartialMemory.isEmpty()) {
             return;
         }
 

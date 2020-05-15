@@ -55,7 +55,7 @@ public class AggregationFunctionMatcher
         for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
             Aggregation aggregation = assignment.getValue();
             if (aggregationMatches(aggregation, expectedCall)) {
-                checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
+                checkState(result.isEmpty(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
             }
         }

@@ -197,13 +197,13 @@ public class OrcWriteValidation
             throws OrcCorruptionException
     {
         // file stats will be absent when no rows are written
-        if (!fileStatistics.isPresent()) {
+        if (fileStatistics.isEmpty()) {
             if (actualFileStatistics.isPresent()) {
                 throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected file statistics");
             }
             return;
         }
-        if (!actualFileStatistics.isPresent()) {
+        if (actualFileStatistics.isEmpty()) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: expected file statistics");
         }
 

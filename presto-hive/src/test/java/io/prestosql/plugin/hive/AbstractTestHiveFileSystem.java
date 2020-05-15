@@ -548,7 +548,7 @@ public abstract class AbstractTestHiveFileSystem
         {
             try {
                 Optional<Table> table = getTable(identity, databaseName, tableName);
-                if (!table.isPresent()) {
+                if (table.isEmpty()) {
                     throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                 }
 
@@ -582,7 +582,7 @@ public abstract class AbstractTestHiveFileSystem
         {
             HiveIdentity identity = new HiveIdentity(TESTING_CONTEXT.getIdentity());
             Optional<Table> table = getTable(identity, databaseName, tableName);
-            if (!table.isPresent()) {
+            if (table.isEmpty()) {
                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             }
 

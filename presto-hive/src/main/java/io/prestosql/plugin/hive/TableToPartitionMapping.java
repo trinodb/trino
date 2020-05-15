@@ -94,7 +94,7 @@ public class TableToPartitionMapping
 
     private Optional<Integer> getPartitionColumnIndex(int tableColumnIndex)
     {
-        if (!tableToPartitionColumns.isPresent()) {
+        if (tableToPartitionColumns.isEmpty()) {
             return Optional.of(tableColumnIndex);
         }
         return Optional.ofNullable(tableToPartitionColumns.get().get(tableColumnIndex));

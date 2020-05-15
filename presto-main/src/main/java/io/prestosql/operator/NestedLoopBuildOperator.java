@@ -118,7 +118,7 @@ public class NestedLoopBuildOperator
     @Override
     public boolean needsInput()
     {
-        return !probeDoneWithPages.isPresent();
+        return probeDoneWithPages.isEmpty();
     }
 
     @Override

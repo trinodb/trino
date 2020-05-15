@@ -69,7 +69,7 @@ public class TpchIndexMetadata
                 .build();
 
         // do we have an index?
-        if (!indexedData.getIndexedTable(tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames).isPresent()) {
+        if (indexedData.getIndexedTable(tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames).isEmpty()) {
             return Optional.empty();
         }
 

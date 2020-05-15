@@ -143,7 +143,7 @@ public class ColumnJdbcTable
     public TupleDomain<ColumnHandle> applyFilter(ConnectorSession connectorSession, Constraint constraint)
     {
         TupleDomain<ColumnHandle> tupleDomain = constraint.getSummary();
-        if (tupleDomain.isNone() || !constraint.predicate().isPresent()) {
+        if (tupleDomain.isNone() || constraint.predicate().isEmpty()) {
             return tupleDomain;
         }
         Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().get();

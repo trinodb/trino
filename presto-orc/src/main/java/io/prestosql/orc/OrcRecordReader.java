@@ -187,7 +187,7 @@ public class OrcRecordReader
         long fileRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
-        if (!fileStats.isPresent() || predicate.matches(numberOfRows, fileStats.get())) {
+        if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
             // select stripes that start within the specified split
             for (StripeInfo info : stripeInfos) {
                 StripeInformation stripe = info.getStripe();

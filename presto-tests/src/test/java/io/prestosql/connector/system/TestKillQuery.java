@@ -76,7 +76,7 @@ public class TestKillQuery
         });
 
         Optional<Object> queryIdValue = Optional.empty();
-        while (!queryIdValue.isPresent()) {
+        while (queryIdValue.isEmpty()) {
             Thread.sleep(50);
             queryIdValue = computeActual(format(
                     "SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'",

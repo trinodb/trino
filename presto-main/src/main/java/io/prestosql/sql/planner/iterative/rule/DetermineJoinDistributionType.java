@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class DetermineJoinDistributionType
         implements Rule<JoinNode>
 {
-    private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> !joinNode.getDistributionType().isPresent());
+    private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> joinNode.getDistributionType().isEmpty());
 
     private final CostComparator costComparator;
     private final TaskCountEstimator taskCountEstimator;

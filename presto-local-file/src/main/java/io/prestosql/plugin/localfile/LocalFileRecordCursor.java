@@ -94,12 +94,12 @@ public class LocalFileRecordCursor
 
     private static boolean isThisServerIncluded(HostAddress address, TupleDomain<LocalFileColumnHandle> predicate, LocalFileTableHandle table)
     {
-        if (!table.getServerAddressColumn().isPresent()) {
+        if (table.getServerAddressColumn().isEmpty()) {
             return true;
         }
 
         Optional<Map<LocalFileColumnHandle, Domain>> domains = predicate.getDomains();
-        if (!domains.isPresent()) {
+        if (domains.isEmpty()) {
             return true;
         }
 
@@ -336,7 +336,7 @@ public class LocalFileRecordCursor
 
         private boolean meetsPredicate(List<String> fields)
         {
-            if (!timestampOrdinalPosition.isPresent() || !domain.isPresent()) {
+            if (timestampOrdinalPosition.isEmpty() || domain.isEmpty()) {
                 return true;
             }
 

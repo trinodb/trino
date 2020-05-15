@@ -70,7 +70,7 @@ public class JdbcPageSink
 
         columnTypes = handle.getColumnTypes();
 
-        if (!handle.getJdbcColumnTypes().isPresent()) {
+        if (handle.getJdbcColumnTypes().isEmpty()) {
             columnWriters = columnTypes.stream()
                     .map(type -> {
                         WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);

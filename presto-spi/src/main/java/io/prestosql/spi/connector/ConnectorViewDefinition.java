@@ -50,7 +50,7 @@ public class ConnectorViewDefinition
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.runAsInvoker = runAsInvoker;
-        if (!catalog.isPresent() && schema.isPresent()) {
+        if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
         if (runAsInvoker && owner.isPresent()) {

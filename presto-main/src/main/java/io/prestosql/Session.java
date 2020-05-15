@@ -140,9 +140,9 @@ public final class Session
                 .forEach(unprocessedCatalogPropertiesBuilder::put);
         this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
 
-        checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
+        checkArgument(transactionId.isEmpty() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
-        checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
+        checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
     }
 
     public QueryId getQueryId()
@@ -291,7 +291,7 @@ public final class Session
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
-        checkArgument(!this.transactionId.isPresent(), "Session already has an active transaction");
+        checkArgument(this.transactionId.isEmpty(), "Session already has an active transaction");
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(accessControl, "accessControl is null");
 
@@ -383,7 +383,7 @@ public final class Session
 
         // to remove this check properties must be authenticated and validated as in beginTransactionId
         checkState(
-                !this.transactionId.isPresent() && this.connectorProperties.isEmpty(),
+                this.transactionId.isEmpty() && this.connectorProperties.isEmpty(),
                 "Session properties cannot be overridden once a transaction is active");
 
         Map<String, String> systemProperties = new HashMap<>();
@@ -555,7 +555,7 @@ public final class Session
         private SessionBuilder(Session session)
         {
             requireNonNull(session, "session is null");
-            checkArgument(!session.getTransactionId().isPresent(), "Session builder cannot be created from a session in a transaction");
+            checkArgument(session.getTransactionId().isEmpty(), "Session builder cannot be created from a session in a transaction");
             this.sessionPropertyManager = session.sessionPropertyManager;
             this.queryId = session.queryId;
             this.transactionId = session.transactionId.orElse(null);

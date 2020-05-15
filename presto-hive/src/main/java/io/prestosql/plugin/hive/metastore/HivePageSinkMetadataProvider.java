@@ -49,7 +49,7 @@ public class HivePageSinkMetadataProvider
 
     public Optional<Partition> getPartition(List<String> partitionValues)
     {
-        if (!table.isPresent() || table.get().getPartitionColumns().isEmpty()) {
+        if (table.isEmpty() || table.get().getPartitionColumns().isEmpty()) {
             throw new IllegalArgumentException(
                     format("Unexpected call to getPartition. Table name: %s", schemaTableName));
         }
