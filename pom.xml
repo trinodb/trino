@@ -141,6 +141,7 @@
         <module>presto-google-sheets</module>
         <module>presto-bigquery</module>
         <module>presto-pinot</module>
+        <module>presto-oracle</module>
     </modules>
 
     <dependencyManagement>

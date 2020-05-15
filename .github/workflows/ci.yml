@@ -136,6 +136,7 @@ jobs:
             !presto-mongodb,!presto-kafka,!presto-elasticsearch,
             !presto-redis,
             !presto-sqlserver,!presto-postgresql,!presto-mysql,
+            !presto-oracle,
             !presto-phoenix,!presto-iceberg,
             !presto-docs,!presto-server,!presto-server-rpm,
             !presto-kudu'
@@ -159,6 +160,7 @@ jobs:
           - "presto-sqlserver,presto-postgresql,presto-mysql"
           - "presto-phoenix,presto-iceberg"
           - "presto-kudu"
+          - "presto-oracle"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
