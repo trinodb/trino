@@ -62,12 +62,14 @@ public final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = ImmutableMap.of(
-                varcharMapType.getTypeSignature().toString(), varcharMapType,
-                StandardTypes.BIGINT, BIGINT,
-                StandardTypes.TIMESTAMP, TIMESTAMP,
-                StandardTypes.DOUBLE, DOUBLE,
-                StandardTypes.VARCHAR, createUnboundedVarcharType());
+        private final Map<String, Type> types = ImmutableMap.<String, Type>builder()
+                .put(varcharMapType.getTypeSignature().toString(), varcharMapType)
+                .put(StandardTypes.BIGINT, BIGINT)
+                .put(StandardTypes.TIMESTAMP, TIMESTAMP)
+                .put("timestamp(3)", TIMESTAMP)
+                .put(StandardTypes.DOUBLE, DOUBLE)
+                .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
+                .build();
 
         public TestingTypeDeserializer()
         {

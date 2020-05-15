@@ -92,7 +92,7 @@ public final class TeradataDateFunctions
 
     @Description("Converts a string to a TIMESTAMP data type")
     @ScalarFunction("to_timestamp")
-    @SqlType(StandardTypes.TIMESTAMP)
+    @SqlType("timestamp(3)")
     public static long toTimestamp(
             ConnectorSession session,
             @SqlType(StandardTypes.VARCHAR) Slice dateTime,

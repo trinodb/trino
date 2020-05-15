@@ -33,6 +33,17 @@ import io.prestosql.operator.scalar.JsonFunctions;
 import io.prestosql.operator.scalar.JsonPath;
 import io.prestosql.operator.scalar.MathFunctions;
 import io.prestosql.operator.scalar.StringFunctions;
+import io.prestosql.operator.scalar.timestamp.ExtractDay;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfWeek;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractHour;
+import io.prestosql.operator.scalar.timestamp.ExtractMinute;
+import io.prestosql.operator.scalar.timestamp.ExtractMonth;
+import io.prestosql.operator.scalar.timestamp.ExtractQuarter;
+import io.prestosql.operator.scalar.timestamp.ExtractSecond;
+import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -873,7 +884,7 @@ public class TestExpressionCompiler
         assertExecute("try_cast('foo' as varchar)", VARCHAR, "foo");
         assertExecute("try_cast('foo' as bigint)", BIGINT, null);
         assertExecute("try_cast('foo' as integer)", INTEGER, null);
-        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 8, 22, 0, 0, 0, 0, TEST_SESSION));
+        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, sqlTimestampOf(3, 2001, 8, 22, 0, 0, 0, 0, TEST_SESSION));
         assertExecute("try_cast(bound_string as bigint)", BIGINT, null);
         assertExecute("try_cast(cast(null as varchar) as bigint)", BIGINT, null);
         assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
@@ -1519,7 +1530,7 @@ public class TestExpressionCompiler
                 Long millis = null;
                 if (left != null) {
                     millis = left.getMillis();
-                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, field);
+                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, 3, field);
                 }
                 DateTimeZone zone = getDateTimeZone(TEST_SESSION.getTimeZoneKey());
                 long zoneOffsetMinutes = millis != null ? MILLISECONDS.toMinutes(zone.getOffset(millis)) : 0;
@@ -1536,35 +1547,35 @@ public class TestExpressionCompiler
     }
 
     @SuppressWarnings("fallthrough")
-    private static long callExtractFunction(ConnectorSession session, long value, Field field)
+    private static long callExtractFunction(ConnectorSession session, long value, int precision, Field field)
     {
         switch (field) {
             case YEAR:
-                return DateTimeFunctions.yearFromTimestamp(session, value);
+                return ExtractYear.extract(precision, session, value);
             case QUARTER:
-                return DateTimeFunctions.quarterFromTimestamp(session, value);
+                return ExtractQuarter.extract(precision, session, value);
             case MONTH:
-                return DateTimeFunctions.monthFromTimestamp(session, value);
+                return ExtractMonth.extract(precision, session, value);
             case WEEK:
-                return DateTimeFunctions.weekFromTimestamp(session, value);
+                return ExtractWeekOfYear.extract(precision, session, value);
             case DAY:
             case DAY_OF_MONTH:
-                return DateTimeFunctions.dayFromTimestamp(session, value);
+                return ExtractDay.extract(precision, session, value);
             case DAY_OF_WEEK:
             case DOW:
-                return DateTimeFunctions.dayOfWeekFromTimestamp(session, value);
+                return ExtractDayOfWeek.extract(precision, session, value);
             case YEAR_OF_WEEK:
             case YOW:
-                return DateTimeFunctions.yearOfWeekFromTimestamp(session, value);
+                return ExtractYearOfWeek.extract(precision, session, value);
             case DAY_OF_YEAR:
             case DOY:
-                return DateTimeFunctions.dayOfYearFromTimestamp(session, value);
+                return ExtractDayOfYear.extract(precision, session, value);
             case HOUR:
-                return DateTimeFunctions.hourFromTimestamp(session, value);
+                return ExtractHour.extract(precision, session, value);
             case MINUTE:
-                return DateTimeFunctions.minuteFromTimestamp(session, value);
+                return ExtractMinute.extract(precision, session, value);
             case SECOND:
-                return DateTimeFunctions.secondFromTimestamp(value);
+                return ExtractSecond.extract(precision, session, value);
             case TIMEZONE_MINUTE:
                 return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case TIMEZONE_HOUR:

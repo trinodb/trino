@@ -50,7 +50,9 @@ public class TestTypeSignatureTranslator
     public void testDayTimeTypes()
     {
         assertRoundTrip("TIMESTAMP");
+        assertRoundTrip("TIMESTAMP(1)");
         assertRoundTrip("TIMESTAMP WITHOUT TIME ZONE");
+        assertRoundTrip("TIMESTAMP(1) WITHOUT TIME ZONE");
         assertRoundTrip("TIMESTAMP WITH TIME ZONE");
         assertRoundTrip("TIME");
         assertRoundTrip("TIME WITHOUT TIME ZONE");

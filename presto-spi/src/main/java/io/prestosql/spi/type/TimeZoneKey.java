@@ -19,6 +19,7 @@ import io.prestosql.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -166,6 +167,11 @@ public final class TimeZoneKey
     public String getId()
     {
         return id;
+    }
+
+    public ZoneId getZoneId()
+    {
+        return ZoneId.of(id);
     }
 
     @JsonValue

@@ -16,6 +16,9 @@ package io.prestosql.sql.query;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.SqlTime;
+import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.assertions.PlanAssert;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
@@ -33,10 +36,12 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.prestosql.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -45,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-class QueryAssertions
+public class QueryAssertions
         implements Closeable
 {
     private final QueryRunner runner;
@@ -86,6 +91,16 @@ class QueryAssertions
     public AssertProvider<QueryAssert> query(@Language("SQL") String query, Session session)
     {
         return newQueryAssert(query, runner, session);
+    }
+
+    public AssertProvider<ExpressionAssert> expression(@Language("SQL") String expression)
+    {
+        return expression(expression, runner.getDefaultSession());
+    }
+
+    public AssertProvider<ExpressionAssert> expression(@Language("SQL") String expression, Session session)
+    {
+        return newExpressionAssert(expression, runner, session);
     }
 
     /**
@@ -312,6 +327,86 @@ class QueryAssertions
                     assertion.containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
                 }
             });
+        }
+    }
+
+    public static class ExpressionAssert
+            extends AbstractAssert<ExpressionAssert, Object>
+    {
+        private static final StandardRepresentation TYPE_RENDERER = new StandardRepresentation()
+        {
+            @Override
+            public String toStringOf(Object object)
+            {
+                if (object instanceof SqlTimestamp) {
+                    SqlTimestamp timestamp = (SqlTimestamp) object;
+                    return String.format(
+                            "%s [p = %s, epochMicros = %s, fraction = %s, tz = %s]",
+                            timestamp,
+                            timestamp.getPrecision(),
+                            timestamp.getEpochMicros(),
+                            timestamp.getPicosOfMicros(),
+                            timestamp.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
+                }
+                else if (object instanceof SqlTime) {
+                    SqlTime time = (SqlTime) object;
+                    return String.format(
+                            "%s [millis = %s, tz = %s]",
+                            time,
+                            time.getMillis(),
+                            time.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
+                }
+
+                return Objects.toString(object);
+            }
+        };
+
+        private final QueryRunner runner;
+        private final Session session;
+        private final Type actualType;
+
+        static AssertProvider<ExpressionAssert> newExpressionAssert(String expression, QueryRunner runner, Session session)
+        {
+            MaterializedResult result = runner.execute(session, "VALUES " + expression);
+            Type type = result.getTypes().get(0);
+            Object value = result.getOnlyColumnAsSet().iterator().next();
+            return () -> new ExpressionAssert(runner, session, value, type)
+                    .withRepresentation(TYPE_RENDERER);
+        }
+
+        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType)
+        {
+            super(actual, Object.class);
+            this.runner = runner;
+            this.session = session;
+            this.actualType = actualType;
+        }
+
+        public ExpressionAssert isEqualTo(BiFunction<Session, QueryRunner, Object> evaluator)
+        {
+            return isEqualTo(evaluator.apply(session, runner));
+        }
+
+        public ExpressionAssert matches(@Language("SQL") String expression)
+        {
+            MaterializedResult result = runner.execute(session, "VALUES " + expression);
+            Type expectedType = result.getTypes().get(0);
+            Object expectedValue = result.getOnlyColumnAsSet().iterator().next();
+
+            return satisfies(actual -> {
+                assertThat(actualType).as("Type")
+                        .isEqualTo(expectedType);
+
+                assertThat(actual)
+                        .withRepresentation(TYPE_RENDERER)
+                        .isEqualTo(expectedValue);
+            });
+        }
+
+        public ExpressionAssert hasType(Type type)
+        {
+            objects.assertEqual(info, actualType, type);
+            return this;
         }
     }
 }

@@ -16,6 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.AtTimeZone;
 import io.prestosql.sql.tree.Cast;
@@ -30,7 +31,6 @@ import java.util.Map;
 
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
@@ -79,7 +79,7 @@ public final class DesugarAtTimeZoneRewriter
                 valueType = TIME_WITH_TIME_ZONE;
                 value = new Cast(value, toSqlType(valueType));
             }
-            else if (valueType.equals(TIMESTAMP)) {
+            else if (valueType instanceof TimestampType) {
                 valueType = TIMESTAMP_WITH_TIME_ZONE;
                 value = new Cast(value, toSqlType(TIMESTAMP_WITH_TIME_ZONE));
             }

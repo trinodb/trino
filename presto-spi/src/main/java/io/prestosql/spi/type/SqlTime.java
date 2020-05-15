@@ -44,7 +44,6 @@ public final class SqlTime
 
     public long getMillis()
     {
-        checkState(!isLegacyTimestamp(), "getMillis() can be called in new timestamp semantics only");
         return millis;
     }
 

@@ -62,11 +62,11 @@ public class TestTimestampWithTimeZone
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321, session));
 
         // This TZ had switch in 2014, so if we test for 2014 and used unpacked value we would use wrong shift
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321, session));
     }
 }

@@ -115,11 +115,11 @@ import static io.prestosql.sql.relational.SpecialForm.Form.ROW_CONSTRUCTOR;
 import static io.prestosql.sql.relational.SpecialForm.Form.SWITCH;
 import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
+import static io.prestosql.type.Timestamps.parseTimestamp;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
-import static io.prestosql.util.DateTimeUtils.parseLegacyTimestamp;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimestamp;
 import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
@@ -290,13 +290,14 @@ public final class SqlToRowExpressionTranslator
         {
             Type type = getType(node);
 
-            long value;
+            Object value;
             if (type instanceof TimestampType) {
+                int precision = ((TimestampType) type).getPrecision();
                 if (isLegacyTimestamp) {
-                    value = parseLegacyTimestamp(timeZoneKey, node.getValue());
+                    value = parseLegacyTimestamp(precision, timeZoneKey, node.getValue());
                 }
                 else {
-                    value = parseTimestamp(node.getValue());
+                    value = parseTimestamp(precision, node.getValue());
                 }
             }
             else if (type instanceof TimestampWithTimeZoneType) {

@@ -43,6 +43,6 @@ public class TestTimeWithTimeZone
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(1970, 1, 1, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 1970, 1, 1, 3, 4, 5, 321, session));
     }
 }

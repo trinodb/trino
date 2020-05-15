@@ -130,7 +130,7 @@ public abstract class AbstractTestEngineOnlyQueries
         LocalDateTime localTimeThatDidNotExist = LocalDateTime.of(2017, 4, 2, 2, 10);
         checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotExist).isEmpty(), "This test assumes certain JVM time zone");
         // This tests that both Presto runner and H2 can return TIMESTAMP value that never happened in JVM's zone (e.g. is not representable using java.sql.Timestamp)
-        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss''").format(localTimeThatDidNotExist);
+        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''").format(localTimeThatDidNotExist);
         assertEquals(computeScalar(sql), localTimeThatDidNotExist); // this tests Presto and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
 
