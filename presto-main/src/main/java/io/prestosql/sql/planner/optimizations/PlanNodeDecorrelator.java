@@ -292,14 +292,14 @@ public class PlanNodeDecorrelator
             // no partitioning needed (no symbols to partition by)
             if (childDecorrelationResult.symbolsToPropagate.isEmpty()) {
                 return decorrelatedOrderingScheme
-                        .map(orderingScheme -> Optional.of(new DecorrelationResult(
+                        .map(orderingScheme -> new DecorrelationResult(
                                 // ordering symbols are present - return decorrelated TopNNode
                                 new TopNNode(node.getId(), decorrelatedChildNode, node.getCount(), orderingScheme, node.getStep()),
                                 childDecorrelationResult.symbolsToPropagate,
                                 childDecorrelationResult.correlatedPredicates,
                                 childDecorrelationResult.correlatedSymbolsMapping,
-                                node.getCount() == 1)))
-                        .orElseGet(() -> Optional.of(new DecorrelationResult(
+                                node.getCount() == 1))
+                        .or(() -> Optional.of(new DecorrelationResult(
                                 // no ordering symbols are left - convert to LimitNode
                                 new LimitNode(node.getId(), decorrelatedChildNode, node.getCount(), false),
                                 childDecorrelationResult.symbolsToPropagate,
