@@ -64,12 +64,12 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 public class Server
 {
-    public void start(String prestoVersion)
+    public final void start(String prestoVersion)
     {
         new EmbedVersion(prestoVersion).embedVersion(() -> doStart(prestoVersion)).run();
     }
 
-    public void doStart(String prestoVersion)
+    private void doStart(String prestoVersion)
     {
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
