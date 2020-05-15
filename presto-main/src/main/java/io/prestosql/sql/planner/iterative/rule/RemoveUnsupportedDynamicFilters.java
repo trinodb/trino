@@ -34,6 +34,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashSet;
 import java.util.List;
@@ -222,7 +223,8 @@ public class RemoveUnsupportedDynamicFilters
                     .filter(conjunct ->
                             getDescriptor(conjunct)
                                     .map(descriptor -> {
-                                        if (allowedDynamicFilterIds.contains(descriptor.getId())) {
+                                        if (descriptor.getInput() instanceof SymbolReference &&
+                                                allowedDynamicFilterIds.contains(descriptor.getId())) {
                                             consumedDynamicFilterIds.add(descriptor.getId());
                                             return true;
                                         }
