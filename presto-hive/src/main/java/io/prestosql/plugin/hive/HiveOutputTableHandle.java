@@ -33,6 +33,7 @@ public class HiveOutputTableHandle
     private final List<String> partitionedBy;
     private final String tableOwner;
     private final Map<String, String> additionalTableParameters;
+    private final boolean external;
 
     @JsonCreator
     public HiveOutputTableHandle(
@@ -46,7 +47,8 @@ public class HiveOutputTableHandle
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableOwner") String tableOwner,
-            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
+            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters,
+            @JsonProperty("external") boolean external)
     {
         super(
                 schemaName,
@@ -61,6 +63,7 @@ public class HiveOutputTableHandle
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
         this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
+        this.external = external;
     }
 
     @JsonProperty
@@ -79,5 +82,11 @@ public class HiveOutputTableHandle
     public Map<String, String> getAdditionalTableParameters()
     {
         return additionalTableParameters;
+    }
+
+    @JsonProperty
+    public boolean isExternal()
+    {
+        return external;
     }
 }

@@ -836,11 +836,12 @@ public class HiveMetadata
             }
 
             external = true;
-            targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
+            targetPath = getExternalLocationAsPath(externalLocation);
+            checkExternalPath(new HdfsContext(session, schemaName, tableName), targetPath);
         }
         else {
             external = false;
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty());
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
 
@@ -995,19 +996,27 @@ public class HiveMetadata
         }
     }
 
-    private Path getExternalPath(HdfsContext context, String location)
+    private static Path getExternalLocationAsPath(String location)
     {
         try {
-            Path path = new Path(location);
+            return new Path(location);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
+        }
+    }
+
+    private void checkExternalPath(HdfsContext context, Path path)
+    {
+        try {
             if (!isS3FileSystem(context, hdfsEnvironment, path)) {
                 if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + location);
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + path);
                 }
             }
-            return path;
         }
-        catch (IllegalArgumentException | IOException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
+        catch (IOException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + path, e);
         }
     }
 
@@ -1250,7 +1259,11 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
+        Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
+                .map(HiveMetadata::getExternalLocationAsPath);
+
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
+
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,
@@ -1262,7 +1275,8 @@ public class HiveMetadata
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),
-                tableProperties);
+                tableProperties,
+                externalLocation.isPresent());
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), schemaTableName);
@@ -1292,7 +1306,7 @@ public class HiveMetadata
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
                 writeInfo.getTargetPath(),
-                false,
+                handle.isExternal(),
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
 

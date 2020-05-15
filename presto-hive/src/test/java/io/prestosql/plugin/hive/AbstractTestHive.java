@@ -2206,7 +2206,7 @@ public abstract class AbstractTestHive
         try {
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService();
-                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
                 targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
@@ -2706,7 +2706,7 @@ public abstract class AbstractTestHive
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
             Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
             //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
@@ -4629,7 +4629,7 @@ public abstract class AbstractTestHive
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
 
             Table.Builder tableBuilder = Table.builder()
