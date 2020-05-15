@@ -20,7 +20,6 @@ import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
@@ -42,7 +41,7 @@ public class PruneTopNRowNumberColumns
                         .filter(symbol -> !symbol.equals(topNRowNumberNode.getRowNumberSymbol())),
                 topNRowNumberNode.getPartitionBy().stream(),
                 topNRowNumberNode.getOrderingScheme().getOrderBy().stream(),
-                topNRowNumberNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()))
+                topNRowNumberNode.getHashSymbol().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), topNRowNumberNode, requiredInputs);
