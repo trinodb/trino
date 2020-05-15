@@ -15,11 +15,9 @@ package io.prestosql.spi.session;
 
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public final class SessionConfigurationContext
@@ -34,7 +32,7 @@ public final class SessionConfigurationContext
     {
         this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
-        this.clientTags = unmodifiableSet(new HashSet<>(requireNonNull(clientTags, "clientTags is null")));
+        this.clientTags = Set.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId");
     }

@@ -17,12 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.QueryId;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableMap;
 
 public final class MemoryPoolInfo
 {
@@ -45,9 +43,9 @@ public final class MemoryPoolInfo
         this.maxBytes = maxBytes;
         this.reservedBytes = reservedBytes;
         this.reservedRevocableBytes = reservedRevocableBytes;
-        this.queryMemoryReservations = unmodifiableMap(new HashMap<>(queryMemoryReservations));
-        this.queryMemoryAllocations = unmodifiableMap(new HashMap<>(queryMemoryAllocations));
-        this.queryMemoryRevocableReservations = unmodifiableMap(new HashMap<>(queryMemoryRevocableReservations));
+        this.queryMemoryReservations = Map.copyOf(queryMemoryReservations);
+        this.queryMemoryAllocations = Map.copyOf(queryMemoryAllocations);
+        this.queryMemoryRevocableReservations = Map.copyOf(queryMemoryRevocableReservations);
     }
 
     @JsonProperty

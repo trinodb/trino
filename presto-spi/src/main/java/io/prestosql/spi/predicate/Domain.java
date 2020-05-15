@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -181,7 +180,7 @@ public final class Domain
         }
 
         return new DiscreteSet(
-                values.isNone() ? unmodifiableList(new ArrayList<>()) : values.getDiscreteSet(),
+                values.isNone() ? List.of() : values.getDiscreteSet(),
                 nullAllowed);
     }
 

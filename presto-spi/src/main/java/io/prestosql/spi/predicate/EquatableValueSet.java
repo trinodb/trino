@@ -34,11 +34,11 @@ import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * A set containing values that are uniquely identifiable.
@@ -169,9 +169,9 @@ public class EquatableValueSet
         if (!isDiscreteSet()) {
             throw new IllegalStateException("EquatableValueSet is not a discrete set");
         }
-        return unmodifiableList(entries.stream()
+        return entries.stream()
                 .map(ValueEntry::getValue)
-                .collect(Collectors.toList()));
+                .collect(toUnmodifiableList());
     }
 
     @Override

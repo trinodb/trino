@@ -15,7 +15,6 @@ package io.prestosql.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -36,8 +35,8 @@ public class TableInfo
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.authorization = requireNonNull(authorization, "authorization is null");
-        this.filters = Collections.unmodifiableList(requireNonNull(filters, "filters is null"));
-        this.columns = Collections.unmodifiableList(requireNonNull(columns, "columns is null"));
+        this.filters = List.copyOf(requireNonNull(filters, "filters is null"));
+        this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     @JsonProperty

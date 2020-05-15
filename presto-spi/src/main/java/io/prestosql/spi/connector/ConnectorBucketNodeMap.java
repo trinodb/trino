@@ -15,8 +15,6 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.Node;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,7 +44,7 @@ public final class ConnectorBucketNodeMap
             throw new IllegalArgumentException(format("Mismatched bucket count in bucketToNode (%s) and bucketCount (%s)", bucketToNode.get().size(), bucketCount));
         }
         this.bucketCount = bucketCount;
-        this.bucketToNode = bucketToNode.map(ArrayList::new).map(Collections::unmodifiableList);
+        this.bucketToNode = bucketToNode.map(List::copyOf);
     }
 
     public int getBucketCount()
