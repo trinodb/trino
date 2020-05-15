@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.rubix;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.qubole.rubix.bookkeeper.BookKeeper;
@@ -36,6 +37,7 @@ import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
@@ -57,6 +59,7 @@ public class RubixInitializer
 
     private static final Logger log = Logger.get(RubixInitializer.class);
 
+    private final RetryPolicy retryPolicy;
     private final CatalogName catalogName;
     private final RubixConfigurationInitializer rubixConfigurationInitializer;
     private final HdfsConfigurationInitializer hdfsConfigurationInitializer;
@@ -67,6 +70,17 @@ public class RubixInitializer
             RubixConfigurationInitializer rubixConfigurationInitializer,
             HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
+        this(RETRY_POLICY, catalogName, rubixConfigurationInitializer, hdfsConfigurationInitializer);
+    }
+
+    @VisibleForTesting
+    RubixInitializer(
+            RetryPolicy retryPolicy,
+            CatalogName catalogName,
+            RubixConfigurationInitializer rubixConfigurationInitializer,
+            HdfsConfigurationInitializer hdfsConfigurationInitializer)
+    {
+        this.retryPolicy = retryPolicy;
         this.catalogName = catalogName;
         this.rubixConfigurationInitializer = rubixConfigurationInitializer;
         this.hdfsConfigurationInitializer = hdfsConfigurationInitializer;
@@ -76,7 +90,7 @@ public class RubixInitializer
     {
         ExecutorService initializerService = Executors.newSingleThreadExecutor();
         ListenableFuture<?> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
-                Failsafe.with(RETRY_POLICY).run(() -> {
+                Failsafe.with(retryPolicy).run(() -> {
                     if (!nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) ||
                             !nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator)) {
                         // Failsafe will propagate this exception only when timeout reached.
@@ -86,7 +100,17 @@ public class RubixInitializer
 
         addSuccessCallback(
                 nodeJoinFuture,
-                () -> startRubix(nodeManager));
+                () -> {
+                    try {
+                        startRubix(nodeManager);
+                    }
+                    catch (Throwable throwable) {
+                        initializeWithThrowable(throwable);
+                    }
+                });
+        addExceptionCallback(
+                nodeJoinFuture,
+                this::initializeWithThrowable);
     }
 
     private void startRubix(NodeManager nodeManager)
@@ -111,6 +135,13 @@ public class RubixInitializer
 
         CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
         log.info("Rubix initialized successfully");
+        rubixConfigurationInitializer.initializationDone();
+    }
+
+    private void initializeWithThrowable(Throwable throwable)
+    {
+        log.error(throwable, "Rubix cache initialization failed");
+        rubixConfigurationInitializer.setThrowable(throwable);
         rubixConfigurationInitializer.initializationDone();
     }
 }

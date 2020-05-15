@@ -61,6 +61,7 @@ import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempDirectory;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -174,6 +175,51 @@ public class TestRubixCaching
             closer.register(() -> cachingFileSystem.close());
             closer.register(LocalDataTransferServer::stopServer);
         }
+    }
+
+    @Test
+    public void testCoordinatorNotJoining()
+    {
+        RubixConfig rubixConfig = new RubixConfig();
+        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
+        HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
+        RubixInitializer rubixInitializer = new RubixInitializer(
+                new RetryPolicy<>().withMaxAttempts(1),
+                new CatalogName("catalog"),
+                rubixConfigInitializer,
+                configurationInitializer);
+        InternalNode workerNode = new InternalNode(
+                "master",
+                URI.create("http://127.0.0.1:8080"),
+                UNKNOWN,
+                false);
+        rubixInitializer.initializeRubix(new TestingNodeManager(ImmutableList.of(workerNode)));
+        HiveHdfsConfiguration configuration = new HiveHdfsConfiguration(configurationInitializer, ImmutableSet.of(rubixConfigInitializer));
+        HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
+        waitForRubix(rubixConfigInitializer);
+        assertThatThrownBy(() -> environment.getFileSystem(context, cacheStoragePath))
+                .hasRootCauseMessage("Exceeded timeout while waiting for coordinator node");
+    }
+
+    @Test
+    public void testNonExistingCacheDirectory()
+    {
+        RubixConfig rubixConfig = new RubixConfig();
+        rubixConfig.setCacheLocation("/tmp/non/existing/directory");
+        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
+        HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
+        RubixInitializer rubixInitializer = new RubixInitializer(new CatalogName("catalog"), rubixConfigInitializer, configurationInitializer);
+        InternalNode coordinatorNode = new InternalNode(
+                "master",
+                URI.create("http://127.0.0.1:8080"),
+                UNKNOWN,
+                true);
+        rubixInitializer.initializeRubix(new TestingNodeManager(ImmutableList.of(coordinatorNode)));
+        HiveHdfsConfiguration configuration = new HiveHdfsConfiguration(configurationInitializer, ImmutableSet.of(rubixConfigInitializer));
+        HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
+        waitForRubix(rubixConfigInitializer);
+        assertThatThrownBy(() -> environment.getFileSystem(context, cacheStoragePath))
+                .hasRootCauseMessage("None of the cache parent directories exists");
     }
 
     @Test

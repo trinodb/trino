@@ -21,6 +21,7 @@ import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.Nullable;
@@ -45,6 +46,7 @@ import static com.qubole.rubix.spi.CacheConfig.setRubixClusterType;
 import static com.qubole.rubix.spi.CacheConfig.setWorkerNodeInfoExpiryPeriod;
 import static com.qubole.rubix.spi.ClusterType.PRESTOSQL_CLUSTER_MANAGER;
 import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class RubixConfigurationInitializer
@@ -66,6 +68,8 @@ public class RubixConfigurationInitializer
     private HostAddress masterAddress;
     @Nullable
     private String nodeAddress;
+    @Nullable
+    private Throwable throwable;
 
     @Inject
     public RubixConfigurationInitializer(RubixConfig config)
@@ -90,6 +94,10 @@ public class RubixConfigurationInitializer
 
     void updateConfiguration(Configuration config)
     {
+        if (throwable != null) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Rubix cache initialization failed", throwable);
+        }
+
         checkState(masterAddress != null, "masterAddress is not set");
         checkState(nodeAddress != null, "nodeAddress is not set");
         setCacheDataEnabled(config, true);
@@ -134,9 +142,14 @@ public class RubixConfigurationInitializer
         this.nodeAddress = requireNonNull(nodeAddress, "nodeAddress is null");
     }
 
+    void setThrowable(Throwable throwable)
+    {
+        this.throwable = requireNonNull(throwable, "throwable is null");
+    }
+
     void initializationDone()
     {
-        checkState(masterAddress != null, "masterAddress is not set");
+        checkState(masterAddress != null || throwable != null, "masterAddress or throwable is not set");
         cacheReady = true;
     }
 
