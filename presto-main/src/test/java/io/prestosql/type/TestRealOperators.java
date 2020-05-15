@@ -308,6 +308,19 @@ public class TestRealOperators
         for (int nanRepresentation : nanRepresentations) {
             assertTrue(isNaN(intBitsToFloat(nanRepresentation)));
             assertEquals(RealOperators.hashCode(nanRepresentation), RealOperators.hashCode(nanRepresentations[0]));
+            assertEquals(RealOperators.xxHash64(nanRepresentation), RealOperators.xxHash64(nanRepresentations[0]));
+        }
+    }
+
+    @Test
+    public void testZeroHash()
+    {
+        int[] zeroes = {floatToIntBits(0.0f), floatToIntBits(-0.0f)};
+        for (int zero : zeroes) {
+            //noinspection SimplifiedTestNGAssertion
+            assertTrue(intBitsToFloat(zero) == 0f);
+            assertEquals(RealOperators.hashCode(zero), RealOperators.hashCode(zeroes[0]));
+            assertEquals(RealOperators.xxHash64(zero), RealOperators.xxHash64(zeroes[0]));
         }
     }
 }
