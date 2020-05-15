@@ -182,8 +182,7 @@ public class Scope
         }
 
         return getOuterQueryParent()
-                .map(parent -> parent.resolveAsteriskedIdentifierChainBasis(identifierChain, selectItem))
-                .orElse(Optional.empty());
+                .flatMap(parent -> parent.resolveAsteriskedIdentifierChainBasis(identifierChain, selectItem));
     }
 
     // check if other is within the query boundary starting from this
