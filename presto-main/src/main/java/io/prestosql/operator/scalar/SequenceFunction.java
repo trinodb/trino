@@ -28,11 +28,9 @@ import io.prestosql.type.DateTimeOperators;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.diffDate;
-import static io.prestosql.operator.scalar.DateTimeFunctions.diffTimestamp;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -110,40 +108,6 @@ public final class SequenceFunction
         return blockBuilder.build();
     }
 
-    @ScalarFunction("sequence")
-    @SqlType("array(timestamp)")
-    public static Block sequenceTimestampDayToSecond(
-            @SqlType(StandardTypes.TIMESTAMP) long start,
-            @SqlType(StandardTypes.TIMESTAMP) long stop,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
-    {
-        return fixedWidthSequence(start, stop, step, TIMESTAMP);
-    }
-
-    @ScalarFunction("sequence")
-    @SqlType("array(timestamp)")
-    public static Block sequenceTimestampYearToMonth(
-            ConnectorSession session,
-            @SqlType(StandardTypes.TIMESTAMP) long start,
-            @SqlType(StandardTypes.TIMESTAMP) long stop,
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
-    {
-        checkValidStep(start, stop, step);
-
-        int length = toIntExact(diffTimestamp(session, MONTH, start, stop) / step + 1);
-        checkMaxEntry(length);
-
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
-
-        int value = 0;
-        for (int i = 0; i < length; ++i) {
-            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, value));
-            value += step;
-        }
-
-        return blockBuilder.build();
-    }
-
     private static Block fixedWidthSequence(long start, long stop, long step, FixedWidthType type)
     {
         checkValidStep(start, stop, step);
@@ -158,7 +122,7 @@ public final class SequenceFunction
         return blockBuilder.build();
     }
 
-    private static void checkValidStep(long start, long stop, long step)
+    public static void checkValidStep(long start, long stop, long step)
     {
         checkCondition(
                 step != 0,
@@ -170,7 +134,7 @@ public final class SequenceFunction
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
     }
 
-    private static void checkMaxEntry(int length)
+    public static void checkMaxEntry(int length)
     {
         checkCondition(
                 length <= MAX_RESULT_ENTRIES,

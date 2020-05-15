@@ -691,6 +691,6 @@ public class TestOrcStorageManager
 
     private static SqlTimestamp sqlTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        return sqlTimestampOf(year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
+        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
     }
 }

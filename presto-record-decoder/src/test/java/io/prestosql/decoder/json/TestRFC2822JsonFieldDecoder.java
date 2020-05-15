@@ -53,16 +53,16 @@ public class TestRFC2822JsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        tester.assertInvalidInput("{}", TIMESTAMP, "could not parse non-value node as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"a\"", TIMESTAMP, "could not parse value 'a' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("2018", TIMESTAMP, "could not parse value '2018' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Mon Feb 12 13:15:16 Z\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Mon Feb 12 13:15:16 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Mon Feb 12 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Mon Feb 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Mon 12 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Feb 12 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Fri Feb 09 13:15:19 Europe/Warsaw 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
-        tester.assertInvalidInput("\"Fri Feb 09 13:15:19 EST 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("{}", TIMESTAMP, "\\Qcould not parse non-value node as 'timestamp(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("\"a\"", TIMESTAMP, "\\Qcould not parse value 'a' as 'timestamp(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("2018", TIMESTAMP, "\\Qcould not parse value '2018' as 'timestamp(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("\"Mon Feb 12 13:15:16 Z\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon Feb 12 13:15:16 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon Feb 12 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon Feb 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon 12 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
+        tester.assertInvalidInput("\"Feb 12 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
+        tester.assertInvalidInput("\"Fri Feb 09 13:15:19 Europe/Warsaw 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
+        tester.assertInvalidInput("\"Fri Feb 09 13:15:19 EST 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp\\(3\\)' for column 'some_column'");
     }
 }

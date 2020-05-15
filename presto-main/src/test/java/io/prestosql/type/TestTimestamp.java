@@ -34,35 +34,35 @@ public class TestTimestamp
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
         assertFunction(
                 "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
         assertFunction(
                 "cast('2001-1-22 03:04 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
         assertFunction(
                 "cast('2001-1-22 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
 
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
         assertFunction(
                 "cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
         assertFunction(
                 "cast('2001-1-22 03:04 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
         assertFunction(
                 "cast('2001-1-22 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
+                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
     }
 }

@@ -20,6 +20,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -42,7 +43,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.RowType.Field;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -154,6 +155,10 @@ public final class TypeCoercion
             }
             if (fromTypeBaseName.equals(StandardTypes.ROW)) {
                 return typeCompatibilityForRow((RowType) fromType, (RowType) toType);
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) {
+                Type commonSuperType = createTimestampType(Math.max(((TimestampType) fromType).getPrecision(), ((TimestampType) toType).getPrecision()));
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
 
             if (isCovariantParametrizedType(fromType)) {
@@ -385,7 +390,7 @@ public final class TypeCoercion
             case StandardTypes.DATE: {
                 switch (resultTypeBase) {
                     case StandardTypes.TIMESTAMP:
-                        return Optional.of(TIMESTAMP);
+                        return Optional.of(createTimestampType(0));
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                         return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
                     default:

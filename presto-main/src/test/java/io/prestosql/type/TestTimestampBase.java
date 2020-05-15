@@ -32,6 +32,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
@@ -71,19 +72,19 @@ public abstract class TestTimestampBase
     @Test
     public void testLiteral()
     {
-        assertFunction("TIMESTAMP '2013-03-30 01:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, session));
-        assertFunction("TIMESTAMP '2013-03-30 02:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 2, 5, 0, 0, session));
-        assertFunction("TIMESTAMP '2013-03-30 03:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 3, 5, 0, 0, session));
+        assertFunction("TIMESTAMP '2013-03-30 01:05'", createTimestampType(0), sqlTimestampOf(0, 2013, 3, 30, 1, 5, 0, 0, session));
+        assertFunction("TIMESTAMP '2013-03-30 02:05'", createTimestampType(0), sqlTimestampOf(0, 2013, 3, 30, 2, 5, 0, 0, session));
+        assertFunction("TIMESTAMP '2013-03-30 03:05'", createTimestampType(0), sqlTimestampOf(0, 2013, 3, 30, 3, 5, 0, 0, session));
 
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05.321'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, session));
-        assertFunction("TIMESTAMP '2001-01-22 03:04'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, session));
-        assertFunction("TIMESTAMP '2001-01-22'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, session));
+        assertFunction("TIMESTAMP '2001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321, session));
+        assertFunction("TIMESTAMP '2001-01-22 03:04:05'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 22, 3, 4, 5, 0, session));
+        assertFunction("TIMESTAMP '2001-01-22 03:04'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 22, 3, 4, 0, 0, session));
+        assertFunction("TIMESTAMP '2001-01-22'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 22, 0, 0, 0, 0, session));
 
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5.321'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 5, 321, session));
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 5, 0, session));
-        assertFunction("TIMESTAMP '2001-1-2 3:4'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 0, 0, session));
-        assertFunction("TIMESTAMP '2001-1-2'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 0, 0, 0, 0, session));
+        assertFunction("TIMESTAMP '2001-1-2 3:4:5.321'", createTimestampType(3), sqlTimestampOf(3, 2001, 1, 2, 3, 4, 5, 321, session));
+        assertFunction("TIMESTAMP '2001-1-2 3:4:5'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 3, 4, 5, 0, session));
+        assertFunction("TIMESTAMP '2001-1-2 3:4'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 3, 4, 0, 0, session));
+        assertFunction("TIMESTAMP '2001-1-2'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 0, 0, 0, 0, session));
 
         assertInvalidFunction("TIMESTAMP 'text'", INVALID_LITERAL, "line 1:1: 'text' is not a valid timestamp literal");
     }
@@ -208,23 +209,23 @@ public abstract class TestTimestampBase
     public void testCastToSlice()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as varchar)", VARCHAR, "2001-01-22 03:04:05.321");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05' as varchar)", VARCHAR, "2001-01-22 03:04:05.000");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04' as varchar)", VARCHAR, "2001-01-22 03:04:00.000");
-        assertFunction("cast(TIMESTAMP '2001-1-22' as varchar)", VARCHAR, "2001-01-22 00:00:00.000");
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05' as varchar)", VARCHAR, "2001-01-22 03:04:05");
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04' as varchar)", VARCHAR, "2001-01-22 03:04:00");
+        assertFunction("cast(TIMESTAMP '2001-1-22' as varchar)", VARCHAR, "2001-01-22 00:00:00");
     }
 
     @Test
     public void testCastToJson()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as json)", JSON, "\"2001-01-22 03:04:05.321\"");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05' as json)", JSON, "\"2001-01-22 03:04:05.000\"");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04' as json)", JSON, "\"2001-01-22 03:04:00.000\"");
-        assertFunction("cast(TIMESTAMP '2001-1-22' as json)", JSON, "\"2001-01-22 00:00:00.000\"");
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05' as json)", JSON, "\"2001-01-22 03:04:05\"");
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04' as json)", JSON, "\"2001-01-22 03:04:00\"");
+        assertFunction("cast(TIMESTAMP '2001-1-22' as json)", JSON, "\"2001-01-22 00:00:00\"");
 
         assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04:05.321'] as json)", JSON, "[\"2001-01-22 03:04:05.321\"]");
-        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04:05'] as json)", JSON, "[\"2001-01-22 03:04:05.000\"]");
-        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04'] as json)", JSON, "[\"2001-01-22 03:04:00.000\"]");
-        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22'] as json)", JSON, "[\"2001-01-22 00:00:00.000\"]");
+        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04:05'] as json)", JSON, "[\"2001-01-22 03:04:05\"]");
+        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04'] as json)", JSON, "[\"2001-01-22 03:04:00\"]");
+        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22'] as json)", JSON, "[\"2001-01-22 00:00:00\"]");
     }
 
     @Test
@@ -232,47 +233,47 @@ public abstract class TestTimestampBase
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321, session));
         assertFunction("cast('2001-1-22 03:04:05' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 0, session));
         assertFunction("cast('2001-1-22 03:04' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 0, 0, session));
         assertFunction("cast('2001-1-22' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, session));
+                sqlTimestampOf(3, 2001, 1, 22, 0, 0, 0, 0, session));
         assertFunction("cast('\n\t 2001-1-22 03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321, session));
         assertFunction("cast('2001-1-22 03:04:05.321 \t\n' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321, session));
         assertFunction("cast('\n\t 2001-1-22 03:04:05.321 \t\n' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321, session));
     }
 
     @Test
     public void testGreatest()
     {
         assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
-                TIMESTAMP,
-                sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, session));
+                createTimestampType(0),
+                sqlTimestampOf(0, 2013, 3, 30, 1, 5, 0, 0, session));
         assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
-                TIMESTAMP,
-                sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, session));
+                createTimestampType(0),
+                sqlTimestampOf(0, 2013, 3, 30, 1, 5, 0, 0, session));
     }
 
     @Test
     public void testLeast()
     {
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
-                TIMESTAMP,
-                sqlTimestampOf(2012, 3, 30, 1, 5, 0, 0, session));
+                createTimestampType(0),
+                sqlTimestampOf(0, 2012, 3, 30, 1, 5, 0, 0, session));
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
-                TIMESTAMP,
-                sqlTimestampOf(2012, 3, 30, 1, 5, 0, 0, session));
+                createTimestampType(0),
+                sqlTimestampOf(0, 2012, 3, 30, 1, 5, 0, 0, session));
     }
 
     @Test

@@ -33,7 +33,7 @@ Now, Presto treats ``TIMESTAMP`` values as a set of the following fields represe
  * ``DAY OF MONTH``
  * ``HOUR OF DAY``
  * ``MINUTE OF HOUR``
- * ``SECOND OF MINUTE`` - as ``DECIMAL(5, 3)``
+ * ``SECOND OF MINUTE``
 
 For that reason, a ``TIMESTAMP`` value is not linked with the session time zone in any way until
 a time zone is needed explicitly, such as when casting to a ``TIMESTAMP WITH TIME ZONE`` or
