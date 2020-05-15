@@ -174,14 +174,22 @@ public final class RealOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.REAL) long value)
     {
-        return AbstractIntType.hash(floatToIntBits(intBitsToFloat((int) value)));
+        float realValue = intBitsToFloat((int) value);
+        if (realValue == 0) {
+            realValue = 0;
+        }
+        return AbstractIntType.hash(floatToIntBits(realValue));
     }
 
     @ScalarOperator(XX_HASH_64)
     @SqlType(StandardTypes.BIGINT)
     public static long xxHash64(@SqlType(StandardTypes.REAL) long value)
     {
-        return XxHash64.hash(floatToIntBits(intBitsToFloat((int) value)));
+        float realValue = intBitsToFloat((int) value);
+        if (realValue == 0) {
+            realValue = 0;
+        }
+        return XxHash64.hash(floatToIntBits(realValue));
     }
 
     @ScalarOperator(CAST)

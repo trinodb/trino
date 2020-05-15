@@ -130,6 +130,7 @@ public class TestDoubleOperators
         assertFunction("37.7E0 = 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 = 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 = 17.1E0", BOOLEAN, true);
+        assertFunction("0E0 = -0E0", BOOLEAN, true);
         assertFunction("DOUBLE 'NaN' = 37.7E0", BOOLEAN, false);
         assertFunction("37.7E0 = DOUBLE 'NaN'", BOOLEAN, false);
         assertFunction("DOUBLE 'NaN' = DOUBLE 'NaN'", BOOLEAN, false);
@@ -324,6 +325,19 @@ public class TestDoubleOperators
                     || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0])));
 
             assertEquals(DoubleOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
+            assertEquals(DoubleOperators.xxHash64(longBitsToDouble(nanRepresentation)), DoubleOperators.xxHash64(longBitsToDouble(nanRepresentations[0])));
+        }
+    }
+
+    @Test
+    public void testZeroHash()
+    {
+        double[] zeroes = {0.0, -0.0};
+        for (double zero : zeroes) {
+            //noinspection SimplifiedTestNGAssertion
+            assertTrue(zero == 0);
+            assertEquals(DoubleOperators.hashCode(zero), DoubleOperators.hashCode(zeroes[0]));
+            assertEquals(DoubleOperators.xxHash64(zero), DoubleOperators.xxHash64(zeroes[0]));
         }
     }
 }
