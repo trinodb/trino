@@ -16,13 +16,11 @@ package io.prestosql.spi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public final class QueryId
@@ -92,7 +90,7 @@ public final class QueryId
         checkArgument(expectedParts > 0, "expectedParts must be at least 1");
         requireNonNull(name, "name is null");
 
-        List<String> ids = unmodifiableList(Arrays.asList(id.split("\\.")));
+        List<String> ids = List.of(id.split("\\."));
         checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
 
         for (String part : ids) {

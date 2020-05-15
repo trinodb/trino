@@ -15,13 +15,12 @@ package io.prestosql.spi.type;
 
 import io.prestosql.spi.PrestoException;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static java.util.Collections.unmodifiableList;
+import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
 
 public abstract class DecimalType
         extends AbstractType
@@ -100,9 +99,6 @@ public abstract class DecimalType
 
     private static List<TypeSignatureParameter> buildTypeParameters(int precision, int scale)
     {
-        List<TypeSignatureParameter> typeParameters = new ArrayList<>();
-        typeParameters.add(TypeSignatureParameter.numericParameter(precision));
-        typeParameters.add(TypeSignatureParameter.numericParameter(scale));
-        return unmodifiableList(typeParameters);
+        return List.of(numericParameter(precision), numericParameter(scale));
     }
 }
