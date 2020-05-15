@@ -97,7 +97,7 @@ public class AccumuloPageSink
                 .map(AccumuloColumnHandle::getOrdinal)
                 .findAny();
 
-        if (!ordinal.isPresent()) {
+        if (ordinal.isEmpty()) {
             throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
         }
 

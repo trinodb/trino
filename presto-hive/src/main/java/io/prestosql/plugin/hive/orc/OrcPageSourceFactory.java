@@ -421,7 +421,7 @@ public class OrcPageSourceFactory
 
     private static OrcColumn getNestedColumn(OrcColumn baseColumn, Optional<HiveColumnProjectionInfo> projectionInfo)
     {
-        if (!projectionInfo.isPresent()) {
+        if (projectionInfo.isEmpty()) {
             return baseColumn;
         }
 
@@ -431,7 +431,7 @@ public class OrcPageSourceFactory
                     .filter(column -> column.getColumnName().toLowerCase(ENGLISH).equals(field))
                     .findFirst();
 
-            if (!orcColumn.isPresent()) {
+            if (orcColumn.isEmpty()) {
                 return null;
             }
             current = orcColumn.get();

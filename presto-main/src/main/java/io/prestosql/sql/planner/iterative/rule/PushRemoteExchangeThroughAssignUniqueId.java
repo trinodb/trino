@@ -59,7 +59,7 @@ public final class PushRemoteExchangeThroughAssignUniqueId
     @Override
     public Result apply(ExchangeNode node, Captures captures, Context context)
     {
-        checkArgument(!node.getOrderingScheme().isPresent(), "Merge exchange over AssignUniqueId not supported");
+        checkArgument(node.getOrderingScheme().isEmpty(), "Merge exchange over AssignUniqueId not supported");
 
         AssignUniqueId assignUniqueId = captures.get(ASSIGN_UNIQUE_ID);
         PartitioningScheme partitioningScheme = node.getPartitioningScheme();

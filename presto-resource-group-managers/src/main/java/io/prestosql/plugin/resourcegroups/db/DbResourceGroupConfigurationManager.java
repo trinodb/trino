@@ -255,7 +255,7 @@ public class DbResourceGroupConfigurationManager
         List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(environment);
         for (ResourceGroupSpecBuilder record : records) {
             recordMap.put(record.getId(), record);
-            if (!record.getParentId().isPresent()) {
+            if (record.getParentId().isEmpty()) {
                 rootGroupIds.add(record.getId());
                 resourceGroupIdTemplateMap.put(record.getId(), new ResourceGroupIdTemplate(record.getNameTemplate().toString()));
             }

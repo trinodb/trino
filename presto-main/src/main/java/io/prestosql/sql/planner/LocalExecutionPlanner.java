@@ -634,7 +634,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext createSubContext()
         {
-            checkState(!indexSourceContext.isPresent(), "index build plan cannot have sub-contexts");
+            checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
             return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId);
         }
 
@@ -757,7 +757,7 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
-            if (!context.getDriverInstanceCount().isPresent()) {
+            if (context.getDriverInstanceCount().isEmpty()) {
                 context.setDriverInstanceCount(getTaskConcurrency(session));
             }
 
@@ -1036,7 +1036,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitLimit(LimitNode node, LocalExecutionPlanContext context)
         {
             // Limit with ties should be rewritten at this point
-            checkState(!node.getTiesResolvingScheme().isPresent(), "Limit with ties not supported");
+            checkState(node.getTiesResolvingScheme().isEmpty(), "Limit with ties not supported");
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -1155,7 +1155,7 @@ public class LocalExecutionPlanner
         {
             PlanNode sourceNode = node.getSource();
 
-            if (node.getSource() instanceof TableScanNode && !getStaticFilter(node.getPredicate()).isPresent()) {
+            if (node.getSource() instanceof TableScanNode && getStaticFilter(node.getPredicate()).isEmpty()) {
                 // filter node contains only dynamic filter, fallback to normal table scan
                 return visitTableScan((TableScanNode) node.getSource(), node.getPredicate(), context);
             }

@@ -114,7 +114,7 @@ public interface ThriftMetastore
     default Optional<List<FieldSchema>> getFields(HiveIdentity identity, String databaseName, String tableName)
     {
         Optional<Table> table = getTable(identity, databaseName, tableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
 

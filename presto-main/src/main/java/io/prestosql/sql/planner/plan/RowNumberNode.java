@@ -63,7 +63,7 @@ public final class RowNumberNode
         checkArgument(!orderSensitive || partitionBy.isEmpty(), "unexpected partitioning in order sensitive node");
         requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
-        checkArgument(!maxRowCountPerPartition.isPresent() || maxRowCountPerPartition.get() > 0, "maxRowCountPerPartition must be greater than zero");
+        checkArgument(maxRowCountPerPartition.isEmpty() || maxRowCountPerPartition.get() > 0, "maxRowCountPerPartition must be greater than zero");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;

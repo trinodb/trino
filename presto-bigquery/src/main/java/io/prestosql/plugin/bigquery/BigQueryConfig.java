@@ -47,7 +47,7 @@ public class BigQueryConfig
             return false;
         }
         // if no credentials were supplied, let's check if we can create the default ones
-        if (!credentialsKey.isPresent() && !credentialsFile.isPresent()) {
+        if (credentialsKey.isEmpty() && credentialsFile.isEmpty()) {
             try {
                 GoogleCredentials.getApplicationDefault();
             }

@@ -913,7 +913,7 @@ class QueryPlanner
 
     private Optional<OrderingScheme> orderingScheme(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<Expression> orderByExpressions)
     {
-        if (!orderBy.isPresent() || (isSkipRedundantSort(session)) && analysis.isOrderByRedundant(orderBy.get())) {
+        if (orderBy.isEmpty() || (isSkipRedundantSort(session)) && analysis.isOrderByRedundant(orderBy.get())) {
             return Optional.empty();
         }
 
@@ -935,7 +935,7 @@ class QueryPlanner
 
     private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderingScheme> orderingScheme)
     {
-        if (!orderingScheme.isPresent()) {
+        if (orderingScheme.isEmpty()) {
             return subPlan;
         }
 
@@ -949,7 +949,7 @@ class QueryPlanner
 
     private PlanBuilder offset(PlanBuilder subPlan, Optional<Offset> offset)
     {
-        if (!offset.isPresent()) {
+        if (offset.isEmpty()) {
             return subPlan;
         }
 

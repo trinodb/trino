@@ -425,7 +425,7 @@ public class LookupJoinOperator
         {
             checkSuccess(spillInProgress, "spilling failed");
 
-            if (!spiller.isPresent()) {
+            if (spiller.isEmpty()) {
                 checkState(partitioningSpillerFactory.isPresent(), "Spiller factory is not present");
                 spiller = Optional.of(partitioningSpillerFactory.get().create(
                         probeTypes,

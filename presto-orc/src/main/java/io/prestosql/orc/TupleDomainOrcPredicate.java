@@ -114,7 +114,7 @@ public class TupleDomainOrcPredicate
 
         // extract the discrete values from the predicate
         Optional<Collection<Object>> discreteValues = extractDiscreteValues(predicateDomain.getValues());
-        if (!discreteValues.isPresent()) {
+        if (discreteValues.isEmpty()) {
             // values are not discrete, so we can't exclude this section
             return true;
         }

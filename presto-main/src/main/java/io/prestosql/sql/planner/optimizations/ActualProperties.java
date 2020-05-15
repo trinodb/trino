@@ -322,8 +322,8 @@ public class ActualProperties
 
         private Global(Optional<Partitioning> nodePartitioning, Optional<Partitioning> streamPartitioning, boolean nullsAndAnyReplicated)
         {
-            checkArgument(!nodePartitioning.isPresent()
-                            || !streamPartitioning.isPresent()
+            checkArgument(nodePartitioning.isEmpty()
+                            || streamPartitioning.isEmpty()
                             || nodePartitioning.get().getColumns().containsAll(streamPartitioning.get().getColumns())
                             || streamPartitioning.get().getColumns().containsAll(nodePartitioning.get().getColumns()),
                     "Global stream partitioning columns should match node partitioning columns");
@@ -392,7 +392,7 @@ public class ActualProperties
          */
         private boolean isSingleNode()
         {
-            if (!nodePartitioning.isPresent()) {
+            if (nodePartitioning.isEmpty()) {
                 return false;
             }
 
@@ -401,7 +401,7 @@ public class ActualProperties
 
         private boolean isCoordinatorOnly()
         {
-            if (!nodePartitioning.isPresent()) {
+            if (nodePartitioning.isEmpty()) {
                 return false;
             }
 
@@ -461,7 +461,7 @@ public class ActualProperties
          */
         private boolean isStreamRepartitionEffective(Collection<Symbol> keys, Set<Symbol> constants)
         {
-            return (!streamPartitioning.isPresent() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
+            return (streamPartitioning.isEmpty() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
         }
 
         private Global translate(Partitioning.Translator translator)

@@ -599,7 +599,7 @@ public class PruneUnreferencedOutputs
             // Remove unused RowNumberNode
             if (!context.get().contains(node.getRowNumberSymbol())) {
                 PlanNode source = context.rewrite(node.getSource(), context.get());
-                if (!node.getMaxRowCountPerPartition().isPresent()) {
+                if (node.getMaxRowCountPerPartition().isEmpty()) {
                     return source;
                 }
                 if (node.getPartitionBy().isEmpty()) {

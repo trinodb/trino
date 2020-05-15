@@ -52,6 +52,6 @@ public final class FilterUtil
 
     public static <T> boolean emptyOrEquals(Optional<T> value, T other)
     {
-        return !value.isPresent() || value.get().equals(other);
+        return value.isEmpty() || value.get().equals(other);
     }
 }

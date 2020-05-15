@@ -197,7 +197,7 @@ public class SpillableHashAggregationBuilder
             }
         }
 
-        if (!spiller.isPresent()) {
+        if (spiller.isEmpty()) {
             return hashAggregationBuilder.buildResult();
         }
 
@@ -245,7 +245,7 @@ public class SpillableHashAggregationBuilder
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
         hashAggregationBuilder.setOutputPartial();
 
-        if (!spiller.isPresent()) {
+        if (spiller.isEmpty()) {
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContext(),

@@ -116,8 +116,8 @@ public class SpatialJoinNode
             this.distributionType = DistributionType.PARTITIONED;
         }
         else {
-            checkArgument(!leftPartitionSymbol.isPresent(), "Left partition symbol is missing");
-            checkArgument(!rightPartitionSymbol.isPresent(), "Right partition symbol is missing");
+            checkArgument(leftPartitionSymbol.isEmpty(), "Left partition symbol is missing");
+            checkArgument(rightPartitionSymbol.isEmpty(), "Right partition symbol is missing");
             this.distributionType = DistributionType.REPLICATED;
         }
     }

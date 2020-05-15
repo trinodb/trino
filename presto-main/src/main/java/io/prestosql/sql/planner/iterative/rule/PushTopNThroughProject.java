@@ -87,7 +87,7 @@ public final class PushTopNThroughProject
         }
 
         Optional<SymbolMapper> symbolMapper = symbolMapper(parent.getOrderingScheme().getOrderBy(), projectNode.getAssignments());
-        if (!symbolMapper.isPresent()) {
+        if (symbolMapper.isEmpty()) {
             return Result.empty();
         }
 

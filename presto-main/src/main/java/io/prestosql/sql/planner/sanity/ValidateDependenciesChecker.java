@@ -430,11 +430,11 @@ public final class ValidateDependenciesChecker
                 if (leftSymbolsSet.contains(symbol)) {
                     leftMaxPosition = i;
                 }
-                else if (!rightMinPosition.isPresent()) {
+                else if (rightMinPosition.isEmpty()) {
                     rightMinPosition = Optional.of(i);
                 }
             }
-            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
+            checkState(rightMinPosition.isEmpty() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
         }
 
         @Override

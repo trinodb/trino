@@ -271,7 +271,7 @@ public final class MetadataManager
     public boolean schemaExists(Session session, CatalogSchemaName schema)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, schema.getCatalogName());
-        if (!catalog.isPresent()) {
+        if (catalog.isEmpty()) {
             return false;
         }
         CatalogMetadata catalogMetadata = catalog.get();
@@ -436,7 +436,7 @@ public final class MetadataManager
             ConnectorTableLayoutHandle newTableLayoutHandle = metadata.makeCompatiblePartitioning(session.toConnectorSession(catalogName), tableHandle.getLayout().get(), partitioningHandle.getConnectorHandle());
             return new TableHandle(catalogName, tableHandle.getConnectorHandle(), transaction, Optional.of(newTableLayoutHandle));
         }
-        verify(!tableHandle.getLayout().isPresent(), "layout should not be present");
+        verify(tableHandle.getLayout().isEmpty(), "layout should not be present");
         ConnectorTableHandle newTableHandle = metadata.makeCompatiblePartitioning(
                 session.toConnectorSession(catalogName),
                 tableHandle.getConnectorHandle(),
@@ -449,7 +449,7 @@ public final class MetadataManager
     {
         Optional<CatalogName> leftConnectorId = left.getConnectorId();
         Optional<CatalogName> rightConnectorId = right.getConnectorId();
-        if (!leftConnectorId.isPresent() || !rightConnectorId.isPresent() || !leftConnectorId.equals(rightConnectorId)) {
+        if (leftConnectorId.isEmpty() || rightConnectorId.isEmpty() || !leftConnectorId.equals(rightConnectorId)) {
             return Optional.empty();
         }
         if (!left.getTransactionHandle().equals(right.getTransactionHandle())) {
@@ -863,7 +863,7 @@ public final class MetadataManager
             checkArgument(table.getLayout().isPresent(), "table layout is missing");
             return metadata.metadataDelete(session.toConnectorSession(catalogName), table.getConnectorHandle(), table.getLayout().get());
         }
-        checkArgument(!table.getLayout().isPresent(), "table layout should not be present");
+        checkArgument(table.getLayout().isEmpty(), "table layout should not be present");
 
         return metadata.executeDelete(connectorSession, table.getConnectorHandle());
     }
@@ -1192,7 +1192,7 @@ public final class MetadataManager
     public Set<String> listRoles(Session session, String catalog)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (!catalogMetadata.isPresent()) {
+        if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
@@ -1207,7 +1207,7 @@ public final class MetadataManager
     public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (!catalogMetadata.isPresent()) {
+        if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
@@ -1240,7 +1240,7 @@ public final class MetadataManager
     public Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (!catalogMetadata.isPresent()) {
+        if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
@@ -1253,7 +1253,7 @@ public final class MetadataManager
     public Set<String> listEnabledRoles(Session session, String catalog)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (!catalogMetadata.isPresent()) {
+        if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
         CatalogName catalogName = catalogMetadata.get().getCatalogName();

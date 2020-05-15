@@ -148,7 +148,7 @@ public class JoinStatsRule
         List<EquiJoinClause> equiJoinCriteria = node.getCriteria();
 
         if (equiJoinCriteria.isEmpty()) {
-            if (!node.getFilter().isPresent()) {
+            if (node.getFilter().isEmpty()) {
                 return crossJoinStats;
             }
             // TODO: this might explode stats
@@ -161,7 +161,7 @@ public class JoinStatsRule
             return PlanNodeStatsEstimate.unknown();
         }
 
-        if (!node.getFilter().isPresent()) {
+        if (node.getFilter().isEmpty()) {
             return equiJoinEstimate;
         }
 

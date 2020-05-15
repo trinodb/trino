@@ -732,7 +732,7 @@ public class IoPlanPrinter
 
         private FormattedMarker formatMarker(Marker marker)
         {
-            if (!marker.getValueBlock().isPresent()) {
+            if (marker.getValueBlock().isEmpty()) {
                 return new FormattedMarker(Optional.empty(), marker.getBound());
             }
             return new FormattedMarker(Optional.of(valuePrinter.castToVarcharOrFail(marker.getType(), marker.getValue())), marker.getBound());

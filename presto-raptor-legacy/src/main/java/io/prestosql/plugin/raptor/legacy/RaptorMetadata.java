@@ -334,7 +334,7 @@ public class RaptorMetadata
     {
         RaptorTableHandle table = (RaptorTableHandle) handle;
 
-        if (!table.getPartitioningHandle().isPresent()) {
+        if (table.getPartitioningHandle().isEmpty()) {
             return new ConnectorTableProperties();
         }
 
@@ -365,7 +365,7 @@ public class RaptorMetadata
         }
 
         Optional<DistributionInfo> distribution = getOrCreateDistribution(map.build(), metadata.getProperties());
-        if (!distribution.isPresent()) {
+        if (distribution.isEmpty()) {
             return Optional.empty();
         }
 
@@ -390,7 +390,7 @@ public class RaptorMetadata
         if (bucketCount.isPresent() && bucketColumnHandles.isEmpty()) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        if (!bucketCount.isPresent() && !bucketColumnHandles.isEmpty()) {
+        if (bucketCount.isEmpty() && !bucketColumnHandles.isEmpty()) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
         }
         ImmutableList.Builder<Type> bucketColumnTypes = ImmutableList.builder();
@@ -408,7 +408,7 @@ public class RaptorMetadata
 
             Distribution distribution = dao.getDistribution(distributionName);
             if (distribution == null) {
-                if (!bucketCount.isPresent()) {
+                if (bucketCount.isEmpty()) {
                     throw new PrestoException(INVALID_TABLE_PROPERTY, "Distribution does not exist and bucket count is not specified");
                 }
                 distribution = getOrCreateDistribution(distributionName, bucketColumnTypes.build(), bucketCount.getAsInt());

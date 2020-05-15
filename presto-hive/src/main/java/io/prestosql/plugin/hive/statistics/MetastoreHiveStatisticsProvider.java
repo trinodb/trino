@@ -397,7 +397,7 @@ public class MetastoreHiveStatisticsProvider
         checkArgument(!partitions.isEmpty(), "partitions is empty");
 
         OptionalDouble optionalAverageRowsPerPartition = calculateAverageRowsPerPartition(statistics.values());
-        if (!optionalAverageRowsPerPartition.isPresent()) {
+        if (optionalAverageRowsPerPartition.isEmpty()) {
             return TableStatistics.empty();
         }
         double averageRowsPerPartition = optionalAverageRowsPerPartition.getAsDouble();
@@ -665,7 +665,7 @@ public class MetastoreHiveStatisticsProvider
     {
         List<PartitionStatistics> statisticsWithKnownRowCountAndNullsCount = partitionStatistics.stream()
                 .filter(statistics -> {
-                    if (!statistics.getBasicStatistics().getRowCount().isPresent()) {
+                    if (statistics.getBasicStatistics().getRowCount().isEmpty()) {
                         return false;
                     }
                     HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
@@ -711,7 +711,7 @@ public class MetastoreHiveStatisticsProvider
     {
         List<PartitionStatistics> statisticsWithKnownRowCountAndDataSize = partitionStatistics.stream()
                 .filter(statistics -> {
-                    if (!statistics.getBasicStatistics().getRowCount().isPresent()) {
+                    if (statistics.getBasicStatistics().getRowCount().isEmpty()) {
                         return false;
                     }
                     HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);

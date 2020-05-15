@@ -594,7 +594,7 @@ public class InternalResourceGroup
             while (true) {
                 canQueue = canQueue && group.canQueueMore();
                 canRun = canRun && group.canRunMore();
-                if (!group.parent.isPresent()) {
+                if (group.parent.isEmpty()) {
                     break;
                 }
                 group = group.parent.get();
@@ -639,7 +639,7 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
         synchronized (root) {
-            if (!parent.isPresent()) {
+            if (parent.isEmpty()) {
                 return;
             }
             if (isEligibleToStartNext()) {

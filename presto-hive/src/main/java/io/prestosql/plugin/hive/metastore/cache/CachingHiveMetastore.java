@@ -691,7 +691,7 @@ public class CachingHiveMetastore
         HiveTableName hiveTableName = firstPartition.getKey().getHiveTableName();
         HiveIdentity identity = updateIdentity(firstPartition.getIdentity());
         Optional<Table> table = getTable(identity, hiveTableName.getDatabaseName(), hiveTableName.getTableName());
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return stream(partitionNames)
                     .collect(toImmutableMap(name -> name, name -> Optional.empty()));
         }
@@ -918,7 +918,7 @@ public class CachingHiveMetastore
         if (expiresAfterWriteMillis.isPresent()) {
             cacheBuilder = cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
         }
-        if (refreshMillis.isPresent() && (!expiresAfterWriteMillis.isPresent() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
+        if (refreshMillis.isPresent() && (expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
             cacheBuilder = cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
         }
         cacheBuilder = cacheBuilder.maximumSize(maximumSize);

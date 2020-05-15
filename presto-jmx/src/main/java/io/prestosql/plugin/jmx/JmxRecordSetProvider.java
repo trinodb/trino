@@ -78,7 +78,7 @@ public class JmxRecordSetProvider
             }
             else {
                 Optional<Object> optionalValue = attributes.get(jmxColumn.getColumnName());
-                if (optionalValue == null || !optionalValue.isPresent()) {
+                if (optionalValue == null || optionalValue.isEmpty()) {
                     row.add(null);
                 }
                 else {

@@ -191,7 +191,7 @@ public class TpchMetadata
     {
         return nullableValues.stream()
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
-                .filter(value -> !constraint.predicate().isPresent() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
+                .filter(value -> constraint.predicate().isEmpty() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
     }
 
@@ -334,7 +334,7 @@ public class TpchMetadata
         if (columnType instanceof VarcharType) {
             return Optional.empty();
         }
-        if (!min.isPresent() || !max.isPresent()) {
+        if (min.isEmpty() || max.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new DoubleRange(toDouble(min.get(), columnType), toDouble(max.get(), columnType)));
@@ -517,7 +517,7 @@ public class TpchMetadata
 
     private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return listSchemaNames(session);
         }
         if (schemaNameToScaleFactor(schemaName.get()) > 0) {

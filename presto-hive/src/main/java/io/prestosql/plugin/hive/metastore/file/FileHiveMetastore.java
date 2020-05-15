@@ -406,7 +406,7 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
 
         Optional<Database> database = getDatabase(databaseName);
-        if (!database.isPresent()) {
+        if (database.isEmpty()) {
             return ImmutableList.of();
         }
 
@@ -551,7 +551,7 @@ public class FileHiveMetastore
             if (oldTable.getColumn(newColumnName).isPresent()) {
                 throw new PrestoException(ALREADY_EXISTS, "Column already exists: " + newColumnName);
             }
-            if (!oldTable.getColumn(oldColumnName).isPresent()) {
+            if (oldTable.getColumn(oldColumnName).isEmpty()) {
                 SchemaTableName name = new SchemaTableName(databaseName, tableName);
                 throw new ColumnNotFoundException(name, oldColumnName);
             }
@@ -580,7 +580,7 @@ public class FileHiveMetastore
     {
         alterTable(databaseName, tableName, oldTable -> {
             verifyCanDropColumn(this, identity, databaseName, tableName, columnName);
-            if (!oldTable.getColumn(columnName).isPresent()) {
+            if (oldTable.getColumn(columnName).isEmpty()) {
                 SchemaTableName name = new SchemaTableName(databaseName, tableName);
                 throw new ColumnNotFoundException(name, columnName);
             }
@@ -704,7 +704,7 @@ public class FileHiveMetastore
         requireNonNull(partitionValues, "partitionValues is null");
 
         Optional<Table> tableReference = getTable(identity, databaseName, tableName);
-        if (!tableReference.isPresent()) {
+        if (tableReference.isEmpty()) {
             return;
         }
         Table table = tableReference.get();
@@ -881,7 +881,7 @@ public class FileHiveMetastore
         requireNonNull(tableName, "tableName is null");
 
         Optional<Table> tableReference = getTable(identity, databaseName, tableName);
-        if (!tableReference.isPresent()) {
+        if (tableReference.isEmpty()) {
             return Optional.empty();
         }
         Table table = tableReference.get();
@@ -998,7 +998,7 @@ public class FileHiveMetastore
     {
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
-        if (!principal.isPresent()) {
+        if (principal.isEmpty()) {
             HivePrincipal owner = new HivePrincipal(USER, tableOwner);
             return ImmutableSet.<HivePrivilegeInfo>builder()
                     .addAll(readAllPermissions(permissionsDirectory))

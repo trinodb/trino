@@ -175,10 +175,10 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
-        if (!impersonationRules.isPresent()) {
+        if (impersonationRules.isEmpty()) {
             // if there are principal user match rules, we assume that impersonation checks are
             // handled there; otherwise, impersonation must be manually configured
-            if (!principalUserMatchRules.isPresent()) {
+            if (principalUserMatchRules.isEmpty()) {
                 denyImpersonateUser(context.getIdentity().getUser(), userName);
             }
             return;
@@ -203,11 +203,11 @@ public class FileBasedSystemAccessControl
         requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");
 
-        if (!principalUserMatchRules.isPresent()) {
+        if (principalUserMatchRules.isEmpty()) {
             return;
         }
 
-        if (!principal.isPresent()) {
+        if (principal.isEmpty()) {
             denySetUser(principal, userName);
         }
 
@@ -229,7 +229,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return;
         }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.EXECUTE)) {
@@ -240,7 +240,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return;
         }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.VIEW)) {
@@ -251,7 +251,7 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return queryOwners;
         }
         Identity identity = context.getIdentity();
@@ -263,7 +263,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return;
         }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.KILL)) {

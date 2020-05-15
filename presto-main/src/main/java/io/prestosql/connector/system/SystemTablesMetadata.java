@@ -66,7 +66,7 @@ public class SystemTablesMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         Optional<SystemTable> table = tables.getSystemTable(session, tableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return null;
         }
         return SystemTableHandle.fromSchemaTableName(tableName);
@@ -84,7 +84,7 @@ public class SystemTablesMetadata
         return tables.listSystemTables(session).stream()
                 .map(SystemTable::getTableMetadata)
                 .map(ConnectorTableMetadata::getTable)
-                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
+                .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
                 .collect(toImmutableList());
     }
 
@@ -157,7 +157,7 @@ public class SystemTablesMetadata
 
         TupleDomain<ColumnHandle> oldDomain = table.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        if (oldDomain.equals(newDomain) && !constraint.predicate().isPresent()) {
+        if (oldDomain.equals(newDomain) && constraint.predicate().isEmpty()) {
             return Optional.empty();
         }
 

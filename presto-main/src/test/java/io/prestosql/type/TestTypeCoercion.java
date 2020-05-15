@@ -353,7 +353,7 @@ public class TestTypeCoercion
 
         public void isIncompatible()
         {
-            assertTrue(!commonSuperType.isPresent(), "Expected to be incompatible");
+            assertTrue(commonSuperType.isEmpty(), "Expected to be incompatible");
         }
 
         public CompatibilityAssertion hasCommonSuperType(Type expected)

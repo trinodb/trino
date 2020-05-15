@@ -210,12 +210,12 @@ public class ShowStatsRewrite
                     .where(FilterNode.class::isInstance)
                     .findSingle();
 
-            check(!filterNode.isPresent(), node, "Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
-            check(!query.getWith().isPresent(), node, "WITH is not supported by SHOW STATS SELECT clause");
-            check(!querySpecification.getOrderBy().isPresent(), node, "ORDER BY is not supported in SHOW STATS SELECT clause");
-            check(!querySpecification.getLimit().isPresent(), node, "LIMIT is not supported by SHOW STATS SELECT clause");
-            check(!querySpecification.getHaving().isPresent(), node, "HAVING is not supported in SHOW STATS SELECT clause");
-            check(!querySpecification.getGroupBy().isPresent(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
+            check(filterNode.isEmpty(), node, "Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
+            check(query.getWith().isEmpty(), node, "WITH is not supported by SHOW STATS SELECT clause");
+            check(querySpecification.getOrderBy().isEmpty(), node, "ORDER BY is not supported in SHOW STATS SELECT clause");
+            check(querySpecification.getLimit().isEmpty(), node, "LIMIT is not supported by SHOW STATS SELECT clause");
+            check(querySpecification.getHaving().isEmpty(), node, "HAVING is not supported in SHOW STATS SELECT clause");
+            check(querySpecification.getGroupBy().isEmpty(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
             check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
         }
 
@@ -253,7 +253,7 @@ public class ShowStatsRewrite
 
                     check(expression instanceof Identifier, expression, "Only table columns names are supported in SHOW STATS SELECT clause");
                     Identifier identifier = (Identifier) expression;
-                    check(!column.getAlias().isPresent(), column, "Column aliasing is not supported in SHOW STATS SELECT clause");
+                    check(column.getAlias().isEmpty(), column, "Column aliasing is not supported in SHOW STATS SELECT clause");
 
                     columns.add(identifier.getValue());
                 }
@@ -281,7 +281,7 @@ public class ShowStatsRewrite
                     .where(TableScanNode.class::isInstance)
                     .findSingle();
 
-            if (!scanNode.isPresent()) {
+            if (scanNode.isEmpty()) {
                 return Constraint.alwaysFalse();
             }
 

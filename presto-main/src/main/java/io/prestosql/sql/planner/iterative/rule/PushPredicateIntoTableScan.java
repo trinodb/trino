@@ -107,7 +107,7 @@ public class PushPredicateIntoTableScan
                 typeAnalyzer,
                 domainTranslator);
 
-        if (!rewritten.isPresent() || arePlansSame(filterNode, tableScan, rewritten.get())) {
+        if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
             return Result.empty();
         }
 
@@ -189,7 +189,7 @@ public class PushPredicateIntoTableScan
         TupleDomain<ColumnHandle> remainingFilter;
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
             // check if new domain is wider than domain already provided by table scan
-            if (!constraint.predicate().isPresent() && newDomain.contains(node.getEnforcedConstraint())) {
+            if (constraint.predicate().isEmpty() && newDomain.contains(node.getEnforcedConstraint())) {
                 Expression resultingPredicate = createResultingPredicate(
                         metadata,
                         TRUE_LITERAL,
@@ -212,7 +212,7 @@ public class PushPredicateIntoTableScan
 
             Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, node.getTable(), constraint);
 
-            if (!result.isPresent()) {
+            if (result.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -233,7 +233,7 @@ public class PushPredicateIntoTableScan
                             .map(node.getAssignments()::get)
                             .collect(toImmutableSet())));
 
-            if (!layout.isPresent() || layout.get().getTableProperties().getPredicate().isNone()) {
+            if (layout.isEmpty() || layout.get().getTableProperties().getPredicate().isNone()) {
                 return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 

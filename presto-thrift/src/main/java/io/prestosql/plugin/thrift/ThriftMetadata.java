@@ -224,7 +224,7 @@ public class ThriftMetadata
     private ThriftTableMetadata getRequiredTableMetadata(SchemaTableName schemaTableName)
     {
         Optional<ThriftTableMetadata> table = tableCache.getUnchecked(schemaTableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(schemaTableName);
         }
         else {

@@ -646,7 +646,7 @@ public class BackgroundHiveSplitLoader
 
     private static List<HivePartitionKey> getPartitionKeys(Table table, Optional<Partition> partition)
     {
-        if (!partition.isPresent()) {
+        if (partition.isEmpty()) {
             return ImmutableList.of();
         }
         ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
@@ -668,7 +668,7 @@ public class BackgroundHiveSplitLoader
 
     private static Properties getPartitionSchema(Table table, Optional<Partition> partition)
     {
-        if (!partition.isPresent()) {
+        if (partition.isEmpty()) {
             return getHiveSchema(table);
         }
         return getHiveSchema(partition.get(), table);
@@ -686,8 +686,8 @@ public class BackgroundHiveSplitLoader
             requireNonNull(bucketHandle, "bucketHandle is null");
             requireNonNull(bucketFilter, "buckets is null");
 
-            if (!bucketHandle.isPresent()) {
-                checkArgument(!bucketFilter.isPresent(), "bucketHandle must be present if bucketFilter is present");
+            if (bucketHandle.isEmpty()) {
+                checkArgument(bucketFilter.isEmpty(), "bucketHandle must be present if bucketFilter is present");
                 return Optional.empty();
             }
 

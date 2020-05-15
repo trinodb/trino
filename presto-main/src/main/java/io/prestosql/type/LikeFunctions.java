@@ -150,7 +150,7 @@ public final class LikeFunctions
 
     public static Slice unescapeLiteralLikePattern(Slice pattern, Optional<Slice> escape)
     {
-        if (!escape.isPresent()) {
+        if (escape.isEmpty()) {
             return pattern;
         }
 
@@ -180,7 +180,7 @@ public final class LikeFunctions
 
     private static Optional<Character> getEscapeCharacter(Optional<Slice> escape)
     {
-        if (!escape.isPresent()) {
+        if (escape.isEmpty()) {
             return Optional.empty();
         }
         String stringEscape = escape.get().toStringUtf8();

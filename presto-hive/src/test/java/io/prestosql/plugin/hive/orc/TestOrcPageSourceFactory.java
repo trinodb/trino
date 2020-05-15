@@ -173,7 +173,7 @@ public class TestOrcPageSourceFactory
                 deleteDeltaLocations);
 
         checkArgument(pageSourceWithProjections.isPresent());
-        checkArgument(!pageSourceWithProjections.get().getProjectedReaderColumns().isPresent(),
+        checkArgument(pageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(),
                 "projected columns not expected here");
 
         ConnectorPageSource pageSource = pageSourceWithProjections.get().getConnectorPageSource();

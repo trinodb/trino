@@ -68,7 +68,7 @@ public class TransformCorrelatedJoinToJoin
 
         PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, correlatedJoinNode.getCorrelation());
-        if (!decorrelatedNodeOptional.isPresent()) {
+        if (decorrelatedNodeOptional.isEmpty()) {
             return Result.empty();
         }
         DecorrelatedNode decorrelatedSubquery = decorrelatedNodeOptional.get();

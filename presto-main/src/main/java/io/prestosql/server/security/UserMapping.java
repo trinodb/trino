@@ -36,7 +36,7 @@ public final class UserMapping
     public static UserMapping createUserMapping(Optional<String> userMappingPattern, Optional<File> userMappingFile)
     {
         if (userMappingPattern.isPresent()) {
-            checkArgument(!userMappingFile.isPresent(), "user mapping pattern and file can not both be set");
+            checkArgument(userMappingFile.isEmpty(), "user mapping pattern and file can not both be set");
             return new UserMapping(ImmutableList.of(new Rule(userMappingPattern.get())));
         }
         if (userMappingFile.isPresent()) {

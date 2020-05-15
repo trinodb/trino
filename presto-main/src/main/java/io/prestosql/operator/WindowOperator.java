@@ -598,7 +598,7 @@ public class WindowOperator
             }
 
             boolean finishing = pendingInput == null;
-            if (finishing && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
+            if (finishing && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && spiller.isEmpty()) {
                 localRevocableMemoryContext.close();
                 localUserMemoryContext.close();
                 closeSpiller();
@@ -658,7 +658,7 @@ public class WindowOperator
                 return spillInProgress.get();
             }
 
-            if (!spiller.isPresent()) {
+            if (spiller.isEmpty()) {
                 spiller = Optional.of(spillerFactory.create(
                         sourceTypes,
                         operatorContext.getSpillContext(),
@@ -678,7 +678,7 @@ public class WindowOperator
 
         void finishRevokeMemory()
         {
-            if (!spillInProgress.isPresent()) {
+            if (spillInProgress.isEmpty()) {
                 // Same spill iteration can be finished first by Driver (via WindowOperator#finishMemoryRevoke) and then by SpillablePagesToPagesIndexes#process(..)
                 return;
             }
@@ -697,7 +697,7 @@ public class WindowOperator
 
         WorkProcessor<PagesIndexWithHashStrategies> unspill()
         {
-            if (!spiller.isPresent()) {
+            if (spiller.isEmpty()) {
                 return WorkProcessor.fromIterable(ImmutableList.of(inMemoryPagesIndexWithHashStrategies));
             }
 

@@ -784,7 +784,7 @@ public class JoinCompiler
                 rightBlockIndex,
                 rightBlockPosition);
 
-        if (!sortChannel.isPresent()) {
+        if (sortChannel.isEmpty()) {
             compareMethod.getBody()
                     .append(newInstance(UnsupportedOperationException.class))
                     .throwObject();
@@ -827,7 +827,7 @@ public class JoinCompiler
                 blockIndex,
                 blockPosition);
 
-        if (!sortChannel.isPresent()) {
+        if (sortChannel.isEmpty()) {
             isSortChannelPositionNullMethod.getBody()
                     .append(newInstance(UnsupportedOperationException.class))
                     .throwObject();

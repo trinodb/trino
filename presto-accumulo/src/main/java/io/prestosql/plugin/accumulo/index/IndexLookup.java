@@ -225,7 +225,7 @@ public class IndexLookup
         }
 
         Optional<Entry<Long, AccumuloColumnConstraint>> entry = cardinalities.entries().stream().findFirst();
-        if (!entry.isPresent()) {
+        if (entry.isEmpty()) {
             return false;
         }
 

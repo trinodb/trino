@@ -40,7 +40,7 @@ public class PruneRowNumberColumns
     {
         // Remove unused RowNumberNode
         if (!referencedOutputs.contains(rowNumberNode.getRowNumberSymbol())) {
-            if (!rowNumberNode.getMaxRowCountPerPartition().isPresent()) {
+            if (rowNumberNode.getMaxRowCountPerPartition().isEmpty()) {
                 return Optional.of(rowNumberNode.getSource());
             }
             if (rowNumberNode.getPartitionBy().isEmpty()) {

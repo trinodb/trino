@@ -272,7 +272,7 @@ public class BaseJdbcClient
                             .setComment(comment)
                             .build());
                 }
-                if (!columnMapping.isPresent()) {
+                if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                     verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
                 }
@@ -865,7 +865,7 @@ public class BaseJdbcClient
 
     protected Function<String, String> tryApplyLimit(OptionalLong limit)
     {
-        if (!limit.isPresent()) {
+        if (limit.isEmpty()) {
             return Function.identity();
         }
         return limitFunction()

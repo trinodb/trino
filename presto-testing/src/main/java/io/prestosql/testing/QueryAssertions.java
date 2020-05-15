@@ -79,12 +79,12 @@ public final class QueryAssertions
             planAssertion.get().accept(queryPlan);
         }
 
-        if (!results.getUpdateType().isPresent()) {
+        if (results.getUpdateType().isEmpty()) {
             fail("update type is not set");
         }
 
         if (results.getUpdateCount().isPresent()) {
-            if (!count.isPresent()) {
+            if (count.isEmpty()) {
                 fail("expected no update count, but got " + results.getUpdateCount().getAsLong());
             }
             assertEquals(results.getUpdateCount().getAsLong(), count.getAsLong(), "update count");
@@ -169,7 +169,7 @@ public final class QueryAssertions
         }
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
-            if (!actualResults.getUpdateType().isPresent()) {
+            if (actualResults.getUpdateType().isEmpty()) {
                 fail("update count present without update type for query: \n" + actual);
             }
             if (!compareUpdate) {
@@ -181,10 +181,10 @@ public final class QueryAssertions
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
         if (compareUpdate) {
-            if (!actualResults.getUpdateType().isPresent()) {
+            if (actualResults.getUpdateType().isEmpty()) {
                 fail("update type not present for query: \n" + actual);
             }
-            if (!actualResults.getUpdateCount().isPresent()) {
+            if (actualResults.getUpdateCount().isEmpty()) {
                 fail("update count not present for query: \n" + actual);
             }
             assertEquals(actualRows.size(), 1, "For query: \n " + actual + "\n:");

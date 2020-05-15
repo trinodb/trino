@@ -94,7 +94,7 @@ public class InterpretedFunctionInvoker
 
     private static MethodHandle bindInstanceFactory(MethodHandle method, ScalarFunctionImplementation implementation)
     {
-        if (!implementation.getInstanceFactory().isPresent()) {
+        if (implementation.getInstanceFactory().isEmpty()) {
             return method;
         }
 

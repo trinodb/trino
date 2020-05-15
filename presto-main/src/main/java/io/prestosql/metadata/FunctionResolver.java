@@ -194,7 +194,7 @@ public class FunctionResolver
         }
 
         Optional<List<Type>> optionalParameterTypes = toTypes(parameters);
-        if (!optionalParameterTypes.isPresent()) {
+        if (optionalParameterTypes.isEmpty()) {
             // give up and return all remaining matches
             return mostSpecificFunctions;
         }
