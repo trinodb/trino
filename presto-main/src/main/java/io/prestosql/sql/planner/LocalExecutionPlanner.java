@@ -2125,7 +2125,7 @@ public class LocalExecutionPlanner
         }
 
         private DynamicFilterSourceOperatorFactory createDynamicFilterSourceOperatorFactory(
-                LocalDynamicFilter dynamicFilter,
+                LocalDynamicFilterConsumer dynamicFilter,
                 JoinNode node,
                 PhysicalOperation buildSource,
                 LocalExecutionPlanContext context)
@@ -2147,7 +2147,7 @@ public class LocalExecutionPlanner
                     getDynamicFilteringMaxPerDriverSize(context.getSession()));
         }
 
-        private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, JoinNode node, LocalExecutionPlanContext context, int partitionCount)
+        private Optional<LocalDynamicFilterConsumer> createDynamicFilter(PhysicalOperation buildSource, JoinNode node, LocalExecutionPlanContext context, int partitionCount)
         {
             if (node.getDynamicFilters().isEmpty()) {
                 return Optional.empty();
@@ -2157,12 +2157,12 @@ public class LocalExecutionPlanner
                     "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
-            LocalDynamicFilter filter = LocalDynamicFilter.create(node, buildSource.getTypes(), partitionCount);
+            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(node, buildSource.getTypes(), partitionCount);
             // Intersect dynamic filters' predicates when they become ready,
             // in order to support multiple join nodes in the same plan fragment.
-            addSuccessCallback(filter.getDynamicFilterDomains(), context::addDynamicFilter);
-            addSuccessCallback(filter.getNodeLocalDynamicFilterForSymbols(), collector::addDynamicFilter);
-            return Optional.of(filter);
+            addSuccessCallback(filterConsumer.getDynamicFilterDomains(), context::addDynamicFilter);
+            addSuccessCallback(filterConsumer.getNodeLocalDynamicFilterForSymbols(), collector::addDynamicFilter);
+            return Optional.of(filterConsumer);
         }
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(

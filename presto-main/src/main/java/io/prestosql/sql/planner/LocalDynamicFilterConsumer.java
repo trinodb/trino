@@ -47,9 +47,9 @@ import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-public class LocalDynamicFilter
+public class LocalDynamicFilterConsumer
 {
-    private static final Logger log = Logger.get(LocalDynamicFilter.class);
+    private static final Logger log = Logger.get(LocalDynamicFilterConsumer.class);
 
     // Mapping from dynamic filter ID to its probe symbols.
     private final Multimap<String, Symbol> probeSymbols;
@@ -68,7 +68,7 @@ public class LocalDynamicFilter
     // The resulting predicates from each build-side partition.
     private final List<TupleDomain<String>> partitions;
 
-    public LocalDynamicFilter(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, Map<String, Type> filterBuildTypes, int partitionCount)
+    public LocalDynamicFilterConsumer(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, Map<String, Type> filterBuildTypes, int partitionCount)
     {
         this.probeSymbols = requireNonNull(probeSymbols, "probeSymbols is null");
         this.buildChannels = requireNonNull(buildChannels, "buildChannels is null");
@@ -143,14 +143,14 @@ public class LocalDynamicFilter
         return result.getDomains().get();
     }
 
-    public static LocalDynamicFilter create(JoinNode planNode, List<Type> buildSourceTypes, int partitionCount)
+    public static LocalDynamicFilterConsumer create(JoinNode planNode, List<Type> buildSourceTypes, int partitionCount)
     {
         checkArgument(!planNode.getDynamicFilters().isEmpty(), "Join node dynamicFilters is empty.");
 
         Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
         List<FilterNode> filterNodes = PlanNodeSearcher
                 .searchFrom(planNode.getLeft())
-                .where(LocalDynamicFilter::isFilterAboveTableScan)
+                .where(LocalDynamicFilterConsumer::isFilterAboveTableScan)
                 .findAll();
 
         // Mapping from probe-side dynamic filters' IDs to their matching probe symbols.
@@ -188,7 +188,7 @@ public class LocalDynamicFilter
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> buildSourceTypes.get(entry.getValue())));
-        return new LocalDynamicFilter(probeSymbols, buildChannels, filterBuildTypes, partitionCount);
+        return new LocalDynamicFilterConsumer(probeSymbols, buildChannels, filterBuildTypes, partitionCount);
     }
 
     private static boolean isFilterAboveTableScan(PlanNode node)
