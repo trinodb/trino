@@ -4,12 +4,12 @@ List of Functions and Operators
 
 
 - :ref:`[] substring operator <subscript_operator>`
-- :ref:`|| concatentation operator <concatenation_operator>`
+- :ref:`|| concatenation operator <concatenation_operator>`
 - :ref:`\< comparison operator <comparison_operators>`
 - :ref:`\> comparison operator <comparison_operators>`
 - :ref:`<= comparison operator <comparison_operators>`
 - :ref:`>= comparison operator <comparison_operators>`
-- :ref:`= comparsion operator <comparison_operators>`
+- :ref:`= comparison operator <comparison_operators>`
 - :ref:`<> comparison operator <comparison_operators>`
 - :ref:`\!= comparison operator <comparison_operators>`
 - :ref:`-> lambda expression <lambda_expressions>`
