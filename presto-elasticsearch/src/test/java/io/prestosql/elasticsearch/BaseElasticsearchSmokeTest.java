@@ -27,7 +27,6 @@ import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -41,7 +40,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseElasticsearchSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -105,10 +104,18 @@ public abstract class BaseElasticsearchSmokeTest
     @Override
     public void testShowCreateTable()
     {
-        // TODO (https://github.com/prestosql/presto/issues/3385) Fix SHOW CREATE TABLE
-        assertThatThrownBy(super::testShowCreateTable)
-                .hasMessage("No PropertyMetadata for property: original-name");
-        throw new SkipException("Fix SHOW CREATE TABLE");
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
+                        "   clerk varchar,\n" +
+                        "   comment varchar,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderdate timestamp,\n" +
+                        "   orderkey bigint,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   shippriority bigint,\n" +
+                        "   totalprice real\n" +
+                        ")");
     }
 
     @Test
