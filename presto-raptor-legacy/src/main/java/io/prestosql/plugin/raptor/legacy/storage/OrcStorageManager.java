@@ -553,7 +553,7 @@ public class OrcStorageManager
     static Type toOrcFileType(Type raptorType, TypeManager typeManager)
     {
         // TIMESTAMPS are stored as BIGINT to void the poor encoding in ORC
-        if (raptorType == TimestampType.TIMESTAMP) {
+        if (raptorType.equals(TimestampType.TIMESTAMP)) {
             return BIGINT;
         }
         if (raptorType instanceof ArrayType) {
