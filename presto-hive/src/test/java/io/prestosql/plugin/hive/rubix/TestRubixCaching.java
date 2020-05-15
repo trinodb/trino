@@ -67,6 +67,9 @@ import static org.testng.Assert.assertEquals;
 public class TestRubixCaching
 {
     private java.nio.file.Path tempDirectory;
+    private Path cacheStoragePath;
+    private HdfsConfig config;
+    private HdfsContext context;
     private FileSystem nonCachingFileSystem;
     private FileSystem cachingFileSystem;
 
@@ -75,26 +78,24 @@ public class TestRubixCaching
             throws IOException
     {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
-        Path path = getStoragePath("/");
-        HdfsConfig config = new HdfsConfig();
-        ConnectorIdentity identity = ConnectorIdentity.ofUser("user");
-        HdfsContext context = new HdfsContext(identity);
+        cacheStoragePath = getStoragePath("/");
+        config = new HdfsConfig();
+        context = new HdfsContext(ConnectorIdentity.ofUser("user"));
 
-        nonCachingFileSystem = getNonCachingFileSystem(config, context, path);
-        RubixConfigurationInitializer rubixConfigInitializer = initializeRubix(config);
-        cachingFileSystem = getCachingFileSystem(config, context, path, rubixConfigInitializer);
+        nonCachingFileSystem = getNonCachingFileSystem();
+        cachingFileSystem = getCachingFileSystem(initializeRubix());
     }
 
-    private FileSystem getNonCachingFileSystem(HdfsConfig config, HdfsContext context, Path path)
+    private FileSystem getNonCachingFileSystem()
             throws IOException
     {
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config);
         HiveHdfsConfiguration configuration = new HiveHdfsConfiguration(configurationInitializer, ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
-        return environment.getFileSystem(context, path);
+        return environment.getFileSystem(context, cacheStoragePath);
     }
 
-    private RubixConfigurationInitializer initializeRubix(HdfsConfig config)
+    private RubixConfigurationInitializer initializeRubix()
             throws IOException
     {
         // create cache directories
@@ -130,7 +131,13 @@ public class TestRubixCaching
                 coordinatorNode,
                 ImmutableList.of());
         rubixInitializer.initializeRubix(nodeManager);
+        waitForRubix(rubixConfigInitializer);
 
+        return rubixConfigInitializer;
+    }
+
+    private void waitForRubix(RubixConfigurationInitializer rubixConfigInitializer)
+    {
         // wait for rubix to start
         Failsafe.with(
                 new RetryPolicy<>()
@@ -139,14 +146,9 @@ public class TestRubixCaching
                         .withMaxAttempts(-1)
                         .withMaxDuration(Duration.ofMinutes(1)))
                 .run(() -> checkState(rubixConfigInitializer.isCacheReady()));
-
-        return rubixConfigInitializer;
     }
 
     private FileSystem getCachingFileSystem(
-            HdfsConfig config,
-            HdfsContext context,
-            Path path,
             RubixConfigurationInitializer rubixConfigInitializer)
             throws IOException
     {
@@ -159,7 +161,7 @@ public class TestRubixCaching
                         },
                         rubixConfigInitializer));
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
-        return environment.getFileSystem(context, path);
+        return environment.getFileSystem(context, cacheStoragePath);
     }
 
     @AfterClass(alwaysRun = true)
