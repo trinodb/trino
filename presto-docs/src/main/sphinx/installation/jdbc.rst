@@ -15,6 +15,12 @@ The driver is also available from Maven Central:
         <version>\ |version|\ </version>
     </dependency>
 
+Requirements
+------------
+
+The JDBC driver is compatible with Java 8, and can be used with applications
+running on Java virtual machines version 8 and higher.
+
 Driver Name
 -----------
 
