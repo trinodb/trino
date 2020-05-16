@@ -16,6 +16,8 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import static java.lang.String.format;
+
 /**
  * A timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC and is to be interpreted as date-time in UTC.
  * In legacy timestamp semantics, timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC and is to be
@@ -24,11 +26,28 @@ import io.prestosql.spi.connector.ConnectorSession;
 public final class TimestampType
         extends AbstractLongType
 {
+    /**
+     * @deprecated Use {@link #createTimestampType(int)} instead.
+     */
+    @Deprecated
     public static final TimestampType TIMESTAMP = new TimestampType();
+
+    public static TimestampType createTimestampType(int precision)
+    {
+        if (precision != 3) {
+            throw new IllegalArgumentException(format("Precision %s is not supported", precision));
+        }
+        return TIMESTAMP;
+    }
 
     private TimestampType()
     {
         super(new TypeSignature(StandardTypes.TIMESTAMP));
+    }
+
+    public int getPrecision()
+    {
+        return 3;
     }
 
     @Override

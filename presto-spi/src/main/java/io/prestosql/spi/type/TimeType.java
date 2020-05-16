@@ -16,6 +16,8 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import static java.lang.String.format;
+
 //
 // A time is stored as milliseconds from midnight on 1970-01-01T00:00:00 in the time zone of the session.
 // When performing calculations on a time the client's time zone must be taken into account.
@@ -23,11 +25,28 @@ import io.prestosql.spi.connector.ConnectorSession;
 public final class TimeType
         extends AbstractLongType
 {
+    /**
+     * @deprecated Use {@link #createTimeType(int)} instead.
+     */
+    @Deprecated
     public static final TimeType TIME = new TimeType();
+
+    public static TimeType createTimeType(int precision)
+    {
+        if (precision != 3) {
+            throw new IllegalArgumentException(format("Precision %s is not supported", precision));
+        }
+        return TIME;
+    }
 
     private TimeType()
     {
         super(new TypeSignature(StandardTypes.TIME));
+    }
+
+    public int getPrecision()
+    {
+        return 3;
     }
 
     @Override

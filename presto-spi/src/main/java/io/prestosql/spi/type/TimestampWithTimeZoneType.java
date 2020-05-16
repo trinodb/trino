@@ -17,15 +17,33 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static java.lang.String.format;
 
 public final class TimestampWithTimeZoneType
         extends AbstractLongType
 {
+    /**
+     * @deprecated Use {@link #createTimestampWithTimeZoneType(int)} instead.
+     */
+    @Deprecated
     public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
+
+    public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
+    {
+        if (precision != 3) {
+            throw new IllegalArgumentException(format("Precision %s is not supported", precision));
+        }
+        return TIMESTAMP_WITH_TIME_ZONE;
+    }
 
     private TimestampWithTimeZoneType()
     {
         super(new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
+    }
+
+    public int getPrecision()
+    {
+        return 3;
     }
 
     @Override
