@@ -91,17 +91,20 @@ public class FileBasedSystemAccessControl
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
+    private final Optional<List<SchemaAccessControlRule>> schemaRules;
 
     private FileBasedSystemAccessControl(
             List<CatalogAccessControlRule> catalogRules,
             Optional<List<QueryAccessRule>> queryAccessRules,
             Optional<List<ImpersonationRule>> impersonationRules,
-            Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
+            Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
+            Optional<List<SchemaAccessControlRule>> schemaRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
         this.impersonationRules = impersonationRules;
         this.principalUserMatchRules = principalUserMatchRules;
+        this.schemaRules = schemaRules;
     }
 
     public static class Factory
@@ -169,7 +172,8 @@ public class FileBasedSystemAccessControl
                     catalogRulesBuilder.build(),
                     rules.getQueryAccessRules(),
                     rules.getImpersonationRules(),
-                    rules.getPrincipalUserMatchRules());
+                    rules.getPrincipalUserMatchRules(),
+                    rules.getSchemaRules());
         }
     }
 
@@ -335,6 +339,10 @@ public class FileBasedSystemAccessControl
         if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
             denyDropSchema(schema.toString());
         }
+
+        if (!isSchemaOwner(context, schema.getSchemaName())) {
+            denyDropSchema(schema.getSchemaName());
+        }
     }
 
     @Override
@@ -343,6 +351,10 @@ public class FileBasedSystemAccessControl
         if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
             denyRenameSchema(schema.toString(), newSchemaName);
         }
+
+        if (!isSchemaOwner(context, schema.getSchemaName()) || !isSchemaOwner(context, newSchemaName)) {
+            denyRenameSchema(schema.getSchemaName(), newSchemaName);
+        }
     }
 
     @Override
@@ -350,6 +362,10 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
             denySetSchemaAuthorization(schema.toString(), principal);
+        }
+
+        if (!isSchemaOwner(context, schema.getSchemaName())) {
+            denySetSchemaAuthorization(schema.getSchemaName(), principal);
         }
     }
 
@@ -381,6 +397,10 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(context.getIdentity(), schemaName.getCatalogName(), ALL)) {
             denyShowCreateSchema(schemaName.toString());
+        }
+
+        if (!isSchemaOwner(context, schemaName.getSchemaName())) {
+            denyShowCreateSchema(schemaName.getSchemaName());
         }
     }
 
@@ -580,5 +600,21 @@ public class FileBasedSystemAccessControl
     public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    private boolean isSchemaOwner(SystemSecurityContext context, String schemaName)
+    {
+        if (schemaRules.isEmpty()) {
+            return true;
+        }
+
+        Identity identity = context.getIdentity();
+        for (SchemaAccessControlRule rule : schemaRules.get()) {
+            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schemaName);
+            if (owner.isPresent()) {
+                return owner.get();
+            }
+        }
+        return false;
     }
 }
