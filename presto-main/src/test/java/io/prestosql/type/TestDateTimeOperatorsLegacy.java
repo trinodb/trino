@@ -23,6 +23,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -228,7 +229,7 @@ public class TestDateTimeOperatorsLegacy
     {
         Session localSession = testSessionBuilder()
                 .setTimeZoneKey(getTimeZoneKey("America/Los_Angeles"))
-                .setStartTime(date.getMillis())
+                .setStart(Instant.ofEpochMilli(date.getMillis()))
                 .setSystemProperty("legacy_timestamp", "true")
                 .build();
 

@@ -96,7 +96,7 @@ public final class DateTimeFunctions
 
         // It is ok for this method to use the Object interfaces because it is constant folded during
         // plan optimization
-        LocalDate currentDate = new DateTime(session.getStartTime(), chronology).toLocalDate();
+        LocalDate currentDate = new DateTime(session.getStart().toEpochMilli(), chronology).toLocalDate();
         return Days.daysBetween(new LocalDate(1970, 1, 1), currentDate).getDays();
     }
 
@@ -107,14 +107,14 @@ public final class DateTimeFunctions
     {
         // We do all calculation in UTC, as session.getStartTime() is in UTC
         // and we need to have UTC millis for packDateTimeWithZone
-        long millis = UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
+        long millis = UTC_CHRONOLOGY.millisOfDay().get(session.getStart().toEpochMilli());
 
         if (!session.isLegacyTimestamp()) {
             // However, those UTC millis are pointing to the correct UTC timestamp
             // Our TIME WITH TIME ZONE representation does use UTC 1970-01-01 representation
             // So we have to hack here in order to get valid representation
             // of TIME WITH TIME ZONE
-            millis -= valueToSessionTimeZoneOffsetDiff(session.getStartTime(), getDateTimeZone(session.getTimeZoneKey()));
+            millis -= valueToSessionTimeZoneOffsetDiff(session.getStart().toEpochMilli(), getDateTimeZone(session.getTimeZoneKey()));
         }
         return packDateTimeWithZone(millis, session.getTimeZoneKey());
     }
@@ -125,10 +125,10 @@ public final class DateTimeFunctions
     public static long localTime(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            return UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
+            return UTC_CHRONOLOGY.millisOfDay().get(session.getStart().toEpochMilli());
         }
         ISOChronology localChronology = getChronology(session.getTimeZoneKey());
-        return localChronology.millisOfDay().get(session.getStartTime());
+        return localChronology.millisOfDay().get(session.getStart().toEpochMilli());
     }
 
     @Description("Current time zone")
@@ -144,7 +144,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long currentTimestamp(ConnectorSession session)
     {
-        return packDateTimeWithZone(session.getStartTime(), session.getTimeZoneKey());
+        return packDateTimeWithZone(session.getStart().toEpochMilli(), session.getTimeZoneKey());
     }
 
     @Description("Current timestamp without time zone")
@@ -153,10 +153,10 @@ public final class DateTimeFunctions
     public static long localTimestamp(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            return session.getStartTime();
+            return session.getStart().toEpochMilli();
         }
         ISOChronology localChronology = getChronology(session.getTimeZoneKey());
-        return localChronology.getZone().convertUTCToLocal(session.getStartTime());
+        return localChronology.getZone().convertUTCToLocal(session.getStart().toEpochMilli());
     }
 
     @ScalarFunction("from_unixtime")
@@ -1364,10 +1364,10 @@ public final class DateTimeFunctions
         long millis = unpackMillisUtc(timeWithTimeZone);
 
         // STEP 1. Calculate source UTC millis in session start
-        millis += valueToSessionTimeZoneOffsetDiff(session.getStartTime(), sourceTimeZone);
+        millis += valueToSessionTimeZoneOffsetDiff(session.getStart().toEpochMilli(), sourceTimeZone);
 
         // STEP 2. Calculate target UTC millis in 1970
-        millis -= valueToSessionTimeZoneOffsetDiff(session.getStartTime(), targetTimeZone);
+        millis -= valueToSessionTimeZoneOffsetDiff(session.getStart().toEpochMilli(), targetTimeZone);
 
         // STEP 3. Make sure that value + offset is in 0 - 23:59:59.999
         long localMillis = millis + targetTimeZone.getOffset(0);

@@ -398,7 +398,7 @@ public class LocalQueryRunner
                 defaultSession.getClientTags(),
                 defaultSession.getClientCapabilities(),
                 defaultSession.getResourceEstimates(),
-                defaultSession.getStartTime(),
+                defaultSession.getStart(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
                 defaultSession.getUnprocessedCatalogProperties(),
