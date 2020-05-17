@@ -23,6 +23,7 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -114,7 +115,7 @@ public class TestPinotSplitManager
     {
         return TestingConnectorSession.builder()
                 .setTimeZoneKey(UTC_KEY)
-                .setStartTime(System.currentTimeMillis())
+                .setStart(Instant.now())
                 .setPropertyMetadata(new PinotSessionProperties(pinotConfig).getSessionProperties())
                 .setPropertyValues(ImmutableMap.<String, Object>builder()
                         .put(PinotSessionProperties.SEGMENTS_PER_SPLIT, numSegmentsPerSplit)

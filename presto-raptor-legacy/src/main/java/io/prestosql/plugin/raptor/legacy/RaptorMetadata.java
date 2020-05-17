@@ -486,7 +486,7 @@ public class RaptorMetadata
         String type = column.getType().getTypeId().getId();
         daoTransaction(dbi, MetadataDao.class, dao -> {
             dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
-            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+            dao.updateTableVersion(table.getTableId(), session.getStart().toEpochMilli());
         });
 
         shardManager.addColumn(table.getTableId(), new ColumnInfo(columnId, column.getType()));
@@ -499,7 +499,7 @@ public class RaptorMetadata
         RaptorColumnHandle sourceColumn = (RaptorColumnHandle) source;
         daoTransaction(dbi, MetadataDao.class, dao -> {
             dao.renameColumn(table.getTableId(), sourceColumn.getColumnId(), target);
-            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+            dao.updateTableVersion(table.getTableId(), session.getStart().toEpochMilli());
         });
     }
 
@@ -534,7 +534,7 @@ public class RaptorMetadata
 
         daoTransaction(dbi, MetadataDao.class, dao -> {
             dao.dropColumn(table.getTableId(), raptorColumn.getColumnId());
-            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+            dao.updateTableVersion(table.getTableId(), session.getStart().toEpochMilli());
         });
 
         // TODO: drop column from index table
@@ -657,7 +657,7 @@ public class RaptorMetadata
     {
         RaptorOutputTableHandle table = (RaptorOutputTableHandle) outputTableHandle;
         long transactionId = table.getTransactionId();
-        long updateTime = session.getStartTime();
+        long updateTime = session.getStart().toEpochMilli();
 
         long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
@@ -763,7 +763,7 @@ public class RaptorMetadata
         long tableId = handle.getTableId();
         Optional<String> externalBatchId = handle.getExternalBatchId();
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
-        long updateTime = session.getStartTime();
+        long updateTime = session.getStart().toEpochMilli();
 
         Collection<ShardInfo> shards = parseFragments(fragments);
         log.info("Committing insert into tableId %s (queryId: %s, shards: %s, columns: %s)", handle.getTableId(), session.getQueryId(), shards.size(), columns.size());
@@ -828,7 +828,7 @@ public class RaptorMetadata
 
         Set<UUID> oldShardUuids = oldShardUuidsBuilder.build();
         List<ShardInfo> newShards = newShardsBuilder.build();
-        OptionalLong updateTime = OptionalLong.of(session.getStartTime());
+        OptionalLong updateTime = OptionalLong.of(session.getStart().toEpochMilli());
 
         log.info("Finishing delete for tableId %s (removed: %s, rewritten: %s)", tableId, oldShardUuids.size() - newShards.size(), newShards.size());
         shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards, updateTime);
