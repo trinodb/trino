@@ -24,6 +24,8 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
+
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -166,7 +168,7 @@ public abstract class TestTimeBase
         // For simplicity we have to use time zone that is going forward when entering DST zone with 1970-01-01
         Session session = Session.builder(this.session)
                 .setTimeZoneKey(getTimeZoneKey("Australia/Sydney"))
-                .setStartTime(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis())
+                .setStart(Instant.ofEpochMilli(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis()))
                 .build();
         try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
             localAssertions.assertFunctionString("cast(TIME '12:00:00.000' as time with time zone)", TIME_WITH_TIME_ZONE, "12:00:00.000 Australia/Sydney");

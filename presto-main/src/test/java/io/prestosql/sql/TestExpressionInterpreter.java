@@ -523,7 +523,7 @@ public class TestExpressionInterpreter
     @Test
     public void testCurrentTimestamp()
     {
-        double current = TEST_SESSION.getStartTime() / 1000.0;
+        double current = TEST_SESSION.getStart().toEpochMilli() / 1000.0;
         assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
         double future = current + TimeUnit.MINUTES.toSeconds(1);
         assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ")", "false");

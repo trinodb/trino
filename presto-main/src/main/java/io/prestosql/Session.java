@@ -36,6 +36,7 @@ import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
 
 import java.security.Principal;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -73,7 +74,7 @@ public final class Session
     private final Set<String> clientTags;
     private final Set<String> clientCapabilities;
     private final ResourceEstimates resourceEstimates;
-    private final long startTime;
+    private final Instant start;
     private final Map<String, String> systemProperties;
     private final Map<CatalogName, Map<String, String>> connectorProperties;
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
@@ -98,7 +99,7 @@ public final class Session
             Set<String> clientTags,
             Set<String> clientCapabilities,
             ResourceEstimates resourceEstimates,
-            long startTime,
+            Instant start,
             Map<String, String> systemProperties,
             Map<CatalogName, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
@@ -122,7 +123,7 @@ public final class Session
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.clientCapabilities = ImmutableSet.copyOf(requireNonNull(clientCapabilities, "clientCapabilities is null"));
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
-        this.startTime = startTime;
+        this.start = start;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
@@ -224,9 +225,9 @@ public final class Session
         return resourceEstimates;
     }
 
-    public long getStartTime()
+    public Instant getStart()
     {
-        return startTime;
+        return start;
     }
 
     public Optional<TransactionId> getTransactionId()
@@ -367,7 +368,7 @@ public final class Session
                 clientTags,
                 clientCapabilities,
                 resourceEstimates,
-                startTime,
+                start,
                 systemProperties,
                 connectorProperties.build(),
                 ImmutableMap.of(),
@@ -418,7 +419,7 @@ public final class Session
                 clientTags,
                 clientCapabilities,
                 resourceEstimates,
-                startTime,
+                start,
                 systemProperties,
                 ImmutableMap.of(),
                 connectorProperties,
@@ -471,7 +472,7 @@ public final class Session
                 clientTags,
                 clientCapabilities,
                 resourceEstimates,
-                startTime,
+                start,
                 systemProperties,
                 connectorProperties,
                 unprocessedCatalogProperties,
@@ -500,7 +501,7 @@ public final class Session
                 .add("clientTags", clientTags)
                 .add("clientCapabilities", clientCapabilities)
                 .add("resourceEstimates", resourceEstimates)
-                .add("startTime", startTime)
+                .add("start", start)
                 .omitNullValues()
                 .toString();
     }
@@ -540,7 +541,7 @@ public final class Session
         private Set<String> clientTags = ImmutableSet.of();
         private Set<String> clientCapabilities = ImmutableSet.of();
         private ResourceEstimates resourceEstimates;
-        private long startTime = System.currentTimeMillis();
+        private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
@@ -571,7 +572,7 @@ public final class Session
             this.userAgent = session.userAgent.orElse(null);
             this.clientInfo = session.clientInfo.orElse(null);
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
-            this.startTime = session.startTime;
+            this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
             this.catalogSessionProperties.putAll(session.unprocessedCatalogProperties);
             this.preparedStatements.putAll(session.preparedStatements);
@@ -638,9 +639,9 @@ public final class Session
             return this;
         }
 
-        public SessionBuilder setStartTime(long startTime)
+        public SessionBuilder setStart(Instant start)
         {
-            this.startTime = startTime;
+            this.start = start;
             return this;
         }
 
@@ -733,7 +734,7 @@ public final class Session
                     clientTags,
                     clientCapabilities,
                     Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
-                    startTime,
+                    start,
                     systemProperties,
                     ImmutableMap.of(),
                     catalogSessionProperties,

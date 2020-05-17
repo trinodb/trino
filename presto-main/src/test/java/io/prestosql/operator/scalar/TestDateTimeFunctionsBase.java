@@ -125,7 +125,7 @@ public abstract class TestDateTimeFunctionsBase
         super(testSessionBuilder()
                 .setSystemProperty("legacy_timestamp", String.valueOf(legacyTimestamp))
                 .setTimeZoneKey(TIME_ZONE_KEY)
-                .setStartTime(new DateTime(2017, 4, 1, 12, 34, 56, 789, UTC_TIME_ZONE).getMillis())
+                .setStart(Instant.ofEpochMilli(new DateTime(2017, 4, 1, 12, 34, 56, 789, UTC_TIME_ZONE).getMillis()))
                 .build());
         TIMESTAMP = legacyTimestamp ? LEGACY_TIMESTAMP : NEW_TIMESTAMP;
     }
@@ -134,7 +134,7 @@ public abstract class TestDateTimeFunctionsBase
     public void testCurrentDate()
     {
         // current date is the time at midnight in the session time zone
-        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(toIntExact(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
+        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(toIntExact(epochDaysInZone(TIME_ZONE_KEY, session.getStart()))));
     }
 
     @Test
@@ -145,9 +145,10 @@ public abstract class TestDateTimeFunctionsBase
         TimeZoneKey montrealTimeZoneKey = getTimeZoneKey("America/Montreal");
         long timeIncrement = TimeUnit.MINUTES.toMillis(53);
         // We expect UTC millis later on so we have to use UTC chronology
-        for (long instant = ISOChronology.getInstanceUTC().getDateTimeMillis(2000, 6, 15, 0, 0, 0, 0);
-                instant < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
-                instant += timeIncrement) {
+        for (long millis = ISOChronology.getInstanceUTC().getDateTimeMillis(2000, 6, 15, 0, 0, 0, 0);
+                millis < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
+                millis += timeIncrement) {
+            Instant instant = Instant.ofEpochMilli(millis);
             assertCurrentDateAtInstant(kievTimeZoneKey, instant);
             assertCurrentDateAtInstant(bahiaBanderasTimeZoneKey, instant);
             assertCurrentDateAtInstant(montrealTimeZoneKey, instant);
@@ -155,11 +156,11 @@ public abstract class TestDateTimeFunctionsBase
         }
     }
 
-    private void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
+    private void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, Instant instant)
     {
         long expectedDays = epochDaysInZone(timeZoneKey, instant);
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
-                .setStartTime(instant)
+                .setStart(instant)
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyTimestamp(isLegacyTimestamp(session))
                 .build();
@@ -167,9 +168,9 @@ public abstract class TestDateTimeFunctionsBase
         assertEquals(dateTimeCalculation, expectedDays);
     }
 
-    private static long epochDaysInZone(TimeZoneKey timeZoneKey, long instant)
+    private static long epochDaysInZone(TimeZoneKey timeZoneKey, Instant instant)
     {
-        return LocalDate.from(Instant.ofEpochMilli(instant).atZone(ZoneId.of(timeZoneKey.getId()))).toEpochDay();
+        return LocalDate.from(instant.atZone(ZoneId.of(timeZoneKey.getId()))).toEpochDay();
     }
 
     @Test
@@ -998,7 +999,7 @@ public abstract class TestDateTimeFunctionsBase
         Session oldKathmanduTimeZoneOffsetSession =
                 Session.builder(this.session)
                         .setTimeZoneKey(TIME_ZONE_KEY)
-                        .setStartTime(new DateTime(1980, 1, 1, 10, 0, 0, DATE_TIME_ZONE).getMillis())
+                        .setStart(Instant.ofEpochMilli(new DateTime(1980, 1, 1, 10, 0, 0, DATE_TIME_ZONE).getMillis()))
                         .build();
 
         TimeZoneKey europeWarsawTimeZoneKey = getTimeZoneKey("Europe/Warsaw");
@@ -1006,7 +1007,7 @@ public abstract class TestDateTimeFunctionsBase
         Session europeWarsawSessionWinter =
                 Session.builder(this.session)
                         .setTimeZoneKey(europeWarsawTimeZoneKey)
-                        .setStartTime(new DateTime(2017, 1, 1, 10, 0, 0, europeWarsawTimeZone).getMillis())
+                        .setStart(Instant.ofEpochMilli(new DateTime(2017, 1, 1, 10, 0, 0, europeWarsawTimeZone).getMillis()))
                         .build();
         try (FunctionAssertions europeWarsawAssertionsWinter = new FunctionAssertions(europeWarsawSessionWinter);
                 FunctionAssertions oldKathmanduTimeZoneOffsetAssertions = new FunctionAssertions(oldKathmanduTimeZoneOffsetSession)) {

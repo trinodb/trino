@@ -2845,7 +2845,7 @@ class StatementAnalyzer
                 .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                 .setUserAgent(session.getUserAgent().orElse(null))
                 .setClientInfo(session.getClientInfo().orElse(null))
-                .setStartTime(session.getStartTime())
+                .setStart(session.getStart())
                 .build();
     }
 
