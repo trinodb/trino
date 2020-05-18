@@ -463,7 +463,7 @@ public final class SortedRangeSet
 
         SortedRangeSet build()
         {
-            Collections.sort(ranges, Comparator.comparing(Range::getLow));
+            ranges.sort(Comparator.comparing(Range::getLow));
 
             NavigableMap<Marker, Range> result = new TreeMap<>();
 
