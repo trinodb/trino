@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import com.google.common.io.Closer;
-import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.core.CachingFileSystemStats;
 import com.qubole.rubix.core.utils.DummyClusterManager;
@@ -81,6 +80,7 @@ public class TestRubixCaching
     private Path cacheStoragePath;
     private HdfsConfig config;
     private HdfsContext context;
+    private RubixInitializer rubixInitializer;
     private FileSystem nonCachingFileSystem;
     private FileSystem cachingFileSystem;
 
@@ -133,7 +133,7 @@ public class TestRubixCaching
         TestingNodeManager nodeManager = new TestingNodeManager(
                 coordinatorNode,
                 ImmutableList.of());
-        RubixInitializer rubixInitializer = new RubixInitializer(
+        rubixInitializer = new RubixInitializer(
                 nodeManager,
                 new CatalogName("catalog"),
                 rubixConfigInitializer,
@@ -169,7 +169,7 @@ public class TestRubixCaching
             closer.register(() -> deleteRecursively(tempDirectory, ALLOW_INSECURE));
             closer.register(() -> nonCachingFileSystem.close());
             closer.register(() -> cachingFileSystem.close());
-            closer.register(LocalDataTransferServer::stopServer);
+            closer.register(rubixInitializer::stopRubix);
         }
     }
 
