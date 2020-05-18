@@ -124,11 +124,7 @@ public class TestRubixCaching
                         .map(java.nio.file.Path::toString)
                         .collect(toImmutableList())));
         RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
-        HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(
-                config,
-                ImmutableSet.of(
-                        // make sure that dummy cluster manager is used
-                        initConfig -> setPrestoClusterManager(initConfig, DummyClusterManager.class.getName())));
+        HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
         InternalNode coordinatorNode = new InternalNode(
                 "master",
                 URI.create("http://127.0.0.1:8080"),
@@ -155,10 +151,12 @@ public class TestRubixCaching
         HiveHdfsConfiguration configuration = new HiveHdfsConfiguration(
                 configurationInitializer,
                 ImmutableSet.of(
+                        rubixConfigInitializer,
                         (dynamicConfig, ignoredContext, ignoredUri) -> {
+                            // make sure that dummy cluster manager is used
+                            setPrestoClusterManager(dynamicConfig, DummyClusterManager.class.getName());
                             dynamicConfig.set("fs.file.impl", CachingLocalFileSystem.class.getName());
-                        },
-                        rubixConfigInitializer));
+                        }));
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
         return environment.getFileSystem(context, cacheStoragePath);
     }

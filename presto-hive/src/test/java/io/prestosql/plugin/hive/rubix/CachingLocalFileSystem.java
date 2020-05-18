@@ -14,12 +14,32 @@
 package io.prestosql.plugin.hive.rubix;
 
 import com.qubole.rubix.core.CachingFileSystem;
+import com.qubole.rubix.core.ClusterManagerInitilizationException;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
+
+import java.io.IOException;
+import java.net.URI;
+
+import static com.qubole.rubix.spi.ClusterType.PRESTOSQL_CLUSTER_MANAGER;
 
 public class CachingLocalFileSystem
         extends CachingFileSystem<LocalFileSystem>
 {
     private static final String SCHEME = "file";
+
+    @Override
+    public void initialize(URI uri, Configuration conf)
+            throws IOException
+    {
+        try {
+            initializeClusterManager(conf, PRESTOSQL_CLUSTER_MANAGER);
+            super.initialize(uri, conf);
+        }
+        catch (ClusterManagerInitilizationException exception) {
+            throw new IOException(exception);
+        }
+    }
 
     @Override
     public String getScheme()
