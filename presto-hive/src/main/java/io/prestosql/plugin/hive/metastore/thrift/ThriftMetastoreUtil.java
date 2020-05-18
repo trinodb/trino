@@ -232,7 +232,7 @@ public final class ThriftMetastoreUtil
 
     public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        return Streams.stream(new AbstractIterator<RoleGrant>()
+        return Streams.stream(new AbstractIterator<>()
         {
             private final Queue<RoleGrant> output = new ArrayDeque<>();
             private final Set<RoleGrant> seenRoles = new HashSet<>();

@@ -128,7 +128,7 @@ public final class ExpressionTestUtils
                 false);
         analyzer.analyze(expression, Scope.builder().build());
 
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

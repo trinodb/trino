@@ -115,7 +115,7 @@ class TranslationMap
         Expression mapped = translateNamesToSymbols(expression);
 
         // then rewrite subexpressions in terms of the current mappings
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
             @Override
             protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

@@ -92,7 +92,7 @@ public class SymbolMapper
 
     public Expression map(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

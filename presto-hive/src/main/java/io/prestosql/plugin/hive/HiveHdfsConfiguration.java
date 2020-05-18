@@ -32,7 +32,7 @@ public class HiveHdfsConfiguration
     private static final Configuration INITIAL_CONFIGURATION = getInitialConfiguration();
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
-    private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
+    private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<>()
     {
         @Override
         protected Configuration initialValue()

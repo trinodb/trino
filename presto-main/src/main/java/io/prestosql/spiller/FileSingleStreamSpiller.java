@@ -200,7 +200,7 @@ public class FileSingleStreamSpiller
         requireNonNull(iterator, "iterator is null");
         requireNonNull(resource, "resource is null");
 
-        return new AbstractIterator<T>()
+        return new AbstractIterator<>()
         {
             @Override
             protected T computeNext()

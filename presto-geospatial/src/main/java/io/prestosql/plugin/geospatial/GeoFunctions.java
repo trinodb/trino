@@ -1849,7 +1849,7 @@ public final class GeoFunctions
     private static Iterable<Slice> getGeometrySlicesFromBlock(Block block)
     {
         requireNonNull(block, "block is null");
-        return () -> new Iterator<Slice>()
+        return () -> new Iterator<>()
         {
             private int iteratorPosition;
 

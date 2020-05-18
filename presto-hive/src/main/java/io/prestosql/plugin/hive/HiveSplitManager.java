@@ -468,7 +468,7 @@ public class HiveSplitManager
      */
     private static <T> Iterable<List<T>> partitionExponentially(List<T> values, int minBatchSize, int maxBatchSize)
     {
-        return () -> new AbstractIterator<List<T>>()
+        return () -> new AbstractIterator<>()
         {
             private int currentSize = minBatchSize;
             private final Iterator<T> iterator = values.iterator();

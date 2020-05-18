@@ -138,7 +138,7 @@ public class SqlTask
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
+        taskStateMachine.addStateChangeListener(new StateChangeListener<>()
         {
             @Override
             public void stateChanged(TaskState newState)

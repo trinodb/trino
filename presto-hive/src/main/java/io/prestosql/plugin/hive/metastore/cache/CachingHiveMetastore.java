@@ -166,7 +166,7 @@ public class CachingHiveMetastore
                 .build(asyncReloading(CacheLoader.from(this::loadTableColumnStatistics), executor));
 
         partitionStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<WithIdentity<HivePartitionName>, PartitionStatistics>()
+                .build(asyncReloading(new CacheLoader<>()
                 {
                     @Override
                     public PartitionStatistics load(WithIdentity<HivePartitionName> key)
@@ -194,7 +194,7 @@ public class CachingHiveMetastore
                 .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByParts), executor));
 
         partitionCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<WithIdentity<HivePartitionName>, Optional<Partition>>()
+                .build(asyncReloading(new CacheLoader<>()
                 {
                     @Override
                     public Optional<Partition> load(WithIdentity<HivePartitionName> partitionName)

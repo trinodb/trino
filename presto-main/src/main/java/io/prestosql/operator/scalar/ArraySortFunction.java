@@ -61,7 +61,7 @@ public final class ArraySortFunction
             positions.set(i, i);
         }
 
-        Collections.sort(positions.subList(0, arrayLength), new Comparator<Integer>()
+        Collections.sort(positions.subList(0, arrayLength), new Comparator<>()
         {
             @Override
             public int compare(Integer p1, Integer p2)
