@@ -13,10 +13,14 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import alluxio.shaded.client.com.google.common.cache.CacheBuilder;
+import alluxio.shaded.client.com.google.common.cache.CacheLoader;
+import alluxio.shaded.client.com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HdfsEnvironment;
@@ -104,6 +108,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -134,6 +139,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -161,6 +167,7 @@ public class ThriftHiveMetastore
     private final Duration maxWaitForLock;
     private final int maxRetries;
     private final boolean impersonationEnabled;
+    private final LoadingCache<String, String> delegationTokenCache;
     private final boolean deleteFilesOnDrop;
     private final HiveMetastoreAuthenticationType authenticationType;
     private final boolean translateHiveViews;
@@ -191,6 +198,11 @@ public class ThriftHiveMetastore
         this.authenticationType = authenticationConfig.getHiveMetastoreAuthenticationType();
         this.translateHiveViews = hiveConfig.isTranslateHiveViews();
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
+
+        this.delegationTokenCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
+                .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize())
+                .build(CacheLoader.from(this::loadDelegationToken));
     }
 
     @Managed
@@ -1785,8 +1797,12 @@ public class ThriftHiveMetastore
         switch (authenticationType) {
             case KERBEROS:
                 String delegationToken;
-                try (ThriftMetastoreClient client = createMetastoreClient()) {
-                    delegationToken = client.getDelegationToken(username);
+                try {
+                    delegationToken = delegationTokenCache.getUnchecked(username);
+                }
+                catch (UncheckedExecutionException e) {
+                    throwIfInstanceOf(e.getCause(), PrestoException.class);
+                    throw e;
                 }
                 return clientProvider.createMetastoreClient(Optional.of(delegationToken));
 
@@ -1797,6 +1813,16 @@ public class ThriftHiveMetastore
 
             default:
                 throw new IllegalStateException("Unsupported authentication type: " + authenticationType);
+        }
+    }
+
+    private String loadDelegationToken(String username)
+    {
+        try (ThriftMetastoreClient client = createMetastoreClient()) {
+            return client.getDelegationToken(username);
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 

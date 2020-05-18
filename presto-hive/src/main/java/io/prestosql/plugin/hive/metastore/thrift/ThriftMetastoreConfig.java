@@ -18,6 +18,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import io.prestosql.plugin.hive.util.RetryDriver;
 
 import javax.validation.constraints.AssertTrue;
@@ -37,6 +38,8 @@ public class ThriftMetastoreConfig
     private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
     private boolean impersonationEnabled;
+    private Duration delegationTokenCacheTtl = new Duration(1, TimeUnit.HOURS); // The default lifetime in Hive is 7 days (metastore.cluster.delegation.token.max-lifetime)
+    private long delegationTokenCacheMaximumSize = 1000;
     private boolean deleteFilesOnDrop;
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
 
@@ -148,6 +151,36 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getDelegationTokenCacheTtl()
+    {
+        return delegationTokenCacheTtl;
+    }
+
+    @Config("hive.metastore.thrift.delegation-token.cache-ttl")
+    @ConfigDescription("Time to live delegation token cache for metastore")
+    public ThriftMetastoreConfig setDelegationTokenCacheTtl(Duration delegationTokenCacheTtl)
+    {
+        this.delegationTokenCacheTtl = delegationTokenCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    @Min(0)
+    public long getDelegationTokenCacheMaximumSize()
+    {
+        return delegationTokenCacheMaximumSize;
+    }
+
+    @Config("hive.metastore.thrift.delegation-token.cache-maximum-size")
+    @ConfigDescription("Delegation token cache maximum size")
+    public ThriftMetastoreConfig setDelegationTokenCacheMaximumSize(long delegationTokenCacheMaximumSize)
+    {
+        this.delegationTokenCacheMaximumSize = delegationTokenCacheMaximumSize;
         return this;
     }
 
