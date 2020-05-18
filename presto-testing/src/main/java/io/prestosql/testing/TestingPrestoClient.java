@@ -152,7 +152,7 @@ public class TestingPrestoClient
         }
     }
 
-    private static Function<List<Object>, MaterializedRow> dataToRow(final List<Type> types)
+    private static Function<List<Object>, MaterializedRow> dataToRow(List<Type> types)
     {
         return data -> {
             checkArgument(data.size() == types.size(), "columns size does not match types size");

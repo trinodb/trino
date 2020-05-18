@@ -678,7 +678,7 @@ public final class FunctionAssertions
 
     private static boolean needsBoundValue(Expression projectionExpression)
     {
-        final AtomicBoolean hasSymbolReferences = new AtomicBoolean();
+        AtomicBoolean hasSymbolReferences = new AtomicBoolean();
         new DefaultTraversalVisitor<Void>()
         {
             @Override
@@ -928,7 +928,7 @@ public final class FunctionAssertions
                 Slices.wrappedBuffer((byte) 0xab),
                 createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getObject(0, Block.class)).iterator();
 
-        final int numFields = rowType.getFields().size();
+        int numFields = rowType.getFields().size();
         Object[] rowValues = new Object[numFields];
         for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
             rowValues[fieldIdx] = values.next();

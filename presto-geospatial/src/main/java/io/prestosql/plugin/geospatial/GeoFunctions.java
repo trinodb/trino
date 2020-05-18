@@ -1636,7 +1636,7 @@ public final class GeoFunctions
             boundary.lineTo(current);
         }
 
-        final Polygon newPolygon = new Polygon();
+        Polygon newPolygon = new Polygon();
         newPolygon.add(boundary, false);
         return newPolygon;
     }

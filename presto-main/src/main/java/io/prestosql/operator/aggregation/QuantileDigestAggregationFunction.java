@@ -148,7 +148,7 @@ public final class QuantileDigestAggregationFunction
 
     private static MethodHandle getMethodHandle(Type valueType, int arity)
     {
-        final MethodHandle inputFunction;
+        MethodHandle inputFunction;
         switch (valueType.getDisplayName()) {
             case StandardTypes.DOUBLE:
                 inputFunction = INPUT_DOUBLE;

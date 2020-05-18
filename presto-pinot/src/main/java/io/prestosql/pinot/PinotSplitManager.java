@@ -89,7 +89,7 @@ public class PinotSplitManager
             ConnectorSession session,
             Optional<String> timePredicate)
     {
-        final String finalTableName = tableName + tableNameSuffix;
+        String finalTableName = tableName + tableNameSuffix;
         int segmentsPerSplitConfigured = PinotSessionProperties.getSegmentsPerSplit(session);
         for (String routingTableName : routingTable.keySet()) {
             if (!routingTableName.equalsIgnoreCase(finalTableName)) {

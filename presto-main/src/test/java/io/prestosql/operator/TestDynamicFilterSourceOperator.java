@@ -279,7 +279,7 @@ public class TestDynamicFilterSourceOperator
     @Test
     public void testCollectTooMuchRows()
     {
-        final int maxRowCount = getDynamicFilteringMaxPerDriverRowCount(pipelineContext.getSession());
+        int maxRowCount = getDynamicFilteringMaxPerDriverRowCount(pipelineContext.getSession());
         Page largePage = createSequencePage(ImmutableList.of(BIGINT), maxRowCount + 1);
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT));
@@ -293,7 +293,7 @@ public class TestDynamicFilterSourceOperator
     @Test
     public void testCollectTooMuchBytesSingleColumn()
     {
-        final long maxByteSize = getDynamicFilteringMaxPerDriverSize(pipelineContext.getSession()).toBytes();
+        long maxByteSize = getDynamicFilteringMaxPerDriverSize(pipelineContext.getSession()).toBytes();
         Page largePage = new Page(createStringsBlock("A".repeat((int) maxByteSize + 1)));
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, VARCHAR));
@@ -307,7 +307,7 @@ public class TestDynamicFilterSourceOperator
     @Test
     public void testCollectTooMuchBytesMultipleColumns()
     {
-        final long maxByteSize = getDynamicFilteringMaxPerDriverSize(pipelineContext.getSession()).toBytes();
+        long maxByteSize = getDynamicFilteringMaxPerDriverSize(pipelineContext.getSession()).toBytes();
         Page largePage = new Page(createStringsBlock("A".repeat((int) (maxByteSize / 2) + 1)),
                 createStringsBlock("B".repeat((int) (maxByteSize / 2) + 1)));
 
@@ -323,7 +323,7 @@ public class TestDynamicFilterSourceOperator
     @Test
     public void testCollectDeduplication()
     {
-        final int maxRowCount = getDynamicFilteringMaxPerDriverRowCount(pipelineContext.getSession());
+        int maxRowCount = getDynamicFilteringMaxPerDriverRowCount(pipelineContext.getSession());
         Page largePage = new Page(createLongRepeatBlock(7, maxRowCount * 10)); // lots of zeros
         Page nullsPage = new Page(createLongsBlock(Arrays.asList(new Long[maxRowCount * 10]))); // lots of nulls
 

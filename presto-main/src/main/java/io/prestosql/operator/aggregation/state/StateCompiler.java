@@ -566,7 +566,7 @@ public final class StateCompiler
     private static List<StateField> enumerateFields(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        final Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
+        Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
                 continue;

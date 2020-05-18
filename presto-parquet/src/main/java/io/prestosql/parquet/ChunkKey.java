@@ -41,7 +41,7 @@ public class ChunkKey
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final ChunkKey other = (ChunkKey) obj;
+        ChunkKey other = (ChunkKey) obj;
         return Objects.equals(this.column, other.column)
                 && Objects.equals(this.rowGroup, other.rowGroup);
     }

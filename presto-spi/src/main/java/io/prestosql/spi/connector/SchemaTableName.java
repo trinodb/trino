@@ -60,7 +60,7 @@ public class SchemaTableName
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SchemaTableName other = (SchemaTableName) obj;
+        SchemaTableName other = (SchemaTableName) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName);
     }

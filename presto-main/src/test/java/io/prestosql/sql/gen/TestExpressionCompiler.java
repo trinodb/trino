@@ -1863,7 +1863,7 @@ public class TestExpressionCompiler
                 ImmutableList.of(type));
     }
 
-    private static List<String> formatExpression(String expressionPattern, Object left, final String leftType, Object right, final String rightType)
+    private static List<String> formatExpression(String expressionPattern, Object left, String leftType, Object right, String rightType)
     {
         return formatExpression(expressionPattern,
                 Arrays.asList(left, right),

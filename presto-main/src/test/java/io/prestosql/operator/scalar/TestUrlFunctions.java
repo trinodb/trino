@@ -53,7 +53,7 @@ public class TestUrlFunctions
     @Test
     public void testUrlEncode()
     {
-        final String[][] outputInputPairs = {
+        String[][] outputInputPairs = {
                 {"http%3A%2F%2Ftest", "http://test"},
                 {"http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd", "http://test?a=b&c=d"},
                 {"http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88", "http://\u30c6\u30b9\u30c8"},

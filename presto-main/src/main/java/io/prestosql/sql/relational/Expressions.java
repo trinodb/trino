@@ -51,7 +51,7 @@ public final class Expressions
 
     public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
     {
-        final ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
 
         for (RowExpression expression : expressions) {
             expression.accept(new RowExpressionVisitor<Void, Void>()

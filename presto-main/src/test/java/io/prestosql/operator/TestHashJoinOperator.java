@@ -481,7 +481,7 @@ public class TestHashJoinOperator
         }
     }
 
-    private static void processRow(final Driver joinDriver, final TaskStateMachine taskStateMachine)
+    private static void processRow(Driver joinDriver, TaskStateMachine taskStateMachine)
     {
         joinDriver.getDriverContext().getYieldSignal().setWithDelay(TimeUnit.SECONDS.toNanos(1), joinDriver.getDriverContext().getYieldExecutor());
         joinDriver.process();

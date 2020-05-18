@@ -94,7 +94,7 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testPageSource()
     {
-        final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
+        Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
@@ -218,7 +218,7 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testRecordCursorSource()
     {
-        final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
+        Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));

@@ -551,7 +551,7 @@ public class SqlTaskExecution
         // when driver completes, update state and fire events
         for (int i = 0; i < finishedFutures.size(); i++) {
             ListenableFuture<?> finishedFuture = finishedFutures.get(i);
-            final DriverSplitRunner splitRunner = runners.get(i);
+            DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
             status.incrementRemainingDriver(splitRunner.getLifespan());

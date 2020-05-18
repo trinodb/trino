@@ -366,7 +366,7 @@ public class EquatableValueSet
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final EquatableValueSet other = (EquatableValueSet) obj;
+        EquatableValueSet other = (EquatableValueSet) obj;
         return Objects.equals(this.type, other.type)
                 && this.whiteList == other.whiteList
                 && Objects.equals(this.entries, other.entries);
@@ -427,7 +427,7 @@ public class EquatableValueSet
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final ValueEntry other = (ValueEntry) obj;
+            ValueEntry other = (ValueEntry) obj;
             return Objects.equals(this.type, other.type)
                     && type.equalTo(this.block, 0, other.block, 0);
         }

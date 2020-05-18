@@ -1117,7 +1117,7 @@ public class PredicatePushDown
         /**
          * Evaluates an expression's response to binding the specified input symbols to NULL
          */
-        private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
+        private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
