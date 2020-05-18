@@ -432,7 +432,7 @@ public final class HiveUtil
         // see also https://issues.apache.org/jira/browse/HIVE-16922
         if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
             if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
-                schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
+                schema.setProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
             }
         }
 

@@ -170,8 +170,8 @@ public class TestS3SelectRecordCursor
     private Properties buildSplitSchema(String ddlSerializationValue, HiveColumnHandle... columns)
     {
         Properties properties = new Properties();
-        properties.put(SERIALIZATION_LIB, LAZY_SERDE_CLASS_NAME);
-        properties.put(SERIALIZATION_DDL, ddlSerializationValue);
+        properties.setProperty(SERIALIZATION_LIB, LAZY_SERDE_CLASS_NAME);
+        properties.setProperty(SERIALIZATION_DDL, ddlSerializationValue);
         return updateSplitSchema(properties, asList(columns));
     }
 
@@ -180,10 +180,10 @@ public class TestS3SelectRecordCursor
         String expectedColumnsType = getTypes(expectedColumns);
         String expectedColumnsName = getName(expectedColumns);
         Properties propExpected = new Properties();
-        propExpected.put(LIST_COLUMNS, expectedColumnsName);
-        propExpected.put(SERIALIZATION_LIB, LAZY_SERDE_CLASS_NAME);
-        propExpected.put(SERIALIZATION_DDL, expectedDDLSerialization);
-        propExpected.put(LIST_COLUMN_TYPES, expectedColumnsType);
+        propExpected.setProperty(LIST_COLUMNS, expectedColumnsName);
+        propExpected.setProperty(SERIALIZATION_LIB, LAZY_SERDE_CLASS_NAME);
+        propExpected.setProperty(SERIALIZATION_DDL, expectedDDLSerialization);
+        propExpected.setProperty(LIST_COLUMN_TYPES, expectedColumnsType);
         return propExpected;
     }
 

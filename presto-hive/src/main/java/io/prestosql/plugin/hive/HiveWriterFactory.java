@@ -428,7 +428,7 @@ public class HiveWriterFactory
             }
         }
 
-        schema.putAll(additionalTableParameters);
+        additionalTableParameters.forEach(schema::setProperty);
 
         validateSchema(partitionName, schema);
 
