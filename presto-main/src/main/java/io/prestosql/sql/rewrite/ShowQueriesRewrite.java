@@ -518,7 +518,7 @@ final class ShowQueriesRewrite
                 QualifiedName qualifiedSchemaName = QualifiedName.of(schemaName.getCatalogName(), schemaName.getSchemaName());
                 List<Property> propertyNodes = buildProperties(qualifiedSchemaName, Optional.empty(), INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
 
-                Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(principal -> MetadataUtil.createPrincipal(principal));
+                Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(MetadataUtil::createPrincipal);
 
                 CreateSchema createSchema = new CreateSchema(
                         qualifiedSchemaName,

@@ -143,7 +143,7 @@ public class TestPushProjectionIntoTableScan
 
             // Compute expected symbols after applyProjection
             ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
-                    .collect(toImmutableMap(e -> e.getKey(), e -> translate(MOCK_SESSION, e.getValue(), typeAnalyzer, viewOf(types)).get().toString()));
+                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(MOCK_SESSION, e.getValue(), typeAnalyzer, viewOf(types)).get().toString()));
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference),
@@ -175,7 +175,7 @@ public class TestPushProjectionIntoTableScan
                                     TupleDomain.all(),
                                     newNames.entrySet().stream()
                                             .collect(toImmutableMap(
-                                                    e -> e.getValue(),
+                                            Map.Entry::getValue,
                                                     e -> equalTo(column(e.getValue(), types.get(e.getKey()))))))));
         }
     }

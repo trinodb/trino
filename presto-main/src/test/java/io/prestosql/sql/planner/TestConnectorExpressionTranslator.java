@@ -57,7 +57,7 @@ public class TestConnectorExpressionTranslator
 
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(symbols);
     private static final Map<String, Symbol> variableMappings = symbols.entrySet().stream()
-            .collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getKey()));
+            .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getKey));
 
     @Test
     public void testTranslationToConnectorExpression()

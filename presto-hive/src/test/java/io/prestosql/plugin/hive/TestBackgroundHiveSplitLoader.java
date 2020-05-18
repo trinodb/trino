@@ -261,7 +261,7 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertThrows(RuntimeException.class, () -> drain(hiveSplitSource));
-        assertThrows(RuntimeException.class, () -> hiveSplitSource.isFinished());
+        assertThrows(RuntimeException.class, hiveSplitSource::isFinished);
     }
 
     @Test

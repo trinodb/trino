@@ -181,7 +181,7 @@ public class TestFilterStatsRule
                                 .setNullsFraction(0.1)
                                 .build())
                         .build())
-                .check(check -> check.outputRowsCountUnknown());
+                .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
 
         // can't estimate function, but default filter factor is turned on
         defaultFilterTester.assertStatsFor(pb -> pb

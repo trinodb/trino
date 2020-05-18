@@ -191,7 +191,7 @@ public class PinotSegmentPageSource
 
             this.columnTypes = columnHandles
                     .stream()
-                    .map(columnHandle -> getTypeForBlock(columnHandle))
+                    .map(this::getTypeForBlock)
                     .collect(Collectors.toList());
             isPinotDataFetched = true;
         }

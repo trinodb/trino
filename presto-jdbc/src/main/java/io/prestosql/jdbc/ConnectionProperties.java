@@ -157,7 +157,7 @@ final class ConnectionProperties
         public static Map<String, ClientSelectedRole> parseRoles(String roles)
         {
             return new MapPropertyParser("roles").parse(roles).entrySet().stream()
-                    .collect(toImmutableMap(entry -> entry.getKey(), entry -> mapToClientSelectedRole(entry.getValue())));
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> mapToClientSelectedRole(entry.getValue())));
         }
 
         private static ClientSelectedRole mapToClientSelectedRole(String role)

@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.PriorityQueue;
 
 import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
@@ -78,7 +79,7 @@ public class TestDoubleMinNAggregation
     private void testCustomAggregation(Double[] values, int n)
     {
         PriorityQueue<Double> heap = new PriorityQueue<>(n, (x, y) -> -Double.compare(x, y));
-        Arrays.stream(values).filter(x -> x != null).forEach(heap::add);
+        Arrays.stream(values).filter(Objects::nonNull).forEach(heap::add);
         Double[] expected = new Double[heap.size()];
         for (int i = heap.size() - 1; i >= 0; i--) {
             expected[i] = heap.remove();
