@@ -533,7 +533,7 @@ public class PagesIndex
 
     public Iterator<Page> getPages()
     {
-        return new AbstractIterator<Page>()
+        return new AbstractIterator<>()
         {
             private int pageCounter;
 
@@ -555,7 +555,7 @@ public class PagesIndex
 
     public Iterator<Page> getSortedPages()
     {
-        return new AbstractIterator<Page>()
+        return new AbstractIterator<>()
         {
             private int currentPosition;
             private final PageBuilder pageBuilder = new PageBuilder(types);

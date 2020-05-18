@@ -84,7 +84,7 @@ public class RemoteNodeState
             HttpResponseFuture<JsonResponse<NodeState>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(NODE_STATE_CODEC));
             future.compareAndSet(null, responseFuture);
 
-            Futures.addCallback(responseFuture, new FutureCallback<JsonResponse<NodeState>>()
+            Futures.addCallback(responseFuture, new FutureCallback<>()
             {
                 @Override
                 public void onSuccess(@Nullable JsonResponse<NodeState> result)

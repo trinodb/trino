@@ -205,7 +205,7 @@ public class TpchIndexedData
 
         private static Iterable<MaterializedTuple> tupleIterable(final RecordSet recordSet)
         {
-            return () -> new AbstractIterator<MaterializedTuple>()
+            return () -> new AbstractIterator<>()
             {
                 private final RecordCursor cursor = recordSet.cursor();
 

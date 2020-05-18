@@ -199,7 +199,7 @@ public class TestTimeZoneKey
     {
         Hasher hasher = Hashing.murmur3_128().newHasher();
 
-        SortedSet<TimeZoneKey> timeZoneKeysSortedByKey = ImmutableSortedSet.copyOf(new Comparator<TimeZoneKey>()
+        SortedSet<TimeZoneKey> timeZoneKeysSortedByKey = ImmutableSortedSet.copyOf(new Comparator<>()
         {
             @Override
             public int compare(TimeZoneKey left, TimeZoneKey right)

@@ -823,7 +823,7 @@ public class SqlTaskExecution
             // Before it advances to the next item, it checks whether the previous returned driver group is done scheduling.
             // If so, the completed SchedulingLifespan is removed so that it will not be returned again.
             Iterator<SchedulingLifespan> lifespansIterator = lifespans.values().iterator();
-            return new AbstractIterator<SchedulingLifespan>()
+            return new AbstractIterator<>()
             {
                 SchedulingLifespan lastSchedulingLifespan;
 

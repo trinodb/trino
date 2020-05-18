@@ -92,7 +92,7 @@ public class TestInformationSchemaTableHandle
     private void testJsonEquals(String json, Map<String, Object> expectedMap)
             throws Exception
     {
-        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<>() {});
         assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
     }
 }

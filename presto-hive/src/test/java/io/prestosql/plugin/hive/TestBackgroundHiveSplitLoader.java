@@ -352,7 +352,7 @@ public class TestBackgroundHiveSplitLoader
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
-                () -> new Iterator<HivePartitionMetadata>()
+                () -> new Iterator<>()
                 {
                     private boolean threw;
 
@@ -730,7 +730,7 @@ public class TestBackgroundHiveSplitLoader
     private static Iterable<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()
             throws RuntimeException
     {
-        return () -> new AbstractIterator<HivePartitionMetadata>()
+        return () -> new AbstractIterator<>()
         {
             // This iterator is crafted to return a valid partition for the first calls to
             // hasNext() and next(), and then it should throw for the second call to hasNext()
@@ -937,7 +937,7 @@ public class TestBackgroundHiveSplitLoader
         @Override
         public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
         {
-            return new RemoteIterator<LocatedFileStatus>()
+            return new RemoteIterator<>()
             {
                 private final Iterator<LocatedFileStatus> iterator = files.iterator();
 

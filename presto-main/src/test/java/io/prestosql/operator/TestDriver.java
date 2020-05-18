@@ -205,7 +205,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
+        Future<Boolean> driverProcessFor = executor.submit(new Callable<>()
         {
             @Override
             public Boolean call()
@@ -237,7 +237,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator close
-        Future<Boolean> driverClose = executor.submit(new Callable<Boolean>()
+        Future<Boolean> driverClose = executor.submit(new Callable<>()
         {
             @Override
             public Boolean call()
@@ -294,7 +294,7 @@ public class TestDriver
         final Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
+        Future<Boolean> driverProcessFor = executor.submit(new Callable<>()
         {
             @Override
             public Boolean call()

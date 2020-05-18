@@ -585,7 +585,7 @@ public final class StateCompiler
         }
 
         // We need this ordering because the serializer and deserializer are on different machines, and so the ordering of fields must be stable
-        Ordering<StateField> ordering = new Ordering<StateField>()
+        Ordering<StateField> ordering = new Ordering<>()
         {
             @Override
             public int compare(StateField left, StateField right)
