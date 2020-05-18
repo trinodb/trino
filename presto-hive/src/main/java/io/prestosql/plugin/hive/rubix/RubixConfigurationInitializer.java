@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive.rubix;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
@@ -153,11 +152,5 @@ public class RubixConfigurationInitializer
     {
         checkState(masterAddress != null, "masterAddress is not set");
         cacheReady = true;
-    }
-
-    @VisibleForTesting
-    boolean isCacheReady()
-    {
-        return cacheReady;
     }
 }
