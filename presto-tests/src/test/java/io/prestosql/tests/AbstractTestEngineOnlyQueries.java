@@ -3394,6 +3394,17 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testExplainJoinDistribution()
+    {
+        //  This test makes sure that the query plan includes the distribution info for joins.
+        //  The webui live plan displays the distribution type for joins, and the plan details
+        //  need to be structured like 'Distribution: <type>' for this feature to work.
+
+        MaterializedResult result = computeActual("EXPLAIN (FORMAT TEXT) SELECT c.custkey FROM customer c JOIN nation n ON n.nationkey = c.nationkey");
+        assertThat((String) result.getOnlyValue()).matches("(?s).*Distribution:.*");
+    }
+
+    @Test
     public void testIoExplain()
     {
         String query = "SELECT * FROM orders";
