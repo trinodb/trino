@@ -19,7 +19,6 @@ import com.google.common.hash.Hashing;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Comparator;
 import java.util.SortedSet;
 
 import static io.prestosql.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
@@ -199,14 +198,7 @@ public class TestTimeZoneKey
     {
         Hasher hasher = Hashing.murmur3_128().newHasher();
 
-        SortedSet<TimeZoneKey> timeZoneKeysSortedByKey = ImmutableSortedSet.copyOf(new Comparator<>()
-        {
-            @Override
-            public int compare(TimeZoneKey left, TimeZoneKey right)
-            {
-                return Short.compare(left.getKey(), right.getKey());
-            }
-        }, TimeZoneKey.getTimeZoneKeys());
+        SortedSet<TimeZoneKey> timeZoneKeysSortedByKey = ImmutableSortedSet.copyOf((left, right) -> Short.compare(left.getKey(), right.getKey()), TimeZoneKey.getTimeZoneKeys());
 
         for (TimeZoneKey timeZoneKey : timeZoneKeysSortedByKey) {
             hasher.putShort(timeZoneKey.getKey());

@@ -154,20 +154,15 @@ public class TestHiveSplitSource
 
         // create a thread that will get a split
         CountDownLatch started = new CountDownLatch(1);
-        Thread getterThread = new Thread(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    started.countDown();
-                    List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
-                    assertEquals(batch.size(), 1);
-                    splits.set(batch.get(0));
-                }
-                catch (Throwable e) {
-                    splits.setException(e);
-                }
+        Thread getterThread = new Thread(() -> {
+            try {
+                started.countDown();
+                List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
+                assertEquals(batch.size(), 1);
+                splits.set(batch.get(0));
+            }
+            catch (Throwable e) {
+                splits.setException(e);
             }
         });
         getterThread.start();

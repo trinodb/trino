@@ -15,10 +15,8 @@ package io.prestosql.failuredetector;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
@@ -62,20 +60,15 @@ public class TestHeartbeatFailureDetector
                 new JsonModule(),
                 new JaxrsModule(),
                 new FailureDetectorModule(),
-                new Module()
-                {
-                    @Override
-                    public void configure(Binder binder)
-                    {
-                        configBinder(binder).bindConfig(InternalCommunicationConfig.class);
-                        configBinder(binder).bindConfig(QueryManagerConfig.class);
-                        discoveryBinder(binder).bindSelector("presto");
-                        discoveryBinder(binder).bindHttpAnnouncement("presto");
+                binder -> {
+                    configBinder(binder).bindConfig(InternalCommunicationConfig.class);
+                    configBinder(binder).bindConfig(QueryManagerConfig.class);
+                    discoveryBinder(binder).bindSelector("presto");
+                    discoveryBinder(binder).bindHttpAnnouncement("presto");
 
-                        // Jersey with jetty 9 requires at least one resource
-                        // todo add a dummy resource to airlift jaxrs in this case
-                        jaxrsBinder(binder).bind(FooResource.class);
-                    }
+                    // Jersey with jetty 9 requires at least one resource
+                    // todo add a dummy resource to airlift jaxrs in this case
+                    jaxrsBinder(binder).bind(FooResource.class);
                 });
 
         Injector injector = app

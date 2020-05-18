@@ -134,14 +134,7 @@ public class ThreadResource
 
         public static Comparator<Info> byName()
         {
-            return new Comparator<>()
-            {
-                @Override
-                public int compare(Info info, Info info2)
-                {
-                    return info.getName().compareTo(info2.getName());
-                }
-            };
+            return (info, info2) -> info.getName().compareTo(info2.getName());
         }
     }
 
