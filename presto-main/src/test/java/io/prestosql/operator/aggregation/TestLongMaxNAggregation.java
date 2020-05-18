@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.PriorityQueue;
 
 import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
@@ -78,7 +79,7 @@ public class TestLongMaxNAggregation
     private void testCustomAggregation(Long[] values, int n)
     {
         PriorityQueue<Long> heap = new PriorityQueue<>(n);
-        Arrays.stream(values).filter(x -> x != null).forEach(heap::add);
+        Arrays.stream(values).filter(Objects::nonNull).forEach(heap::add);
         Long[] expected = new Long[heap.size()];
         for (int i = heap.size() - 1; i >= 0; i--) {
             expected[i] = heap.remove();

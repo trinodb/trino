@@ -220,7 +220,7 @@ public final class Patterns
         return property(
                 "sources",
                 (PlanNode node, Lookup lookup) -> node.getSources().stream()
-                        .map(source -> lookup.resolve(source))
+                        .map(lookup::resolve)
                         .collect(toImmutableList()));
     }
 

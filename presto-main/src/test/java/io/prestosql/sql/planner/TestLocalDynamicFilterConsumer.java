@@ -257,8 +257,8 @@ public class TestLocalDynamicFilterConsumer
                 .getBuildChannels()
                 .entrySet()
                 .stream()
-                .sorted(Comparator.comparing(e -> e.getValue()))
-                .map(e -> e.getKey())
+                .sorted(Comparator.comparing(Map.Entry::getValue))
+                .map(Map.Entry::getKey)
                 .collect(toImmutableList());
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterIds.get(0), Domain.singleValue(BIGINT, 4L),

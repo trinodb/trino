@@ -89,7 +89,7 @@ public class TypedSet
         elementIsDistinctFrom.ifPresent(methodHandle -> checkArgument(methodHandle.type().equals(MethodType.methodType(boolean.class, Block.class, int.class, Block.class, int.class))));
         this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
         this.functionName = functionName;
-        this.maxBlockMemoryInBytes = maxBlockMemory.map(value -> value.toBytes()).orElse(Long.MAX_VALUE);
+        this.maxBlockMemoryInBytes = maxBlockMemory.map(DataSize::toBytes).orElse(Long.MAX_VALUE);
 
         initialElementBlockOffset = elementBlock.getPositionCount();
         initialElementBlockSizeInBytes = elementBlock.getSizeInBytes();

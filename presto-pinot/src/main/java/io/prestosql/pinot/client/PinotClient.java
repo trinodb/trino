@@ -281,7 +281,7 @@ public class PinotClient
                                 format("Cannot parse %s in the broker instance", brokerToParse));
                     }
                 })
-                .collect(Collectors.toCollection(() -> new ArrayList<>()));
+                .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(brokers);
         return ImmutableList.copyOf(brokers);
     }
