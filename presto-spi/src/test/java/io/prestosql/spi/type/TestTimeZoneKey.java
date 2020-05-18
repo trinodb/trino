@@ -23,6 +23,7 @@ import java.util.SortedSet;
 
 import static io.prestosql.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static java.util.Comparator.comparingInt;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -198,7 +199,7 @@ public class TestTimeZoneKey
     {
         Hasher hasher = Hashing.murmur3_128().newHasher();
 
-        SortedSet<TimeZoneKey> timeZoneKeysSortedByKey = ImmutableSortedSet.copyOf((left, right) -> Short.compare(left.getKey(), right.getKey()), TimeZoneKey.getTimeZoneKeys());
+        SortedSet<TimeZoneKey> timeZoneKeysSortedByKey = ImmutableSortedSet.copyOf(comparingInt(TimeZoneKey::getKey), TimeZoneKey.getTimeZoneKeys());
 
         for (TimeZoneKey timeZoneKey : timeZoneKeysSortedByKey) {
             hasher.putShort(timeZoneKey.getKey());
