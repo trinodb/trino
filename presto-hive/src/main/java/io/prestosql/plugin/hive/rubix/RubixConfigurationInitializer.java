@@ -34,16 +34,13 @@ import static com.qubole.rubix.spi.CacheConfig.setBookKeeperServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setClusterNodeRefreshTime;
-import static com.qubole.rubix.spi.CacheConfig.setClusterNodesFetchRetryCount;
 import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
 import static com.qubole.rubix.spi.CacheConfig.setCurrentNodeHostName;
 import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
 import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
-import static com.qubole.rubix.spi.CacheConfig.setRubixClusterType;
-import static com.qubole.rubix.spi.CacheConfig.setWorkerNodeInfoExpiryPeriod;
-import static com.qubole.rubix.spi.ClusterType.PRESTOSQL_CLUSTER_MANAGER;
+import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static java.util.Objects.requireNonNull;
 
@@ -104,17 +101,17 @@ public class RubixConfigurationInitializer
         setDataTransferServerPort(config, dataTransferServerPort);
 
         setEmbeddedMode(config, true);
-        setRubixClusterType(config, PRESTOSQL_CLUSTER_MANAGER);
         enableHeartbeat(config, false);
         setClusterNodeRefreshTime(config, 10);
-        setClusterNodesFetchRetryCount(config, Integer.MAX_VALUE);
-        setWorkerNodeInfoExpiryPeriod(config, 1);
 
         config.set("fs.s3.impl", RUBIX_S3_FS_CLASS_NAME);
         config.set("fs.s3a.impl", RUBIX_S3_FS_CLASS_NAME);
         config.set("fs.s3n.impl", RUBIX_S3_FS_CLASS_NAME);
         config.set("fs.wasb.impl", RUBIX_AZURE_FS_CLASS_NAME);
         config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
+
+        // TODO: remove after https://github.com/qubole/rubix/pull/385 is merged
+        setPrestoClusterManager(config, "com.qubole.rubix.prestosql.PrestoClusterManager");
 
         setCacheKey(config, "rubix_enabled");
     }
