@@ -79,13 +79,7 @@ public final class Chars
             return value;
         }
 
-        StringBuilder builder = new StringBuilder(value.length() + (length - textLength));
-        builder.append(value);
-        for (int i = textLength; i < length; i++) {
-            builder.append(' ');
-        }
-
-        return builder.toString();
+        return value + " ".repeat(Math.max(0, length - textLength));
     }
 
     public static Slice truncateToLengthAndTrimSpaces(Slice slice, Type type)

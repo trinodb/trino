@@ -29,7 +29,6 @@ import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Strings.repeat;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -74,7 +73,7 @@ public class TestStringFunctions
 
     public static String padRight(String s, int n)
     {
-        return s + repeat(" ", n - s.codePointCount(0, s.length()));
+        return s + " ".repeat(n - s.codePointCount(0, s.length()));
     }
 
     @Test
@@ -186,11 +185,11 @@ public class TestStringFunctions
         assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
 
         // Test for maximum length
-        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("e", 100_000)), BIGINT, 99999L);
-        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("l", 100_000)), BIGINT, 99998L);
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", repeat("x", 1001), repeat("x", 1001)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "e".repeat(100_000)), BIGINT, 99999L);
+        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "l".repeat(100_000)), BIGINT, 99998L);
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", "x".repeat(1001), "x".repeat(1001)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
     }
 
     @Test

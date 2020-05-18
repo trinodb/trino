@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive.parquet;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveQueryRunner;
 import io.prestosql.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
@@ -477,7 +476,7 @@ public class TestParquetDecimalScaling
 
         public static String maximumValue(int precision, int scale)
         {
-            return format("%s.%s", Strings.repeat("9", precision - scale), Strings.repeat("9", scale));
+            return format("%s.%s", "9".repeat(precision - scale), "9".repeat(scale));
         }
 
         public static String minimumValue(int precision, int scale)

@@ -63,7 +63,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
@@ -599,7 +598,7 @@ public class TestDatabaseShardManager
     @Test
     public void testShardPruningTruncatedValues()
     {
-        String prefix = repeat("x", MAX_BINARY_INDEX_SIZE);
+        String prefix = "x".repeat(MAX_BINARY_INDEX_SIZE);
 
         ColumnStats stats = new ColumnStats(1, prefix + "a", prefix + "z");
         ShardInfo shard = shardInfo(UUID.randomUUID(), "node", ImmutableList.of(stats));

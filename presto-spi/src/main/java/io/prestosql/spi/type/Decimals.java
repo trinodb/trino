@@ -223,9 +223,7 @@ public final class Decimals
             resultBuilder.append(".");
             if (unscaledValueString.length() < scale) {
                 // prepend zeros to fractional part if unscaled value length is shorter than scale
-                for (int i = 0; i < scale - unscaledValueString.length(); ++i) {
-                    resultBuilder.append("0");
-                }
+                resultBuilder.append("0".repeat(scale - unscaledValueString.length()));
                 resultBuilder.append(unscaledValueString);
             }
             else {

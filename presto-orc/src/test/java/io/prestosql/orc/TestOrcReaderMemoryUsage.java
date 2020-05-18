@@ -13,7 +13,6 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.base.Strings;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.spi.Page;
@@ -229,7 +228,7 @@ public class TestOrcReaderMemoryUsage
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
 
         for (int i = 0; i < count; i++) {
-            objectInspector.setStructFieldData(row, field, Strings.repeat("0", length));
+            objectInspector.setStructFieldData(row, field, "0".repeat(length));
             Writable record = serde.serialize(row, objectInspector);
             writer.write(record);
         }
