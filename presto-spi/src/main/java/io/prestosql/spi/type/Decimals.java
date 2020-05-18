@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -130,7 +131,7 @@ public final class Decimals
         return new DecimalParseResult(value, createDecimalType(precision, scale));
     }
 
-    private static String getMatcherGroup(Matcher matcher, int group)
+    private static String getMatcherGroup(MatchResult matcher, int group)
     {
         String groupValue = matcher.group(group);
         if (groupValue == null) {
@@ -139,7 +140,6 @@ public final class Decimals
         return groupValue;
     }
 
-    @SuppressWarnings("NumericCastThatLosesPrecision")
     public static Slice encodeUnscaledValue(BigInteger unscaledValue)
     {
         return unscaledDecimal(unscaledValue);
@@ -215,7 +215,7 @@ public final class Decimals
             resultBuilder.append("0");
         }
         else {
-            resultBuilder.append(unscaledValueString.substring(0, unscaledValueString.length() - scale));
+            resultBuilder.append(unscaledValueString, 0, unscaledValueString.length() - scale);
         }
 
         // fractional part
