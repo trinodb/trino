@@ -131,18 +131,13 @@ public class HeartbeatFailureDetector
     public void start()
     {
         if (isEnabled && started.compareAndSet(false, true)) {
-            executor.scheduleWithFixedDelay(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try {
-                        updateMonitoredServices();
-                    }
-                    catch (Throwable e) {
-                        // ignore to avoid getting unscheduled
-                        log.warn(e, "Error updating services");
-                    }
+            executor.scheduleWithFixedDelay(() -> {
+                try {
+                    updateMonitoredServices();
+                }
+                catch (Throwable e) {
+                    // ignore to avoid getting unscheduled
+                    log.warn(e, "Error updating services");
                 }
             }, 0, 5, TimeUnit.SECONDS);
         }
@@ -318,19 +313,14 @@ public class HeartbeatFailureDetector
         public synchronized void enable()
         {
             if (future == null) {
-                future = executor.scheduleAtFixedRate(new Runnable()
-                {
-                    @Override
-                    public void run()
-                    {
-                        try {
-                            ping();
-                            updateState();
-                        }
-                        catch (Throwable e) {
-                            // ignore to avoid getting unscheduled
-                            log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
-                        }
+                future = executor.scheduleAtFixedRate(() -> {
+                    try {
+                        ping();
+                        updateState();
+                    }
+                    catch (Throwable e) {
+                        // ignore to avoid getting unscheduled
+                        log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
                     }
                 }, heartbeat.toMillis(), heartbeat.toMillis(), TimeUnit.MILLISECONDS);
                 disabledTimestamp = null;
