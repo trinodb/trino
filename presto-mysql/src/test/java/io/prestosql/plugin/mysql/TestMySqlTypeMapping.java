@@ -46,7 +46,6 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
@@ -181,7 +180,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(charDataType(1), "a")
                 .addRoundTrip(charDataType(8), "abc")
                 .addRoundTrip(charDataType(8), "12345678")
-                .addRoundTrip(charDataType(255), repeat("a", 255));
+                .addRoundTrip(charDataType(255), "a".repeat(255));
     }
 
     @Test

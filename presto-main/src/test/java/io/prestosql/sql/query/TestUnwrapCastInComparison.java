@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.query;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -207,8 +206,8 @@ public class TestUnwrapCastInComparison
 
         // type with no range
         for (String operator : Arrays.asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
-            for (String to : Arrays.asList("'" + Strings.repeat("a", 200) + "'", "'" + Strings.repeat("b", 200) + "'")) {
-                validate(operator, "VARCHAR(200)", "'" + Strings.repeat("a", 200) + "'", "VARCHAR(300)", to);
+            for (String to : Arrays.asList("'" + "a".repeat(200) + "'", "'" + "b".repeat(200) + "'")) {
+                validate(operator, "VARCHAR(200)", "'" + "a".repeat(200) + "'", "VARCHAR(300)", to);
             }
         }
     }

@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.Strings.repeat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SequencePageBuilder.createSequencePage;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -295,7 +294,7 @@ public class TestDynamicFilterSourceOperator
     public void testCollectTooMuchBytesSingleColumn()
     {
         final long maxByteSize = getDynamicFilteringMaxPerDriverSize(pipelineContext.getSession()).toBytes();
-        Page largePage = new Page(createStringsBlock(repeat("A", (int) maxByteSize + 1)));
+        Page largePage = new Page(createStringsBlock("A".repeat((int) maxByteSize + 1)));
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, VARCHAR));
         verifyPassthrough(createOperator(operatorFactory),
@@ -309,8 +308,8 @@ public class TestDynamicFilterSourceOperator
     public void testCollectTooMuchBytesMultipleColumns()
     {
         final long maxByteSize = getDynamicFilteringMaxPerDriverSize(pipelineContext.getSession()).toBytes();
-        Page largePage = new Page(createStringsBlock(repeat("A", (int) (maxByteSize / 2) + 1)),
-                createStringsBlock(repeat("B", (int) (maxByteSize / 2) + 1)));
+        Page largePage = new Page(createStringsBlock("A".repeat((int) (maxByteSize / 2) + 1)),
+                createStringsBlock("B".repeat((int) (maxByteSize / 2) + 1)));
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, VARCHAR),
                 channel(1, VARCHAR));

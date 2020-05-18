@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -1005,7 +1004,7 @@ public final class PlanMatchPattern
 
     private static String indentString(int indent)
     {
-        return Strings.repeat("    ", indent);
+        return "    ".repeat(indent);
     }
 
     public static GroupingSetDescriptor globalAggregation()
