@@ -83,7 +83,7 @@ public class AggregationMatcher
                 .entrySet()
                 .stream()
                 .filter(entry -> entry.getValue().isDistinct())
-                .map(entry -> entry.getKey())
+                .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
         if (aggregationsWithMask.size() != masks.keySet().size()) {

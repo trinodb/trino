@@ -1109,7 +1109,7 @@ public class TestHiveFileFormats
     private final List<TestColumn> getPartitionColumns(List<TestColumn> columns)
     {
         return columns.stream()
-                .filter(column -> column.isPartitionKey())
+                .filter(TestColumn::isPartitionKey)
                 .collect(toImmutableList());
     }
 

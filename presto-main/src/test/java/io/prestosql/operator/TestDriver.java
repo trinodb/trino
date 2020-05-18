@@ -130,7 +130,7 @@ public class TestDriver
         Driver driver = Driver.createDriver(driverContext, source, sink);
         // let these threads race
         scheduledExecutor.submit(() -> driver.processFor(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
-        scheduledExecutor.submit(() -> driver.close());
+        scheduledExecutor.submit(driver::close);
         while (!driverContext.isDone()) {
             Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
         }

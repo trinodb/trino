@@ -82,7 +82,7 @@ public final class SelectorResourceEstimate
 
         if (peakMemory.isPresent()) {
             Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemoryBytes()
-                    .map(value -> DataSize.ofBytes(value));
+                    .map(DataSize::ofBytes);
             if (peakMemoryEstimate.isEmpty() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
                 return false;
             }

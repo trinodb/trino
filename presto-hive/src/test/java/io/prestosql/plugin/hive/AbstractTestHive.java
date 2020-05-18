@@ -768,7 +768,7 @@ public abstract class AbstractTestHive
                 heartbeatService,
                 new HiveTypeTranslator(),
                 TEST_SERVER_VERSION,
-                (metastore) -> new SqlStandardAccessControlMetadata(metastore));
+                SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
@@ -3011,7 +3011,7 @@ public abstract class AbstractTestHive
             // Create variables for the emulated symbols
             Map<String, Variable> symbolVariableMapping = columnHandlesWithSymbols.entrySet().stream()
                     .collect(toImmutableMap(
-                            e -> e.getKey(),
+                            Map.Entry::getKey,
                             e -> new Variable(
                                     e.getKey(),
                                     ((HiveColumnHandle) e.getValue()).getBaseType())));

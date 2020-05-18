@@ -198,7 +198,7 @@ public abstract class AbstractTestHiveFileSystem
                 partitionUpdateCodec,
                 new HiveTypeTranslator(),
                 new NodeVersion("test_version"),
-                (metastore) -> new SqlStandardAccessControlMetadata(metastore));
+                SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),

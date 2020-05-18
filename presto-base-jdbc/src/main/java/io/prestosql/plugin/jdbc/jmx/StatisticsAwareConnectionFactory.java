@@ -46,7 +46,7 @@ public class StatisticsAwareConnectionFactory
     public void close()
             throws SQLException
     {
-        closeConnection.wrap(() -> delegate.close());
+        closeConnection.wrap(delegate::close);
     }
 
     @Managed

@@ -575,7 +575,7 @@ public class MongoSession
                     .map(this::guessFieldType)
                     .collect(toList());
 
-            if (subTypes.isEmpty() || subTypes.stream().anyMatch(t -> t.isEmpty())) {
+            if (subTypes.isEmpty() || subTypes.stream().anyMatch(Optional::isEmpty)) {
                 return Optional.empty();
             }
 

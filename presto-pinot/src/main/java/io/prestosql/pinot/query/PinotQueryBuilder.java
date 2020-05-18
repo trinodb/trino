@@ -105,7 +105,7 @@ public final class PinotQueryBuilder
     public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
     {
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
-        timePredicate.ifPresent(predicate -> conjunctsBuilder.add(predicate));
+        timePredicate.ifPresent(conjunctsBuilder::add);
         if (!tupleDomain.equals(TupleDomain.all())) {
             for (PinotColumnHandle columnHandle : columnHandles) {
                 Domain domain = tupleDomain.getDomains().get().get(columnHandle);
@@ -188,7 +188,7 @@ public final class PinotQueryBuilder
     private static String inClauseValues(String columnName, List<Object> singleValues)
     {
         return format("%s IN (%s)", columnName, singleValues.stream()
-                .map(value -> singleQuote(value))
+                .map(PinotQueryBuilder::singleQuote)
                 .collect(joining(", ")));
     }
 

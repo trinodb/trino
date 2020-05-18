@@ -96,7 +96,7 @@ public class TestSetSessionTask
                         Integer.class,
                         null,
                         false,
-                        value -> validatePositive(value),
+                        TestSetSessionTask::validatePositive,
                         value -> value));
 
         metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
