@@ -226,6 +226,16 @@ public class TestRubixCaching
     }
 
     @Test
+    public void testCacheWrite()
+            throws IOException
+    {
+        Path file = getStoragePath("some_file_write");
+
+        writeFile(cachingFileSystem.create(file), "Hello world");
+        assertEquals(readFile(nonCachingFileSystem.open(file)), "Hello world");
+    }
+
+    @Test
     public void testLargeFile()
             throws Exception
     {
