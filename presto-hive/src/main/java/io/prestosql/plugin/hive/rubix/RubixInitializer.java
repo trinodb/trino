@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive.rubix;
 
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.qubole.rubix.bookkeeper.BookKeeper;
@@ -33,6 +32,7 @@ import javax.inject.Inject;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 
 /*
@@ -63,7 +63,7 @@ public class RubixInitializer
     public void initializeRubix(NodeManager nodeManager)
     {
         ExecutorService initializerService = Executors.newSingleThreadExecutor();
-        ListenableFuture<Boolean> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
+        ListenableFuture<?> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
         {
             while (!(nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) &&
                     nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator))) {
@@ -71,20 +71,14 @@ public class RubixInitializer
                     Thread.sleep(100);
                 }
                 catch (InterruptedException e) {
-                    return false;
+                    throw new RuntimeException(e);
                 }
             }
-            return true;
         });
 
-        Futures.transform(nodeJoinFuture,
-                nodeJoined ->
-                {
-                    if (!nodeJoined) {
-                        // In case of node join failing, let the Rubix cache be in default disabled state
-                        return null;
-                    }
-
+        addSuccessCallback(
+                nodeJoinFuture,
+                () -> {
                     Node master = nodeManager.getAllNodes().stream().filter(node -> node.isCoordinator()).findFirst().get();
                     boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
 
@@ -108,9 +102,6 @@ public class RubixInitializer
                     CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
                     log.info("Rubix initialized successfully");
                     rubixConfigurationInitializer.initializationDone();
-
-                    return null;
-                },
-                initializerService);
+                });
     }
 }
