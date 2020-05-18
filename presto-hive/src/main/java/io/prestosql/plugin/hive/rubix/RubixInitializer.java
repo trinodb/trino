@@ -21,10 +21,13 @@ import com.qubole.rubix.bookkeeper.BookKeeperServer;
 import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
 import com.qubole.rubix.core.CachingFileSystem;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
+import io.prestosql.plugin.hive.util.RetryDriver;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
@@ -34,6 +37,12 @@ import java.util.concurrent.Executors;
 
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
+import static io.prestosql.plugin.hive.util.RetryDriver.DEFAULT_SCALE_FACTOR;
+import static io.prestosql.plugin.hive.util.RetryDriver.retry;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.Integer.MAX_VALUE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /*
  * Responsibilities of this initializer:
@@ -43,6 +52,16 @@ import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfigu
  */
 public class RubixInitializer
 {
+    private static final RetryDriver DEFAULT_COORDINATOR_RETRY_DRIVER = retry()
+            // unlimited attempts
+            .maxAttempts(MAX_VALUE)
+            .exponentialBackoff(
+                    new Duration(1, SECONDS),
+                    new Duration(1, SECONDS),
+                    // wait for 10 minutes
+                    new Duration(10, MINUTES),
+                    DEFAULT_SCALE_FACTOR);
+
     private static final Logger log = Logger.get(RubixInitializer.class);
 
     private final CatalogName catalogName;
@@ -64,17 +83,15 @@ public class RubixInitializer
     {
         ExecutorService initializerService = Executors.newSingleThreadExecutor();
         ListenableFuture<?> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
-        {
-            while (!(nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) &&
-                    nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator))) {
-                try {
-                    Thread.sleep(100);
-                }
-                catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
+                DEFAULT_COORDINATOR_RETRY_DRIVER.run(
+                        "waitForCoordinator",
+                        () -> {
+                            if (!nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) ||
+                                    !nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator)) {
+                                throw new PrestoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
+                            }
+                            return null;
+                        }));
 
         addSuccessCallback(
                 nodeJoinFuture,
