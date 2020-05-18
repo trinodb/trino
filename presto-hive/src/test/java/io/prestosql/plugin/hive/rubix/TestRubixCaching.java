@@ -34,8 +34,6 @@ import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.testing.TestingNodeManager;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -48,7 +46,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.net.URI;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -56,7 +53,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -64,6 +60,7 @@ import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.NodeVersion.UNKNOWN;
+import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -71,6 +68,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -145,15 +143,6 @@ public class TestRubixCaching
                 ImmutableList.of());
         rubixInitializer.initializeRubix(nodeManager);
 
-        // wait for rubix to start
-        Failsafe.with(
-                new RetryPolicy<>()
-                        .withDelay(Duration.ofSeconds(1))
-                        // unlimited attempts
-                        .withMaxAttempts(-1)
-                        .withMaxDuration(Duration.ofMinutes(1)))
-                .run(() -> checkState(rubixConfigInitializer.isCacheReady()));
-
         return rubixConfigInitializer;
     }
 
@@ -183,6 +172,26 @@ public class TestRubixCaching
             closer.register(() -> cachingFileSystem.close());
             closer.register(LocalDataTransferServer::stopServer);
         }
+    }
+
+    @Test
+    public void testCoordinatorNotJoining()
+    {
+        RubixConfig rubixConfig = new RubixConfig();
+        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
+        HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
+        RubixInitializer rubixInitializer = new RubixInitializer(
+                retry().maxAttempts(1),
+                new CatalogName("catalog"),
+                rubixConfigInitializer,
+                configurationInitializer);
+        InternalNode workerNode = new InternalNode(
+                "master",
+                URI.create("http://127.0.0.1:8080"),
+                UNKNOWN,
+                false);
+        assertThatThrownBy(() -> rubixInitializer.initializeRubix(new TestingNodeManager(ImmutableList.of(workerNode))))
+                .hasMessage("No coordinator node available");
     }
 
     @Test

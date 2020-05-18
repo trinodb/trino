@@ -14,8 +14,7 @@
 package io.prestosql.plugin.hive.rubix;
 
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.annotations.VisibleForTesting;
 import com.qubole.rubix.bookkeeper.BookKeeper;
 import com.qubole.rubix.bookkeeper.BookKeeperServer;
 import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
@@ -32,10 +31,7 @@ import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static io.prestosql.plugin.hive.util.RetryDriver.DEFAULT_SCALE_FACTOR;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
@@ -46,7 +42,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 /*
  * Responsibilities of this initializer:
- * 1. Lazily setup RubixConfigurationInitializer with information about master when it is available
+ * 1. Wait for master and setup RubixConfigurationInitializer with information about master when it becomes available
  * 2. Start Rubix Servers.
  * 3. Inject BookKeeper object into CachingFileSystem class
  */
@@ -64,6 +60,7 @@ public class RubixInitializer
 
     private static final Logger log = Logger.get(RubixInitializer.class);
 
+    private final RetryDriver coordinatorRetryDriver;
     private final CatalogName catalogName;
     private final RubixConfigurationInitializer rubixConfigurationInitializer;
     private final HdfsConfigurationInitializer hdfsConfigurationInitializer;
@@ -74,6 +71,17 @@ public class RubixInitializer
             RubixConfigurationInitializer rubixConfigurationInitializer,
             HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
+        this(DEFAULT_COORDINATOR_RETRY_DRIVER, catalogName, rubixConfigurationInitializer, hdfsConfigurationInitializer);
+    }
+
+    @VisibleForTesting
+    RubixInitializer(
+            RetryDriver coordinatorRetryDriver,
+            CatalogName catalogName,
+            RubixConfigurationInitializer rubixConfigurationInitializer,
+            HdfsConfigurationInitializer hdfsConfigurationInitializer)
+    {
+        this.coordinatorRetryDriver = coordinatorRetryDriver;
         this.catalogName = catalogName;
         this.rubixConfigurationInitializer = rubixConfigurationInitializer;
         this.hdfsConfigurationInitializer = hdfsConfigurationInitializer;
@@ -81,21 +89,27 @@ public class RubixInitializer
 
     public void initializeRubix(NodeManager nodeManager)
     {
-        ExecutorService initializerService = Executors.newSingleThreadExecutor();
-        ListenableFuture<?> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
-                DEFAULT_COORDINATOR_RETRY_DRIVER.run(
-                        "waitForCoordinator",
-                        () -> {
-                            if (!nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) ||
-                                    !nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator)) {
-                                throw new PrestoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
-                            }
-                            return null;
-                        }));
+        waitForCoordinator(nodeManager);
+        startRubix(nodeManager);
+    }
 
-        addSuccessCallback(
-                nodeJoinFuture,
-                () -> startRubix(nodeManager));
+    private void waitForCoordinator(NodeManager nodeManager)
+    {
+        try {
+            coordinatorRetryDriver.run(
+                    "waitForCoordinator",
+                    () -> {
+                        if (nodeManager.getAllNodes().stream().noneMatch(Node::isCoordinator)) {
+                            // This exception will only be propagated when timeout is reached.
+                            throw new PrestoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
+                        }
+                        return null;
+                    });
+        }
+        catch (Exception exception) {
+            propagateIfPossible(exception, PrestoException.class);
+            throw new RuntimeException(exception);
+        }
     }
 
     private void startRubix(NodeManager nodeManager)
