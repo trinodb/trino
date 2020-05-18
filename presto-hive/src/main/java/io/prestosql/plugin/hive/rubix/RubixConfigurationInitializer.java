@@ -23,6 +23,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.spi.HostAddress;
 import org.apache.hadoop.conf.Configuration;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.net.URI;
@@ -60,7 +61,9 @@ public class RubixConfigurationInitializer
     // Configs below are dependent on node joining the cluster
     private volatile boolean cacheReady;
     private boolean isMaster;
+    @Nullable
     private HostAddress masterAddress;
+    @Nullable
     private String nodeAddress;
 
     @Inject
