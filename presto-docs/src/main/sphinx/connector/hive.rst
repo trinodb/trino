@@ -276,6 +276,10 @@ Property Name                                                 Description       
 
 ``hive.metastore.thrift.impersonation.enabled``               Enable Hive metastore end user impersonation.
 
+``hive.metastore.thrift.delegation-token.cache-ttl``          Time to live delegation token cache for metastore.           ``1h``
+
+``hive.metastore.thrift.delegation-token.cache-maximum-size`` Delegation token cache maximum size.                         1,000
+
 ``hive.metastore.thrift.client.ssl.enabled``                  Use SSL when connecting to metastore.                        ``false``
 
 ``hive.metastore.thrift.client.ssl.key``                      Path to PEM private key and client certificate (key store).

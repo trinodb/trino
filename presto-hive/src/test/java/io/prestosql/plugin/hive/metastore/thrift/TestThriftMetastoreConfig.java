@@ -24,6 +24,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -45,6 +47,8 @@ public class TestThriftMetastoreConfig
                 .setKeystorePassword(null)
                 .setTruststorePath(null)
                 .setImpersonationEnabled(false)
+                .setDelegationTokenCacheTtl(new Duration(1, HOURS))
+                .setDelegationTokenCacheMaximumSize(1000)
                 .setDeleteFilesOnDrop(false)
                 .setMaxWaitForTransactionLock(new Duration(10, MINUTES)));
     }
@@ -65,6 +69,8 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.client.ssl.key-password", "keystore-password")
                 .put("hive.metastore.thrift.client.ssl.trust-certificate", "/tmp/truststore")
                 .put("hive.metastore.thrift.impersonation.enabled", "true")
+                .put("hive.metastore.thrift.delegation-token.cache-ttl", "1d")
+                .put("hive.metastore.thrift.delegation-token.cache-maximum-size", "9999")
                 .put("hive.metastore.thrift.delete-files-on-drop", "true")
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
                 .build();
@@ -82,6 +88,8 @@ public class TestThriftMetastoreConfig
                 .setKeystorePassword("keystore-password")
                 .setTruststorePath(new File("/tmp/truststore"))
                 .setImpersonationEnabled(true)
+                .setDelegationTokenCacheTtl(new Duration(1, DAYS))
+                .setDelegationTokenCacheMaximumSize(9999)
                 .setDeleteFilesOnDrop(true)
                 .setMaxWaitForTransactionLock(new Duration(5, MINUTES));
 
