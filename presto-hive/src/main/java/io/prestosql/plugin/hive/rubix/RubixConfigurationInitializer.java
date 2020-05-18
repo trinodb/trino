@@ -114,22 +114,22 @@ public class RubixConfigurationInitializer
         setCacheKey(config, "rubix_enabled");
     }
 
-    public void setMaster(boolean master)
+    void setMaster(boolean master)
     {
         isMaster = master;
     }
 
-    public void setMasterAddress(HostAddress masterAddress)
+    void setMasterAddress(HostAddress masterAddress)
     {
         this.masterAddress = masterAddress;
     }
 
-    public void setCurrentNodeAddress(String nodeAddress)
+    void setCurrentNodeAddress(String nodeAddress)
     {
         this.nodeAddress = nodeAddress;
     }
 
-    public void initializationDone()
+    void initializationDone()
     {
         checkState(masterAddress != null, "masterAddress is not set");
         cacheReady = true;
