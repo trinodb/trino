@@ -37,7 +37,6 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
 import io.prestosql.plugin.hive.procedure.HiveProcedureModule;
 import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
-import io.prestosql.plugin.hive.rubix.RubixInitializer;
 import io.prestosql.plugin.hive.rubix.RubixModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.plugin.hive.security.HiveSecurityModule;
@@ -116,12 +115,6 @@ public final class InternalHiveConnectorFactory
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
-
-            if (injector.getInstance(RubixEnabledConfig.class).isCacheEnabled()) {
-                // RubixInitializer needs ConfigurationInitializers, hence kept outside RubixModule
-                RubixInitializer rubixInitializer = injector.getInstance(RubixInitializer.class);
-                rubixInitializer.initializeRubix(context.getNodeManager());
-            }
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
             HiveMetadataFactory metadataFactory = injector.getInstance(HiveMetadataFactory.class);

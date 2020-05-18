@@ -129,10 +129,6 @@ public class TestRubixCaching
                 ImmutableSet.of(
                         // make sure that dummy cluster manager is used
                         initConfig -> setPrestoClusterManager(initConfig, DummyClusterManager.class.getName())));
-        RubixInitializer rubixInitializer = new RubixInitializer(
-                new CatalogName("catalog"),
-                rubixConfigInitializer,
-                configurationInitializer);
         InternalNode coordinatorNode = new InternalNode(
                 "master",
                 URI.create("http://127.0.0.1:8080"),
@@ -141,7 +137,12 @@ public class TestRubixCaching
         TestingNodeManager nodeManager = new TestingNodeManager(
                 coordinatorNode,
                 ImmutableList.of());
-        rubixInitializer.initializeRubix(nodeManager);
+        RubixInitializer rubixInitializer = new RubixInitializer(
+                nodeManager,
+                new CatalogName("catalog"),
+                rubixConfigInitializer,
+                configurationInitializer);
+        rubixInitializer.initializeRubix();
 
         return rubixConfigInitializer;
     }
@@ -180,17 +181,18 @@ public class TestRubixCaching
         RubixConfig rubixConfig = new RubixConfig();
         RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
-        RubixInitializer rubixInitializer = new RubixInitializer(
-                retry().maxAttempts(1),
-                new CatalogName("catalog"),
-                rubixConfigInitializer,
-                configurationInitializer);
         InternalNode workerNode = new InternalNode(
                 "master",
                 URI.create("http://127.0.0.1:8080"),
                 UNKNOWN,
                 false);
-        assertThatThrownBy(() -> rubixInitializer.initializeRubix(new TestingNodeManager(ImmutableList.of(workerNode))))
+        RubixInitializer rubixInitializer = new RubixInitializer(
+                retry().maxAttempts(1),
+                new TestingNodeManager(ImmutableList.of(workerNode)),
+                new CatalogName("catalog"),
+                rubixConfigInitializer,
+                configurationInitializer);
+        assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }
 

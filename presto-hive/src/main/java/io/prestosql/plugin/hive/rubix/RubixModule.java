@@ -20,6 +20,7 @@ import com.google.inject.Scopes;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
+import io.prestosql.spi.NodeManager;
 
 import javax.inject.Singleton;
 
@@ -44,12 +45,13 @@ public class RubixModule
     @Provides
     @Singleton
     public RubixInitializer createRubixInitializer(
+            NodeManager nodeManager,
             CatalogName catalogName,
             Set<DynamicConfigurationProvider> configProviders,
             HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
         checkArgument(configProviders.size() == 1, "Rubix cache does not work with dynamic configuration providers");
         RubixConfigurationInitializer configProvider = (RubixConfigurationInitializer) getOnlyElement(configProviders);
-        return new RubixInitializer(catalogName, configProvider, hdfsConfigurationInitializer);
+        return new RubixInitializer(nodeManager, catalogName, configProvider, hdfsConfigurationInitializer);
     }
 }
