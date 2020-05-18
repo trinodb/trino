@@ -134,7 +134,7 @@ public class ThreadResource
 
         public static Comparator<Info> byName()
         {
-            return new Comparator<Info>()
+            return new Comparator<>()
             {
                 @Override
                 public int compare(Info info, Info info2)

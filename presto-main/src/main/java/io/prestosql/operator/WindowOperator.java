@@ -473,7 +473,7 @@ public class WindowOperator
 
         windowInfo.addIndex(pagesIndex);
 
-        return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
+        return WorkProcessor.create(new WorkProcessor.Process<>()
         {
             int partitionStart;
 

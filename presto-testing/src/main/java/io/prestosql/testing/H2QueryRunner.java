@@ -204,7 +204,7 @@ public class H2QueryRunner
 
     private static RowMapper<MaterializedRow> rowMapper(List<? extends Type> types)
     {
-        return new RowMapper<MaterializedRow>()
+        return new RowMapper<>()
         {
             @Override
             public MaterializedRow map(ResultSet resultSet, StatementContext context)

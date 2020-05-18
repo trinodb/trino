@@ -328,7 +328,7 @@ public final class HttpPageBufferClient
                 new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
 
         future = resultFuture;
-        Futures.addCallback(resultFuture, new FutureCallback<PagesResponse>()
+        Futures.addCallback(resultFuture, new FutureCallback<>()
         {
             @Override
             public void onSuccess(PagesResponse result)
@@ -462,7 +462,7 @@ public final class HttpPageBufferClient
     {
         HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
         future = resultFuture;
-        Futures.addCallback(resultFuture, new FutureCallback<StatusResponse>()
+        Futures.addCallback(resultFuture, new FutureCallback<>()
         {
             @Override
             public void onSuccess(@Nullable StatusResponse result)

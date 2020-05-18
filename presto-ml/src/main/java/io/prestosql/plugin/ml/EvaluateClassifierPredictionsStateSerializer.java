@@ -67,7 +67,7 @@ public class EvaluateClassifierPredictionsStateSerializer
         Slice slice = VARCHAR.getSlice(block, index);
         Map<String, Map<String, Integer>> jsonState;
         try {
-            jsonState = OBJECT_MAPPER.readValue(slice.getBytes(), new TypeReference<Map<String, Map<String, Integer>>>() {});
+            jsonState = OBJECT_MAPPER.readValue(slice.getBytes(), new TypeReference<>() {});
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

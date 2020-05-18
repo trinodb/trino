@@ -44,7 +44,7 @@ public class TaskStateMachine
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
-        taskState.addStateChangeListener(new StateChangeListener<TaskState>()
+        taskState.addStateChangeListener(new StateChangeListener<>()
         {
             @Override
             public void stateChanged(TaskState newState)

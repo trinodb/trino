@@ -309,7 +309,7 @@ public class PrestoS3FileSystem
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
     {
         STATS.newListLocatedStatusCall();
-        return new RemoteIterator<LocatedFileStatus>()
+        return new RemoteIterator<>()
         {
             private final Iterator<LocatedFileStatus> iterator = listPrefix(path);
 
@@ -531,7 +531,7 @@ public class PrestoS3FileSystem
                 .withRequesterPays(requesterPaysEnabled);
 
         STATS.newListObjectsCall();
-        Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<ListObjectsV2Result>(s3.listObjectsV2(request))
+        Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<>(s3.listObjectsV2(request))
         {
             @Override
             protected ListObjectsV2Result computeNext(ListObjectsV2Result previous)

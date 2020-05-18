@@ -313,7 +313,7 @@ public final class LambdaBytecodeGenerator
 
     private static RowExpressionVisitor<BytecodeNode, Scope> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)
     {
-        return new RowExpressionVisitor<BytecodeNode, Scope>()
+        return new RowExpressionVisitor<>()
         {
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)

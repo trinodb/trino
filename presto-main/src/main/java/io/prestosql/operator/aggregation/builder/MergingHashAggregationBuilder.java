@@ -86,7 +86,7 @@ public class MergingHashAggregationBuilder
 
     public WorkProcessor<Page> buildResult()
     {
-        return sortedPages.flatTransform(new Transformation<Page, WorkProcessor<Page>>()
+        return sortedPages.flatTransform(new Transformation<>()
         {
             boolean reset = true;
             long memorySize;

@@ -593,7 +593,7 @@ public class TestTupleDomain
 
         ObjectMapper mapper = new ObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
-                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
