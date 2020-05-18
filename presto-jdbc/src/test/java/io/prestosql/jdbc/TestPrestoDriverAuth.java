@@ -239,7 +239,7 @@ public class TestPrestoDriverAuth
         properties.setProperty("SSL", "true");
         properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
-        properties.putAll(additionalProperties);
+        additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
     }
 }

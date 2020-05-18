@@ -309,7 +309,7 @@ public class TestHiveSplitSource
         private static Properties properties(String key, String value)
         {
             Properties properties = new Properties();
-            properties.put(key, value);
+            properties.setProperty(key, value);
             return properties;
         }
     }
