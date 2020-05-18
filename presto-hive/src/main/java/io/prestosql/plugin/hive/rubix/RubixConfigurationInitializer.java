@@ -45,6 +45,7 @@ import static com.qubole.rubix.spi.CacheConfig.setRubixClusterType;
 import static com.qubole.rubix.spi.CacheConfig.setWorkerNodeInfoExpiryPeriod;
 import static com.qubole.rubix.spi.ClusterType.PRESTOSQL_CLUSTER_MANAGER;
 import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static java.util.Objects.requireNonNull;
 
 public class RubixConfigurationInitializer
         implements DynamicConfigurationProvider
@@ -90,6 +91,7 @@ public class RubixConfigurationInitializer
     void updateConfiguration(Configuration config)
     {
         checkState(masterAddress != null, "masterAddress is not set");
+        checkState(nodeAddress != null, "nodeAddress is not set");
         setCacheDataEnabled(config, true);
         setOnMaster(config, isMaster);
         setCoordinatorHostName(config, masterAddress.getHostText());
@@ -124,12 +126,12 @@ public class RubixConfigurationInitializer
 
     void setMasterAddress(HostAddress masterAddress)
     {
-        this.masterAddress = masterAddress;
+        this.masterAddress = requireNonNull(masterAddress, "masterAddress is null");
     }
 
     void setCurrentNodeAddress(String nodeAddress)
     {
-        this.nodeAddress = nodeAddress;
+        this.nodeAddress = requireNonNull(nodeAddress, "nodeAddress is null");
     }
 
     void initializationDone()
