@@ -13,7 +13,6 @@
  */
 package io.prestosql.type;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -171,9 +170,9 @@ public class TestArrayOperators
         int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
         assertInvalidFunction(
                 "array_distinct(ARRAY['" +
-                        Strings.repeat("x", size) + "', '" +
-                        Strings.repeat("y", size) + "', '" +
-                        Strings.repeat("z", size) +
+                        "x".repeat(size) + "', '" +
+                        "y".repeat(size) + "', '" +
+                        "z".repeat(size) +
                         "'])",
                 EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }

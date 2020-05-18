@@ -30,7 +30,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static com.google.common.base.Strings.repeat;
 import static io.prestosql.tempto.Requirements.compose;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
@@ -193,7 +192,7 @@ public class TestJdbc
         try (Connection connection = connection()) {
             for (int i = 0; i < 200; i++) {
                 try {
-                    try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT '" + repeat("a", 300) + "'")) {
+                    try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT '" + "a".repeat(300) + "'")) {
                         preparedStatement.executeQuery().close(); // Let's not assume when PREPARE actually happens
                     }
                 }

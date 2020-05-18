@@ -756,9 +756,7 @@ public class TestOrcPageSourceMemoryTracking
         {
             StringBuilder builder = new StringBuilder();
             String source = writeValue.get();
-            for (int i = 0; i < counter / step; i++) {
-                builder.append(source);
-            }
+            builder.append(source.repeat(Math.max(0, counter / step)));
             counter++;
             if (builder.length() > maxSize) {
                 maxSize = builder.length();
