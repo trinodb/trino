@@ -62,6 +62,7 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -680,7 +681,7 @@ public class TestCassandraIntegrationSmokeTest
                 createUnboundedVarcharType()));
 
         List<MaterializedRow> sortedRows = result.getMaterializedRows().stream()
-                .sorted((o1, o2) -> o1.getField(1).toString().compareTo(o2.getField(1).toString()))
+                .sorted(comparing(o -> o.getField(1).toString()))
                 .collect(toList());
 
         for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
