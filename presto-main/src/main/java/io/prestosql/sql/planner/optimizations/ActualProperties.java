@@ -289,7 +289,7 @@ public class ActualProperties
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final ActualProperties other = (ActualProperties) obj;
+        ActualProperties other = (ActualProperties) obj;
         return Objects.equals(this.global, other.global)
                 && Objects.equals(this.localProperties, other.localProperties)
                 && Objects.equals(this.constants.keySet(), other.constants.keySet());
@@ -487,7 +487,7 @@ public class ActualProperties
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final Global other = (Global) obj;
+            Global other = (Global) obj;
             return Objects.equals(this.nodePartitioning, other.nodePartitioning) &&
                     Objects.equals(this.streamPartitioning, other.streamPartitioning) &&
                     this.nullsAndAnyReplicated == other.nullsAndAnyReplicated;

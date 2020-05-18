@@ -172,8 +172,8 @@ public class TestJdbc
     public void testSessionProperties()
             throws SQLException
     {
-        final String joinDistributionType = "join_distribution_type";
-        final String defaultValue = new FeaturesConfig().getJoinDistributionType().name();
+        String joinDistributionType = "join_distribution_type";
+        String defaultValue = new FeaturesConfig().getJoinDistributionType().name();
 
         assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
         setSessionProperty(connection(), joinDistributionType, "BROADCAST");

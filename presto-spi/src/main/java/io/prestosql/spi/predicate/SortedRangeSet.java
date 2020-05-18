@@ -410,7 +410,7 @@ public final class SortedRangeSet
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SortedRangeSet other = (SortedRangeSet) obj;
+        SortedRangeSet other = (SortedRangeSet) obj;
         return Objects.equals(this.lowIndexedRanges, other.lowIndexedRanges);
     }
 

@@ -74,7 +74,7 @@ public final class TransactionAccessMode
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TransactionAccessMode other = (TransactionAccessMode) obj;
+        TransactionAccessMode other = (TransactionAccessMode) obj;
         return this.readOnly == other.readOnly;
     }
 

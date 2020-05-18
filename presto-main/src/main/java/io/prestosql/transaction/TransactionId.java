@@ -56,7 +56,7 @@ public final class TransactionId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TransactionId other = (TransactionId) obj;
+        TransactionId other = (TransactionId) obj;
         return Objects.equals(this.uuid, other.uuid);
     }
 

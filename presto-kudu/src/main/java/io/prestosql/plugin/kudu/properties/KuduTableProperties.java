@@ -372,7 +372,7 @@ public final class KuduTableProperties
             PartitionSchema.RangeSchema rangeSchema = partitionSchema.getRangeSchema();
             List<Integer> rangeColumns = rangeSchema.getColumns();
 
-            final int numColumns = rangeColumns.size();
+            int numColumns = rangeColumns.size();
 
             PartialRow bound = KeyEncoderAccessor.decodeRangePartitionKey(schema, partitionSchema, rangeKey);
 

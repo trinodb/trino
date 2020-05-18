@@ -54,7 +54,7 @@ class MaterializedTuple
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final MaterializedTuple other = (MaterializedTuple) obj;
+        MaterializedTuple other = (MaterializedTuple) obj;
         return Objects.equals(this.values, other.values);
     }
 }

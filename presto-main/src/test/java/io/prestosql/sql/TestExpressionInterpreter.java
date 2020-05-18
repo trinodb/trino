@@ -1430,7 +1430,7 @@ public class TestExpressionInterpreter
         assertEquals(evaluate(predicate), expected);
     }
 
-    private static StringLiteral rawStringLiteral(final Slice slice)
+    private static StringLiteral rawStringLiteral(Slice slice)
     {
         return new StringLiteral(slice.toStringUtf8())
         {

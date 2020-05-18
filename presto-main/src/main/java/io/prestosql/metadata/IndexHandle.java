@@ -73,7 +73,7 @@ public final class IndexHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final IndexHandle other = (IndexHandle) obj;
+        IndexHandle other = (IndexHandle) obj;
         return Objects.equals(this.catalogName, other.catalogName) &&
                 Objects.equals(this.transactionHandle, other.transactionHandle) &&
                 Objects.equals(this.connectorHandle, other.connectorHandle);

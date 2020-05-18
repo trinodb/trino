@@ -96,7 +96,7 @@ public final class Isolation
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Isolation other = (Isolation) obj;
+        Isolation other = (Isolation) obj;
         return this.level == other.level;
     }
 
