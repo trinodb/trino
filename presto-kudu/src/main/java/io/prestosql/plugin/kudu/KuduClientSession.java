@@ -122,7 +122,7 @@ public class KuduClientSession
 
     private List<SchemaTableName> listTablesSingleSchema(String schemaName)
     {
-        final String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaName);
+        String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaName);
 
         List<String> tables = internalListTables(prefix);
         if (schemaName.equals(DEFAULT_SCHEMA)) {
@@ -149,7 +149,7 @@ public class KuduClientSession
     public List<KuduSplit> buildKuduSplits(KuduTableHandle tableHandle)
     {
         KuduTable table = tableHandle.getTable(this);
-        final int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
+        int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
 
         TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();

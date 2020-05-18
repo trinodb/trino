@@ -262,7 +262,7 @@ public class HostAddress
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HostAddress other = (HostAddress) obj;
+        HostAddress other = (HostAddress) obj;
         return Objects.equals(this.host, other.host) &&
                 Objects.equals(this.port, other.port);
     }

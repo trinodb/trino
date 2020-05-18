@@ -148,7 +148,7 @@ public class TaskResource
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskInfo(
-            @PathParam("taskId") final TaskId taskId,
+            @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
@@ -249,7 +249,7 @@ public class TaskResource
     public void getResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token,
+            @PathParam("token") long token,
             @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -308,7 +308,7 @@ public class TaskResource
     public void acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token)
+            @PathParam("token") long token)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");

@@ -61,7 +61,7 @@ public class TestingTransactionHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TestingTransactionHandle other = (TestingTransactionHandle) obj;
+        TestingTransactionHandle other = (TestingTransactionHandle) obj;
         return Objects.equals(this.uuid, other.uuid);
     }
 

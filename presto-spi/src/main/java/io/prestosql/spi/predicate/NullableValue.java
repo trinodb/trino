@@ -115,7 +115,7 @@ public final class NullableValue
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder("NullableValue{");
+        StringBuilder sb = new StringBuilder("NullableValue{");
         sb.append("type=").append(type);
         sb.append(", value=").append(value);
         sb.append('}');

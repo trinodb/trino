@@ -26,7 +26,7 @@ public class TableScanValidator
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, final Session session, final Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
         plan.accept(new SimplePlanVisitor<Void>()
         {

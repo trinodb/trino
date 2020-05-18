@@ -99,7 +99,7 @@ public class SchemaTablePrefix
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SchemaTablePrefix other = (SchemaTablePrefix) obj;
+        SchemaTablePrefix other = (SchemaTablePrefix) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName);
     }

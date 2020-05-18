@@ -239,7 +239,7 @@ public final class Partitioning
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Partitioning other = (Partitioning) obj;
+        Partitioning other = (Partitioning) obj;
         return Objects.equals(this.handle, other.handle) &&
                 Objects.equals(this.arguments, other.arguments);
     }

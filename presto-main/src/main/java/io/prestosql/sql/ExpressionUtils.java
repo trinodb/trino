@@ -278,7 +278,7 @@ public final class ExpressionUtils
         return variables.stream().anyMatch(references::contains);
     }
 
-    public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol>... nullSymbolScopes)
+    public static Function<Expression, Expression> expressionOrNullSymbols(Predicate<Symbol>... nullSymbolScopes)
     {
         return expression -> {
             ImmutableList.Builder<Expression> resultDisjunct = ImmutableList.builder();
