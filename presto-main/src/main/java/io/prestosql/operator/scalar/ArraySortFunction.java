@@ -26,7 +26,6 @@ import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Collections;
 import java.util.List;
 
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
@@ -60,7 +59,7 @@ public final class ArraySortFunction
             positions.set(i, i);
         }
 
-        Collections.sort(positions.subList(0, arrayLength), (p1, p2) -> {
+        positions.subList(0, arrayLength).sort((p1, p2) -> {
             boolean nullLeft = block.isNull(p1);
             boolean nullRight = block.isNull(p2);
             if (nullLeft && nullRight) {
