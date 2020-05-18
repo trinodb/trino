@@ -95,30 +95,33 @@ public class RubixInitializer
 
         addSuccessCallback(
                 nodeJoinFuture,
-                () -> {
-                    Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
-                    boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
+                () -> startRubix(nodeManager));
+    }
 
-                    rubixConfigurationInitializer.setMaster(isMaster);
-                    rubixConfigurationInitializer.setMasterAddress(master.getHostAndPort());
-                    rubixConfigurationInitializer.setCurrentNodeAddress(nodeManager.getCurrentNode().getHost());
+    private void startRubix(NodeManager nodeManager)
+    {
+        Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
+        boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
 
-                    Configuration configuration = getInitialConfiguration();
-                    // Perform standard HDFS configuration initialization.
-                    // This will also call out to RubixConfigurationInitializer but this will be no-op because
-                    // cacheReady is not yet set.
-                    hdfsConfigurationInitializer.initializeConfiguration(configuration);
-                    // Apply RubixConfigurationInitializer directly suppressing cacheReady check
-                    rubixConfigurationInitializer.updateConfiguration(configuration);
+        rubixConfigurationInitializer.setMaster(isMaster);
+        rubixConfigurationInitializer.setMasterAddress(master.getHostAndPort());
+        rubixConfigurationInitializer.setCurrentNodeAddress(nodeManager.getCurrentNode().getHost());
 
-                    MetricRegistry metricRegistry = new MetricRegistry();
-                    BookKeeperServer bookKeeperServer = new BookKeeperServer();
-                    BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
-                    LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
+        Configuration configuration = getInitialConfiguration();
+        // Perform standard HDFS configuration initialization.
+        // This will also call out to RubixConfigurationInitializer but this will be no-op because
+        // cacheReady is not yet set.
+        hdfsConfigurationInitializer.initializeConfiguration(configuration);
+        // Apply RubixConfigurationInitializer directly suppressing cacheReady check
+        rubixConfigurationInitializer.updateConfiguration(configuration);
 
-                    CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
-                    log.info("Rubix initialized successfully");
-                    rubixConfigurationInitializer.initializationDone();
-                });
+        MetricRegistry metricRegistry = new MetricRegistry();
+        BookKeeperServer bookKeeperServer = new BookKeeperServer();
+        BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
+        LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
+
+        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
+        log.info("Rubix initialized successfully");
+        rubixConfigurationInitializer.initializationDone();
     }
 }
