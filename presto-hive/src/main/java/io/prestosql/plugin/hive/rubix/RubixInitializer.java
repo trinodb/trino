@@ -29,6 +29,7 @@ import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 
+import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -61,39 +62,44 @@ public class RubixInitializer
     private static final Logger log = Logger.get(RubixInitializer.class);
 
     private final RetryDriver coordinatorRetryDriver;
+    private final NodeManager nodeManager;
     private final CatalogName catalogName;
     private final RubixConfigurationInitializer rubixConfigurationInitializer;
     private final HdfsConfigurationInitializer hdfsConfigurationInitializer;
 
     @Inject
     public RubixInitializer(
+            NodeManager nodeManager,
             CatalogName catalogName,
             RubixConfigurationInitializer rubixConfigurationInitializer,
             HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
-        this(DEFAULT_COORDINATOR_RETRY_DRIVER, catalogName, rubixConfigurationInitializer, hdfsConfigurationInitializer);
+        this(DEFAULT_COORDINATOR_RETRY_DRIVER, nodeManager, catalogName, rubixConfigurationInitializer, hdfsConfigurationInitializer);
     }
 
     @VisibleForTesting
     RubixInitializer(
             RetryDriver coordinatorRetryDriver,
+            NodeManager nodeManager,
             CatalogName catalogName,
             RubixConfigurationInitializer rubixConfigurationInitializer,
             HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
         this.coordinatorRetryDriver = coordinatorRetryDriver;
+        this.nodeManager = nodeManager;
         this.catalogName = catalogName;
         this.rubixConfigurationInitializer = rubixConfigurationInitializer;
         this.hdfsConfigurationInitializer = hdfsConfigurationInitializer;
     }
 
-    public void initializeRubix(NodeManager nodeManager)
+    @PostConstruct
+    public void initializeRubix()
     {
-        waitForCoordinator(nodeManager);
-        startRubix(nodeManager);
+        waitForCoordinator();
+        startRubix();
     }
 
-    private void waitForCoordinator(NodeManager nodeManager)
+    private void waitForCoordinator()
     {
         try {
             coordinatorRetryDriver.run(
@@ -112,7 +118,7 @@ public class RubixInitializer
         }
     }
 
-    private void startRubix(NodeManager nodeManager)
+    private void startRubix()
     {
         Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
         boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
