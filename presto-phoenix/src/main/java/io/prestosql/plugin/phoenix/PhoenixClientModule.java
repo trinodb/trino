@@ -155,11 +155,11 @@ public class PhoenixClientModule
         Configuration resourcesConfig = readConfig(config);
         Properties connectionProperties = new Properties();
         for (Map.Entry<String, String> entry : resourcesConfig) {
-            connectionProperties.put(entry.getKey(), entry.getValue());
+            connectionProperties.setProperty(entry.getKey(), entry.getValue());
         }
 
         PhoenixEmbeddedDriver.ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(config.getConnectionUrl());
-        connectionProperties.putAll(connectionInfo.asProps().asMap());
+        connectionInfo.asProps().asMap().forEach(connectionProperties::setProperty);
         return connectionProperties;
     }
 

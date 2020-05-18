@@ -78,7 +78,7 @@ public final class PhoenixQueryRunner
             throws SQLException
     {
         Properties properties = new Properties();
-        properties.put("phoenix.schema.isNamespaceMappingEnabled", "true");
+        properties.setProperty("phoenix.schema.isNamespaceMappingEnabled", "true");
         try (Connection connection = DriverManager.getConnection(phoenixServer.getJdbcUrl(), properties);
                 Statement statement = connection.createStatement()) {
             statement.execute(format("CREATE SCHEMA %s", schema));
