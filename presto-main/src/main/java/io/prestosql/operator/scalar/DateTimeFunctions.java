@@ -205,22 +205,24 @@ public final class DateTimeFunctions
     }
 
     @ScalarFunction("to_iso8601")
-    @SqlType("varchar(35)")
-    // YYYY-MM-DDTHH:MM:SS.mmm+HH:MM is a standard notation, and it requires 29 characters.
-    // However extended notation with format ±(Y)+-MM-DDTHH:MM:SS.mmm+HH:MM is also acceptable and as
-    // the maximum year represented by 64bits timestamp is ~584944387 it may require up to 35 characters.
+    @SqlType("varchar(29)")
+    // YYYY-MM-DDTHH:MM:SS.mmm is a standard notation, and it requires 23 characters.
+    // However extended notation with format ±(Y)+-MM-DDTHH:MM:SS.mmm is also acceptable and as
+    // the maximum year represented by 64bits timestamp is ~584944387 it may require up to 29 characters.
     public static Slice toISO8601FromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        ISOChronology chronology;
+
         if (session.isLegacyTimestamp()) {
-            DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
-                    .withChronology(getChronology(session.getTimeZoneKey()));
-            return utf8Slice(formatter.print(timestamp));
+            chronology = getChronology(session.getTimeZoneKey());
         }
         else {
-            DateTimeFormatter formatter = ISODateTimeFormat.dateHourMinuteSecondMillis()
-                    .withChronology(UTC_CHRONOLOGY);
-            return utf8Slice(formatter.print(timestamp));
+            chronology = UTC_CHRONOLOGY;
         }
+
+        DateTimeFormatter formatter = ISODateTimeFormat.dateHourMinuteSecondMillis()
+                .withChronology(chronology);
+        return utf8Slice(formatter.print(timestamp));
     }
 
     @ScalarFunction("to_iso8601")
