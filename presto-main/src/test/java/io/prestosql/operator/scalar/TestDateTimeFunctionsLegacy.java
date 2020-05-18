@@ -23,7 +23,6 @@ import java.time.Instant;
 
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
 
 public class TestDateTimeFunctionsLegacy
         extends TestDateTimeFunctionsBase
@@ -31,12 +30,6 @@ public class TestDateTimeFunctionsLegacy
     public TestDateTimeFunctionsLegacy()
     {
         super(true);
-    }
-
-    @Test
-    public void testToIso8601ForTimestampWithoutTimeZone()
-    {
-        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
     }
 
     @Test

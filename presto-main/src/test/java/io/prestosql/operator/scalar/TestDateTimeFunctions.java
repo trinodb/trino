@@ -33,12 +33,6 @@ public class TestDateTimeFunctions
     }
 
     @Test
-    public void testToIso8601ForTimestampWithoutTimeZone()
-    {
-        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING_NO_TIME_ZONE);
-    }
-
-    @Test
     public void testFormatDateCannotImplicitlyAddTimeZoneToTimestampLiteral()
     {
         assertInvalidFunction(

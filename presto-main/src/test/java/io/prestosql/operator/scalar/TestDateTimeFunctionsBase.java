@@ -131,6 +131,12 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testToIso8601ForTimestampWithoutTimeZone()
+    {
+        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(29), TIMESTAMP_ISO8601_STRING_NO_TIME_ZONE);
+    }
+
+    @Test
     public void testCurrentDate()
     {
         // current date is the time at midnight in the session time zone
