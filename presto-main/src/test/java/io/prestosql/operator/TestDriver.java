@@ -43,7 +43,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -205,14 +204,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<>()
-        {
-            @Override
-            public Boolean call()
-            {
-                return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
-            }
-        });
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         driver.close();
@@ -237,14 +229,9 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator close
-        Future<Boolean> driverClose = executor.submit(new Callable<>()
-        {
-            @Override
-            public Boolean call()
-            {
-                driver.close();
-                return true;
-            }
+        Future<Boolean> driverClose = executor.submit(() -> {
+            driver.close();
+            return true;
         });
         brokenOperator.waitForLocked();
 
@@ -294,14 +281,7 @@ public class TestDriver
         final Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<>()
-        {
-            @Override
-            public Boolean call()
-            {
-                return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
-            }
-        });
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         assertSame(driver.getDriverContext(), driverContext);

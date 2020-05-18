@@ -20,8 +20,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.Arrays;
-import it.unimi.dsi.fastutil.Swapper;
-import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.LinkedHashMap;
@@ -288,26 +286,14 @@ public class NumericHistogram
     private static void sort(final double[] values, final double[] weights, int nextIndex)
     {
         // sort x and y value arrays based on the x values
-        Arrays.quickSort(0, nextIndex, new AbstractIntComparator()
-        {
-            @Override
-            public int compare(int a, int b)
-            {
-                return Doubles.compare(values[a], values[b]);
-            }
-        }, new Swapper()
-        {
-            @Override
-            public void swap(int a, int b)
-            {
-                double temp = values[a];
-                values[a] = values[b];
-                values[b] = temp;
+        Arrays.quickSort(0, nextIndex, (a, b) -> Doubles.compare(values[a], values[b]), (a, b) -> {
+            double temp = values[a];
+            values[a] = values[b];
+            values[b] = temp;
 
-                temp = weights[a];
-                weights[a] = weights[b];
-                weights[b] = temp;
-            }
+            temp = weights[a];
+            weights[a] = weights[b];
+            weights[b] = temp;
         });
     }
 
