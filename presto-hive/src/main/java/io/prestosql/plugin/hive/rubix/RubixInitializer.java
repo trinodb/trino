@@ -79,7 +79,7 @@ public class RubixInitializer
         addSuccessCallback(
                 nodeJoinFuture,
                 () -> {
-                    Node master = nodeManager.getAllNodes().stream().filter(node -> node.isCoordinator()).findFirst().get();
+                    Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
                     boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
 
                     rubixConfigurationInitializer.setMaster(isMaster);
