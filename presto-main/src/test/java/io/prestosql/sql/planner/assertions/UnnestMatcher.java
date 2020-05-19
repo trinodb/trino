@@ -25,6 +25,7 @@ import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -36,15 +37,15 @@ final class UnnestMatcher
         implements Matcher
 {
     private final List<String> replicateSymbols;
-    private final List<String> unnestSymbols;
+    private final List<PlanMatchPattern.UnnestMapping> unnestMappings;
     private final Optional<String> ordinalitySymbol;
     private final JoinNode.Type type;
     private final Optional<Expression> filter;
 
-    public UnnestMatcher(List<String> replicateSymbols, List<String> unnestSymbols, Optional<String> ordinalitySymbol, JoinNode.Type type, Optional<Expression> filter)
+    public UnnestMatcher(List<String> replicateSymbols, List<PlanMatchPattern.UnnestMapping> unnestMappings, Optional<String> ordinalitySymbol, JoinNode.Type type, Optional<Expression> filter)
     {
         this.replicateSymbols = requireNonNull(replicateSymbols, "replicateSymbols is null");
-        this.unnestSymbols = requireNonNull(unnestSymbols, "mappings is null");
+        this.unnestMappings = requireNonNull(unnestMappings, "unnestMappings is null");
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
         this.type = requireNonNull(type, "type is null");
         this.filter = requireNonNull(filter, "filter is null");
@@ -78,16 +79,16 @@ final class UnnestMatcher
             return NO_MATCH;
         }
 
-        if (unnestNode.getMappings().size() != unnestSymbols.size()) {
+        if (unnestNode.getMappings().size() != unnestMappings.size()) {
             return NO_MATCH;
         }
-        if (!unnestSymbols.stream()
-                .map(symbolAliases::get)
-                .map(Symbol::from)
-                .collect(toImmutableList())
-                .equals(unnestNode.getMappings().stream()
-                        .map(Mapping::getInput)
-                        .collect(toImmutableList()))) {
+
+        if (!IntStream.range(0, unnestMappings.size()).boxed().allMatch(index -> {
+            Mapping nodeMapping = unnestNode.getMappings().get(index);
+            PlanMatchPattern.UnnestMapping patternMapping = unnestMappings.get(index);
+            return nodeMapping.getInput().toSymbolReference().equals(symbolAliases.get(patternMapping.getInput())) &&
+                    patternMapping.getOutputs().size() == nodeMapping.getOutputs().size();
+        })) {
             return NO_MATCH;
         }
 
@@ -119,7 +120,7 @@ final class UnnestMatcher
                 .omitNullValues()
                 .add("type", type)
                 .add("replicateSymbols", replicateSymbols)
-                .add("unnestSymbols", unnestSymbols)
+                .add("unnestMappings", unnestMappings)
                 .add("ordinalitySymbol", ordinalitySymbol.orElse(null))
                 .add("filter", filter.orElse(null))
                 .toString();

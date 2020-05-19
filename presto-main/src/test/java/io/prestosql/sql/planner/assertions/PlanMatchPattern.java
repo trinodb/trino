@@ -497,14 +497,14 @@ public final class PlanMatchPattern
         return node(UnnestNode.class, source);
     }
 
-    public static PlanMatchPattern unnest(List<String> replicateSymbols, Map<String, UnnestedSymbolMatcher> mappings, PlanMatchPattern source)
+    public static PlanMatchPattern unnest(List<String> replicateSymbols, List<UnnestMapping> mappings, PlanMatchPattern source)
     {
         return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
     }
 
     public static PlanMatchPattern unnest(
             List<String> replicateSymbols,
-            Map<String, UnnestedSymbolMatcher> mappings,
+            List<UnnestMapping> mappings,
             Optional<String> ordinalitySymbol,
             Type type,
             Optional<String> filter,
@@ -513,15 +513,17 @@ public final class PlanMatchPattern
         PlanMatchPattern result = node(UnnestNode.class, source)
                 .with(new UnnestMatcher(
                         replicateSymbols,
-                        mappings.values().stream()
-                                .map(UnnestedSymbolMatcher::getSymbol)
-                                .collect(toImmutableList()),
+                        mappings,
                         ordinalitySymbol,
                         type,
                         filter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate, new ParsingOptions())))));
-        for (Map.Entry<String, UnnestedSymbolMatcher> mapping : mappings.entrySet()) {
-            result.withAlias(mapping.getKey(), mapping.getValue());
-        }
+
+        mappings.forEach(mapping -> {
+            for (int i = 0; i < mapping.getOutputs().size(); i++) {
+                result.withAlias(mapping.getOutputs().get(i), new UnnestedSymbolMatcher(mapping.getInput(), i));
+            }
+        });
+
         ordinalitySymbol.ifPresent(symbol -> result.withAlias(symbol, new OrdinalitySymbolMatcher()));
 
         return result;
@@ -1043,6 +1045,33 @@ public final class PlanMatchPattern
                     .add("count", groupingSetCount)
                     .add("globalSets", globalGroupingSets)
                     .toString();
+        }
+    }
+
+    public static class UnnestMapping
+    {
+        private final String input;
+        private final List<String> outputs;
+
+        private UnnestMapping(String input, List<String> outputs)
+        {
+            this.input = requireNonNull(input, "input is null");
+            this.outputs = requireNonNull(outputs, "outputs is null");
+        }
+
+        public static UnnestMapping unnestMapping(String input, List<String> outputs)
+        {
+            return new UnnestMapping(input, outputs);
+        }
+
+        public String getInput()
+        {
+            return input;
+        }
+
+        public List<String> getOutputs()
+        {
+            return outputs;
         }
     }
 
