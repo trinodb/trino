@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.UnnestedSymbolMatcher;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -25,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.unnest;
@@ -58,7 +58,7 @@ public class TestPruneUnnestColumns
                                 ImmutableMap.of("replicate_symbol", expression("replicate_symbol"), "unnested_symbol", expression("unnested_symbol")),
                                 unnest(
                                         ImmutableList.of("replicate_symbol"),
-                                        ImmutableMap.of("unnested_symbol", new UnnestedSymbolMatcher("unnest_symbol")),
+                                        ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
                                         Optional.empty(),
                                         INNER,
                                         Optional.empty(),
@@ -89,7 +89,7 @@ public class TestPruneUnnestColumns
                                 ImmutableMap.of("unnested_symbol", expression("unnested_symbol"), "ordinality_symbol", expression("ordinality_symbol")),
                                 unnest(
                                         ImmutableList.of(),
-                                        ImmutableMap.of("unnested_symbol", new UnnestedSymbolMatcher("unnest_symbol")),
+                                        ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
                                         Optional.of("ordinality_symbol"),
                                         INNER,
                                         Optional.empty(),

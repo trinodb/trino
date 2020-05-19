@@ -23,6 +23,7 @@ import io.prestosql.sql.planner.plan.UnnestNode.Mapping;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -32,10 +33,13 @@ public class UnnestedSymbolMatcher
         implements RvalueMatcher
 {
     private final String symbol;
+    private final int index;
 
-    public UnnestedSymbolMatcher(String symbol)
+    public UnnestedSymbolMatcher(String symbol, int index)
     {
         this.symbol = requireNonNull(symbol, "symbol is null");
+        checkArgument(index >= 0, "index cannot be negative");
+        this.index = index;
     }
 
     @Override
@@ -57,9 +61,12 @@ public class UnnestedSymbolMatcher
         }
 
         Mapping mapping = getOnlyElement(matches);
-        checkState(mapping.getOutputs().size() == 1, "alias matching not supported for multiple output symbols");
 
-        return Optional.of(getOnlyElement(mapping.getOutputs()));
+        if (index >= mapping.getOutputs().size()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(mapping.getOutputs().get(index));
     }
 
     public String getSymbol()
