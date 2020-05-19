@@ -16,11 +16,11 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.UnnestedSymbolMatcher;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.UnnestNode.Mapping;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.unnest;
@@ -46,7 +46,7 @@ public class TestPruneUnnestSourceColumns
                 .matches(
                         unnest(
                                 ImmutableList.of("replicate_symbol"),
-                                ImmutableMap.of("unnested_symbol", new UnnestedSymbolMatcher("unnest_symbol")),
+                                ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
                                 strictProject(
                                         ImmutableMap.of("replicate_symbol", expression("replicate_symbol"), "unnest_symbol", expression("unnest_symbol")),
                                         values("replicate_symbol", "unnest_symbol", "unused_symbol"))));
