@@ -167,8 +167,8 @@ public class TestRubixCaching
     {
         try (Closer closer = Closer.create()) {
             closer.register(() -> deleteRecursively(tempDirectory, ALLOW_INSECURE));
-            closer.register(() -> nonCachingFileSystem.close());
-            closer.register(() -> cachingFileSystem.close());
+            closer.register(nonCachingFileSystem);
+            closer.register(cachingFileSystem);
             closer.register(rubixInitializer::stopRubix);
         }
     }
