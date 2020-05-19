@@ -51,7 +51,8 @@ import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.type.DateTimeOperators.modulo24Hour;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithoutTimeZone;
+import static io.prestosql.util.DateTimeUtils.convertToLegacyTimestamp;
+import static io.prestosql.util.DateTimeUtils.convertToTimestamp;
 import static io.prestosql.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
@@ -196,7 +197,7 @@ public final class TimestampOperators
         // This accepts value with or without time zone
         if (session.isLegacyTimestamp()) {
             try {
-                return parseTimestampWithoutTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+                return convertToLegacyTimestamp(session.getTimeZoneKey(), trim(value).toStringUtf8());
             }
             catch (IllegalArgumentException e) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
@@ -204,7 +205,7 @@ public final class TimestampOperators
         }
 
         try {
-            return parseTimestampWithoutTimeZone(trim(value).toStringUtf8());
+            return convertToTimestamp(trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);

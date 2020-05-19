@@ -25,6 +25,8 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.relational.SpecialForm.Form;
@@ -73,6 +75,7 @@ import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.type.UnknownType;
+import io.prestosql.util.DateTimeUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -113,9 +116,11 @@ import static io.prestosql.sql.relational.SpecialForm.Form.SWITCH;
 import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
+import static io.prestosql.util.DateTimeUtils.parseLegacyTimestamp;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
+import static io.prestosql.util.DateTimeUtils.parseTimestamp;
+import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
@@ -271,7 +276,7 @@ public final class SqlToRowExpressionTranslator
             else {
                 if (isLegacyTimestamp) {
                     // parse in time zone of client
-                    value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+                    value = DateTimeUtils.parseLegacyTime(timeZoneKey, node.getValue());
                 }
                 else {
                     value = parseTimeWithoutTimeZone(node.getValue());
@@ -283,14 +288,25 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTimestampLiteral(TimestampLiteral node, Void context)
         {
+            Type type = getType(node);
+
             long value;
-            if (isLegacyTimestamp) {
-                value = parseTimestampLiteral(timeZoneKey, node.getValue());
+            if (type instanceof TimestampType) {
+                if (isLegacyTimestamp) {
+                    value = parseLegacyTimestamp(timeZoneKey, node.getValue());
+                }
+                else {
+                    value = parseTimestamp(node.getValue());
+                }
+            }
+            else if (type instanceof TimestampWithTimeZoneType) {
+                value = parseTimestampWithTimeZone(node.getValue());
             }
             else {
-                value = parseTimestampLiteral(node.getValue());
+                throw new IllegalStateException("Unexpected type: " + type);
             }
-            return constant(value, getType(node));
+
+            return constant(value, type);
         }
 
         @Override

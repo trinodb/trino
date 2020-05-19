@@ -143,45 +143,6 @@ public final class DateTimeUtils
     }
 
     /**
-     * Parse a string (optionally containing a zone) as a value of either TIMESTAMP or TIMESTAMP WITH TIME ZONE type.
-     * <p>
-     * For example: {@code "2000-01-01 01:23:00"} is parsed to TIMESTAMP {@code 2000-01-01T01:23:00}
-     * and {@code "2000-01-01 01:23:00 +01:23"} is parsed to TIMESTAMP WITH TIME ZONE
-     * {@code 2000-01-01T01:23:00.000+01:23}.
-     *
-     * @return stack representation of TIMESTAMP or TIMESTAMP WITH TIME ZONE type, depending on input
-     */
-    public static long parseTimestampLiteral(String value)
-    {
-        try {
-            DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
-            return packDateTimeWithZone(dateTime);
-        }
-        catch (Exception e) {
-            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
-        }
-    }
-
-    /**
-     * Parse a string (optionally containing a zone) as a value of either TIMESTAMP or TIMESTAMP WITH TIME ZONE type.
-     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
-     *
-     * @return stack representation of legacy TIMESTAMP or TIMESTAMP WITH TIME ZONE type, depending on input
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
-    {
-        try {
-            DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
-            return packDateTimeWithZone(dateTime);
-        }
-        catch (RuntimeException e) {
-            return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
-        }
-    }
-
-    /**
      * Parse a string (optionally containing a zone) as a value of TIMESTAMP WITH TIME ZONE type.
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
      * <p>
@@ -191,9 +152,15 @@ public final class DateTimeUtils
      *
      * @return stack representation of TIMESTAMP WITH TIME ZONE type
      */
-    public static long parseTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
+    public static long convertToTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
     {
         DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
+        return packDateTimeWithZone(dateTime);
+    }
+
+    public static long parseTimestampWithTimeZone(String value)
+    {
+        DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withOffsetParsed().parseDateTime(value);
         return packDateTimeWithZone(dateTime);
     }
 
@@ -206,7 +173,7 @@ public final class DateTimeUtils
      *
      * @return stack representation of TIMESTAMP type
      */
-    public static long parseTimestampWithoutTimeZone(String value)
+    public static long convertToTimestamp(String value)
     {
         LocalDateTime localDateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.parseLocalDateTime(value);
         try {
@@ -218,16 +185,39 @@ public final class DateTimeUtils
     }
 
     /**
-     * Parse a string (optionally containing a zone) as a value of TIMESTAMP type.
-     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
-     *
-     * @return stack representation of legacy TIMESTAMP type
-     * @deprecated applicable in legacy timestamp semantics only
+     * Parse a legacy TIMESTAMP type. The string is interpreted in {@code timeZoneKey} zone.
      */
     @Deprecated
-    public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
+    public static long parseLegacyTimestamp(TimeZoneKey timeZoneKey, String value)
+    {
+        return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+    }
+
+    /**
+     * Parse a string (optionally containing a zone) as a value of TIMESTAMP type using legacy semantics.
+     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
+     * If the timestamp is in a gap in the provided timezone, the method throws an exception.
+     */
+    @Deprecated
+    public static long convertToLegacyTimestamp(TimeZoneKey timeZoneKey, String value)
     {
         return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+    }
+
+    /**
+     * Parse a string as a value of TIMESTAMP type.
+     *
+     * @return stack representation of TIMESTAMP type
+     */
+    public static long parseTimestamp(String value)
+    {
+        LocalDateTime localDateTime = TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseLocalDateTime(value);
+        try {
+            return (long) getLocalMillis.invokeExact(localDateTime);
+        }
+        catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)
@@ -298,43 +288,6 @@ public final class DateTimeUtils
     }
 
     /**
-     * Parse a string (optionally containing a zone) as a value of either TIME or TIME WITH TIME ZONE type.
-     * <p>
-     * For example: {@code "01:23:00"} is parsed to TIME {@code 01:23:00}
-     * and {@code "01:23:00 +01:23"} is parsed to TIME WITH TIME ZONE
-     * {@code 01:23:00+01:23}.
-     *
-     * @return stack representation of TIME or TIME WITH TIME ZONE type, depending on input
-     */
-    public static long parseTimeLiteral(String value)
-    {
-        try {
-            return parseTimeWithTimeZone(value);
-        }
-        catch (Exception e) {
-            return parseTimeWithoutTimeZone(value);
-        }
-    }
-
-    /**
-     * Parse a string (optionally containing a zone) as a value of either TIME or TIME WITH TIME ZONE type.
-     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
-     *
-     * @return stack representation of legacy TIME or TIME WITH TIME ZONE type, depending on input
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    public static long parseTimeLiteral(TimeZoneKey timeZoneKey, String value)
-    {
-        try {
-            return parseTimeWithTimeZone(value);
-        }
-        catch (Exception e) {
-            return parseTimeWithoutTimeZone(timeZoneKey, value);
-        }
-    }
-
-    /**
      * Parse a string containing a zone as a value of TIME WITH TIME ZONE type.
      * <p>
      * For example: {@code "01:23:00 +01:23"} is parsed to TIME WITH TIME ZONE
@@ -368,7 +321,7 @@ public final class DateTimeUtils
      * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
-    public static long parseTimeWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
+    public static long parseLegacyTime(TimeZoneKey timeZoneKey, String value)
     {
         return TIME_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).parseMillis(value);
     }

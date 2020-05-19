@@ -19,6 +19,10 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.InterpretedFunctionInvoker;
@@ -33,11 +37,14 @@ import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
+
+import java.util.Map;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
@@ -47,20 +54,25 @@ import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
-import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
-import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
+import static io.prestosql.util.DateTimeUtils.parseLegacyTime;
+import static io.prestosql.util.DateTimeUtils.parseLegacyTimestamp;
+import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
+import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
+import static io.prestosql.util.DateTimeUtils.parseTimestamp;
+import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
+import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
 {
     private LiteralInterpreter() {}
 
-    public static Object evaluate(Metadata metadata, ConnectorSession session, Expression node)
+    public static Object evaluate(Metadata metadata, ConnectorSession session, Map<NodeRef<Expression>, Type> types, Expression node)
     {
         if (!(node instanceof Literal)) {
             throw new IllegalArgumentException("node must be a Literal");
         }
-        return new LiteralVisitor(metadata).process(node, session);
+        return new LiteralVisitor(metadata, types).process(node, session);
     }
 
     private static class LiteralVisitor
@@ -68,11 +80,13 @@ public final class LiteralInterpreter
     {
         private final Metadata metadata;
         private final InterpretedFunctionInvoker functionInvoker;
+        private final Map<NodeRef<Expression>, Type> types;
 
-        private LiteralVisitor(Metadata metadata)
+        private LiteralVisitor(Metadata metadata, Map<NodeRef<Expression>, Type> types)
         {
-            this.metadata = metadata;
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -151,28 +165,37 @@ public final class LiteralInterpreter
         @Override
         protected Long visitTimeLiteral(TimeLiteral node, ConnectorSession session)
         {
-            if (session.isLegacyTimestamp()) {
-                return parseTimeLiteral(session.getTimeZoneKey(), node.getValue());
+            Type type = types.get(NodeRef.of(node));
+
+            if (type instanceof TimeType) {
+                if (session.isLegacyTimestamp()) {
+                    return parseLegacyTime(session.getTimeZoneKey(), node.getValue());
+                }
+                return parseTimeWithoutTimeZone(node.getValue());
             }
-            else {
-                return parseTimeLiteral(node.getValue());
+            else if (type instanceof TimeWithTimeZoneType) {
+                return parseTimeWithTimeZone(node.getValue());
             }
+
+            throw new IllegalStateException("Unexpected type: " + type);
         }
 
         @Override
         protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
         {
-            try {
+            Type type = types.get(NodeRef.of(node));
+
+            if (type instanceof TimestampType) {
                 if (session.isLegacyTimestamp()) {
-                    return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                    return parseLegacyTimestamp(session.getTimeZoneKey(), node.getValue());
                 }
-                else {
-                    return parseTimestampLiteral(node.getValue());
-                }
+                return parseTimestamp(node.getValue());
             }
-            catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
+            else if (type instanceof TimestampWithTimeZoneType) {
+                return parseTimestampWithTimeZone(node.getValue());
             }
+
+            throw new IllegalStateException("Unexpected type: " + type);
         }
 
         @Override
