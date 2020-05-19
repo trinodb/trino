@@ -42,234 +42,234 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        if (MILLIS_OF_DAY.get(right) != 0) {
+        if (MILLIS_OF_DAY.get(interval) != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
         }
-        return left + TimeUnit.MILLISECONDS.toDays(right);
+        return date + TimeUnit.MILLISECONDS.toDays(interval);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long intervalDayToSecondPlusDate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DATE) long right)
+    public static long intervalDayToSecondPlusDate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.DATE) long date)
     {
-        if (MILLIS_OF_DAY.get(left) != 0) {
+        if (MILLIS_OF_DAY.get(interval) != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
         }
-        return TimeUnit.MILLISECONDS.toDays(left) + right;
+        return TimeUnit.MILLISECONDS.toDays(interval) + date;
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME)
-    public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        return modulo24Hour(getChronology(session.getTimeZoneKey()), time + interval);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME)
-    public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIME) long right)
+    public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.TIME) long time)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        return modulo24Hour(getChronology(session.getTimeZoneKey()), interval + time);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZonePlusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timeWithTimeZonePlusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return updateMillisUtc((long) modulo24Hour(unpackChronology(left), unpackMillisUtc(left) + right), left);
+        return updateMillisUtc((long) modulo24Hour(unpackChronology(time), unpackMillisUtc(time) + interval), time);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long intervalDayToSecondPlusTimeWithTimeZone(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
+    public static long intervalDayToSecondPlusTimeWithTimeZone(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
     {
-        return updateMillisUtc((long) modulo24Hour(unpackChronology(right), left + unpackMillisUtc(right)), right);
+        return updateMillisUtc((long) modulo24Hour(unpackChronology(time), interval + unpackMillisUtc(time)), time);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampPlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timestampPlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return left + right;
+        return timestamp + interval;
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long intervalDayToSecondPlusTimestamp(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
+    public static long intervalDayToSecondPlusTimestamp(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return left + right;
+        return interval + timestamp;
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long timestampWithTimeZonePlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timestampWithTimeZonePlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestamp, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return updateMillisUtc(unpackMillisUtc(left) + right, left);
+        return updateMillisUtc(unpackMillisUtc(timestamp) + interval, timestamp);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long intervalDayToSecondPlusTimestampWithTimeZone(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long right)
+    public static long intervalDayToSecondPlusTimestampWithTimeZone(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestamp)
     {
-        return updateMillisUtc(left + unpackMillisUtc(right), right);
+        return updateMillisUtc(interval + unpackMillisUtc(timestamp), timestamp);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(left), right);
+        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(date), interval);
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long intervalYearToMonthPlusDate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DATE) long right)
+    public static long intervalYearToMonthPlusDate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.DATE) long date)
     {
-        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(right), left);
+        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(date), interval);
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME)
-    public static long timePlusIntervalYearToMonth(@SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timePlusIntervalYearToMonth(@SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        return left;
+        return time;
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME)
-    public static long intervalYearToMonthPlusTime(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIME) long right)
+    public static long intervalYearToMonthPlusTime(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.TIME) long time)
     {
-        return right;
+        return time;
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZonePlusIntervalYearToMonth(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timeWithTimeZonePlusIntervalYearToMonth(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        return left;
+        return time;
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long intervalYearToMonthPlusTimeWithTimeZone(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
+    public static long intervalYearToMonthPlusTimeWithTimeZone(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
     {
-        return right;
+        return time;
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampPlusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampPlusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
         if (session.isLegacyTimestamp()) {
-            return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, right);
+            return getChronology(session.getTimeZoneKey()).monthOfYear().add(timestamp, interval);
         }
-        return MONTH_OF_YEAR_UTC.add(left, right);
+        return MONTH_OF_YEAR_UTC.add(timestamp, interval);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long intervalYearToMonthPlusTimestamp(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
+    public static long intervalYearToMonthPlusTimestamp(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
         if (session.isLegacyTimestamp()) {
-            return getChronology(session.getTimeZoneKey()).monthOfYear().add(right, left);
+            return getChronology(session.getTimeZoneKey()).monthOfYear().add(timestamp, interval);
         }
-        return MONTH_OF_YEAR_UTC.add(right, left);
+        return MONTH_OF_YEAR_UTC.add(timestamp, interval);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long timestampWithTimeZonePlusIntervalYearToMonth(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampWithTimeZonePlusIntervalYearToMonth(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestamp, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        return updateMillisUtc(unpackChronology(left).monthOfYear().add(unpackMillisUtc(left), right), left);
+        return updateMillisUtc(unpackChronology(timestamp).monthOfYear().add(unpackMillisUtc(timestamp), interval), timestamp);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long intervalYearToMonthPlusTimestampWithTimeZone(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long right)
+    public static long intervalYearToMonthPlusTimestampWithTimeZone(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestamp)
     {
-        return updateMillisUtc(unpackChronology(right).monthOfYear().add(unpackMillisUtc(right), left), right);
+        return updateMillisUtc(unpackChronology(timestamp).monthOfYear().add(unpackMillisUtc(timestamp), interval), timestamp);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        if (MILLIS_OF_DAY.get(right) != 0) {
+        if (MILLIS_OF_DAY.get(interval) != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
         }
-        return left - TimeUnit.MILLISECONDS.toDays(right);
+        return date - TimeUnit.MILLISECONDS.toDays(interval);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIME)
-    public static long timeMinusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timeMinusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left - right);
+        return modulo24Hour(getChronology(session.getTimeZoneKey()), time - interval);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZoneMinusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timeWithTimeZoneMinusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return updateMillisUtc((long) modulo24Hour(unpackChronology(left), unpackMillisUtc(left) - right), left);
+        return updateMillisUtc((long) modulo24Hour(unpackChronology(time), unpackMillisUtc(time) - interval), time);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timestampMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return left - right;
+        return timestamp - interval;
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long timestampWithTimeZoneMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timestampWithTimeZoneMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestamp, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return updateMillisUtc(unpackMillisUtc(left) - right, left);
+        return updateMillisUtc(unpackMillisUtc(timestamp) - interval, timestamp);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long dateMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(left), -right);
+        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(date), -interval);
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIME)
-    public static long timeMinusIntervalYearToMonth(@SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timeMinusIntervalYearToMonth(@SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        return left;
+        return time;
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZoneMinusIntervalYearToMonth(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timeWithTimeZoneMinusIntervalYearToMonth(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        return left;
+        return time;
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
         if (session.isLegacyTimestamp()) {
-            return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, -right);
+            return getChronology(session.getTimeZoneKey()).monthOfYear().add(timestamp, -interval);
         }
-        return MONTH_OF_YEAR_UTC.add(left, -right);
+        return MONTH_OF_YEAR_UTC.add(timestamp, -interval);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long timestampWithTimeZoneMinusIntervalYearToMonth(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampWithTimeZoneMinusIntervalYearToMonth(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestamp, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
-        long dateTimeWithTimeZone = unpackChronology(left).monthOfYear().add(unpackMillisUtc(left), -right);
-        return updateMillisUtc(dateTimeWithTimeZone, left);
+        long dateTimeWithTimeZone = unpackChronology(timestamp).monthOfYear().add(unpackMillisUtc(timestamp), -interval);
+        return updateMillisUtc(dateTimeWithTimeZone, timestamp);
     }
 
     public static int modulo24Hour(ISOChronology chronology, long millis)
