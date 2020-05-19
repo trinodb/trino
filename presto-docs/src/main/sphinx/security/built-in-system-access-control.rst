@@ -224,7 +224,7 @@ impersonate the ``test`` user:
 Principal Rules
 ---------------
 
-.. note::
+.. warning::
 
     Principal rules are deprecated and will be removed in a future release.
     These rules have been replaced with :doc:`/security/user-mapping`, which
