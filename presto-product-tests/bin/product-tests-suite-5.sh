@@ -14,5 +14,11 @@ presto-product-tests-launcher/bin/run-launcher test run \
     -- -g storage_formats,hdfs_impersonation,authorization -x iceberg \
     || suite_exit_code=1
 
+# TODO: enable avro tests once https://github.com/prestosql/presto/issues/3794 is fixed
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment multinode-hive-caching \
+    -- -g hive_caching,storage_formats -x iceberg,avro \
+    || suite_exit_code=1
+
 echo "$0: exiting with ${suite_exit_code}"
 exit "${suite_exit_code}"
