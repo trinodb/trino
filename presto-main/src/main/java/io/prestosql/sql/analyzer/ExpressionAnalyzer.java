@@ -162,7 +162,9 @@ import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
+import static io.prestosql.util.DateTimeUtils.parseLegacyTimestamp;
+import static io.prestosql.util.DateTimeUtils.parseTimestamp;
+import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.timeHasTimeZone;
 import static io.prestosql.util.DateTimeUtils.timestampHasTimeZone;
 import static java.lang.Math.toIntExact;
@@ -824,25 +826,26 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
         {
+            Type type;
             try {
-                if (SystemSessionProperties.isLegacyTimestamp(session)) {
-                    parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                if (timestampHasTimeZone(node.getValue())) {
+                    type = TIMESTAMP_WITH_TIME_ZONE;
+                    parseTimestampWithTimeZone(node.getValue());
                 }
                 else {
-                    parseTimestampLiteral(node.getValue());
+                    type = TIMESTAMP;
+                    if (SystemSessionProperties.isLegacyTimestamp(session)) {
+                        parseLegacyTimestamp(session.getTimeZoneKey(), node.getValue());
+                    }
+                    else {
+                        parseTimestamp(node.getValue());
+                    }
                 }
             }
             catch (Exception e) {
                 throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
             }
 
-            Type type;
-            if (timestampHasTimeZone(node.getValue())) {
-                type = TIMESTAMP_WITH_TIME_ZONE;
-            }
-            else {
-                type = TIMESTAMP;
-            }
             return setExpressionType(node, type);
         }
 
