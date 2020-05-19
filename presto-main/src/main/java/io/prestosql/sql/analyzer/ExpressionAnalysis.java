@@ -19,9 +19,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.InPredicate;
-import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.SubqueryExpression;
@@ -41,8 +39,6 @@ public class ExpressionAnalysis
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries;
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons;
-    // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
-    private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences;
     private final Set<NodeRef<FunctionCall>> windowFunctions;
 
     public ExpressionAnalysis(
@@ -54,7 +50,6 @@ public class ExpressionAnalysis
             Map<NodeRef<Expression>, FieldId> columnReferences,
             Set<NodeRef<Expression>> typeOnlyCoercions,
             Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons,
-            Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences,
             Set<NodeRef<FunctionCall>> windowFunctions)
     {
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
@@ -65,7 +60,6 @@ public class ExpressionAnalysis
         this.scalarSubqueries = ImmutableSet.copyOf(requireNonNull(scalarSubqueries, "subqueryInPredicates is null"));
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
         this.quantifiedComparisons = ImmutableSet.copyOf(requireNonNull(quantifiedComparisons, "quantifiedComparisons is null"));
-        this.lambdaArgumentReferences = ImmutableMap.copyOf(requireNonNull(lambdaArgumentReferences, "lambdaArgumentReferences is null"));
         this.windowFunctions = ImmutableSet.copyOf(requireNonNull(windowFunctions, "windowFunctions is null"));
     }
 
