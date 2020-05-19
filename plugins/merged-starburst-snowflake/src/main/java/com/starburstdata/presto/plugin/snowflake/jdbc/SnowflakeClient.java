@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
@@ -16,6 +17,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
@@ -25,7 +27,9 @@ import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.Estimate;
@@ -53,6 +57,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
@@ -63,6 +68,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMappi
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -209,6 +215,37 @@ public class SnowflakeClient
         }
 
         return super.toWriteMapping(session, type);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        checkColumnsForInvalidCharacters(tableMetadata.getColumns());
+        return super.beginCreateTable(session, tableMetadata);
+    }
+
+    @Override
+    public JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, String tableName)
+            throws SQLException
+    {
+        checkColumnsForInvalidCharacters(tableMetadata.getColumns());
+        return super.createTable(session, tableMetadata, tableName);
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        checkColumnsForInvalidCharacters(ImmutableList.of(column));
+        super.addColumn(session, handle, column);
+    }
+
+    public static void checkColumnsForInvalidCharacters(List<ColumnMetadata> columns)
+    {
+        columns.forEach(columnMetadata -> {
+            if (columnMetadata.getName().contains("\"")) {
+                throw new PrestoException(NOT_SUPPORTED, "Snowflake columns cannot contain quotes: " + columnMetadata.getName());
+            }
+        });
     }
 
     private static SliceReadFunction variantReadFunction()

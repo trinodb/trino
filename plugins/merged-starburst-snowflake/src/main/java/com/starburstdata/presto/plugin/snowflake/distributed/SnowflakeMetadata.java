@@ -9,11 +9,20 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcMetadata;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorNewTableLayout;
+import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 
+import java.util.Optional;
+
+import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.checkColumnsForInvalidCharacters;
 import static java.util.Objects.requireNonNull;
 
 class SnowflakeMetadata
@@ -31,5 +40,26 @@ class SnowflakeMetadata
     public void cleanupQuery(ConnectorSession session)
     {
         connectionManager.closeConnections(QueryId.valueOf(session.getQueryId()));
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    {
+        checkColumnsForInvalidCharacters(tableMetadata.getColumns());
+        return super.beginCreateTable(session, tableMetadata, layout);
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        checkColumnsForInvalidCharacters(tableMetadata.getColumns());
+        super.createTable(session, tableMetadata, ignoreExisting);
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
+    {
+        checkColumnsForInvalidCharacters(ImmutableList.of(columnMetadata));
+        super.addColumn(session, table, columnMetadata);
     }
 }

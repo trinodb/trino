@@ -50,7 +50,7 @@ public abstract class BaseSnowflakeDistributedQueries
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         // Snowflake does not support column names containing double quotes
-        return columnName.contains("\"");
+        return columnName.contains("\"") && nullToEmpty(exception.getMessage()).matches(".*(Snowflake columns cannot contain quotes).*");
     }
 
     @Override
