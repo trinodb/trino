@@ -71,8 +71,8 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.util.DateTimeUtils.convertToLegacyTimestamp;
 import static io.prestosql.util.DateTimeUtils.parseDate;
-import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -237,8 +237,8 @@ public class TestRaptorConnector
         Object timestamp1 = null;
         Object timestamp2 = null;
         if (temporalType.equals(TIMESTAMP)) {
-            timestamp1 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), min), getTimeZoneKey(userTimeZone));
-            timestamp2 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), max), getTimeZoneKey(userTimeZone));
+            timestamp1 = new SqlTimestamp(convertToLegacyTimestamp(getTimeZoneKey(userTimeZone), min), getTimeZoneKey(userTimeZone));
+            timestamp2 = new SqlTimestamp(convertToLegacyTimestamp(getTimeZoneKey(userTimeZone), max), getTimeZoneKey(userTimeZone));
         }
         else if (temporalType.equals(DATE)) {
             timestamp1 = new SqlDate(parseDate(min));

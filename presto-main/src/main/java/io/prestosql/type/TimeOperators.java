@@ -27,6 +27,7 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.util.DateTimeUtils;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -162,7 +163,7 @@ public final class TimeOperators
     {
         try {
             if (session.isLegacyTimestamp()) {
-                return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+                return DateTimeUtils.parseLegacyTime(session.getTimeZoneKey(), value.toStringUtf8());
             }
             return parseTimeWithoutTimeZone(value.toStringUtf8());
         }

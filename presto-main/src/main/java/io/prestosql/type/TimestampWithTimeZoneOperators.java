@@ -53,7 +53,7 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.type.DateTimeOperators.modulo24Hour;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
+import static io.prestosql.util.DateTimeUtils.convertToTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.printTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
@@ -193,7 +193,7 @@ public final class TimestampWithTimeZoneOperators
     public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return parseTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+            return convertToTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: " + value.toStringUtf8(), e);

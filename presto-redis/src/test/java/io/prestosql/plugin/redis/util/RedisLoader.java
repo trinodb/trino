@@ -24,6 +24,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.Varchars;
 import io.prestosql.testing.AbstractTestingPrestoClient;
 import io.prestosql.testing.ResultsSession;
+import io.prestosql.util.DateTimeUtils;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import redis.clients.jedis.Jedis;
@@ -46,9 +47,8 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithoutTimeZone;
+import static io.prestosql.util.DateTimeUtils.convertToLegacyTimestamp;
+import static io.prestosql.util.DateTimeUtils.parseLegacyTime;
 import static java.util.Objects.requireNonNull;
 
 public class RedisLoader
@@ -166,13 +166,13 @@ public class RedisLoader
                 return value;
             }
             if (TIME.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimeWithoutTimeZone(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(parseLegacyTime(timeZoneKey, (String) value));
             }
             if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(convertToLegacyTimestamp(timeZoneKey, (String) value));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
+                return ISO8601_FORMATTER.print(unpackMillisUtc(DateTimeUtils.convertToTimestampWithTimeZone(timeZoneKey, (String) value)));
             }
             throw new AssertionError("unhandled type: " + type);
         }
