@@ -25,6 +25,29 @@ data warehouse. Hive is a combination of three components:
 Presto only uses the first two components: the data and the metadata.
 It does not use HiveQL or any part of Hive's execution environment.
 
+Requirements
+------------
+
+The Hive connector requires a Hive metastore service (HMS). The following
+versions are supported:
+
+* Apache Hive 1.x
+* Apache Hive 2.x
+
+The following Hadoop distributions, and the included HMS, are supported.
+
+* Apache Hadoop 2.x
+* Apache Hadoop 3.x
+
+Derivative distributions using the above version, including Cloudera CDH 5 and
+Hortonworks Data Platform (HDP) are supported as well.
+
+Alternatively, you can use compatible implementations of a Hive metastore, such
+as `AWS Glue <https://aws.amazon.com/glue/>`_.
+
+Many other distributed object stores are supported, as long as the metadata is
+managed in a compatible HMS.
+
 Supported File Types
 --------------------
 
@@ -76,9 +99,6 @@ In Presto, these views are presented as regular, read-only tables.
 
 Configuration
 -------------
-
-The Hive connector supports Apache Hadoop 2.x and derivative distributions
-including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 
 Create ``etc/catalog/hive.properties`` with the following contents
 to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
