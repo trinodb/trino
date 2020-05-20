@@ -27,6 +27,7 @@ import java.nio.file.Paths;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tests.TestGroups.AVRO;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
@@ -62,7 +63,7 @@ public class TestAvroSymlinkInputFormat
         }
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {AVRO, STORAGE_FORMATS})
     public void testSymlinkTable()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_symlink");
