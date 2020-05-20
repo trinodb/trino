@@ -58,7 +58,7 @@ public class SinglenodeHdp3
 
         builder.configureContainer("tests", dockerContainer -> {
             dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hdp3.yaml"),
+                    dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml"),
                     CONTAINER_TEMPTO_PROFILE_CONFIG,
                     READ_ONLY);
         });
