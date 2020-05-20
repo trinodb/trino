@@ -67,6 +67,7 @@ public final class TestGroups
     public static final String KAFKA = "kafka";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
+    public static final String AVRO = "avro";
 
     private TestGroups() {}
 }
