@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.oracle;
 
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.OracleContainer;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -36,18 +36,30 @@ public class TestingOracleServer
     {
         super("wnameless/oracle-xe-11g-r2");
 
-        // this is added to allow more processes on database, otherwise the tests end up giving a ORA-12519
-        // to fix this we have to change the number of processes of SPFILE
-        // but this command needs a database restart and if we restart the docker the configuration is lost.
-        // configuration added:
-        // ALTER SYSTEM SET processes=500 SCOPE=SPFILE
-        // ALTER SYSTEM SET disk_asynch_io = FALSE SCOPE = SPFILE
-        this.addFileSystemBind("src/test/resources/spfileXE.ora",
-                "/u01/app/oracle/product/11.2.0/xe/dbs/spfileXE.ora",
-                BindMode.READ_ONLY);
-
         start();
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), super.getUsername(), super.getPassword());
+
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
+                Statement statement = connection.createStatement()) {
+            // this is added to allow more processes on database, otherwise the tests end up giving
+            // ORA-12519, TNS:no appropriate service handler found
+            // ORA-12505, TNS:listener does not currently know of SID given in connect descriptor
+            // to fix this we have to change the number of processes of SPFILE
+            statement.execute("ALTER SYSTEM SET processes=1000 SCOPE=SPFILE");
+            statement.execute("ALTER SYSTEM SET disk_asynch_io = FALSE SCOPE = SPFILE");
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        try {
+            execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
+        }
+        catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        waitUntilContainerStarted();
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_SCHEMA));
             statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_SCHEMA));
