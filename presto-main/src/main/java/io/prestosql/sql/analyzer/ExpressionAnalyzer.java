@@ -479,7 +479,7 @@ public class ExpressionAnalyzer
             }
 
             if (rowFieldType == null) {
-                throw missingAttributeException(node);
+                throw missingAttributeException(node, qualifiedName);
             }
 
             return setExpressionType(node, rowFieldType);
