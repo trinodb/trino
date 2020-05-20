@@ -54,8 +54,7 @@ public class RubixConfig
         }
     }
 
-    // TODO switch back to ASYNC when https://github.com/prestosql/presto/issues/3494 is fixed
-    private ReadMode readMode = ReadMode.READ_THROUGH;
+    private ReadMode readMode = ReadMode.ASYNC;
     private String cacheLocation;
     private int bookKeeperServerPort = CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT;
     private int dataTransferServerPort = CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT;

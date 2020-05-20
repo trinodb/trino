@@ -22,6 +22,7 @@ import java.util.Random;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
@@ -51,15 +52,17 @@ public class TestHiveCaching
         QueryResult beforeCacheStats = getCacheStats();
         long beforeRemoteReads = getRemoteReads(beforeCacheStats);
         long beforeCachedReads = getCachedReads(beforeCacheStats);
+        long beforeAsyncDownloadedMb = getAsyncDownloadedMb();
 
         assertThat(query("SELECT * FROM " + cachedTableName))
                 .containsExactly(row(tableData));
 
         assertEventually(
-                new Duration(10, SECONDS),
+                new Duration(20, SECONDS),
                 () -> {
                     // first query via caching catalog should fetch remote data
                     QueryResult firstCacheStats = getCacheStats();
+                    assertGreaterThanOrEqual(getAsyncDownloadedMb(), beforeAsyncDownloadedMb + 1);
                     assertGreaterThan(getRemoteReads(firstCacheStats), beforeRemoteReads);
                     assertEquals(getCachedReads(firstCacheStats), beforeCachedReads);
                 });
@@ -118,5 +121,12 @@ public class TestHiveCaching
     {
         return (Long) getOnlyElement(queryResult.rows())
                 .get(queryResult.tryFindColumnIndex("remotereads").get() - 1);
+    }
+
+    private long getAsyncDownloadedMb()
+    {
+        return (Long) getOnlyElement(query("SELECT Count FROM " +
+                "jmx.current.\"metrics:name=rubix.bookkeeper.count.async_downloaded_mb\" WHERE node = 'presto-worker'").rows())
+                .get(0);
     }
 }
