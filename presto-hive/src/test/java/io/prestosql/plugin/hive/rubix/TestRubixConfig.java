@@ -33,7 +33,7 @@ public class TestRubixConfig
                 .setBookKeeperServerPort(CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT)
                 .setDataTransferServerPort(CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT)
                 .setCacheLocation(null)
-                .setReadMode(RubixConfig.ReadMode.READ_THROUGH)
+                .setReadMode(RubixConfig.ReadMode.ASYNC)
                 .setStartServerOnCoordinator(false));
     }
 
@@ -41,7 +41,7 @@ public class TestRubixConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.cache.read-mode", "async")
+                .put("hive.cache.read-mode", "read-through")
                 .put("hive.cache.location", "/some-directory")
                 .put("hive.cache.bookkeeper-port", "1234")
                 .put("hive.cache.data-transfer-port", "1235")
@@ -49,7 +49,7 @@ public class TestRubixConfig
                 .build();
 
         RubixConfig expected = new RubixConfig()
-                .setReadMode(RubixConfig.ReadMode.ASYNC)
+                .setReadMode(RubixConfig.ReadMode.READ_THROUGH)
                 .setCacheLocation("/some-directory")
                 .setBookKeeperServerPort(1234)
                 .setDataTransferServerPort(1235)
