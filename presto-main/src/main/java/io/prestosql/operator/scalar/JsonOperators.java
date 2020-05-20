@@ -340,7 +340,12 @@ public final class JsonOperators
         try {
             SliceOutput output = new DynamicSliceOutput(25);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+                if (session.isLegacyTimestamp()) {
+                    jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+                }
+                else {
+                    jsonGenerator.writeString(printTimestampWithoutTimeZone(value));
+                }
             }
             return output.slice();
         }
