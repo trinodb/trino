@@ -232,9 +232,12 @@ public class TestCassandraConnectorTest
                 " FROM " + TABLE_ALL_TYPES_PARTITION_KEY +
                 " WHERE key = 'key 7'" +
                 " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
+                " AND typetinyint = 7" +
+                " AND typesmallint = 7" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
                 " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
+                " AND typedate = DATE '1970-01-01'" +
                 " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +

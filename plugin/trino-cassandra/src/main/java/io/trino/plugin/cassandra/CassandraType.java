@@ -57,6 +57,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
@@ -301,7 +302,7 @@ public enum CassandraType
             case TIMESTAMP:
                 return Long.toString(row.getTimestamp(position).getTime());
             case DATE:
-                return row.getDate(position).toString();
+                return quoteStringLiteral(row.getDate(position).toString());
             case INET:
                 return quoteStringLiteral(toAddrString(row.getInet(position)));
             case VARINT:
@@ -322,6 +323,10 @@ public enum CassandraType
     // TODO unify with getColumnValueForCql
     public String toCqlLiteral(Object trinoNativeValue)
     {
+        if (this == DATE) {
+            LocalDate date = LocalDate.fromDaysSinceEpoch(toIntExact((long) trinoNativeValue));
+            return quoteStringLiteral(date.toString());
+        }
         if (this == TIMESTAMP) {
             return String.valueOf(unpackMillisUtc((Long) trinoNativeValue));
         }
@@ -443,8 +448,11 @@ public enum CassandraType
             case DOUBLE:
             case INET:
             case INT:
+            case TINYINT:
+            case SMALLINT:
             case FLOAT:
             case DECIMAL:
+            case DATE:
             case TIMESTAMP:
             case UUID:
             case TIMEUUID:
