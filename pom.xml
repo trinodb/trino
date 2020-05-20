@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.183</dep.airlift.version>
+        <dep.airlift.version>0.183.1</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
         <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
@@ -1309,4 +1309,34 @@
             </build>
         </profile>
     </profiles>
+
+    <repositories>
+        <repository>
+            <id>treasuredata</id>
+            <name>treasuredata-releases</name>
+            <url>https://treasuredata.jfrog.io/treasuredata/libs-release</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>treasuredata-snapshots</id>
+            <name>treasuredata-snapshots</name>
+            <url>https://treasuredata.jfrog.io/treasuredata/libs-snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+        </repository>
+        <!-- read from sonatype snapshots -->
+        <repository>
+            <id>sonatype-snapshot</id>
+            <url>http://oss.sonatype.org/content/repositories/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 </project>
