@@ -508,7 +508,13 @@ public final class JsonUtil
             }
             else {
                 long value = TIMESTAMP.getLong(block, position);
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+
+                if (session.isLegacyTimestamp()) {
+                    jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+                }
+                else {
+                    jsonGenerator.writeString(printTimestampWithoutTimeZone(value));
+                }
             }
         }
     }
