@@ -33,15 +33,6 @@ public final class SemanticExceptions
         throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved", name);
     }
 
-    /**
-     * Use {@link #missingAttributeException(Expression, QualifiedName)} instead.
-     */
-    @Deprecated
-    public static PrestoException missingAttributeException(Expression node)
-    {
-        throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved", node);
-    }
-
     public static PrestoException ambiguousAttributeException(Expression node, QualifiedName name)
     {
         throw semanticException(AMBIGUOUS_NAME, node, "Column '%s' is ambiguous", name);
