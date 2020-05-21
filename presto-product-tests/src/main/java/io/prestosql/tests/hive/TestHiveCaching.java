@@ -35,8 +35,14 @@ public class TestHiveCaching
     @Test(groups = {HIVE_CACHING, PROFILE_SPECIFIC_TESTS})
     public void testReadFromCache()
     {
-        String cachedTableName = "hive.default.test_cache_read";
-        String nonCachedTableName = "hivenoncached.default.test_cache_read";
+        testReadFromTable("table1");
+        testReadFromTable("table2");
+    }
+
+    private void testReadFromTable(String tableNameSuffix)
+    {
+        String cachedTableName = "hive.default.test_cache_read" + tableNameSuffix;
+        String nonCachedTableName = "hivenoncached.default.test_cache_read" + tableNameSuffix;
 
         query("DROP TABLE IF EXISTS " + nonCachedTableName);
         query("CREATE TABLE " + nonCachedTableName + " WITH (format='ORC') AS SELECT 'Hello world' as col");
