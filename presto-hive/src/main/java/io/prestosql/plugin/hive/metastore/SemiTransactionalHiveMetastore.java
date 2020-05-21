@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HdfsEnvironment;
@@ -76,6 +75,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -1549,7 +1549,7 @@ public class SemiTransactionalHiveMetastore
         private void waitForAsyncRenames()
         {
             for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
-                MoreFutures.getFutureValue(fileRenameFuture, PrestoException.class);
+                getFutureValue(fileRenameFuture, PrestoException.class);
             }
         }
 
@@ -1696,7 +1696,7 @@ public class SemiTransactionalHiveMetastore
 
             for (CompletableFuture<?> dropFuture : dropFutures.build()) {
                 // none of the futures should fail because all exceptions are being handled explicitly
-                MoreFutures.getFutureValue(dropFuture);
+                getFutureValue(dropFuture);
             }
             if (!suppressedExceptions.isEmpty()) {
                 StringBuilder message = new StringBuilder();
