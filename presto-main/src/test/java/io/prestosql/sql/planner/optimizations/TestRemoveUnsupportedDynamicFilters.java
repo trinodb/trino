@@ -61,6 +61,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
+@Test(singleThreaded = true) // e.g. PlanBuilder is mutable
 public class TestRemoveUnsupportedDynamicFilters
         extends BasePlanTest
 {
