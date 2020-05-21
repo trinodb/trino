@@ -152,8 +152,6 @@ public class RubixInitializer
 
         Configuration configuration = getInitialConfiguration();
         // Perform standard HDFS configuration initialization.
-        // This will also call out to RubixConfigurationInitializer but this will be no-op because
-        // cacheReady is not yet set.
         hdfsConfigurationInitializer.initializeConfiguration(configuration);
         // Apply RubixConfigurationInitializer directly suppressing cacheReady check
         rubixConfigurationInitializer.updateConfiguration(configuration);
