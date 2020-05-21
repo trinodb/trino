@@ -689,7 +689,7 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY [1, 2, 3][0]", INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         assertInvalidFunction("ARRAY [1, 2, 3][-1]", INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: -1");
         assertInvalidFunction("ARRAY [1, 2, 3][4]", INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: 4 > 3");
-        assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "line 1:1: '[]' cannot be applied to array(integer), double");
+        assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "line 1:1: Cannot use double for subscript of array(integer)");
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
         assertFunction("ARRAY[NULL, NULL, NULL][3]", UNKNOWN, null);
