@@ -950,7 +950,24 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testTypeMismatch()
     {
-        assertQueryFails("SELECT 1 <> 'x'", "\\Qline 1:10: '<>' cannot be applied to integer, varchar(1)\\E");
+        assertQueryFails("SELECT 8 + 'x'", "\\Qline 1:10: Cannot apply operator: integer + varchar(1)\\E");
+        assertQueryFails("SELECT 8 - 'x'", "\\Qline 1:10: Cannot apply operator: integer - varchar(1)\\E");
+        assertQueryFails("SELECT 8 * 'x'", "\\Qline 1:10: Cannot apply operator: integer * varchar(1)\\E");
+        assertQueryFails("SELECT 8 / 'x'", "\\Qline 1:10: Cannot apply operator: integer / varchar(1)\\E");
+        assertQueryFails("SELECT 8 % 'x'", "\\Qline 1:10: Cannot apply operator: integer % varchar(1)\\E");
+        assertQueryFails("SELECT 8 = 'x'", "\\Qline 1:10: Cannot apply operator: integer = varchar(1)\\E");
+        assertQueryFails("SELECT 8 <> 'x'", "\\Qline 1:10: Cannot apply operator: integer <> varchar(1)\\E");
+        assertQueryFails("SELECT 8 != 'x'", "\\Qline 1:10: Cannot apply operator: integer <> varchar(1)\\E");
+        assertQueryFails("SELECT 8 < 'x'", "\\Qline 1:10: Cannot apply operator: integer < varchar(1)\\E");
+        assertQueryFails("SELECT 8 <= 'x'", "\\Qline 1:10: Cannot apply operator: integer <= varchar(1)\\E");
+        assertQueryFails("SELECT 8 > 'x'", "\\Qline 1:10: Cannot apply operator: integer > varchar(1)\\E");
+        assertQueryFails("SELECT 8 >= 'x'", "\\Qline 1:10: Cannot apply operator: integer >= varchar(1)\\E");
+        assertQueryFails("SELECT -'x'", "\\Qline 1:8: Cannot negate varchar(1)\\E");
+        assertQueryFails("SELECT ARRAY[42]['x']", "\\Qline 1:8: Cannot use varchar(1) for subscript of array(integer)\\E");
+        assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
+        assertQueryFails("SELECT 'a' NOT BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
     }
 
     @Test
@@ -965,7 +982,7 @@ public abstract class AbstractTestEngineOnlyQueries
         // Comment on why error message references varchar(214783647) instead of varchar(2) which seems expected result type for concatenation in expression.
         // Currently variable argument functions do not play well with arguments using parametrized types.
         // The variable argument functions mechanism requires that all the arguments are of exactly same type. We cannot enforce that base must match but parameters may differ.
-        assertQueryFails("SELECT ('a' || 'z') + (3 * 4) / 5", "\\Qline 1:21: '+' cannot be applied to varchar, integer\\E");
+        assertQueryFails("SELECT ('a' || 'z') + (3 * 4) / 5", "\\Qline 1:21: Cannot apply operator: varchar + integer\\E");
     }
 
     @Test
