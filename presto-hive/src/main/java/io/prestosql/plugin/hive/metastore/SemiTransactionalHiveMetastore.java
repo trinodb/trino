@@ -1686,10 +1686,8 @@ public class SemiTransactionalHiveMetastore
                         synchronized (failedIrreversibleOperationDescriptions) {
                             failedIrreversibleOperationDescriptions.add(irreversibleMetastoreOperation.getDescription());
                             // A limit is needed to avoid having a huge exception object. 5 was chosen arbitrarily.
-                            synchronized (suppressedExceptions) {
-                                if (suppressedExceptions.size() < 5) {
-                                    suppressedExceptions.add(t);
-                                }
+                            if (suppressedExceptions.size() < 5) {
+                                suppressedExceptions.add(t);
                             }
                         }
                     }
