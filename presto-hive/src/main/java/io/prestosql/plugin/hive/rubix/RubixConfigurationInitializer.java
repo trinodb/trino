@@ -93,6 +93,7 @@ public class RubixConfigurationInitializer
         }
 
         updateConfiguration(config);
+        setCacheKey(config, "rubix_enabled");
     }
 
     void updateConfiguration(Configuration config)
@@ -129,8 +130,6 @@ public class RubixConfigurationInitializer
 
         // TODO: remove after https://github.com/qubole/rubix/pull/385 is merged
         setPrestoClusterManager(config, "com.qubole.rubix.prestosql.PrestoClusterManager");
-
-        setCacheKey(config, "rubix_enabled");
     }
 
     void setMaster(boolean master)
