@@ -18,6 +18,8 @@ import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.Random;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -44,15 +46,14 @@ public class TestHiveCaching
         String cachedTableName = "hive.default.test_cache_read" + tableNameSuffix;
         String nonCachedTableName = "hivenoncached.default.test_cache_read" + tableNameSuffix;
 
-        query("DROP TABLE IF EXISTS " + nonCachedTableName);
-        query("CREATE TABLE " + nonCachedTableName + " WITH (format='ORC') AS SELECT 'Hello world' as col");
+        String tableData = createTestTable(nonCachedTableName);
 
         QueryResult beforeCacheStats = getCacheStats();
         long beforeRemoteReads = getRemoteReads(beforeCacheStats);
         long beforeCachedReads = getCachedReads(beforeCacheStats);
 
         assertThat(query("SELECT * FROM " + cachedTableName))
-                .containsExactly(row("Hello world"));
+                .containsExactly(row(tableData));
 
         assertEventually(
                 new Duration(10, SECONDS),
@@ -68,7 +69,7 @@ public class TestHiveCaching
         long firstCachedReads = getCachedReads(firstCacheStats);
 
         assertThat(query("SELECT * FROM " + cachedTableName))
-                .containsExactly(row("Hello world"));
+                .containsExactly(row(tableData));
 
         assertEventually(
                 new Duration(10, SECONDS),
@@ -80,6 +81,25 @@ public class TestHiveCaching
                 });
 
         query("DROP TABLE " + nonCachedTableName);
+    }
+
+    /**
+     * Creates table with text files that are larger than 1MB
+     */
+    private String createTestTable(String tableName)
+    {
+        StringBuilder randomDataBuilder = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < 500_000; ++i) {
+            randomDataBuilder.append(random.nextInt(10));
+        }
+        String randomData = randomDataBuilder.toString();
+
+        query("DROP TABLE IF EXISTS " + tableName);
+        // use `format` to overcome SQL query length limit
+        query("CREATE TABLE " + tableName + " WITH (format='TEXTFILE') AS SELECT format('%1$s%1$s%1$s%1$s%1$s', '" + randomData + "') as col");
+
+        return randomData.repeat(5);
     }
 
     private QueryResult getCacheStats()
