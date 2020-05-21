@@ -13,8 +13,15 @@
  */
 package io.prestosql.type;
 
+import io.prestosql.Session;
+import io.prestosql.spi.type.TimeZoneKey;
+import org.testng.annotations.Test;
+
+import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 
 public class TestTimestampLegacy
         extends TestTimestampBase
@@ -61,5 +68,18 @@ public class TestTimestampLegacy
                 "cast('2001-1-22 Asia/Oral' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 21, 9, 0, 0, 0, session));
+    }
+
+    @Test
+    public void testInvalidLiteral()
+    {
+        Session session = testSessionBuilder()
+                .setSystemProperty("legacy_timestamp", "true")
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Europe/Vilnius"))
+                .build();
+
+        assertPrestoExceptionThrownBy(() -> functionAssertions.tryEvaluate("TIMESTAMP '2018-03-25 03:17:17.000'", TIMESTAMP, session))
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:1: '2018-03-25 03:17:17.000' is not a valid timestamp literal");
     }
 }
