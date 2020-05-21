@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import com.google.common.io.Closer;
-import com.qubole.rubix.core.CachingFileSystem;
-import com.qubole.rubix.core.CachingFileSystemStats;
 import com.qubole.rubix.core.utils.DummyClusterManager;
 import io.airlift.units.DataSize;
 import io.prestosql.metadata.InternalNode;
@@ -41,9 +39,12 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.Field;
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
@@ -75,6 +76,7 @@ import static org.testng.Assert.assertTrue;
 public class TestRubixCaching
 {
     private static final DataSize LARGE_FILE_SIZE = DataSize.of(100, MEGABYTE);
+    private static final MBeanServer BEAN_SERVER = ManagementFactory.getPlatformMBeanServer();
 
     private java.nio.file.Path tempDirectory;
     private Path cacheStoragePath;
@@ -205,25 +207,25 @@ public class TestRubixCaching
 
         writeFile(nonCachingFileSystem.create(file), "Hello world");
 
-        long beforeRemoteReads = getCacheStats().getRemoteReads();
-        long beforeCachedReads = getCacheStats().getCachedReads();
+        long beforeRemoteReadsCount = getRemoteReadsCount();
+        long beforeCachedReadsCount = getCachedReadsCount();
 
         assertEquals(readFile(cachingFileSystem.open(file)), "Hello world");
 
         // stats are propagated asynchronously, wait for them
         sleep(1000L);
-        long firstRemoteReads = getCacheStats().getRemoteReads();
+        long firstRemoteReadsCount = getRemoteReadsCount();
         // data should be read from remote source only
-        assertGreaterThan(firstRemoteReads, beforeRemoteReads);
-        assertEquals(getCacheStats().getCachedReads(), beforeCachedReads);
+        assertGreaterThan(firstRemoteReadsCount, beforeRemoteReadsCount);
+        assertEquals(getCachedReadsCount(), beforeCachedReadsCount);
 
         assertEquals(readFile(cachingFileSystem.open(file)), "Hello world");
 
         // stats are propagated asynchronously, wait for them
         sleep(1000L);
         // data should be read from cache only
-        assertGreaterThan(getCacheStats().getCachedReads(), beforeCachedReads);
-        assertEquals(getCacheStats().getRemoteReads(), firstRemoteReads);
+        assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
+        assertEquals(getRemoteReadsCount(), firstRemoteReadsCount);
     }
 
     @Test
@@ -248,26 +250,26 @@ public class TestRubixCaching
             outputStream.write(randomData);
         }
 
-        long beforeRemoteReads = getCacheStats().getRemoteReads();
-        long beforeCachedReads = getCacheStats().getCachedReads();
+        long beforeRemoteReadsCount = getRemoteReadsCount();
+        long beforeCachedReadsCount = getCachedReadsCount();
 
         assertTrue(Arrays.equals(randomData, readFileBytes(cachingFileSystem.open(file))));
 
         // stats are propagated asynchronously, wait for them
         sleep(1000L);
-        long firstRemoteReads = getCacheStats().getRemoteReads();
+        long firstRemoteReadsCount = getRemoteReadsCount();
         // data should be fetched from remote source
-        assertGreaterThan(firstRemoteReads, beforeRemoteReads);
+        assertGreaterThan(firstRemoteReadsCount, beforeRemoteReadsCount);
 
         assertTrue(Arrays.equals(randomData, readFileBytes(cachingFileSystem.open(file))));
 
         // stats are propagated asynchronously, wait for them
         sleep(1000L);
-        long secondCachedReads = getCacheStats().getCachedReads();
-        long secondRemoteReads = getCacheStats().getRemoteReads();
+        long secondCachedReadsCount = getCachedReadsCount();
+        long secondRemoteReadsCount = getRemoteReadsCount();
         // data should be read from cache only
-        assertGreaterThan(secondCachedReads, beforeCachedReads);
-        assertEquals(secondRemoteReads, firstRemoteReads);
+        assertGreaterThan(secondCachedReadsCount, beforeCachedReadsCount);
+        assertEquals(secondRemoteReadsCount, firstRemoteReadsCount);
 
         // make sure parallel reading of large file works
         ExecutorService executorService = newFixedThreadPool(3);
@@ -292,8 +294,8 @@ public class TestRubixCaching
         // stats are propagated asynchronously, wait for them
         sleep(1000L);
         // data should be read from cache only
-        assertGreaterThan(getCacheStats().getCachedReads(), secondCachedReads);
-        assertEquals(getCacheStats().getRemoteReads(), secondRemoteReads);
+        assertGreaterThan(getCachedReadsCount(), secondCachedReadsCount);
+        assertEquals(getRemoteReadsCount(), secondRemoteReadsCount);
     }
 
     private String readFile(FSDataInputStream inputStream)
@@ -334,11 +336,23 @@ public class TestRubixCaching
         return new Path(format("file:///%s/storage/%s", tempDirectory, path));
     }
 
-    private CachingFileSystemStats getCacheStats()
-            throws NoSuchFieldException, IllegalAccessException
+    private long getRemoteReadsCount()
     {
-        Field field = CachingFileSystem.class.getDeclaredField("statsMBean");
-        field.setAccessible(true);
-        return (CachingFileSystemStats) field.get(null);
+        try {
+            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,catalog=catalog"), "RemoteReads");
+        }
+        catch (Exception exception) {
+            throw new RuntimeException(exception);
+        }
+    }
+
+    private long getCachedReadsCount()
+    {
+        try {
+            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,catalog=catalog"), "CachedReads");
+        }
+        catch (Exception exception) {
+            throw new RuntimeException(exception);
+        }
     }
 }
