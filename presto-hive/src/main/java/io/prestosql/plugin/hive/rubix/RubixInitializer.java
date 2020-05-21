@@ -38,6 +38,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 
 import static com.google.common.base.Throwables.propagateIfPossible;
+import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static io.prestosql.plugin.hive.util.RetryDriver.DEFAULT_SCALE_FACTOR;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
@@ -155,6 +156,7 @@ public class RubixInitializer
         hdfsConfigurationInitializer.initializeConfiguration(configuration);
         // Apply RubixConfigurationInitializer directly suppressing cacheReady check
         rubixConfigurationInitializer.updateConfiguration(configuration);
+        setCacheKey(configuration, "rubix_internal");
 
         MetricRegistry metricRegistry = new MetricRegistry();
         bookKeeperServer = new BookKeeperServer();
