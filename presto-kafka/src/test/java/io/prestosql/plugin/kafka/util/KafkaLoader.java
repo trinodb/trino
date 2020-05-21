@@ -46,7 +46,7 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
+import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static java.util.Objects.requireNonNull;
@@ -143,7 +143,7 @@ public class KafkaLoader
                 return value;
             }
             if (TIME.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimeLiteral(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(parseTimeWithoutTimeZone(timeZoneKey, (String) value));
             }
             if (TIMESTAMP.equals(type)) {
                 return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
