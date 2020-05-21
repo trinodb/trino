@@ -1695,7 +1695,8 @@ public class SemiTransactionalHiveMetastore
             }
 
             for (CompletableFuture<?> dropFuture : dropFutures.build()) {
-                MoreFutures.getFutureValue(dropFuture, PrestoException.class);
+                // none of the futures should fail because all exceptions are being handled explicitly
+                MoreFutures.getFutureValue(dropFuture);
             }
             if (!suppressedExceptions.isEmpty()) {
                 StringBuilder message = new StringBuilder();
