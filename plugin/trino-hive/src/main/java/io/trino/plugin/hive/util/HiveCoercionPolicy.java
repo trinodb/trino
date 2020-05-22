@@ -137,7 +137,7 @@ public final class HiveCoercionPolicy
         // * For all other field indices, the corresponding fields must have
         //   the same name, and the type must be coercible.
         for (int i = 0; i < min(fromFieldTypes.size(), toFieldTypes.size()); i++) {
-            if (!fromFieldNames.get(i).equals(toFieldNames.get(i))) {
+            if (!fromFieldNames.get(i).equalsIgnoreCase(toFieldNames.get(i))) {
                 return false;
             }
             if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(i), toFieldTypes.get(i))) {

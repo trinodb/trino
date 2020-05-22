@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -72,6 +73,7 @@ import static java.sql.JDBCType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveCoercion
@@ -109,7 +111,7 @@ public class TestHiveCoercion
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
                         // all nested primitive/varchar coercions and adding/removing tailing nested fields are covered across row_to_row, list_to_list, and map_to_map
-                        "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT>, " +
+                        "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT, lower2uppercase: BIGINT>, " +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
                         "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
                         "    tinyint_to_smallint        TINYINT," +
@@ -330,6 +332,8 @@ public class TestHiveCoercion
         Map<String, List<Object>> expectedHiveResults = expected.apply(Engine.HIVE);
         String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
         assertQueryResults(Engine.HIVE, hiveSelectQuery, expectedHiveResults, hiveReadColumns, 2, tableName);
+
+        assertNestedSubFields(tableName);
     }
 
     protected void insertTableRows(String tableName, String floatToDoubleType)
@@ -337,7 +341,7 @@ public class TestHiveCoercion
         onTrino().executeQuery(format(
                 "INSERT INTO %1$s VALUES " +
                         "(" +
-                        "  CAST(ROW ('as is', -1, 100, 2323, 12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)), " +
+                        "  CAST(ROW ('as is', -1, 100, 2323, 12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
                         "  ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  TINYINT '-1', " +
@@ -365,7 +369,7 @@ public class TestHiveCoercion
                         "  'abc', " +
                         "  1), " +
                         "(" +
-                        "  CAST(ROW (NULL, 1, -100, -2323, -12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)), " +
+                        "  CAST(ROW (NULL, 1, -100, -2323, -12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
                         "  ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  TINYINT '1', " +
@@ -398,6 +402,18 @@ public class TestHiveCoercion
 
     protected Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, String decimalToFloatVal)
     {
+        String hiveValueForCaseChangeField;
+        Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+        if (isFormat.test("rctext") || isFormat.test("textfile")) {
+            hiveValueForCaseChangeField = "\"lower2uppercase\":2";
+        }
+        else if (getHiveVersionMajor() == 3 && isFormat.test("orc")) {
+            hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":null";
+        }
+        else {
+            hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":2";
+        }
+
         return ImmutableMap.<String, List<Object>>builder()
                 .put("row_to_row", Arrays.asList(
                         engine == Engine.TRINO ?
@@ -407,9 +423,10 @@ public class TestHiveCoercion
                                         .addField("si2int", 100)
                                         .addField("int2bi", 2323L)
                                         .addField("bi2vc", "12345")
+                                        .addField("lower2uppercase", 2L)
                                         .build() :
                                 // TODO: Compare structures for hive executor instead of serialized representation
-                                "{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\"}",
+                                String.format("{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\",%s}", hiveValueForCaseChangeField),
                         engine == Engine.TRINO ?
                                 rowBuilder()
                                         .addField("keep", null)
@@ -417,8 +434,9 @@ public class TestHiveCoercion
                                         .addField("si2int", -100)
                                         .addField("int2bi", -2323L)
                                         .addField("bi2vc", "-12345")
+                                        .addField("lower2uppercase", 2L)
                                         .build() :
-                                "{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\"}"))
+                                String.format("{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\",%s}", hiveValueForCaseChangeField)))
                 .put("list_to_list", Arrays.asList(
                         engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
@@ -536,6 +554,50 @@ public class TestHiveCoercion
                 .collect(toImmutableList());
     }
 
+    private void assertNestedSubFields(String tableName)
+    {
+        Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+
+        Map<String, List<Object>> expectedNestedFieldTrino = ImmutableMap.of("nested_field", ImmutableList.of(2L, 2L));
+        Map<String, List<Object>> expectedNestedFieldHive;
+        if (getHiveVersionMajor() == 3 && isFormat.test("orc")) {
+            expectedNestedFieldHive = ImmutableMap.of("nested_field", Arrays.asList(null, null));
+        }
+        else {
+            expectedNestedFieldHive = expectedNestedFieldTrino;
+        }
+        String subfieldQueryLowerCase = format("SELECT row_to_row.lower2uppercase nested_field FROM %s", tableName);
+        String subfieldQueryUpperCase = format("SELECT row_to_row.LOWER2UPPERCASE nested_field FROM %s", tableName);
+        List<String> expectedColumns = ImmutableList.of("nested_field");
+
+        // Assert Trino behavior
+        assertQueryResults(Engine.TRINO, subfieldQueryUpperCase, expectedNestedFieldTrino, expectedColumns, 2, tableName);
+        assertQueryResults(Engine.TRINO, subfieldQueryLowerCase, expectedNestedFieldTrino, expectedColumns, 2, tableName);
+
+        // Assert Hive behavior
+        if (isFormat.test("rcbinary")) {
+            assertThatThrownBy(() -> assertQueryResults(Engine.HIVE, subfieldQueryUpperCase, expectedNestedFieldTrino, expectedColumns, 2, tableName))
+                    .hasMessageContaining("org.apache.hadoop.hive.ql.metadata.HiveException");
+            assertThatThrownBy(() -> assertQueryResults(Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldTrino, expectedColumns, 2, tableName))
+                    .hasMessageContaining("org.apache.hadoop.hive.ql.metadata.HiveException");
+        }
+        else if (isFormat.test("parquet")) {
+            assertQueryResults(Engine.HIVE, subfieldQueryUpperCase, expectedNestedFieldHive, expectedColumns, 2, tableName);
+
+            if (getHiveVersionMajor() == 1) {
+                assertThatThrownBy(() -> assertQueryResults(Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldHive, expectedColumns, 2, tableName))
+                        .hasMessageContaining("java.sql.SQLException");
+            }
+            else {
+                assertQueryResults(Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldHive, expectedColumns, 2, tableName);
+            }
+        }
+        else {
+            assertQueryResults(Engine.HIVE, subfieldQueryUpperCase, expectedNestedFieldHive, expectedColumns, 2, tableName);
+            assertQueryResults(Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldHive, expectedColumns, 2, tableName);
+        }
+    }
+
     protected Map<ColumnContext, String> expectedExceptionsWithContext()
     {
         return ImmutableMap.<ColumnContext, String>builder()
@@ -645,7 +707,8 @@ public class TestHiveCoercion
         String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "real";
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
-                row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar)"),
+                // The field lower2uppercase in the row is recorded in upper case in hive, but Trino converts it to lower case
+                row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar, lower2uppercase bigint)"),
                 row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
                 row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
                 row("tinyint_to_smallint", "smallint"),
@@ -716,6 +779,7 @@ public class TestHiveCoercion
                 .put("varchar_to_bigger_varchar", VARCHAR)
                 .put("varchar_to_smaller_varchar", VARCHAR)
                 .put("id", BIGINT)
+                .put("nested_field", BIGINT)
                 .buildOrThrow();
 
         assertThat(queryResult)
@@ -726,7 +790,7 @@ public class TestHiveCoercion
     {
         String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "float";
 
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string, LOWER2UPPERCASE:bigint>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
