@@ -18,9 +18,15 @@
 
     <dependencies>
         <dependency>
+            <!-- TODO (https://github.com/prestosql/presto/issues/3816) remove -->
             <groupId>io.prestosql</groupId>
             <artifactId>presto-testing</artifactId>
-            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.prestosql</groupId>
+                    <artifactId>presto-main</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
