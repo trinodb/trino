@@ -50,9 +50,9 @@ public class TestHiveCaching
         String tableData = createTestTable(nonCachedTableName);
 
         QueryResult beforeCacheStats = getCacheStats();
-        long beforeRemoteReads = getRemoteReads(beforeCacheStats);
-        long beforeCachedReads = getCachedReads(beforeCacheStats);
-        long beforeAsyncDownloadedMb = getAsyncDownloadedMb();
+        long initialRemoteReads = getRemoteReads(beforeCacheStats);
+        long initialCachedReads = getCachedReads(beforeCacheStats);
+        long initialAsyncDownloadedMb = getAsyncDownloadedMb();
 
         assertThat(query("SELECT * FROM " + cachedTableName))
                 .containsExactly(row(tableData));
@@ -61,26 +61,26 @@ public class TestHiveCaching
                 new Duration(20, SECONDS),
                 () -> {
                     // first query via caching catalog should fetch remote data
-                    QueryResult firstCacheStats = getCacheStats();
-                    assertGreaterThanOrEqual(getAsyncDownloadedMb(), beforeAsyncDownloadedMb + 1);
-                    assertGreaterThan(getRemoteReads(firstCacheStats), beforeRemoteReads);
-                    assertEquals(getCachedReads(firstCacheStats), beforeCachedReads);
+                    QueryResult afterQueryCacheStats = getCacheStats();
+                    assertGreaterThanOrEqual(getAsyncDownloadedMb(), initialAsyncDownloadedMb + 1);
+                    assertGreaterThan(getRemoteReads(afterQueryCacheStats), initialRemoteReads);
+                    assertEquals(getCachedReads(afterQueryCacheStats), initialCachedReads);
                 });
-
-        QueryResult firstCacheStats = getCacheStats();
-        long firstRemoteReads = getRemoteReads(firstCacheStats);
-        long firstCachedReads = getCachedReads(firstCacheStats);
-
-        assertThat(query("SELECT * FROM " + cachedTableName))
-                .containsExactly(row(tableData));
 
         assertEventually(
                 new Duration(10, SECONDS),
                 () -> {
-                    // second query via caching catalog should read exclusively from cache
-                    QueryResult secondCacheStats = getCacheStats();
-                    assertEquals(getRemoteReads(secondCacheStats), firstRemoteReads);
-                    assertGreaterThan(getCachedReads(secondCacheStats), firstCachedReads);
+                    QueryResult beforeQueryCacheStats = getCacheStats();
+                    long beforeQueryRemoteReads = getRemoteReads(beforeQueryCacheStats);
+                    long beforeQueryCachedReads = getCachedReads(beforeQueryCacheStats);
+
+                    assertThat(query("SELECT * FROM " + cachedTableName))
+                            .containsExactly(row(tableData));
+
+                    // query via caching catalog should read exclusively from cache
+                    QueryResult afterQueryCacheStats = getCacheStats();
+                    assertEquals(getRemoteReads(afterQueryCacheStats), beforeQueryRemoteReads);
+                    assertGreaterThan(getCachedReads(afterQueryCacheStats), beforeQueryCachedReads);
                 });
 
         query("DROP TABLE " + nonCachedTableName);
