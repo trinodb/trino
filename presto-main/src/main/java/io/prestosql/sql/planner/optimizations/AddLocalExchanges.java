@@ -57,6 +57,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
@@ -173,9 +174,9 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitProject(ProjectNode node, StreamPreferredProperties parentPreferences)
         {
-            // Special handling for trivial projections. Applies to identity and renaming projections.
+            // Special handling for trivial projections. Applies to identity and renaming projections, and constants
             // It might be extended to handle other low-cost projections.
-            if (node.getAssignments().getExpressions().stream().allMatch(SymbolReference.class::isInstance)) {
+            if (node.getAssignments().getExpressions().stream().allMatch(expression -> expression instanceof SymbolReference || expression instanceof Literal)) {
                 if (parentPreferences.isSingleStreamPreferred()) {
                     // Do not enforce gathering exchange below project:
                     // - if project's source is single stream, no exchanges will be added around project,
