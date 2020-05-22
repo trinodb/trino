@@ -398,12 +398,12 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Start a SELECT/UPDATE/INSERT/DELETE query. This notification is triggered after the planning phase completes.
+     * Start a query. This notification is triggered before any other metadata access.
      */
     default void beginQuery(ConnectorSession session) {}
 
     /**
-     * Cleanup after a SELECT/UPDATE/INSERT/DELETE query. This is the very last notification after the query finishes, whether it succeeds or fails.
+     * Cleanup after a query. This is the very last notification after the query finishes, whether it succeeds or fails.
      * An exception thrown in this method will not affect the result of the query.
      */
     default void cleanupQuery(ConnectorSession session) {}
