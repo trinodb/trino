@@ -31,8 +31,6 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -48,10 +46,6 @@ public abstract class TestTimestampBase
 {
     protected static final TimeZoneKey TIME_ZONE_KEY = TestingSession.DEFAULT_TIME_ZONE_KEY;
     protected static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
-    protected static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
-    protected static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_TIME_ZONE_KEY);
-    protected static final TimeZoneKey ORAL_TIME_ZONE_KEY = getTimeZoneKey("Asia/Oral");
-    protected static final DateTimeZone ORAL_ZONE = getDateTimeZone(ORAL_TIME_ZONE_KEY);
 
     protected TestTimestampBase(boolean legacyTimestamp)
     {
