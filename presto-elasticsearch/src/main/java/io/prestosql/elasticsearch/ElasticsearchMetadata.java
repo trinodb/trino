@@ -80,8 +80,17 @@ public class ElasticsearchMetadata
     private static final ObjectMapper JSON_PARSER = new ObjectMapperProvider().get();
 
     private static final String PASSTHROUGH_QUERY_SUFFIX = "$query";
-    private final Map<String, ColumnHandle> queryTableColumns;
-    private final ColumnMetadata queryResultColumnMetadata;
+    private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
+    private static final ColumnMetadata PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA = ColumnMetadata.builder()
+            .setName(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME)
+            .setType(VARCHAR)
+            .setNullable(true)
+            .setHidden(false)
+            .build();
+
+    private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
+            PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
+            new ElasticsearchColumnHandle(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR, false));
 
     private final Type ipAddressType;
     private final ElasticsearchClient client;
@@ -95,16 +104,6 @@ public class ElasticsearchMetadata
         this.client = requireNonNull(client, "client is null");
         requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
-
-        Type jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
-        queryResultColumnMetadata = ColumnMetadata.builder()
-                .setName("result")
-                .setType(jsonType)
-                .setNullable(true)
-                .setHidden(false)
-                .build();
-
-        queryTableColumns = ImmutableMap.of("result", new ElasticsearchColumnHandle("result", jsonType, false));
     }
 
     @Override
@@ -167,7 +166,7 @@ public class ElasticsearchMetadata
         if (isPassthroughQuery(handle)) {
             return new ConnectorTableMetadata(
                     new SchemaTableName(handle.getSchema(), handle.getIndex()),
-                    ImmutableList.of(queryResultColumnMetadata));
+                    ImmutableList.of(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA));
         }
         return getTableMetadata(handle.getSchema(), handle.getIndex());
     }
@@ -358,7 +357,7 @@ public class ElasticsearchMetadata
         ElasticsearchTableHandle table = (ElasticsearchTableHandle) tableHandle;
 
         if (isPassthroughQuery(table)) {
-            return queryTableColumns;
+            return PASSTHROUGH_QUERY_COLUMNS;
         }
 
         InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle);
@@ -372,8 +371,8 @@ public class ElasticsearchMetadata
         ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) columnHandle;
 
         if (isPassthroughQuery(table)) {
-            if (column.getName().equals(queryResultColumnMetadata.getName())) {
-                return queryResultColumnMetadata;
+            if (column.getName().equals(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA.getName())) {
+                return PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA;
             }
 
             throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.getName()));
