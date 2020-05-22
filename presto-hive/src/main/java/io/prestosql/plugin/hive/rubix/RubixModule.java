@@ -45,6 +45,7 @@ public class RubixModule
     @Provides
     @Singleton
     public RubixInitializer createRubixInitializer(
+            RubixConfig rubixConfig,
             NodeManager nodeManager,
             CatalogName catalogName,
             Set<DynamicConfigurationProvider> configProviders,
@@ -52,6 +53,6 @@ public class RubixModule
     {
         checkArgument(configProviders.size() == 1, "Rubix cache does not work with dynamic configuration providers");
         RubixConfigurationInitializer configProvider = (RubixConfigurationInitializer) getOnlyElement(configProviders);
-        return new RubixInitializer(nodeManager, catalogName, configProvider, hdfsConfigurationInitializer);
+        return new RubixInitializer(rubixConfig, nodeManager, catalogName, configProvider, hdfsConfigurationInitializer);
     }
 }

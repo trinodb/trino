@@ -118,7 +118,8 @@ public class TestRubixCaching
         }
 
         // initialize rubix in master-only mode
-        RubixConfig rubixConfig = new RubixConfig();
+        RubixConfig rubixConfig = new RubixConfig()
+                .setStartServerOnCoordinator(true);
         rubixConfig.setCacheLocation(Joiner.on(",").join(
                 cacheDirectories.stream()
                         .map(java.nio.file.Path::toString)
@@ -134,6 +135,7 @@ public class TestRubixCaching
                 coordinatorNode,
                 ImmutableList.of());
         rubixInitializer = new RubixInitializer(
+                rubixConfig,
                 nodeManager,
                 new CatalogName("catalog"),
                 rubixConfigInitializer,
@@ -186,6 +188,7 @@ public class TestRubixCaching
                 false);
         RubixInitializer rubixInitializer = new RubixInitializer(
                 retry().maxAttempts(1),
+                true,
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
                 rubixConfigInitializer,

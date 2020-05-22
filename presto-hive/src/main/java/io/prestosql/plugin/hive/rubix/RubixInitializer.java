@@ -68,6 +68,7 @@ public class RubixInitializer
     private static final Logger log = Logger.get(RubixInitializer.class);
 
     private final RetryDriver coordinatorRetryDriver;
+    private final boolean startServerOnCoordinator;
     private final NodeManager nodeManager;
     private final CatalogName catalogName;
     private final RubixConfigurationInitializer rubixConfigurationInitializer;
@@ -78,23 +79,26 @@ public class RubixInitializer
 
     @Inject
     public RubixInitializer(
+            RubixConfig rubixConfig,
             NodeManager nodeManager,
             CatalogName catalogName,
             RubixConfigurationInitializer rubixConfigurationInitializer,
             HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
-        this(DEFAULT_COORDINATOR_RETRY_DRIVER, nodeManager, catalogName, rubixConfigurationInitializer, hdfsConfigurationInitializer);
+        this(DEFAULT_COORDINATOR_RETRY_DRIVER, rubixConfig.isStartServerOnCoordinator(), nodeManager, catalogName, rubixConfigurationInitializer, hdfsConfigurationInitializer);
     }
 
     @VisibleForTesting
     RubixInitializer(
             RetryDriver coordinatorRetryDriver,
+            boolean startServerOnCoordinator,
             NodeManager nodeManager,
             CatalogName catalogName,
             RubixConfigurationInitializer rubixConfigurationInitializer,
             HdfsConfigurationInitializer hdfsConfigurationInitializer)
     {
         this.coordinatorRetryDriver = coordinatorRetryDriver;
+        this.startServerOnCoordinator = startServerOnCoordinator;
         this.nodeManager = nodeManager;
         this.catalogName = catalogName;
         this.rubixConfigurationInitializer = rubixConfigurationInitializer;
@@ -104,6 +108,13 @@ public class RubixInitializer
     @PostConstruct
     public void initializeRubix()
     {
+        if (nodeManager.getCurrentNode().isCoordinator() && !startServerOnCoordinator) {
+            // setup JMX metrics on master (instead of starting server) so that JMX connector can be used
+            // TODO: remove once https://github.com/prestosql/presto/issues/3821 is fixed
+            setupRubixMetrics();
+            return;
+        }
+
         waitForCoordinator();
         startRubix();
     }
@@ -114,7 +125,7 @@ public class RubixInitializer
     {
         try (Closer closer = Closer.create()) {
             closer.register(() -> {
-                if (bookKeeperServer != null) {
+                if (bookKeeperServer != null && bookKeeperServer.isServerUp()) {
                     bookKeeperServer.stopServer();
                     bookKeeperServer = null;
                 }
@@ -144,6 +155,28 @@ public class RubixInitializer
 
     private void startRubix()
     {
+        Configuration configuration = getRubixConfiguration();
+
+        MetricRegistry metricRegistry = new MetricRegistry();
+        bookKeeperServer = new BookKeeperServer();
+        BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
+        LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
+
+        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
+        log.info("Rubix initialized successfully");
+        rubixConfigurationInitializer.initializationDone();
+    }
+
+    private void setupRubixMetrics()
+    {
+        Configuration configuration = getRubixConfiguration();
+        bookKeeperServer = new BookKeeperServer();
+        bookKeeperServer.setupServer(configuration, new MetricRegistry());
+        CachingFileSystem.setLocalBookKeeper(null, "catalog=" + catalogName);
+    }
+
+    private Configuration getRubixConfiguration()
+    {
         Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
         boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
 
@@ -158,13 +191,6 @@ public class RubixInitializer
         rubixConfigurationInitializer.updateConfiguration(configuration);
         setCacheKey(configuration, "rubix_internal");
 
-        MetricRegistry metricRegistry = new MetricRegistry();
-        bookKeeperServer = new BookKeeperServer();
-        BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
-        LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
-
-        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
-        log.info("Rubix initialized successfully");
-        rubixConfigurationInitializer.initializationDone();
+        return configuration;
     }
 }
