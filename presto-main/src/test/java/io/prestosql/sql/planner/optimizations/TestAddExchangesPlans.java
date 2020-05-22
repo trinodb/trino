@@ -422,6 +422,12 @@ public class TestAddExchangesPlans
                                                         LOCAL,
                                                         REPARTITION,
                                                         values("a", "b")))))));
+
+        assertPlan(
+                "SELECT 10, a FROM (VALUES 1) t(a)",
+                anyTree(
+                        project(
+                                values("a"))));
     }
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)

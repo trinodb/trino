@@ -63,11 +63,9 @@ public class TestSubqueries
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("y")),
-                                        anyTree(
-                                                project(
-                                                        ImmutableMap.of("NON_NULL", expression("true")),
-                                                        anyTree(
-                                                                values("x"))))))));
+                                        project(
+                                                ImmutableMap.of("NON_NULL", expression("true")),
+                                                values("x"))))));
 
         assertions.assertQueryAndPlan(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES null) t(x) WHERE y > x OR y + 10 > x) FROM (VALUES 11 + if(rand() >= 0, 0)) t2(y)",
@@ -79,11 +77,9 @@ public class TestSubqueries
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("y")),
-                                        anyTree(
-                                                project(
-                                                        ImmutableMap.of("NON_NULL", expression("true")),
-                                                        anyTree(
-                                                                values("x"))))))));
+                                        project(
+                                                ImmutableMap.of("NON_NULL", expression("true")),
+                                                values("x"))))));
     }
 
     @Test
