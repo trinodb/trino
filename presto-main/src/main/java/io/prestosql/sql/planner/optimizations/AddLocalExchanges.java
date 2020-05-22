@@ -582,7 +582,7 @@ public class AddLocalExchanges
         {
             // Union is replaced with an exchange which does not retain streaming properties from the children
             List<PlanWithProperties> sourcesWithProperties = node.getSources().stream()
-                    .map(source -> source.accept(this, defaultParallelism(session)))
+                    .map(source -> source.accept(this, any()))
                     .collect(toImmutableList());
 
             List<PlanNode> sources = sourcesWithProperties.stream()
