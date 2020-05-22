@@ -428,6 +428,17 @@ public class TestAddExchangesPlans
                 anyTree(
                         project(
                                 values("a"))));
+
+        assertPlan(
+                "SELECT 1 UNION ALL SELECT 1",
+                anyTree(
+                        exchange(
+                                LOCAL,
+                                REPARTITION,
+                                project(
+                                        values()),
+                                project(
+                                        values()))));
     }
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)
