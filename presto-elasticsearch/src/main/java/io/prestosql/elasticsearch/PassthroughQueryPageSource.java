@@ -20,10 +20,10 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class PassthroughQueryPageSource
@@ -31,14 +31,12 @@ public class PassthroughQueryPageSource
 {
     private final long readTimeNanos;
     private final String result;
-    private final Type jsonType;
     private boolean done;
 
-    public PassthroughQueryPageSource(ElasticsearchClient client, ElasticsearchTableHandle table, Type jsonType)
+    public PassthroughQueryPageSource(ElasticsearchClient client, ElasticsearchTableHandle table)
     {
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
-        this.jsonType = requireNonNull(jsonType, "jsonType is null");
 
         long start = System.nanoTime();
         result = client.executeQuery(table.getIndex(), table.getQuery().get());
@@ -72,10 +70,10 @@ public class PassthroughQueryPageSource
 
         done = true;
 
-        PageBuilder page = new PageBuilder(1, ImmutableList.of(jsonType));
+        PageBuilder page = new PageBuilder(1, ImmutableList.of(VARCHAR));
         page.declarePosition();
         BlockBuilder column = page.getBlockBuilder(0);
-        jsonType.writeSlice(column, Slices.utf8Slice(result));
+        VARCHAR.writeSlice(column, Slices.utf8Slice(result));
         return page.build();
     }
 

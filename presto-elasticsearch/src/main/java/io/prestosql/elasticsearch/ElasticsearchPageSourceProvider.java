@@ -22,10 +22,6 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
@@ -39,13 +35,11 @@ public class ElasticsearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final ElasticsearchClient client;
-    private final Type jsonType;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client)
     {
         this.client = requireNonNull(client, "client is null");
-        this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
 
     @Override
@@ -64,7 +58,7 @@ public class ElasticsearchPageSourceProvider
         ElasticsearchSplit elasticsearchSplit = (ElasticsearchSplit) split;
 
         if (elasticsearchTable.getType().equals(QUERY)) {
-            return new PassthroughQueryPageSource(client, elasticsearchTable, jsonType);
+            return new PassthroughQueryPageSource(client, elasticsearchTable);
         }
 
         if (columns.isEmpty()) {

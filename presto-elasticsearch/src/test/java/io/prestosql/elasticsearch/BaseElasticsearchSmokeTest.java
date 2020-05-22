@@ -763,7 +763,7 @@ public abstract class BaseElasticsearchSmokeTest
 
         assertQuery(
                 format("WITH data(r) AS (" +
-                        "   SELECT CAST(result AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
                         "   FROM \"orders$query:%s\") " +
                         "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
                         "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
