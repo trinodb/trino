@@ -67,7 +67,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.powerSet;
-import static com.google.common.collect.Streams.stream;
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.prestosql.SystemSessionProperties.getMaxReorderedJoins;
@@ -348,7 +347,7 @@ public class ReorderJoins
             // This takes all conjuncts that were part of allFilters that
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
-            stream(nonInferrableConjuncts(metadata, allFilter))
+            nonInferrableConjuncts(metadata, allFilter).stream()
                     .map(conjunct -> allFilterInference.rewrite(conjunct, Sets.union(leftSymbols, rightSymbols)))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
@@ -372,7 +371,7 @@ public class ReorderJoins
                 Set<Symbol> scope = ImmutableSet.copyOf(outputSymbols);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
-                stream(nonInferrableConjuncts(metadata, allFilter))
+                nonInferrableConjuncts(metadata, allFilter).stream()
                         .map(conjunct -> allFilterInference.rewrite(conjunct, scope))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
