@@ -53,7 +53,9 @@ import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Boolean.TRUE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -71,7 +73,8 @@ public class SyncPartitionMetadataProcedure
             ConnectorSession.class,
             String.class,
             String.class,
-            String.class);
+            String.class,
+            boolean.class);
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
@@ -94,18 +97,19 @@ public class SyncPartitionMetadataProcedure
                 ImmutableList.of(
                         new Argument("schema_name", VARCHAR),
                         new Argument("table_name", VARCHAR),
-                        new Argument("mode", VARCHAR)),
+                        new Argument("mode", VARCHAR),
+                        new Argument("case_sensitive", BOOLEAN, false, TRUE)),
                 SYNC_PARTITION_METADATA.bindTo(this));
     }
 
-    public void syncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode)
+    public void syncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doSyncPartitionMetadata(session, schemaName, tableName, mode);
+            doSyncPartitionMetadata(session, schemaName, tableName, mode, caseSensitive);
         }
     }
 
-    private void doSyncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode)
+    private void doSyncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
@@ -127,7 +131,7 @@ public class SyncPartitionMetadataProcedure
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
             List<String> partitionsInMetastore = metastore.getPartitionNames(identity, schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-            List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size()).stream()
+            List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive).stream()
                     .map(fileStatus -> fileStatus.getPath().toUri())
                     .map(uri -> tableLocation.toUri().relativize(uri).getPath())
                     .collect(toImmutableList());
@@ -144,7 +148,7 @@ public class SyncPartitionMetadataProcedure
         syncPartitions(partitionsToAdd, partitionsToDrop, syncMode, metastore, session, table);
     }
 
-    private static List<FileStatus> listDirectory(FileSystem fileSystem, FileStatus current, List<Column> partitionColumns, int depth)
+    private static List<FileStatus> listDirectory(FileSystem fileSystem, FileStatus current, List<Column> partitionColumns, int depth, boolean caseSensitive)
     {
         if (depth == 0) {
             return ImmutableList.of(current);
@@ -152,8 +156,8 @@ public class SyncPartitionMetadataProcedure
 
         try {
             return Stream.of(fileSystem.listStatus(current.getPath()))
-                    .filter(fileStatus -> isValidPartitionPath(fileStatus, partitionColumns.get(partitionColumns.size() - depth)))
-                    .flatMap(directory -> listDirectory(fileSystem, directory, partitionColumns, depth - 1).stream())
+                    .filter(fileStatus -> isValidPartitionPath(fileStatus, partitionColumns.get(partitionColumns.size() - depth), caseSensitive))
+                    .flatMap(directory -> listDirectory(fileSystem, directory, partitionColumns, depth - 1, caseSensitive).stream())
                     .collect(toImmutableList());
         }
         catch (IOException e) {
@@ -161,11 +165,14 @@ public class SyncPartitionMetadataProcedure
         }
     }
 
-    private static boolean isValidPartitionPath(FileStatus file, Column column)
+    private static boolean isValidPartitionPath(FileStatus file, Column column, boolean caseSensitive)
     {
-        Path path = file.getPath();
+        String path = file.getPath().getName();
+        if (!caseSensitive) {
+            path = path.toLowerCase(ENGLISH);
+        }
         String prefix = column.getName() + '=';
-        return file.isDirectory() && path.getName().startsWith(prefix);
+        return file.isDirectory() && path.startsWith(prefix);
     }
 
     // calculate relative complement of set b with respect to set a
