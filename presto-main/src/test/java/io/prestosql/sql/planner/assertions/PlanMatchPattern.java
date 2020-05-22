@@ -237,6 +237,18 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
+            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Predicate<AggregationNode> predicate,
+            PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(AggregationNode.class, source)
+                .with(new PredicateMatcher(predicate));
+        aggregations.entrySet().forEach(
+                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+        return result;
+    }
+
+    public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
             Map<Symbol, Symbol> masks,

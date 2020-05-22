@@ -29,7 +29,6 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.function.Consumer;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -79,14 +78,12 @@ class QueryAssertions
     public void assertQueryAndPlan(
             @Language("SQL") String actual,
             @Language("SQL") String expected,
-            PlanMatchPattern pattern,
-            Consumer<Plan> planValidator)
+            PlanMatchPattern pattern)
     {
         assertQuery(actual, expected);
 
         Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
         PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
-        planValidator.accept(plan);
     }
 
     public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
