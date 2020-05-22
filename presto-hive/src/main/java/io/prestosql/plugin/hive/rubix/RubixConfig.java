@@ -59,6 +59,7 @@ public class RubixConfig
     private String cacheLocation;
     private int bookKeeperServerPort = CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT;
     private int dataTransferServerPort = CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT;
+    private boolean startServerOnCoordinator;
 
     @NotNull
     public ReadMode getReadMode()
@@ -107,6 +108,18 @@ public class RubixConfig
     public RubixConfig setDataTransferServerPort(int port)
     {
         this.dataTransferServerPort = port;
+        return this;
+    }
+
+    public boolean isStartServerOnCoordinator()
+    {
+        return startServerOnCoordinator;
+    }
+
+    @Config("hive.cache.start-server-on-coordinator")
+    public RubixConfig setStartServerOnCoordinator(boolean startServerOnCoordinator)
+    {
+        this.startServerOnCoordinator = startServerOnCoordinator;
         return this;
     }
 }
