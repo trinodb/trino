@@ -33,7 +33,8 @@ public class TestRubixConfig
                 .setBookKeeperServerPort(CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT)
                 .setDataTransferServerPort(CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT)
                 .setCacheLocation(null)
-                .setReadMode(RubixConfig.ReadMode.READ_THROUGH));
+                .setReadMode(RubixConfig.ReadMode.READ_THROUGH)
+                .setStartServerOnCoordinator(false));
     }
 
     @Test
@@ -44,13 +45,15 @@ public class TestRubixConfig
                 .put("hive.cache.location", "/some-directory")
                 .put("hive.cache.bookkeeper-port", "1234")
                 .put("hive.cache.data-transfer-port", "1235")
+                .put("hive.cache.start-server-on-coordinator", "true")
                 .build();
 
         RubixConfig expected = new RubixConfig()
                 .setReadMode(RubixConfig.ReadMode.ASYNC)
                 .setCacheLocation("/some-directory")
                 .setBookKeeperServerPort(1234)
-                .setDataTransferServerPort(1235);
+                .setDataTransferServerPort(1235)
+                .setStartServerOnCoordinator(true);
 
         assertFullMapping(properties, expected);
     }
