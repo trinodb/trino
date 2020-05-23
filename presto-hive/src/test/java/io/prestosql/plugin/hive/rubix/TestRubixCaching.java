@@ -207,7 +207,17 @@ public class TestRubixCaching
             });
             closer.register(() -> {
                 if (rubixInitializer != null) {
-                    rubixInitializer.stopRubix();
+                    try {
+                        retry().run(
+                                "stopRubix",
+                                () -> {
+                                    rubixInitializer.stopRubix();
+                                    return null;
+                                });
+                    }
+                    catch (Exception exception) {
+                        throw new RuntimeException(exception);
+                    }
                     rubixInitializer = null;
                 }
             });
