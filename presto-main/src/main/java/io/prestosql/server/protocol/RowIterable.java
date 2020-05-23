@@ -15,9 +15,13 @@ package io.prestosql.server.protocol;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.client.ClientCapabilities;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
@@ -30,11 +34,11 @@ import static java.util.Objects.requireNonNull;
 class RowIterable
         implements Iterable<List<Object>>
 {
-    private final ConnectorSession session;
+    private final Session session;
     private final List<Type> types;
     private final Page page;
 
-    public RowIterable(ConnectorSession session, List<Type> types, Page page)
+    public RowIterable(Session session, List<Type> types, Page page)
     {
         this.session = session;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -51,13 +55,15 @@ class RowIterable
             extends AbstractIterator<List<Object>>
     {
         private final ConnectorSession session;
+        private final boolean supportsParametricDateTime;
         private final List<Type> types;
         private final Page page;
         private int position = -1;
 
-        private RowIterator(ConnectorSession session, List<Type> types, Page page)
+        private RowIterator(Session session, List<Type> types, Page page)
         {
-            this.session = session;
+            this.session = session.toConnectorSession();
+            this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
             this.types = types;
             this.page = page;
         }
@@ -74,7 +80,14 @@ class RowIterable
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Type type = types.get(channel);
                 Block block = page.getBlock(channel);
-                values.add(type.getObjectValue(session, block, position));
+
+                Object value = type.getObjectValue(session, block, position);
+
+                if (value != null && type instanceof TimestampType && !supportsParametricDateTime) {
+                    value = ((SqlTimestamp) value).roundTo(3);
+                }
+
+                values.add(value);
             }
             return Collections.unmodifiableList(values);
         }
