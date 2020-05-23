@@ -94,6 +94,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanShowCreateSchema(context, schemaName);
+        }
+    }
+
+    @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

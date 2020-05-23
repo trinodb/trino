@@ -129,6 +129,8 @@ public class HiveConfig
     private boolean queryPartitionFilterRequired;
     private boolean partitionUseColumnNames;
 
+    private boolean projectionPushdownEnabled = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -897,17 +899,17 @@ public class HiveConfig
         return this;
     }
 
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
+    }
+
     @Config("hive.query-partition-filter-required")
     @ConfigDescription("Require filter on at least one partition column")
     public HiveConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
         return this;
-    }
-
-    public boolean isQueryPartitionFilterRequired()
-    {
-        return queryPartitionFilterRequired;
     }
 
     public boolean getPartitionUseColumnNames()
@@ -920,6 +922,19 @@ public class HiveConfig
     public HiveConfig setPartitionUseColumnNames(boolean partitionUseColumnNames)
     {
         this.partitionUseColumnNames = partitionUseColumnNames;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushdownEnabled;
+    }
+
+    @Config("hive.projection-pushdown-enabled")
+    @ConfigDescription("Projection pushdown into hive is enabled through applyProjection")
+    public HiveConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
+    {
+        this.projectionPushdownEnabled = projectionPushdownEnabled;
         return this;
     }
 }

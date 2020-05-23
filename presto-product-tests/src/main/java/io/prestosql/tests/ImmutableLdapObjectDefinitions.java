@@ -57,7 +57,7 @@ public final class ImmutableLdapObjectDefinitions
 
     public static final LdapObjectDefinition USER_IN_MULTIPLE_GROUPS = buildLdapUserObject("UserInMultipleGroups", Optional.of(Arrays.asList("DefaultGroup", "ParentGroup")), LDAP_PASSWORD);
 
-    private static LdapObjectDefinition buildLdapOrganizationObject(String id, String distinguishedName, String unit)
+    public static LdapObjectDefinition buildLdapOrganizationObject(String id, String distinguishedName, String unit)
     {
         return LdapObjectDefinition.builder(id)
                 .setDistinguishedName(distinguishedName)
@@ -66,7 +66,7 @@ public final class ImmutableLdapObjectDefinitions
                 .build();
     }
 
-    private static LdapObjectDefinition buildLdapGroupObject(String groupName, String userName, Optional<List<String>> childGroupNames)
+    public static LdapObjectDefinition buildLdapGroupObject(String groupName, String userName, Optional<List<String>> childGroupNames)
     {
         if (childGroupNames.isPresent()) {
             return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME, childGroupNames, Optional.of(AMERICA_DISTINGUISHED_NAME));
@@ -77,7 +77,7 @@ public final class ImmutableLdapObjectDefinitions
         }
     }
 
-    private static LdapObjectDefinition buildLdapGroupObject(String groupName, String groupOrganizationName,
+    public static LdapObjectDefinition buildLdapGroupObject(String groupName, String groupOrganizationName,
             String userName, String userOrganizationName, Optional<List<String>> childGroupNames, Optional<String> childGroupOrganizationName)
     {
         if (childGroupNames.isPresent() && childGroupOrganizationName.isPresent()) {
@@ -101,7 +101,7 @@ public final class ImmutableLdapObjectDefinitions
         }
     }
 
-    private static LdapObjectDefinition buildLdapUserObject(String userName, Optional<List<String>> groupNames, String password)
+    public static LdapObjectDefinition buildLdapUserObject(String userName, Optional<List<String>> groupNames, String password)
     {
         if (groupNames.isPresent()) {
             return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
@@ -113,7 +113,7 @@ public final class ImmutableLdapObjectDefinitions
         }
     }
 
-    private static LdapObjectDefinition buildLdapUserObject(String userName, String userOrganizationName,
+    public static LdapObjectDefinition buildLdapUserObject(String userName, String userOrganizationName,
             Optional<List<String>> groupNames, Optional<String> groupOrganizationName, String password)
     {
         if (groupNames.isPresent() && groupOrganizationName.isPresent()) {

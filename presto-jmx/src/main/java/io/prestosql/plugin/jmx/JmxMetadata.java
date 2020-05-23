@@ -253,7 +253,7 @@ public class JmxMetadata
         }
 
         List<SchemaTableName> tableNames;
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             tableNames = listTables(session, prefix.getSchema());
         }
         else {
@@ -268,7 +268,7 @@ public class JmxMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
-        if (!domains.isPresent()) {
+        if (domains.isEmpty()) {
             return Optional.empty();
         }
 

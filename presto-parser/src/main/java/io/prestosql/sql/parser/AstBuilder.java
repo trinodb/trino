@@ -880,7 +880,13 @@ class AstBuilder
     @Override
     public Node visitShowColumns(SqlBaseParser.ShowColumnsContext context)
     {
-        return new ShowColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new ShowColumns(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
+                        .map(AstBuilder::unquote));
     }
 
     @Override
@@ -894,6 +900,12 @@ class AstBuilder
     {
         QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
         return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query(specification)));
+    }
+
+    @Override
+    public Node visitShowCreateSchema(SqlBaseParser.ShowCreateSchemaContext context)
+    {
+        return new ShowCreate(getLocation(context), ShowCreate.Type.SCHEMA, getQualifiedName(context.qualifiedName()));
     }
 
     @Override

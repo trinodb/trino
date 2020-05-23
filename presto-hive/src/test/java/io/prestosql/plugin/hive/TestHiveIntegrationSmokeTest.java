@@ -62,6 +62,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -364,7 +365,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPartitionPredicateAllowed()
-            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -390,7 +390,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testNestedQueryWithInnerPartitionPredicate()
-            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -416,7 +415,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPartitionPredicateDisallowed()
-            throws Exception
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -481,6 +479,24 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(session, query, regExpMessage);
         assertQueryFails(session, "explain " + query, regExpMessage);
         assertUpdate(session, "DROP TABLE partition_test15");
+    }
+
+    @Test
+    public void testIsNotNullWithNestedData()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+        assertUpdate(admin, "create table nest_test(id int, a row(x varchar, y integer, z varchar), b varchar) WITH (format='PARQUET')");
+        assertUpdate(admin, "insert into nest_test values(0, null, '1')", 1);
+        assertUpdate(admin, "insert into nest_test values(1, ('a', null, 'b'), '1')", 1);
+        assertUpdate(admin, "insert into nest_test values(2, ('b', 1, 'd'), '1')", 1);
+        assertQuery(admin, "select a.y from nest_test", "values (null), (null), (1)");
+        assertQuery(admin, "select id from nest_test where a.y IS NOT NULL", "values (2)");
+        assertUpdate(admin, "DROP TABLE nest_test");
     }
 
     @Test
@@ -714,6 +730,56 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
         assertUpdate(admin, "DROP ROLE admin");
+    }
+
+    @Test
+    public void testShowCreateSchema()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema("test_show_create_schema")
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        assertUpdate(admin, "CREATE ROLE test_show_create_schema_role");
+        assertUpdate(admin, "GRANT test_show_create_schema_role TO user");
+
+        assertUpdate(admin, "CREATE SCHEMA test_show_create_schema");
+
+        String createSchemaSql = format("" +
+                "CREATE SCHEMA %s.test_show_create_schema\n" +
+                "AUTHORIZATION USER hive\n" +
+                "WITH \\(\n" +
+                "   location = '.*test_show_create_schema'\n" +
+                "\\)",
+                getSession().getCatalog().get());
+
+        String actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
+        assertThat(actualResult).matches(createSchemaSql);
+
+        assertQueryFails(user, "SHOW CREATE SCHEMA test_show_create_schema", "Access Denied: Cannot show create schema for test_show_create_schema");
+
+        assertUpdate(admin, "ALTER SCHEMA test_show_create_schema SET AUTHORIZATION ROLE test_show_create_schema_role");
+
+        createSchemaSql = format("" +
+                "CREATE SCHEMA %s.test_show_create_schema\n" +
+                "AUTHORIZATION ROLE test_show_create_schema_role\n" +
+                "WITH \\(\n" +
+                "   location = '.*test_show_create_schema'\n" +
+                "\\)",
+                getSession().getCatalog().get());
+
+        actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
+        assertThat(actualResult).matches(createSchemaSql);
+
+        assertUpdate(user, "DROP SCHEMA test_show_create_schema");
+        assertUpdate(admin, "DROP ROLE test_show_create_schema_role");
     }
 
     @Test
@@ -1491,6 +1557,13 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE test_create_partitioned_table_as");
 
         assertFalse(getQueryRunner().tableExists(session, "test_create_partitioned_table_as"));
+    }
+
+    @Test
+    public void testCreateTableWithUnsupportedType()
+    {
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "Unsupported Hive type: time");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "Unsupported Hive type: time");
     }
 
     @Test
@@ -2916,12 +2989,74 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testRows()
+    public void testRowsWithAllFormats()
     {
-        assertUpdate("CREATE TABLE tmp_row1 AS SELECT cast(row(CAST(1 as BIGINT), CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a", 1);
+        testWithAllStorageFormats(this::testRows);
+    }
+
+    private void testRows(Session session, HiveStorageFormat format)
+    {
+        String tableName = "test_dereferences";
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName +
+                " WITH (" +
+                "format = '" + format + "'" +
+                ") " +
+                "AS SELECT " +
+                "CAST(row(CAST(1 as BIGINT), CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a, " +
+                "CAST(row(row(CAST('abc' as VARCHAR), CAST(5 as BIGINT)), CAST(3.0 AS DOUBLE)) AS row(field0 row(col0 varchar, col1 bigint), field1 double)) AS b";
+
+        assertUpdate(session, createTable, 1);
+
+        assertQuery(session,
+                "SELECT a.col0, a.col1, b.field0.col0, b.field0.col1, b.field1 FROM " + tableName,
+                "SELECT 1, cast(null as bigint), CAST('abc' as VARCHAR), CAST(5 as BIGINT), CAST(3.0 AS DOUBLE)");
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRowsWithNulls()
+    {
+        testRowsWithNulls(getSession(), HiveStorageFormat.ORC);
+        testRowsWithNulls(getSession(), HiveStorageFormat.PARQUET);
+    }
+
+    private void testRowsWithNulls(Session session, HiveStorageFormat format)
+    {
+        String tableName = "test_dereferences_with_nulls";
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + "\n" +
+                "(col0 BIGINT, col1 row(f0 BIGINT, f1 BIGINT), col2 row(f0 BIGINT, f1 ROW(f0 BIGINT, f1 BIGINT)))\n" +
+                "WITH (format = '" + format + "')";
+
+        assertUpdate(session, createTable);
+
+        @Language("SQL") String insertTable = "" +
+                "INSERT INTO " + tableName + " VALUES \n" +
+                "row(1,     row(2, 3),      row(4, row(5, 6))),\n" +
+                "row(7,     row(8, 9),      row(10, row(11, NULL))),\n" +
+                "row(NULL,  NULL,           row(12, NULL)),\n" +
+                "row(13,    row(NULL, 14),  NULL),\n" +
+                "row(15,    row(16, NULL),  row(NULL, row(17, 18)))";
+
+        assertUpdate(session, insertTable, 5);
+
         assertQuery(
-                "SELECT a.col0, a.col1 FROM tmp_row1",
-                "SELECT 1, cast(null as bigint)");
+                session,
+                format("SELECT col0, col1.f0, col2.f1.f1 FROM %s", tableName),
+                "SELECT * FROM \n" +
+                "    (SELECT 1, 2, 6) UNION\n" +
+                "    (SELECT 7, 8, NULL) UNION\n" +
+                "    (SELECT NULL, NULL, NULL) UNION\n" +
+                "    (SELECT 13, NULL, NULL) UNION\n" +
+                "    (SELECT 15, 16, 18)");
+
+        assertQuery(session, format("SELECT col0 FROM %s WHERE col2.f1.f1 IS NOT NULL", tableName), "SELECT * FROM UNNEST(array[1, 15])");
+
+        assertQuery(session, format("SELECT col0, col1.f0, col1.f1 FROM %s WHERE col2.f1.f1 = 18", tableName), "SELECT 15, 16, NULL");
+
+        assertUpdate(session, "DROP TABLE " + tableName);
     }
 
     @Test
@@ -3037,8 +3172,25 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testShowCreateTable()
     {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE hive.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   c1 bigint,\n" +
@@ -3081,6 +3233,19 @@ public class TestHiveIntegrationSmokeTest
                 "\"test_show_create_table'2\"");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   c1 ROW(\"$a\" bigint, \"$b\" varchar)\n)\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_show_create_table_with_special_characters");
+        assertUpdate(createTableSql);
+        actualResult = computeActual("SHOW CREATE TABLE test_show_create_table_with_special_characters");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
@@ -3648,17 +3813,17 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(getPartitions("test_file_modified_time").size(), 3);
 
         MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_file_modified_time", FILE_MODIFIED_TIME_COLUMN_NAME));
-        Map<Integer, Long> fileModifiedTimeMap = new HashMap<>();
+        Map<Integer, Instant> fileModifiedTimeMap = new HashMap<>();
         for (int i = 0; i < results.getRowCount(); i++) {
             MaterializedRow row = results.getMaterializedRows().get(i);
             int col0 = (int) row.getField(0);
             int col1 = (int) row.getField(1);
-            long fileModifiedTime = (Long) row.getField(2);
+            Instant fileModifiedTime = ((ZonedDateTime) row.getField(2)).toInstant();
 
-            assertTrue(fileModifiedTime > (testStartTime - 2_000));
+            assertTrue(fileModifiedTime.toEpochMilli() > (testStartTime - 2_000));
             assertEquals(col0 % 3, col1);
             if (fileModifiedTimeMap.containsKey(col1)) {
-                assertEquals(fileModifiedTimeMap.get(col1).longValue(), fileModifiedTime);
+                assertEquals(fileModifiedTimeMap.get(col1), fileModifiedTime);
             }
             else {
                 fileModifiedTimeMap.put(col1, fileModifiedTime);
@@ -4049,6 +4214,81 @@ public class TestHiveIntegrationSmokeTest
         }
         finally {
             assertUpdate("DROP TABLE test_bucket_filtering");
+        }
+    }
+
+    @Test
+    public void schemaMismatchesWithDereferenceProjections()
+    {
+        for (TestingHiveStorageFormat format : getAllTestingHiveStorageFormat()) {
+            schemaMismatchesWithDereferenceProjections(format.getFormat());
+        }
+    }
+
+    private void schemaMismatchesWithDereferenceProjections(HiveStorageFormat format)
+    {
+        // Verify reordering of subfields between a partition column and a table column is not supported
+        // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
+            assertUpdate("INSERT INTO evolve_test values (2, row('def', 2), 2)", 1);
+            assertQueryFails("SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+
+        // Subfield absent in partition schema is reported as null
+        // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
+            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
+            assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+    }
+
+    @Test
+    public void testSubfieldReordering()
+    {
+        // Validate for formats for which subfield access is name based
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET);
+
+        for (HiveStorageFormat format : formats) {
+            // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
+            // column type is row(c varchar, b bigint), "a.b" should read the correct field from the file.
+            try {
+                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'))", 1);
+                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
+                assertQuery("SELECT a.b FROM evolve_test", "VALUES 1");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            }
+
+            // Assert that reordered subfields are read correctly for a two-level nesting. This is useful for asserting correct adaptation
+            // of residue projections in HivePageSourceProvider
+            try {
+                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO evolve_test values (1, row(1, row(3, 'abc')))", 1);
+                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
+                // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
+                assertQuerySucceeds("SELECT a.c.y, a.c FROM evolve_test");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            }
         }
     }
 
@@ -4731,6 +4971,37 @@ public class TestHiveIntegrationSmokeTest
         });
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShowViews()
+    {
+        String viewName = "test_show_views";
+
+        Session testSession = testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_view_access_owner"))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT abs(1) as whatever");
+
+        String showViews = format("SELECT * FROM information_schema.views WHERE table_name = '%s'", viewName);
+        assertQuery(
+                format("SELECT table_name FROM information_schema.views WHERE table_name = '%s'", viewName),
+                format("VALUES '%s'", viewName));
+
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyTables(table -> false);
+                assertQueryReturnsEmptyResult(testSession, showViews);
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+
+        assertUpdate("DROP VIEW " + viewName);
     }
 
     @Test
@@ -6019,7 +6290,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCreateOrcTableWithSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_orc (\n" +
@@ -6037,7 +6307,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCtasFailsWithAvroSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String ctasSqlWithoutData = "CREATE TABLE create_avro\n" +
                 "WITH (avro_schema_url = 'dummy_schema')\n" +
@@ -6054,7 +6323,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testBucketedTablesFailWithAvroSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
                 "WITH (avro_schema_url = 'dummy_schema',\n" +
@@ -6065,7 +6333,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPartitionedTablesFailWithAvroSchemaUrl()
-            throws Exception
     {
         @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
                 "WITH (avro_schema_url = 'dummy_schema',\n" +
@@ -6155,8 +6422,8 @@ public class TestHiveIntegrationSmokeTest
     public void testColumnPruning()
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "orc_use_column_names", "true")
-                .setCatalogSessionProperty("hive", "parquet_use_column_names", "true")
+                .setCatalogSessionProperty(catalog, "orc_use_column_names", "true")
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
                 .build();
 
         testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.ORC), this::testColumnPruning);

@@ -301,7 +301,7 @@ class Query
         return clearTransactionId;
     }
 
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
+    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -317,7 +317,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -357,7 +357,7 @@ class Query
         }
 
         // if this is a request for a result after the end of the stream, return not found
-        if (!nextToken.isPresent()) {
+        if (nextToken.isEmpty()) {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
 
@@ -370,7 +370,7 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -381,7 +381,6 @@ class Query
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
         verify(token == nextToken.getAsLong(), "Expected token to equal next token");
         URI queryHtmlUri = uriInfo.getRequestUriBuilder()
-                .scheme(scheme)
                 .replacePath("ui/query.html")
                 .replaceQuery(queryId.toString())
                 .build();
@@ -438,7 +437,7 @@ class Query
         closeExchangeClientIfNecessary(queryInfo);
 
         // for queries with no output, return a fake result for clients that require it
-        if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
+        if ((queryInfo.getState() == QueryState.FINISHED) && queryInfo.getOutputStage().isEmpty()) {
             columns = ImmutableList.of(createColumn("result", BooleanType.BOOLEAN));
             data = ImmutableSet.of(ImmutableList.of(true));
         }
@@ -458,9 +457,9 @@ class Query
         URI nextResultsUri = null;
         URI partialCancelUri = null;
         if (nextToken.isPresent()) {
-            nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong());
+            nextResultsUri = createNextResultsUri(uriInfo, nextToken.getAsLong());
             partialCancelUri = findCancelableLeafStage(queryInfo)
-                    .map(stage -> this.createPartialCancelUri(stage, scheme, uriInfo, nextToken.getAsLong()))
+                    .map(stage -> this.createPartialCancelUri(stage, uriInfo, nextToken.getAsLong()))
                     .orElse(null);
         }
 
@@ -511,7 +510,7 @@ class Query
         // is done and it does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
         if ((queryInfo.getState() == FAILED) ||
-                (queryInfo.getState().isDone() && !queryInfo.getOutputStage().isPresent())) {
+                (queryInfo.getState().isDone() && queryInfo.getOutputStage().isEmpty())) {
             exchangeClient.close();
         }
     }
@@ -548,10 +547,9 @@ class Query
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken)
+    private synchronized URI createNextResultsUri(UriInfo uriInfo, long nextToken)
     {
         return uriInfo.getBaseUriBuilder()
-                .scheme(scheme)
                 .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
@@ -560,10 +558,9 @@ class Query
                 .build();
     }
 
-    private URI createPartialCancelUri(int stage, String scheme, UriInfo uriInfo, long nextToken)
+    private URI createPartialCancelUri(int stage, UriInfo uriInfo, long nextToken)
     {
         return uriInfo.getBaseUriBuilder()
-                .scheme(scheme)
                 .replacePath("/v1/statement/executing/partialCancel")
                 .path(queryId.toString())
                 .path(String.valueOf(stage))

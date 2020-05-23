@@ -94,32 +94,9 @@ final class PrestoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
-        if (javaVersion == null) {
-            failRequirement("Java version not defined");
+        if (Runtime.version().feature() < 11) {
+            failRequirement("Presto requires Java 11+ (found %s)", Runtime.version());
         }
-
-        JavaVersion version = JavaVersion.parse(javaVersion);
-
-        if (version.getMajor() >= 11) {
-            return;
-        }
-
-        if (!Boolean.getBoolean("presto-temporarily-allow-java8")) {
-            failRequirement("" +
-                    "Future versions of Presto will require Java 11 after March 2020.\n\n" +
-                    "You may temporarily continue running on Java 8 by adding the following\n" +
-                    "JVM config option:\n\n" +
-                    "    -Dpresto-temporarily-allow-java8=true\n");
-        }
-
-        if ((version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) ||
-                (version.getMajor() > 8 && version.getMajor() < 11)) {
-            warnRequirement("Future versions of Presto will require Java 11+ (found: %s)", javaVersion);
-            return;
-        }
-
-        failRequirement("Presto requires Java 8u161+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()
@@ -142,7 +119,7 @@ final class PrestoSystemRequirements
     private static void verifyFileDescriptor()
     {
         OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
-        if (!maxFileDescriptorCount.isPresent()) {
+        if (maxFileDescriptorCount.isEmpty()) {
             // This should never happen since we have verified the OS and JVM above
             failRequirement("Cannot read OS file descriptor limit");
         }

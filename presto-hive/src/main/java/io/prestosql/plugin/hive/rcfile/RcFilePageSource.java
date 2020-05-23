@@ -79,7 +79,7 @@ public class RcFilePageSource
             typesBuilder.add(column.getType());
             hiveTypesBuilder.add(column.getHiveType());
 
-            hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
+            hiveColumnIndexes[columnIndex] = column.getBaseHiveColumnIndex();
 
             if (hiveColumnIndexes[columnIndex] >= rcFileReader.getColumnCount()) {
                 // this file may contain fewer fields than what's declared in the schema
@@ -135,9 +135,7 @@ public class RcFilePageSource
                 }
             }
 
-            Page page = new Page(currentPageSize, blocks);
-
-            return page;
+            return new Page(currentPageSize, blocks);
         }
         catch (PrestoException e) {
             closeWithSuppression(e);

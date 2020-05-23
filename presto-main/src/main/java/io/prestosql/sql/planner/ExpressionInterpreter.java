@@ -141,6 +141,7 @@ import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class ExpressionInterpreter
 {
@@ -519,7 +520,7 @@ public class ExpressionInterpreter
                         }
                         return Stream.of(expression);
                     })
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
                 return values.get(0);
@@ -931,8 +932,8 @@ public class ExpressionInterpreter
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
                 verify(!node.isDistinct(), "window does not support distinct");
-                verify(!node.getOrderBy().isPresent(), "window does not support order by");
-                verify(!node.getFilter().isPresent(), "window does not support filter");
+                verify(node.getOrderBy().isEmpty(), "window does not support order by");
+                verify(node.getFilter().isEmpty(), "window does not support filter");
                 return new FunctionCallBuilder(metadata)
                         .setName(node.getName())
                         .setWindow(node.getWindow())
@@ -974,7 +975,7 @@ public class ExpressionInterpreter
         {
             List<Object> values = node.getValues().stream()
                     .map(value -> process(value, context))
-                    .collect(toImmutableList());
+                    .collect(toList()); // values are nullable
             Object function = process(node.getFunction(), context);
 
             if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
@@ -1002,7 +1003,7 @@ public class ExpressionInterpreter
 
             if (value instanceof Slice &&
                     node.getPattern() instanceof StringLiteral &&
-                    (!node.getEscape().isPresent() || node.getEscape().get() instanceof StringLiteral)) {
+                    (node.getEscape().isEmpty() || node.getEscape().get() instanceof StringLiteral)) {
                 // fast path when we know the pattern and escape are constant
                 return evaluateLikePredicate(node, (Slice) value, getConstantPattern(node));
             }
@@ -1037,8 +1038,8 @@ public class ExpressionInterpreter
             }
 
             // if pattern is a constant without % or _ replace with a comparison
-            if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, (Slice) escape)) {
-                Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, (Slice) escape);
+            if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape))) {
+                Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
                 Type valueType = type(node.getValue());
                 Type patternType = createVarcharType(unescapedPattern.length());
                 Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(valueType, patternType);

@@ -19,6 +19,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
@@ -27,9 +28,9 @@ public class SinglenodeLdapBindDn
         extends AbstractSinglenodeLdap
 {
     @Inject
-    public SinglenodeLdapBindDn(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentOptions environmentOptions)
+    public SinglenodeLdapBindDn(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentOptions environmentOptions)
     {
-        super(ImmutableList.of(standard, hadoop), dockerFiles, environmentOptions);
+        super(ImmutableList.of(standard, hadoop), dockerFiles, portBinder, environmentOptions);
     }
 
     @Override

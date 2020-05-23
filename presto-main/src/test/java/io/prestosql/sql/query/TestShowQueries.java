@@ -13,9 +13,19 @@
  */
 package io.prestosql.sql.query;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.MockConnectorFactory;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertEquals;
 
 public class TestShowQueries
 {
@@ -24,7 +34,31 @@ public class TestShowQueries
     @BeforeClass
     public void init()
     {
-        assertions = new QueryAssertions();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
+                .setCatalog("local")
+                .setSchema("default")
+                .build());
+        queryRunner.createCatalog(
+                "mock",
+                MockConnectorFactory.builder()
+                        .withGetColumns(schemaTableName ->
+                                ImmutableList.of(
+                                        ColumnMetadata.builder()
+                                                .setName("colaa")
+                                                .setType(BIGINT)
+                                                .build(),
+                                        ColumnMetadata.builder()
+                                                .setName("cola_")
+                                                .setType(BIGINT)
+                                                .build(),
+                                        ColumnMetadata.builder()
+                                                .setName("colabc")
+                                                .setType(BIGINT)
+                                                .build()))
+                        .withListTables((session, schemaName) -> ImmutableList.of(new SchemaTableName("mockSchema", "mockTable")))
+                        .build(),
+                ImmutableMap.of());
+        assertions = new QueryAssertions(queryRunner);
     }
 
     @AfterClass(alwaysRun = true)
@@ -90,5 +124,48 @@ public class TestShowQueries
             assertions.assertQueryReturnsEmptyResult("SHOW CATALOGS");
             assertions.getQueryRunner().getAccessControl().reset();
         });
+    }
+
+    @Test
+    public void testShowColumns()
+    {
+        assertions.assertQuery("SHOW COLUMNS FROM mock.mockSchema.mockTable",
+                "VALUES " +
+                        "(CAST('colaa' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('colabc' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
+    }
+
+    @Test
+    public void testShowColumnsLike()
+    {
+        assertions.assertQuery("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'colabc'",
+                "VALUES (CAST('colabc' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
+        assertions.assertQuery("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'cola%'",
+                "VALUES " +
+                        "(CAST('colaa' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('colabc' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
+        assertions.assertQuery("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'cola_'",
+                "VALUES " +
+                        "(CAST('colaa' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
+
+        assertions.assertQuery("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node%'",
+                "VALUES " +
+                        "(CAST('node_id' AS VARCHAR), CAST('varchar' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('node_version' AS VARCHAR), CAST('varchar' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
+        assertions.assertQuery("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node_id'",
+                "VALUES (CAST('node_id' AS VARCHAR), CAST('varchar' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
+        assertEquals(assertions.execute("SHOW COLUMNS FROM system.runtime.nodes LIKE ''").getRowCount(), 0);
+    }
+
+    @Test
+    public void testShowColumnsWithLikeWithEscape()
+    {
+        assertions.assertFails("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
+        assertions.assertFails("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+        assertions.assertQuery("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'",
+                "VALUES (CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
     }
 }

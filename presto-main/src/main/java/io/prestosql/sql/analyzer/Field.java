@@ -120,7 +120,7 @@ public class Field
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
-        return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
+        return prefix.isEmpty() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
     }
 
     /*
@@ -146,7 +146,7 @@ public class Field
      */
     public boolean canResolve(QualifiedName name)
     {
-        if (!this.name.isPresent()) {
+        if (this.name.isEmpty()) {
             return false;
         }
 

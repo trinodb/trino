@@ -60,7 +60,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testArrayOfBingTiles()
-            throws Exception
     {
         assertFunction("array [bing_tile(1, 2, 10), bing_tile(3, 4, 11)]",
                 new ArrayType(BING_TILE),

@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 
-import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public final class SelectionCriteria
@@ -45,7 +44,7 @@ public final class SelectionCriteria
         this.user = requireNonNull(user, "user is null");
         this.userGroups = requireNonNull(userGroups, "groups is null");
         this.source = requireNonNull(source, "source is null");
-        this.clientTags = unmodifiableSet(requireNonNull(clientTags, "tags is null"));
+        this.clientTags = Set.copyOf(requireNonNull(clientTags, "tags is null"));
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
     }

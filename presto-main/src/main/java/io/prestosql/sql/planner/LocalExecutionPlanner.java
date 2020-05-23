@@ -634,7 +634,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext createSubContext()
         {
-            checkState(!indexSourceContext.isPresent(), "index build plan cannot have sub-contexts");
+            checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
             return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId);
         }
 
@@ -757,7 +757,7 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
-            if (!context.getDriverInstanceCount().isPresent()) {
+            if (context.getDriverInstanceCount().isEmpty()) {
                 context.setDriverInstanceCount(getTaskConcurrency(session));
             }
 
@@ -1035,6 +1035,9 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitLimit(LimitNode node, LocalExecutionPlanContext context)
         {
+            // Limit with ties should be rewritten at this point
+            checkState(node.getTiesResolvingScheme().isEmpty(), "Limit with ties not supported");
+
             PhysicalOperation source = node.getSource().accept(this, context);
 
             OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), node.getId(), node.getCount());
@@ -1152,7 +1155,7 @@ public class LocalExecutionPlanner
         {
             PlanNode sourceNode = node.getSource();
 
-            if (node.getSource() instanceof TableScanNode && !getStaticFilter(node.getPredicate()).isPresent()) {
+            if (node.getSource() instanceof TableScanNode && getStaticFilter(node.getPredicate()).isEmpty()) {
                 // filter node contains only dynamic filter, fallback to normal table scan
                 return visitTableScan((TableScanNode) node.getSource(), node.getPredicate(), context);
             }
@@ -1390,7 +1393,11 @@ public class LocalExecutionPlanner
             for (Symbol symbol : node.getReplicateSymbols()) {
                 replicateTypes.add(context.getTypes().get(symbol));
             }
-            List<Symbol> unnestSymbols = ImmutableList.copyOf(node.getUnnestSymbols().keySet());
+
+            List<Symbol> unnestSymbols = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .collect(toImmutableList());
+
             ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
             for (Symbol symbol : unnestSymbols) {
                 unnestTypes.add(context.getTypes().get(symbol));
@@ -1409,12 +1416,14 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, channel);
                 channel++;
             }
-            for (Symbol symbol : unnestSymbols) {
-                for (Symbol unnestedSymbol : node.getUnnestSymbols().get(symbol)) {
+
+            for (UnnestNode.Mapping mapping : node.getMappings()) {
+                for (Symbol unnestedSymbol : mapping.getOutputs()) {
                     outputMappings.put(unnestedSymbol, channel);
                     channel++;
                 }
             }
+
             if (ordinalitySymbol.isPresent()) {
                 outputMappings.put(ordinalitySymbol.get(), channel);
                 channel++;
@@ -1798,7 +1807,7 @@ public class LocalExecutionPlanner
 
             checkState(
                     buildSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
-                    "Build source of a nested loop join is expected to be GROUPED_EXECUTION.");
+                    "Build source of a nested loop join is expected to be UNGROUPED_EXECUTION.");
             checkArgument(node.getType() == INNER, "NestedLoopJoin is only used for inner join");
 
             JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(

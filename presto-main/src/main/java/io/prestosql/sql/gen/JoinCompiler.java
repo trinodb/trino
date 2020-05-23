@@ -31,6 +31,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
@@ -783,7 +784,7 @@ public class JoinCompiler
                 rightBlockIndex,
                 rightBlockPosition);
 
-        if (!sortChannel.isPresent()) {
+        if (sortChannel.isEmpty()) {
             compareMethod.getBody()
                     .append(newInstance(UnsupportedOperationException.class))
                     .throwObject();
@@ -826,7 +827,7 @@ public class JoinCompiler
                 blockIndex,
                 blockPosition);
 
-        if (!sortChannel.isPresent()) {
+        if (sortChannel.isEmpty()) {
             isSortChannelPositionNullMethod.getBody()
                     .append(newInstance(UnsupportedOperationException.class))
                     .throwObject();

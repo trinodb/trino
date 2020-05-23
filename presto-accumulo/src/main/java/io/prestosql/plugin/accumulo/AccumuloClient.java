@@ -218,7 +218,7 @@ public class AccumuloClient
     {
         // Validate any configured locality groups
         Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(meta.getProperties());
-        if (!groups.isPresent()) {
+        if (groups.isEmpty()) {
             return;
         }
 
@@ -336,7 +336,7 @@ public class AccumuloClient
     private void setLocalityGroups(Map<String, Object> tableProperties, AccumuloTable table)
     {
         Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(tableProperties);
-        if (!groups.isPresent()) {
+        if (groups.isEmpty()) {
             LOG.debug("No locality groups to set");
             return;
         }
@@ -896,7 +896,7 @@ public class AccumuloClient
             throws TableNotFoundException
     {
         // if we have no predicate pushdown, use the full range
-        if (!domain.isPresent()) {
+        if (domain.isEmpty()) {
             return ImmutableSet.of(new Range());
         }
 

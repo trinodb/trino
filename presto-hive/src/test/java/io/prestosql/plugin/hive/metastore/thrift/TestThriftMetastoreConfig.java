@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -39,6 +40,10 @@ public class TestThriftMetastoreConfig
                 .setMinBackoffDelay(new Duration(1, SECONDS))
                 .setMaxBackoffDelay(new Duration(1, SECONDS))
                 .setMaxRetryTime(new Duration(30, SECONDS))
+                .setTlsEnabled(false)
+                .setKeystorePath(null)
+                .setKeystorePassword(null)
+                .setTruststorePath(null)
                 .setImpersonationEnabled(false)
                 .setDeleteFilesOnDrop(false)
                 .setMaxWaitForTransactionLock(new Duration(10, MINUTES)));
@@ -55,6 +60,10 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.client.min-backoff-delay", "2s")
                 .put("hive.metastore.thrift.client.max-backoff-delay", "4s")
                 .put("hive.metastore.thrift.client.max-retry-time", "60s")
+                .put("hive.metastore.thrift.client.ssl.enabled", "true")
+                .put("hive.metastore.thrift.client.ssl.key", "/tmp/keystore")
+                .put("hive.metastore.thrift.client.ssl.key-password", "keystore-password")
+                .put("hive.metastore.thrift.client.ssl.trust-certificate", "/tmp/truststore")
                 .put("hive.metastore.thrift.impersonation.enabled", "true")
                 .put("hive.metastore.thrift.delete-files-on-drop", "true")
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
@@ -68,6 +77,10 @@ public class TestThriftMetastoreConfig
                 .setMinBackoffDelay(new Duration(2, SECONDS))
                 .setMaxBackoffDelay(new Duration(4, SECONDS))
                 .setMaxRetryTime(new Duration(60, SECONDS))
+                .setTlsEnabled(true)
+                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePassword("keystore-password")
+                .setTruststorePath(new File("/tmp/truststore"))
                 .setImpersonationEnabled(true)
                 .setDeleteFilesOnDrop(true)
                 .setMaxWaitForTransactionLock(new Duration(5, MINUTES));

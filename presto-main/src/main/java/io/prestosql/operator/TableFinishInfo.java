@@ -47,7 +47,7 @@ public class TableFinishInfo
         boolean jsonLengthLimitExceeded = false;
         if (metadata.isPresent()) {
             Optional<String> serializedMetadata = INFO_CODEC.toJsonWithLengthLimit(metadata.get().getInfo(), JSON_LENGTH_LIMIT);
-            if (!serializedMetadata.isPresent()) {
+            if (serializedMetadata.isEmpty()) {
                 connectorOutputMetadata = null;
                 jsonLengthLimitExceeded = true;
             }

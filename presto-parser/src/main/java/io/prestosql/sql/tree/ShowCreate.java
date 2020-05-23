@@ -28,7 +28,9 @@ public class ShowCreate
     public enum Type
     {
         TABLE,
-        VIEW
+        VIEW,
+        SCHEMA,
+        /**/;
     }
 
     private final Type type;

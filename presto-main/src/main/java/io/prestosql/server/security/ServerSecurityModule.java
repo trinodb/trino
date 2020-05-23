@@ -45,6 +45,7 @@ public class ServerSecurityModule
                 .to(AuthenticationFilter.class).in(Scopes.SINGLETON);
 
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
+        binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);
 
         authenticatorBinder(binder); // create empty map binder
 

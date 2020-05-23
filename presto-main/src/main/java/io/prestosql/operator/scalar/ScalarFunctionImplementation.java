@@ -122,7 +122,7 @@ public final class ScalarFunctionImplementation
             boolean hasSession = false;
             if (parameterList.contains(ConnectorSession.class)) {
                 checkArgument(parameterList.stream().filter(ConnectorSession.class::equals).count() == 1, "function implementation should have exactly one ConnectorSession parameter");
-                if (!instanceFactory.isPresent()) {
+                if (instanceFactory.isEmpty()) {
                     checkArgument(parameterList.get(0) == ConnectorSession.class, "ConnectorSession must be the first argument when instanceFactory is not present");
                 }
                 else {
@@ -186,10 +186,10 @@ public final class ScalarFunctionImplementation
             switch (argumentType) {
                 case VALUE_TYPE:
                     checkArgument(nullConvention.isPresent(), "nullConvention must present for value type");
-                    checkArgument(!lambdaInterface.isPresent(), "lambdaInterface must not present for value type");
+                    checkArgument(lambdaInterface.isEmpty(), "lambdaInterface must not present for value type");
                     break;
                 case FUNCTION_TYPE:
-                    checkArgument(!nullConvention.isPresent(), "nullConvention must not present for function type");
+                    checkArgument(nullConvention.isEmpty(), "nullConvention must not present for function type");
                     checkArgument(lambdaInterface.isPresent(), "lambdaInterface must present for function type");
                     checkArgument(lambdaInterface.get().isAnnotationPresent(FunctionalInterface.class), "lambdaInterface must be annotated with FunctionalInterface");
                     break;

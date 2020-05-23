@@ -17,7 +17,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.Page;
@@ -34,7 +33,6 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.type.Type;
 
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
@@ -53,6 +51,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
+import static io.prestosql.metadata.MetadataListing.getViews;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
 import static io.prestosql.metadata.MetadataListing.listTablePrivileges;
@@ -101,7 +100,7 @@ public class InformationSchemaPageSource
         table = tableHandle.getTable();
         prefixIterator = Suppliers.memoize(() -> {
             Set<QualifiedTablePrefix> prefixes = tableHandle.getPrefixes();
-            if (!tableHandle.getLimit().isPresent()) {
+            if (tableHandle.getLimit().isEmpty()) {
                 // no limit is used, therefore it doesn't make sense to split information schema query into smaller ones
                 return prefixes.iterator();
             }
@@ -196,7 +195,6 @@ public class InformationSchemaPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         closed = true;
     }
@@ -288,11 +286,11 @@ public class InformationSchemaPageSource
 
     private void addViewsRecords(QualifiedTablePrefix prefix)
     {
-        for (Map.Entry<QualifiedObjectName, ConnectorViewDefinition> entry : metadata.getViews(session, prefix).entrySet()) {
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
             addRecord(
-                    entry.getKey().getCatalogName(),
+                    prefix.getCatalogName(),
                     entry.getKey().getSchemaName(),
-                    entry.getKey().getObjectName(),
+                    entry.getKey().getTableName(),
                     entry.getValue().getOriginalSql());
             if (isLimitExhausted()) {
                 return;

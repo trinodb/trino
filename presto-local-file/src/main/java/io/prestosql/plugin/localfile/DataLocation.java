@@ -58,7 +58,7 @@ final class DataLocation
         }
 
         this.location = file;
-        this.pattern = (!pattern.isPresent() && file.isDirectory()) ? Optional.of("*") : pattern;
+        this.pattern = (pattern.isEmpty() && file.isDirectory()) ? Optional.of("*") : pattern;
     }
 
     @JsonProperty
@@ -76,7 +76,7 @@ final class DataLocation
     public List<File> files()
     {
         checkState(location.exists(), "location %s doesn't exist", location);
-        if (!pattern.isPresent()) {
+        if (pattern.isEmpty()) {
             return ImmutableList.of(location);
         }
 

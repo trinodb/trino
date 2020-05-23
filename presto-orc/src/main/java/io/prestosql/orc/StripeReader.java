@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,7 +84,7 @@ public class StripeReader
     private final ColumnMetadata<OrcType> types;
     private final HiveWriterVersion hiveWriterVersion;
     private final Set<OrcColumnId> includedOrcColumnIds;
-    private final int rowsInRowGroup;
+    private final OptionalInt rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
     private final Optional<OrcWriteValidation> writeValidation;
@@ -94,7 +95,7 @@ public class StripeReader
             Optional<OrcDecompressor> decompressor,
             ColumnMetadata<OrcType> types,
             Set<OrcColumn> readColumns,
-            int rowsInRowGroup,
+            OptionalInt rowsInRowGroup,
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
@@ -133,7 +134,7 @@ public class StripeReader
 
         // handle stripes with more than one row group
         boolean invalidCheckPoint = false;
-        if (stripe.getNumberOfRows() > rowsInRowGroup) {
+        if (rowsInRowGroup.isPresent() && stripe.getNumberOfRows() > rowsInRowGroup.getAsInt()) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
@@ -251,7 +252,7 @@ public class StripeReader
             throws IOException
     {
         //
-        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
+        // Note: this code does not use the stream APIs to avoid any extra object allocation
         //
 
         // transform ranges to have an absolute offset in file
@@ -332,6 +333,7 @@ public class StripeReader
             ColumnMetadata<ColumnEncoding> encodings)
             throws InvalidCheckpointException
     {
+        int rowsInRowGroup = this.rowsInRowGroup.orElseThrow(() -> new IllegalStateException("Cannot create row groups if row group info is missing"));
         ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
 
         for (int rowGroupId : selectedRowGroups) {
@@ -438,7 +440,9 @@ public class StripeReader
 
     private Set<Integer> selectRowGroups(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
     {
-        int rowsInStripe = toIntExact(stripe.getNumberOfRows());
+        int rowsInRowGroup = this.rowsInRowGroup.orElseThrow(() -> new IllegalStateException("Cannot create row groups if row group info is missing"));
+
+        int rowsInStripe = stripe.getNumberOfRows();
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);
 
         ImmutableSet.Builder<Integer> selectedRowGroups = ImmutableSet.builder();
@@ -485,7 +489,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> streamDiskRanges = ImmutableMap.builder();
         long stripeOffset = 0;
         for (Stream stream : streams) {
-            int streamLength = toIntExact(stream.getLength());
+            int streamLength = stream.getLength();
             // ignore zero byte streams
             if (streamLength > 0) {
                 streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));

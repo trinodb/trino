@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
-class Conversions
+final class Conversions
 {
     private Conversions() {}
 
@@ -43,7 +43,8 @@ class Conversions
                 BigQueryType.valueOf(field.getType().name()),
                 getMode(field),
                 subColumns,
-                field.getDescription());
+                field.getDescription(),
+                false);
     }
 
     static ColumnMetadata toColumnMetadata(Field field)

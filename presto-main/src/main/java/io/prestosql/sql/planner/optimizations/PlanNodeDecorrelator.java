@@ -135,7 +135,7 @@ public class PlanNodeDecorrelator
                 childDecorrelationResultOptional = node.getSource().accept(this, null);
             }
 
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -174,7 +174,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -255,6 +255,7 @@ public class PlanNodeDecorrelator
                     node.getId(),
                     decorrelatedChildNode,
                     ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                    false,
                     symbolAllocator.newSymbol("row_number", BIGINT),
                     Optional.of(toIntExact(node.getCount())),
                     Optional.empty());
@@ -275,7 +276,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -291,14 +292,14 @@ public class PlanNodeDecorrelator
             // no partitioning needed (no symbols to partition by)
             if (childDecorrelationResult.symbolsToPropagate.isEmpty()) {
                 return decorrelatedOrderingScheme
-                        .map(orderingScheme -> Optional.of(new DecorrelationResult(
+                        .map(orderingScheme -> new DecorrelationResult(
                                 // ordering symbols are present - return decorrelated TopNNode
                                 new TopNNode(node.getId(), decorrelatedChildNode, node.getCount(), orderingScheme, node.getStep()),
                                 childDecorrelationResult.symbolsToPropagate,
                                 childDecorrelationResult.correlatedPredicates,
                                 childDecorrelationResult.correlatedSymbolsMapping,
-                                node.getCount() == 1)))
-                        .orElseGet(() -> Optional.of(new DecorrelationResult(
+                                node.getCount() == 1))
+                        .or(() -> Optional.of(new DecorrelationResult(
                                 // no ordering symbols are left - convert to LimitNode
                                 new LimitNode(node.getId(), decorrelatedChildNode, node.getCount(), false),
                                 childDecorrelationResult.symbolsToPropagate,
@@ -338,6 +339,7 @@ public class PlanNodeDecorrelator
                                 node.getId(),
                                 decorrelatedChildNode,
                                 ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                                false,
                                 symbolAllocator.newSymbol("row_number", BIGINT),
                                 Optional.of(toIntExact(node.getCount())),
                                 Optional.empty());
@@ -387,7 +389,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -431,7 +433,7 @@ public class PlanNodeDecorrelator
         public Optional<DecorrelationResult> visitProject(ProjectNode node, Void context)
         {
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 

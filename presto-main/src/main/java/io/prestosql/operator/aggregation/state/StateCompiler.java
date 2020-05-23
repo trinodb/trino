@@ -759,7 +759,7 @@ public final class StateCompiler
 
         Type getSqlType()
         {
-            if (!sqlType.isPresent()) {
+            if (sqlType.isEmpty()) {
                 throw new IllegalArgumentException("Unsupported type: " + type);
             }
             return sqlType.get();

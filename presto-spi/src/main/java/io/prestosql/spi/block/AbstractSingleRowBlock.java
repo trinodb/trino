@@ -18,9 +18,6 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
-
 public abstract class AbstractSingleRowBlock
         implements Block
 {
@@ -34,7 +31,7 @@ public abstract class AbstractSingleRowBlock
     @Override
     public final List<Block> getChildren()
     {
-        return unmodifiableList(asList(getRawFieldBlocks()));
+        return List.of(getRawFieldBlocks());
     }
 
     abstract Block[] getRawFieldBlocks();

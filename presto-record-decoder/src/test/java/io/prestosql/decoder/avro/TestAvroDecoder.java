@@ -178,7 +178,6 @@ public class TestAvroDecoder
 
     @Test
     public void testStringDecodedAsVarchar()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR, "string_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "string_field", "\"string\"", "Mon Jul 28 20:38:07 +0000 2014");
@@ -188,7 +187,6 @@ public class TestAvroDecoder
 
     @Test
     public void testSchemaEvolutionAddingColumn()
-            throws Exception
     {
         DecoderTestColumnHandle originalColumn = new DecoderTestColumnHandle(0, "row0", VARCHAR, "string_field", null, null, false, false, false);
         DecoderTestColumnHandle newlyAddedColumn = new DecoderTestColumnHandle(1, "row1", VARCHAR, "string_field_added", null, null, false, false, false);
@@ -212,7 +210,6 @@ public class TestAvroDecoder
 
     @Test
     public void testSchemaEvolutionRenamingColumn()
-            throws Exception
     {
         byte[] originalData = buildAvroData(new Schema.Parser().parse(
                 getAvroSchema("string_field", "\"string\"")),
@@ -231,7 +228,6 @@ public class TestAvroDecoder
 
     @Test
     public void testSchemaEvolutionRemovingColumn()
-            throws Exception
     {
         byte[] originalData = buildAvroData(new Schema.Parser().parse(
                 getAvroSchema(ImmutableMap.of(
@@ -254,7 +250,6 @@ public class TestAvroDecoder
 
     @Test
     public void testSchemaEvolutionIntToLong()
-            throws Exception
     {
         byte[] originalIntData = buildAvroData(new Schema.Parser().parse(
                 getAvroSchema("int_to_long_field", "\"int\"")),
@@ -273,7 +268,6 @@ public class TestAvroDecoder
 
     @Test
     public void testSchemaEvolutionIntToDouble()
-            throws Exception
     {
         byte[] originalIntData = buildAvroData(new Schema.Parser().parse(
                 getAvroSchema("int_to_double_field", "\"int\"")),
@@ -292,7 +286,6 @@ public class TestAvroDecoder
 
     @Test
     public void testSchemaEvolutionToIncompatibleType()
-            throws Exception
     {
         byte[] originalIntData = buildAvroData(new Schema.Parser().parse(
                 getAvroSchema("int_to_string_field", "\"int\"")),
@@ -310,7 +303,6 @@ public class TestAvroDecoder
 
     @Test
     public void testLongDecodedAsBigint()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", BIGINT, "id", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"long\"", 493857959588286460L);
@@ -320,7 +312,6 @@ public class TestAvroDecoder
 
     @Test
     public void testIntDecodedAsBigint()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", BIGINT, "id", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"int\"", 100);
@@ -330,7 +321,6 @@ public class TestAvroDecoder
 
     @Test
     public void testFloatDecodedAsDouble()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DOUBLE, "float_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
@@ -340,7 +330,6 @@ public class TestAvroDecoder
 
     @Test
     public void testBytesDecodedAsVarbinary()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARBINARY, "encoded", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "encoded", "\"bytes\"", ByteBuffer.wrap("mytext".getBytes(UTF_8)));
@@ -350,7 +339,6 @@ public class TestAvroDecoder
 
     @Test
     public void testDoubleDecodedAsDouble()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DOUBLE, "double_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "double_field", "\"double\"", 56.898);
@@ -360,7 +348,6 @@ public class TestAvroDecoder
 
     @Test
     public void testStringDecodedAsVarcharN()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", createVarcharType(10), "varcharn_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "varcharn_field", "\"string\"", "abcdefghijklmno");
@@ -370,7 +357,6 @@ public class TestAvroDecoder
 
     @Test
     public void testNestedRecord()
-            throws Exception
     {
         String schema = "{\"type\" : \"record\", " +
                 "  \"name\" : \"nested_schema\"," +
@@ -409,7 +395,6 @@ public class TestAvroDecoder
 
     @Test
     public void testNonExistentFieldsAreNull()
-            throws Exception
     {
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle(0, "row1", createVarcharType(100), "very/deep/varchar", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle(1, "row2", BIGINT, "no_bigint", null, null, false, false, false);
@@ -440,7 +425,6 @@ public class TestAvroDecoder
 
     @Test
     public void testArrayDecodedAsArray()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(BIGINT), "array_field", null, null, false, false, false);
 
@@ -450,7 +434,6 @@ public class TestAvroDecoder
 
     @Test
     public void testArrayWithNulls()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(BIGINT), "array_field", null, null, false, false, false);
 
@@ -462,7 +445,6 @@ public class TestAvroDecoder
 
     @Test
     public void testMapDecodedAsMap()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR_MAP_TYPE, "map_field", null, null, false, false, false);
 
@@ -478,7 +460,6 @@ public class TestAvroDecoder
 
     @Test
     public void testMapWithNull()
-            throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR_MAP_TYPE, "map_field", null, null, false, false, false);
 

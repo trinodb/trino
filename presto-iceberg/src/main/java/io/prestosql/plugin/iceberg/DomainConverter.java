@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.iceberg;
 
-import com.google.common.collect.Maps;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.EquatableValueSet;
@@ -45,13 +44,7 @@ public final class DomainConverter
 
     public static TupleDomain<IcebergColumnHandle> convertTupleDomainTypes(TupleDomain<IcebergColumnHandle> tupleDomain)
     {
-        if (tupleDomain.isAll() || tupleDomain.isNone()) {
-            return tupleDomain;
-        }
-
-        return TupleDomain.withColumnDomains(Maps.transformValues(
-                tupleDomain.getDomains().get(),
-                DomainConverter::translateDomain));
+        return tupleDomain.transformDomains((column, domain) -> translateDomain(domain));
     }
 
     private static Domain translateDomain(Domain domain)

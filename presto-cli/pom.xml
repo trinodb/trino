@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>332-SNAPSHOT</version>
+        <version>334-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-cli</artifactId>
@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.prestosql.cli.Presto</main-class>
         <dep.jline.version>3.12.1</dep.jline.version>
     </properties>

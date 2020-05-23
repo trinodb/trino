@@ -33,7 +33,7 @@ public final class NoSubqueryExpressionLeftChecker
     public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
         for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
-            new DefaultTraversalVisitor<Void, Void>()
+            new DefaultTraversalVisitor<Void>()
             {
                 @Override
                 protected Void visitSubqueryExpression(SubqueryExpression node, Void context)

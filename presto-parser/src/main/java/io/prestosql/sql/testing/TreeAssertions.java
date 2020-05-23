@@ -70,14 +70,14 @@ public final class TreeAssertions
     private static List<Node> linearizeTree(Node tree)
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        new DefaultTraversalVisitor<Node, Void>()
+        new DefaultTraversalVisitor<Void>()
         {
             @Override
-            public Node process(Node node, @Nullable Void context)
+            public Void process(Node node, @Nullable Void context)
             {
-                Node result = super.process(node, context);
+                super.process(node, context);
                 nodes.add(node);
-                return result;
+                return null;
             }
         }.process(tree, null);
         return nodes.build();

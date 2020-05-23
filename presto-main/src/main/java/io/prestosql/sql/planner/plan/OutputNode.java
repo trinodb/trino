@@ -44,10 +44,11 @@ public class OutputNode
 
         requireNonNull(source, "source is null");
         requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(outputs, "outputs is null");
         Preconditions.checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
 
         this.source = source;
-        this.columnNames = columnNames;
+        this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(outputs);
     }
 

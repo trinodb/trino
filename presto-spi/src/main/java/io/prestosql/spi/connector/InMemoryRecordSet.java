@@ -30,6 +30,8 @@ import java.util.List;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.Decimals.isLongDecimal;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -47,7 +49,7 @@ public class InMemoryRecordSet
 
     public InMemoryRecordSet(Collection<? extends Type> types, Iterable<? extends List<?>> records)
     {
-        this.types = Collections.unmodifiableList(new ArrayList<>(types));
+        this.types = List.copyOf(types);
         this.records = records;
     }
 
@@ -198,8 +200,7 @@ public class InMemoryRecordSet
 
         private Builder(Collection<Type> types)
         {
-            requireNonNull(types, "types is null");
-            this.types = Collections.unmodifiableList(new ArrayList<>(types));
+            this.types = List.copyOf(requireNonNull(types, "types is null"));
             checkArgument(!this.types.isEmpty(), "types is empty");
         }
 
@@ -243,11 +244,20 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Block,
                             "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
                 }
+                else if (isShortDecimal(type)) {
+                    checkArgument(value instanceof Long,
+                            "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (isLongDecimal(type)) {
+                    checkArgument(value instanceof Slice,
+                            "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
+                }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));
                 }
             }
             // Immutable list does not allow nulls
+            // noinspection Java9CollectionFactory
             records.add(Collections.unmodifiableList(new ArrayList<>(Arrays.asList(values))));
             return this;
         }
@@ -295,7 +305,7 @@ public class InMemoryRecordSet
                 completedBytes += ((Block) value).getSizeInBytes();
             }
             else if (value instanceof Slice) {
-                completedBytes += ((Slice) value).getBytes().length;
+                completedBytes += ((Slice) value).length();
             }
             else {
                 throw new IllegalArgumentException("Unknown type: " + value.getClass());

@@ -84,35 +84,25 @@ public class TestCassandraDistributedQueries
     @Override
     public void testInsert()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
     }
 
     @Override
     public void testInsertWithCoercion()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
     }
 
     @Override
     public void testInsertUnicode()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
     }
 
     @Override
     public void testInsertArray()
     {
-        // Cassandra connector currently does not support create table
         // TODO test inserts
-    }
-
-    @Override
-    public void testCreateTable()
-    {
-        // Cassandra connector currently does not support create table
     }
 
     @Override
@@ -142,18 +132,6 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testDescribeOutput()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
     public void testWrittenStats()
     {
         // TODO Cassandra connector supports CTAS and inserts, but the test would fail
@@ -175,6 +153,9 @@ public class TestCassandraDistributedQueries
     @Override
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
-        // Cassandra connector currently does not support create table
+        // TODO Enable after fixing the following error messages
+        // - Multiple definition of identifier id
+        // - unsupported type: char(3), decimal(5,3), decimal(15,3), time, timestamp with time zone
+        // - Invalid (reserved) user type name smallint
     }
 }

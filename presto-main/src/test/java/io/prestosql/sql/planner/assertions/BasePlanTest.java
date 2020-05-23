@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.SubPlan;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
@@ -156,7 +157,7 @@ public class BasePlanTest
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
-                new PruneUnreferencedOutputs(),
+                new PruneUnreferencedOutputs(queryRunner.getMetadata(), new TypeAnalyzer(queryRunner.getSqlParser(), queryRunner.getMetadata())),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),

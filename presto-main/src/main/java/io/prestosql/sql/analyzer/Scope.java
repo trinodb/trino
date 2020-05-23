@@ -119,7 +119,7 @@ public class Scope
             }
 
             Optional<Scope> parent = scope.getLocalParent();
-            if (!parent.isPresent()) {
+            if (parent.isEmpty()) {
                 break;
             }
 
@@ -182,8 +182,7 @@ public class Scope
         }
 
         return getOuterQueryParent()
-                .map(parent -> parent.resolveAsteriskedIdentifierChainBasis(identifierChain, selectItem))
-                .orElse(Optional.empty());
+                .flatMap(parent -> parent.resolveAsteriskedIdentifierChainBasis(identifierChain, selectItem));
     }
 
     // check if other is within the query boundary starting from this
@@ -300,14 +299,14 @@ public class Scope
 
         public Builder withParent(Scope parent)
         {
-            checkArgument(!this.parent.isPresent(), "parent is already set");
+            checkArgument(this.parent.isEmpty(), "parent is already set");
             this.parent = Optional.of(parent);
             return this;
         }
 
         public Builder withOuterQueryParent(Scope parent)
         {
-            checkArgument(!this.parent.isPresent(), "parent is already set");
+            checkArgument(this.parent.isEmpty(), "parent is already set");
             this.parent = Optional.of(parent);
             this.queryBoundary = true;
             return this;

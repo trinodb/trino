@@ -25,6 +25,18 @@ data warehouse. Hive is a combination of three components:
 Presto only uses the first two components: the data and the metadata.
 It does not use HiveQL or any part of Hive's execution environment.
 
+Requirements
+------------
+
+The Hive connector requires a Hive metastore service (HMS), or a compatible
+implementation of the Hive metastore, such as `AWS Glue <https://aws.amazon.com/glue/>`_.
+
+Apache Hadoop 2.x and 3.x are supported, along with derivative distributions,
+including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
+
+Many distributed storage systems including HDFS, Amazon S3, Google Cloud Storage,
+Azure Storage, and S3 compatible systems are supported.
+
 Supported File Types
 --------------------
 
@@ -76,9 +88,6 @@ In Presto, these views are presented as regular, read-only tables.
 
 Configuration
 -------------
-
-The Hive connector supports Apache Hadoop 2.x and derivative distributions
-including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 
 Create ``etc/catalog/hive.properties`` with the following contents
 to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
@@ -232,55 +241,65 @@ Property Name                                      Description                  
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    :ref:`s3selectpushdown`.
 
-``hive.file-status-cache-tables``                  Cache directory listing for specified tables.
-                                                   Examples: ``schema.table1,schema.table2`` to cache directory
-                                                   listing only for ``table1`` and ``table2``.
-                                                   ``schema1.*,schema2.*`` to cache directory listing for all
-                                                   tables in the schemas ``schema1`` and ``schema2``.
-                                                   ``*`` to cache directory listing for all tables.
+``hive.file-status-cache-tables``                  Cache directory listing for specific tables. Examples:
 
-``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        1,000,000
+                                                   * ``fruit.apple,fruit.orange`` to cache listings only for
+                                                     tables ``apple`` and ``orange`` in schema ``fruit``
+                                                   * ``fruit.*,vegetable.*`` to cache listings for all tables
+                                                     in schemas ``fruit`` and ``vegetable``
+                                                   * ``*`` to cache listings for all tables in all schemas
 
-``hive.file-status-cache-expire-time``             Duration of time after a directory listing is cached that it ``1m``
-                                                   should be automatically removed from cache.
+``hive.file-status-cache-size``                    Maximum total number of cached file status entries.          1,000,000
+
+``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
+                                                   valid.
 ================================================== ============================================================ ============
 
 Hive Thrift Metastore Configuration Properties
 ----------------------------------------------
 
-================================================== ============================================================ ============
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ============
-``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
-                                                   Thrift protocol. If multiple URIs are provided, the first
-                                                   URI is used by default, and the rest of the URIs are
-                                                   fallback metastores. This property is required.
-                                                   Example: ``thrift://192.0.2.3:9083`` or
-                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+======================================================== ============================================================ ============
+Property Name                                            Description                                                  Default
+======================================================== ============================================================ ============
+``hive.metastore.uri``                                   The URI(s) of the Hive metastore to connect to using the
+                                                         Thrift protocol. If multiple URIs are provided, the first
+                                                         URI is used by default, and the rest of the URIs are
+                                                         fallback metastores. This property is required.
+                                                         Example: ``thrift://192.0.2.3:9083`` or
+                                                         ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
-``hive.metastore.username``                        The username Presto uses to access the Hive metastore.
+``hive.metastore.username``                              The username Presto uses to access the Hive metastore.
 
-``hive.metastore.authentication.type``             Hive metastore authentication type.
-                                                   Possible values are ``NONE`` or ``KERBEROS``
-                                                   (defaults to ``NONE``).
+``hive.metastore.authentication.type``                   Hive metastore authentication type.
+                                                         Possible values are ``NONE`` or ``KERBEROS``
+                                                         (defaults to ``NONE``).
 
-``hive.metastore.thrift.impersonation.enabled``    Enable Hive metastore end user impersonation.
+``hive.metastore.thrift.impersonation.enabled``          Enable Hive metastore end user impersonation.
 
-``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
+``hive.metastore.thrift.client.ssl.enabled``             Use SSL when connecting to metastore.                        ``false``
 
-``hive.metastore.client.principal``                The Kerberos principal that Presto uses when connecting
-                                                   to the Hive metastore service.
+``hive.metastore.thrift.client.ssl.key``                 Path to PEM private key and client certificate (key store).
 
-``hive.metastore.client.keytab``                   Hive metastore client keytab location.
+``hive.metastore.thrift.client.ssl.key-password``        Password for the PEM private key.
 
-``hive.metastore-cache-ttl``                       Time to live Hive metadata cache.                            ``0s``
+``hive.metastore.thrift.client.ssl.trust-certificate``   Path to the PEM server certificate chain (trust store).
+                                                         Required when SSL is enabled.
 
-``hive.metastore-refresh-interval``                How often to refresh the Hive metastore cache.
+``hive.metastore.service.principal``                     The Kerberos principal of the Hive metastore service.
 
-``hive.metastore-cache-maximum-size``              Hive metastore cache maximum size.                           10,000
+``hive.metastore.client.principal``                      The Kerberos principal that Presto uses when connecting
+                                                         to the Hive metastore service.
 
-``hive.metastore-refresh-max-threads``             Maximum number of threads to refresh Hive metastore cache.   100
-================================================== ============================================================ ============
+``hive.metastore.client.keytab``                         Hive metastore client keytab location.
+
+``hive.metastore-cache-ttl``                             Time to live Hive metadata cache.                            ``0s``
+
+``hive.metastore-refresh-interval``                      How often to refresh the Hive metastore cache.
+
+``hive.metastore-cache-maximum-size``                    Hive metastore cache maximum size.                           10,000
+
+``hive.metastore-refresh-max-threads``                   Maximum number of threads to refresh Hive metastore cache.   100
+======================================================== ============================================================ ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
@@ -316,7 +335,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
                                                      Catalog.
+
+``hive.metastore.glue.external-id``                  External ID for the IAM role trust policy when connecting
+                                                     to the Glue Catalog.
 ==================================================== ============================================================
+
+.. _hive-s3:
 
 Amazon S3 Configuration
 -----------------------
@@ -334,14 +358,13 @@ S3 Configuration Properties
 ============================================ =================================================================
 Property Name                                Description
 ============================================ =================================================================
-``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API credentials,
-                                             defaults to ``true``. This works with IAM roles in EC2.
-
 ``hive.s3.aws-access-key``                   Default AWS access key to use.
 
 ``hive.s3.aws-secret-key``                   Default AWS secret key to use.
 
 ``hive.s3.iam-role``                         IAM role to assume.
+
+``hive.s3.external-id``                      External ID for the IAM role trust policy.
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
@@ -402,13 +425,14 @@ Property Name                                Description
                                              or partition. Defaults to ``false``.
 ============================================ =================================================================
 
+.. _hive-s3-credentials:
+
 S3 Credentials
 ^^^^^^^^^^^^^^
 
 If you are running Presto on Amazon EC2, using EMR or another facility,
-it is highly recommended that you set ``hive.s3.use-instance-credentials``
-to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
-the case, your EC2 instances need to be assigned an IAM Role which
+it is recommended that you use IAM Roles for EC2 to govern access to S3.
+To enable this, your EC2 instances need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
 to use. It is also possible to configure an IAM role with ``hive.s3.iam-role``
 that is used for accessing any S3 bucket. This is much cleaner than
@@ -432,6 +456,104 @@ IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
+
+.. _hive-s3-security-mapping:
+
+S3 Security Mapping
+^^^^^^^^^^^^^^^^^^^
+
+Presto supports flexible security mapping for S3, allowing for separate
+credentials or IAM roles for specific users or buckets/paths. The IAM role
+for a specific query can be selected from a list of allowed roles by providing
+it as an *extra credential*.
+
+Each security mapping entry may specify one or more match criteria. If multiple
+criteria are specified, all criteria must match. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+* ``group``: Regular expression to match against any of the groups that the user
+  belongs to. Example: ``finance|sales``
+
+* ``prefix``: S3 URL prefix. It can specify an entire bucket or a path within a
+  bucket. The URL must start with ``s3://`` but will also match ``s3a`` or ``s3n``.
+  Example: ``s3://bucket-name/abc/xyz/``
+
+The security mapping must provide one or more configuration settings:
+
+* ``accessKey`` and ``secretKey``: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+
+* ``iamRole``: IAM role to use if no user provided role is specified as an
+  extra credential. This overrides any globally configured IAM role. This role
+  is allowed to be specified as an extra credential, although specifying it
+  explicitly has no effect, as it would be used anyway.
+
+* ``allowedIamRoles``: IAM roles that are allowed to be specified as an extra
+  credential. This is useful because a particular AWS account may have permissions
+  to use many roles, but a specific user should only be allowed to use a subset
+  of those roles.
+
+The security mapping entries are processed in the order listed in the configuration
+file. More specific mappings should thus be specified before less specific mappings.
+For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
+``s3://abc/`` to allow different configuration for a specific path within a bucket
+than for other paths within the bucket. You can set default configuration by not
+including any match criteria for the last entry in the list.
+
+Example JSON configuration file:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "prefix": "s3://bucket-name/abc/",
+          "iamRole": "arn:aws:iam::123456789101:role/test_path"
+        },
+        {
+          "user": "bob|charlie",
+          "iamRole": "arn:aws:iam::123456789101:role/test_default",
+          "allowedIamRoles": [
+            "arn:aws:iam::123456789101:role/test1",
+            "arn:aws:iam::123456789101:role/test2",
+            "arn:aws:iam::123456789101:role/test3"
+          ]
+        },
+        {
+          "prefix": "s3://special-bucket/",
+          "accessKey": "AKIAxxxaccess",
+          "secretKey": "iXbXxxxsecret"
+        },
+        {
+          "user": "test.*",
+          "iamRole": "arn:aws:iam::123456789101:role/test_users"
+        },
+        {
+          "group": "finance",
+          "iamRole": "arn:aws:iam::123456789101:role/finance_users"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default"
+        }
+      ]
+    }
+
+======================================================= =================================================================
+Property Name                                           Description
+======================================================= =================================================================
+``hive.s3.security-mapping.config-file``                The JSON configuration file containing security mappings.
+
+``hive.s3.security-mapping.iam-role-credential-name``   The name of the *extra credential* used to provide the IAM role.
+
+``hive.s3.security-mapping.refresh-period``             How often to refresh the security mapping configuration.
+
+``hive.s3.security-mapping.colon-replacement``          The character or characters to be used in place of the colon
+                                                        (``:``) character when specifying an IAM role name as an
+                                                        extra credential. Any instances of this replacement value in the
+                                                        extra credential value will be converted to a colon. Choose a
+                                                        value that is not used in any of your IAM ARNs.
+======================================================= =================================================================
 
 Tuning Properties
 ^^^^^^^^^^^^^^^^^
@@ -625,6 +747,8 @@ to collocate Presto workers with Alluxio workers. This allows reads and writes
 to bypass the network (*short-circuit*). See `Performance Tuning Tips for Presto with Alluxio
 <https://www.alluxio.io/blog/top-5-performance-tuning-tips-for-running-presto-on-alluxio-1/?utm_source=prestosql&utm_medium=prestodocs>`_
 for more details.
+
+.. _alluxio_catalog_service:
 
 Alluxio Catalog Service
 ^^^^^^^^^^^^^^^^^^^^^^^

@@ -70,6 +70,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.prestosql.type.IpAddressType.IPADDRESS;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UuidType.UUID;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -194,6 +195,9 @@ public class TestingPrestoClient
         }
         else if (UUID.equals(type)) {
             return java.util.UUID.fromString((String) value);
+        }
+        else if (IPADDRESS.equals(type)) {
+            return value;
         }
         else if (type instanceof VarcharType) {
             return value;

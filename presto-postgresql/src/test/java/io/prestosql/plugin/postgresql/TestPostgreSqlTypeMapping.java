@@ -116,23 +116,26 @@ public class TestPostgreSqlTypeMapping
 
     private TestingPostgreSqlServer postgreSqlServer;
 
-    private LocalDateTime beforeEpoch;
-    private LocalDateTime epoch;
-    private LocalDateTime afterEpoch;
+    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
+    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
-    private ZoneId jvmZone;
-    private LocalDateTime timeGapInJvmZone1;
-    private LocalDateTime timeGapInJvmZone2;
-    private LocalDateTime timeDoubledInJvmZone;
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+    private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+    private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
 
     // no DST in 1970, but has DST in later years (e.g. 2018)
-    private ZoneId vilnius;
-    private LocalDateTime timeGapInVilnius;
-    private LocalDateTime timeDoubledInVilnius;
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    private final LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+    private final LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
 
     // minutes offset change since 1970-01-01, no DST
-    private ZoneId kathmandu;
-    private LocalDateTime timeGapInKathmandu;
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+    private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
+
+    private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
+    private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -141,6 +144,7 @@ public class TestPostgreSqlTypeMapping
         this.postgreSqlServer = new TestingPostgreSqlServer();
         return createPostgreSqlQueryRunner(
                 postgreSqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.of("jdbc-types-mapped-to-varchar", "Tsrange, Inet" /* make sure that types are compared case insensitively */),
                 ImmutableList.of());
     }
@@ -154,29 +158,13 @@ public class TestPostgreSqlTypeMapping
     @BeforeClass
     public void setUp()
     {
-        beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-        epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-        afterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
-
-        jvmZone = ZoneId.systemDefault();
-
-        timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
         checkIsGap(jvmZone, timeGapInJvmZone1);
-        timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone2);
-        timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
-        vilnius = ZoneId.of("Europe/Vilnius");
-
-        timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
         checkIsGap(vilnius, timeGapInVilnius);
-        timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
-        kathmandu = ZoneId.of("Asia/Kathmandu");
-
-        timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
         checkIsGap(kathmandu, timeGapInKathmandu);
 
         JdbcSqlExecutor executor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
@@ -1019,6 +1007,16 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
+    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
+    {
+        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
+            // in legacy timestamp semantics we cannot represent this dateTime
+            return;
+        }
+
+        tests.addRoundTrip(timestampDataType(), dateTime);
+    }
+
     @Test(dataProvider = "testTimestampDataProvider")
     public void testArrayTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
     {
@@ -1052,16 +1050,6 @@ public class TestPostgreSqlTypeMapping
         tests.execute(getQueryRunner(), session, dataSetup);
     }
 
-    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
-    {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
-        tests.addRoundTrip(timestampDataType(), dateTime);
-    }
-
     private void addArrayTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
     {
         if (legacyTimestamp && isGap(sessionZone, dateTime)) {
@@ -1070,40 +1058,6 @@ public class TestPostgreSqlTypeMapping
         }
 
         tests.addRoundTrip(dataType, asList(dateTime));
-    }
-
-    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
-    public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
-    {
-        DataType<List<ZonedDateTime>> dataType;
-        DataSetup dataSetup;
-        if (insertWithPresto) {
-            dataType = arrayDataType(prestoTimestampWithTimeZoneDataType());
-            dataSetup = prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone");
-        }
-        else {
-            dataType = arrayDataType(postgreSqlTimestampWithTimeZoneDataType(), "timestamptz[]");
-            dataSetup = postgresCreateAndInsert("tpch.test_array_timestamp_with_time_zone");
-        }
-
-        DataTypeTest tests = DataTypeTest.create()
-                .addRoundTrip(dataType, asList(epoch.atZone(UTC), epoch.atZone(kathmandu)))
-                .addRoundTrip(dataType, asList(beforeEpoch.atZone(kathmandu), beforeEpoch.atZone(UTC)))
-                .addRoundTrip(dataType, asList(afterEpoch.atZone(UTC), afterEpoch.atZone(kathmandu)))
-                .addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(UTC)))
-                .addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(kathmandu)))
-                .addRoundTrip(dataType, asList(timeDoubledInVilnius.atZone(UTC), timeDoubledInVilnius.atZone(vilnius), timeDoubledInVilnius.atZone(kathmandu)))
-                .addRoundTrip(dataType, asList(timeGapInJvmZone1.atZone(UTC), timeGapInJvmZone1.atZone(kathmandu)))
-                .addRoundTrip(dataType, asList(timeGapInJvmZone2.atZone(UTC), timeGapInJvmZone2.atZone(kathmandu)))
-                .addRoundTrip(dataType, asList(timeGapInVilnius.atZone(kathmandu)))
-                .addRoundTrip(dataType, asList(timeGapInKathmandu.atZone(vilnius)));
-        if (!insertWithPresto) {
-            // Postgres results with non-DST time (winter time) for timeDoubledInJvmZone.atZone(jvmZone) while Java results with DST time
-            // When writing timestamptz arrays, Postgres JDBC driver converts java.sql.Timestamp to string representing date-time in JVM zone
-            // TODO upgrade driver or find a different way to write timestamptz array elements as a point in time values with org.postgresql.jdbc.PgArray (https://github.com/pgjdbc/pgjdbc/issues/1225#issuecomment-516312324)
-            tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(jvmZone)));
-        }
-        tests.execute(getQueryRunner(), sessionWithArrayAsArray(), dataSetup);
     }
 
     @DataProvider
@@ -1155,10 +1109,20 @@ public class TestPostgreSqlTypeMapping
         DataTypeTest tests = DataTypeTest.create()
                 .addRoundTrip(dataType, epoch.atZone(UTC))
                 .addRoundTrip(dataType, epoch.atZone(kathmandu))
+                .addRoundTrip(dataType, epoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, epoch.atZone(fixedOffsetWest))
                 .addRoundTrip(dataType, beforeEpoch.atZone(UTC))
                 .addRoundTrip(dataType, beforeEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetWest))
                 .addRoundTrip(dataType, afterEpoch.atZone(UTC))
                 .addRoundTrip(dataType, afterEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetWest))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("GMT")))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC")))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("Z")))
+                .addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC+00:00")))
                 .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(UTC))
                 .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(jvmZone))
                 .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(kathmandu))
@@ -1173,6 +1137,40 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(dataType, timeGapInKathmandu.atZone(vilnius));
 
         tests.execute(getQueryRunner(), dataSetup);
+    }
+
+    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
+    {
+        DataType<List<ZonedDateTime>> dataType;
+        DataSetup dataSetup;
+        if (insertWithPresto) {
+            dataType = arrayDataType(prestoTimestampWithTimeZoneDataType());
+            dataSetup = prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone");
+        }
+        else {
+            dataType = arrayDataType(postgreSqlTimestampWithTimeZoneDataType(), "timestamptz[]");
+            dataSetup = postgresCreateAndInsert("tpch.test_array_timestamp_with_time_zone");
+        }
+
+        DataTypeTest tests = DataTypeTest.create()
+                .addRoundTrip(dataType, asList(epoch.atZone(UTC), epoch.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(beforeEpoch.atZone(kathmandu), beforeEpoch.atZone(UTC)))
+                .addRoundTrip(dataType, asList(afterEpoch.atZone(UTC), afterEpoch.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(UTC)))
+                .addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeDoubledInVilnius.atZone(UTC), timeDoubledInVilnius.atZone(vilnius), timeDoubledInVilnius.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInJvmZone1.atZone(UTC), timeGapInJvmZone1.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInJvmZone2.atZone(UTC), timeGapInJvmZone2.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInVilnius.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInKathmandu.atZone(vilnius)));
+        if (!insertWithPresto) {
+            // Postgres results with non-DST time (winter time) for timeDoubledInJvmZone.atZone(jvmZone) while Java results with DST time
+            // When writing timestamptz arrays, Postgres JDBC driver converts java.sql.Timestamp to string representing date-time in JVM zone
+            // TODO upgrade driver or find a different way to write timestamptz array elements as a point in time values with org.postgresql.jdbc.PgArray (https://github.com/pgjdbc/pgjdbc/issues/1225#issuecomment-516312324)
+            tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(jvmZone)));
+        }
+        tests.execute(getQueryRunner(), sessionWithArrayAsArray(), dataSetup);
     }
 
     @DataProvider
@@ -1461,7 +1459,7 @@ public class TestPostgreSqlTypeMapping
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return prestoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
     private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)

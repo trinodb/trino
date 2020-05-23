@@ -27,7 +27,6 @@ import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 
-import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
@@ -85,6 +84,7 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
+    private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;
     private boolean legacyTimestamp = true;
     private boolean optimizeMixedDistinctAggregations;
@@ -158,6 +158,14 @@ public class FeaturesConfig
         {
             return this == BROADCAST || this == AUTOMATIC;
         }
+    }
+
+    public enum DataIntegrityVerification
+    {
+        NONE,
+        ABORT,
+        RETRY,
+        /**/;
     }
 
     public double getCpuCostWeight()
@@ -680,12 +688,6 @@ public class FeaturesConfig
         return this;
     }
 
-    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true")
-    public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
-    {
-        return !isSpillEnabled() || !spillerSpillPaths.isEmpty();
-    }
-
     @Min(1)
     public int getSpillerThreads()
     {
@@ -818,6 +820,18 @@ public class FeaturesConfig
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    public DataIntegrityVerification getExchangeDataIntegrityVerification()
+    {
+        return exchangeDataIntegrityVerification;
+    }
+
+    @Config("exchange.data-integrity-verification")
+    public FeaturesConfig setExchangeDataIntegrityVerification(DataIntegrityVerification exchangeDataIntegrityVerification)
+    {
+        this.exchangeDataIntegrityVerification = exchangeDataIntegrityVerification;
         return this;
     }
 

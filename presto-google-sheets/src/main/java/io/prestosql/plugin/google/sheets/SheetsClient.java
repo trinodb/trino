@@ -154,7 +154,7 @@ public class SheetsClient
     {
         try {
             Optional<String> sheetExpression = tableSheetMappingCache.getUnchecked(tableName);
-            if (!sheetExpression.isPresent()) {
+            if (sheetExpression.isEmpty()) {
                 throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName);
             }
             return sheetDataCache.getUnchecked(sheetExpression.get());

@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -445,9 +446,9 @@ public final class OrcWriter
         stats.updateSizeInBytes(-previouslyRecordedSizeInBytes);
         previouslyRecordedSizeInBytes = 0;
 
-        flushStripe(CLOSED);
-
-        orcDataSink.close();
+        try (Closeable ignored = orcDataSink) {
+            flushStripe(CLOSED);
+        }
     }
 
     /**
@@ -481,7 +482,7 @@ public final class OrcWriter
 
         Footer footer = new Footer(
                 numberOfRows,
-                rowGroupMaxRowCount,
+                rowGroupMaxRowCount == 0 ? OptionalInt.empty() : OptionalInt.of(rowGroupMaxRowCount),
                 closedStripes.stream()
                         .map(ClosedStripe::getStripeInformation)
                         .collect(toImmutableList()),

@@ -2,16 +2,15 @@
 Coordinator Kerberos Authentication
 ===================================
 
-The Presto coordinator can be configured to enable Kerberos authentication over
-HTTPS for clients, such as the :doc:`Presto CLI </security/cli>`, or the
-JDBC and ODBC drivers.
+Presto can be configured to enable Kerberos authentication over HTTPS for
+clients, such as the :doc:`Presto CLI </security/cli>`, or the JDBC and ODBC
+drivers.
 
 To enable Kerberos authentication for Presto, configuration changes are made on
 the Presto coordinator. No changes are required to the worker configuration.
 The worker nodes continue to connect to the coordinator over
 unauthenticated HTTP. However, if you want to secure the communication between
 Presto nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
-
 
 Environment Configuration
 -------------------------
@@ -46,8 +45,6 @@ In addition, the Presto coordinator needs a `keytab file
     > ktadd -k /etc/presto/presto.keytab presto/presto-coordinator.example.com@EXAMPLE.COM
 
 .. include:: ktadd-note.fragment
-
-.. include:: jce-policy.fragment
 
 Java Keystore File for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -97,6 +94,8 @@ Kerberos authentication is configured in the coordinator node's
     http-server.https.keystore.path=/etc/presto_keystore.jks
     http-server.https.keystore.key=keystore_password
 
+    node.internal-address-source=FQDN
+
 ========================================================= ======================================================
 Property                                                  Description
 ========================================================= ======================================================
@@ -124,6 +123,9 @@ Property                                                  Description
                                                           authentication is denied.  Default is ``(.*)``.
 ``http-server.authentication.krb5.user-mapping.file``     File containing rules for mapping user.  See
                                                           :doc:`/security/user-mapping` for more information.
+``node.internal-address-source``                          Kerberos is typically sensitive to DNS names. Setting
+                                                          this property to use ``FQDN`` ensures correct
+                                                          operation and usage of valid DNS host names.
 ========================================================= ======================================================
 
 .. note::

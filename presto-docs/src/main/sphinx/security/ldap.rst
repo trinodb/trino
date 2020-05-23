@@ -21,38 +21,17 @@ Presto Server Configuration
 Environment Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. _ldap_server:
-
 Secure LDAP
 ~~~~~~~~~~~
 
 Presto requires Secure LDAP (LDAPS), so make sure you have TLS
 enabled on your LDAP server.
 
-TLS Configuration on Presto Coordinator
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You need to import the LDAP server's TLS certificate to the default Java
-truststore of the Presto coordinator to secure TLS connection. You can use
-the following example ``keytool`` command to import the certificate
-``ldap_server.crt``, to the truststore on the coordinator.
-
-.. code-block:: none
-
-    $ keytool -import -keystore <JAVA_HOME>/jre/lib/security/cacerts -trustcacerts -alias ldap_server -file ldap_server.crt
-
-In addition to this, access to the Presto coordinator should be
-through HTTPS. You can do that by creating a :ref:`server_java_keystore` on
-the coordinator.
-
 Presto Coordinator Node Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You must make the following changes to the environment prior to configuring the
-Presto coordinator to use LDAP authentication and HTTPS.
-
- * :ref:`ldap_server`
- * :ref:`server_java_keystore`
+Access to the Presto coordinator should be through HTTPS. You can do that
+by creating a :ref:`server_java_keystore` on the coordinator.
 
 You also need to make changes to the Presto configuration files.
 LDAP authentication is configured on the coordinator in two parts.
@@ -110,6 +89,7 @@ Password authentication needs to be configured to use LDAP. Create an
 
     password-authenticator.name=ldap
     ldap.url=ldaps://ldap-server:636
+    ldap.ssl-trust-certificate=/path/to/ldap_server.crt
     ldap.user-bind-pattern=<Refer below for usage>
 
 ======================================================= ======================================================
@@ -117,6 +97,9 @@ Property                                                Description
 ======================================================= ======================================================
 ``ldap.url``                                            The url to the LDAP server. The url scheme must be
                                                         ``ldaps://`` since Presto allows only Secure LDAP.
+``ldap.ssl-trust-certificate``                          The path to the PEM encoded trust certificate  for the
+                                                        LDAP server. This file should contain the LDAP
+                                                        server's certificate or its certificate authority.
 ``ldap.user-bind-pattern``                              This property can be used to specify the LDAP user
                                                         bind string for password authentication. This property
                                                         must contain the pattern ``${USER}``, which is

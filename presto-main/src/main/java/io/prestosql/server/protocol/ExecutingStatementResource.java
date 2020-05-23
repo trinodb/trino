@@ -34,7 +34,6 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -57,8 +56,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
@@ -153,16 +150,11 @@ public class ExecutingStatementResource
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
-            @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
-        if (isNullOrEmpty(proto)) {
-            proto = uriInfo.getRequestUri().getScheme();
-        }
-
-        asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, proto, asyncResponse);
+        asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, asyncResponse);
     }
 
     protected Query getQuery(QueryId queryId, String slug, long token)
@@ -209,7 +201,6 @@ public class ExecutingStatementResource
             Duration maxWait,
             DataSize targetResultSize,
             UriInfo uriInfo,
-            String scheme,
             AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
@@ -219,7 +210,7 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
+        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
 

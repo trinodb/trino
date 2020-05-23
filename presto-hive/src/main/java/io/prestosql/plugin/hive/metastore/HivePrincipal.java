@@ -32,7 +32,7 @@ public class HivePrincipal
 {
     public static HivePrincipal from(ConnectorIdentity identity)
     {
-        if (!identity.getRole().isPresent()) {
+        if (identity.getRole().isEmpty()) {
             return ofUser(identity.getUser());
         }
         SelectedRole.Type type = identity.getRole().get().getType();

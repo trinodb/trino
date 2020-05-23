@@ -88,7 +88,7 @@ public class CassandraTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(schemaName, tableName, partitions, clusteringKeyPredicates);
     }
 
     @Override
@@ -102,7 +102,9 @@ public class CassandraTableHandle
         }
         CassandraTableHandle other = (CassandraTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.partitions, other.partitions) &&
+                Objects.equals(this.clusteringKeyPredicates, other.clusteringKeyPredicates);
     }
 
     @Override

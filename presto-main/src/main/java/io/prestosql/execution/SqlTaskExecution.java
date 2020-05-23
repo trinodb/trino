@@ -305,7 +305,7 @@ public class SqlTaskExecution
                     continue;
                 }
                 Optional<PlanNodeId> sourceId = driver.getSourceId();
-                if (!sourceId.isPresent()) {
+                if (sourceId.isEmpty()) {
                     continue;
                 }
                 TaskSource sourceUpdate = updatedUnpartitionedSources.get(sourceId.get());
@@ -434,7 +434,7 @@ public class SqlTaskExecution
                 // This is why getSchedulingPlanNode returns an Optional.
                 while (true) {
                     Optional<PlanNodeId> optionalSchedulingPlanNode = schedulingLifespan.getSchedulingPlanNode();
-                    if (!optionalSchedulingPlanNode.isPresent()) {
+                    if (optionalSchedulingPlanNode.isEmpty()) {
                         break;
                     }
                     PlanNodeId schedulingPlanNode = optionalSchedulingPlanNode.get();

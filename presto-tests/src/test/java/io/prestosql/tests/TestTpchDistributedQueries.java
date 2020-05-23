@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -29,7 +28,6 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import io.prestosql.type.TypeDeserializer;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -39,7 +37,6 @@ import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestTpchDistributedQueries
         extends AbstractTestQueries
@@ -52,7 +49,6 @@ public class TestTpchDistributedQueries
     }
 
     @Test
-    @Override
     public void testIoExplain()
     {
         String query = "SELECT * FROM orders";
@@ -89,14 +85,6 @@ public class TestTpchDistributedQueries
     }
 
     @Test
-    public void testTooLongQuery()
-    {
-        //  Generate a super-long query: SELECT x,x,x,x,x,... FROM (VALUES 1,2,3,4,5) t(x)
-        @Language("SQL") String longQuery = "SELECT x" + Strings.repeat(",x", 500_000) + " FROM (VALUES 1,2,3,4,5) t(x)";
-        assertQueryFails(longQuery, "Query text length \\(1000037\\) exceeds the maximum length \\(1000000\\)");
-    }
-
-    @Test
     public void testAnalyzePropertiesSystemTable()
     {
         assertQuery("SELECT COUNT(*) FROM system.metadata.analyze_properties WHERE catalog_name = 'tpch'", "SELECT 0");
@@ -110,35 +98,6 @@ public class TestTpchDistributedQueries
     }
 
     @Test
-    public void testTooManyStages()
-    {
-        @Language("SQL") String query = "WITH\n" +
-                "  t1 AS (SELECT nationkey AS x FROM nation where name='UNITED STATES'),\n" +
-                "  t2 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t1 a, t1 b, t1 c, t1 d),\n" +
-                "  t3 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t2 a, t2 b, t2 c, t2 d),\n" +
-                "  t4 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t3 a, t3 b, t3 c, t3 d),\n" +
-                "  t5 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t4 a, t4 b, t4 c, t4 d)\n" +
-                "SELECT x FROM t5\n";
-        assertQueryFails(query, "Number of stages in the query \\([0-9]+\\) exceeds the allowed maximum \\([0-9]+\\).*");
-    }
-
-    @Test
-    public void testTableSampleSystem()
-    {
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
-
-        boolean sampleSizeFound = false;
-        for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
-            if (sampleSize > 0 && sampleSize < total) {
-                sampleSizeFound = true;
-                break;
-            }
-        }
-        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
-    }
-
-    @Test
     @Override
     public void testShowTables()
     {
@@ -147,26 +106,6 @@ public class TestTpchDistributedQueries
         assertQuerySucceeds("SHOW TABLES FROM sf1");
         assertQuerySucceeds("SHOW TABLES FROM \"sf1.0\"");
         assertQueryFails("SHOW TABLES FROM sf0", "line 1:1: Schema 'sf0' does not exist");
-    }
-
-    @Test
-    public void testRowSubscriptWithReservedKeyword()
-    {
-        // Subscript over field named after reserved keyword. This test needs to run in distributed
-        // mode, as it uncovers a problem during deserialization plan expressions
-        assertQuery(
-                "SELECT cast(row(1) AS row(\"cross\" bigint))[1]",
-                "VALUES 1");
-    }
-
-    @Test
-    public void testRowTypeWithReservedKeyword()
-    {
-        // This test is here because it only reproduces the issue (https://github.com/prestosql/presto/issues/1962)
-        // when running in distributed mode
-        assertQuery(
-                "SELECT cast(row(1) AS row(\"cross\" bigint)).\"cross\"",
-                "VALUES 1");
     }
 
     private Session createSession(String schemaName)

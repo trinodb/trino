@@ -22,10 +22,19 @@ import java.util.function.Supplier;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class IntegerDecoder
         implements Decoder
 {
+    private final String path;
+
+    public IntegerDecoder(String path)
+    {
+        this.path = requireNonNull(path, "path is null");
+    }
+
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -37,7 +46,7 @@ public class IntegerDecoder
             INTEGER.writeLong(output, toIntExact(((Number) value).longValue()));
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected a numeric value for INTEGER field");
+            throw new PrestoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }

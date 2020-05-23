@@ -15,6 +15,7 @@ package io.prestosql.plugin.base.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
@@ -115,6 +116,21 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.USER, "some_user"));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.USER, "some_user")));
+
+        accessControl.checkCanShowCreateSchema(ADMIN, "bob");
+        accessControl.checkCanShowCreateSchema(ADMIN, "staff");
+        accessControl.checkCanShowCreateSchema(ADMIN, "authenticated");
+        accessControl.checkCanShowCreateSchema(ADMIN, "test");
+
+        accessControl.checkCanShowCreateSchema(BOB, "bob");
+        accessControl.checkCanShowCreateSchema(BOB, "staff");
+        accessControl.checkCanShowCreateSchema(BOB, "authenticated");
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(BOB, "test"));
+
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "bob"));
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "staff"));
+        accessControl.checkCanShowCreateSchema(CHARLIE, "authenticated");
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "test"));
     }
 
     @Test
@@ -200,20 +216,10 @@ public class TestFileBasedAccessControl
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)
     {
-        return new ConnectorSecurityContext()
-        {
-            @Override
-            public ConnectorTransactionHandle getTransactionHandle()
-            {
-                return new ConnectorTransactionHandle() {};
-            }
-
-            @Override
-            public ConnectorIdentity getIdentity()
-            {
-                return ConnectorIdentity.forUser(name).withGroups(groups).build();
-            }
-        };
+        return new ConnectorSecurityContext(
+                new ConnectorTransactionHandle() {},
+                ConnectorIdentity.forUser(name).withGroups(groups).build(),
+                new QueryId("query_id"));
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

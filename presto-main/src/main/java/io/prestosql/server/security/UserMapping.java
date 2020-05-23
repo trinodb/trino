@@ -36,7 +36,7 @@ public final class UserMapping
     public static UserMapping createUserMapping(Optional<String> userMappingPattern, Optional<File> userMappingFile)
     {
         if (userMappingPattern.isPresent()) {
-            checkArgument(!userMappingFile.isPresent(), "user mapping pattern and file can not both be set");
+            checkArgument(userMappingFile.isEmpty(), "user mapping pattern and file can not both be set");
             return new UserMapping(ImmutableList.of(new Rule(userMappingPattern.get())));
         }
         if (userMappingFile.isPresent()) {
@@ -49,24 +49,22 @@ public final class UserMapping
     @VisibleForTesting
     UserMapping(List<Rule> rules)
     {
-        this.rules = ImmutableList.copyOf(requireNonNull(rules, "rules is null"));
+        requireNonNull(rules, "rules is null");
+        checkArgument(!rules.isEmpty(), "rules list is empty");
+        this.rules = ImmutableList.copyOf(rules);
     }
 
     public String mapUser(String principal)
             throws UserMappingException
     {
-        Optional<String> user = Optional.empty();
         for (Rule rule : rules) {
-            user = rule.mapUser(principal);
+            Optional<String> user = rule.mapUser(principal);
             if (user.isPresent()) {
-                break;
+                return user.get();
             }
         }
 
-        if (!user.isPresent()) {
-            throw new UserMappingException("No user mapping patterns match the principal");
-        }
-        return user.get();
+        throw new UserMappingException("No user mapping patterns match the principal");
     }
 
     public static final class UserMappingRules

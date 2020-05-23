@@ -52,17 +52,18 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = externalLocation.orElse(getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
-        if (shouldUseTemporaryDirectory(session, context, targetPath)) {
+        // TODO detect when existing table's location is a on a different file system than the temporary directory
+        if (shouldUseTemporaryDirectory(session, context, targetPath, externalLocation)) {
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
@@ -77,7 +78,7 @@ public class HiveLocationService
         HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         Path targetPath = new Path(table.getStorage().getLocation());
 
-        if (shouldUseTemporaryDirectory(session, context, targetPath)) {
+        if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty())) {
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
@@ -86,13 +87,15 @@ public class HiveLocationService
         }
     }
 
-    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path)
+    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path, Optional<Path> externalLocation)
     {
         return isTemporaryStagingDirectoryEnabled(session)
                 // skip using temporary directory for S3
                 && !isS3FileSystem(context, hdfsEnvironment, path)
                 // skip using temporary directory if destination is encrypted; it's not possible to move a file between encryption zones
-                && !isHdfsEncrypted(context, hdfsEnvironment, path);
+                && !isHdfsEncrypted(context, hdfsEnvironment, path)
+                // Skip using temporary directory if destination is external. Target may be on a different file system.
+                && !externalLocation.isPresent();
     }
 
     @Override

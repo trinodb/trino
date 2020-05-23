@@ -75,7 +75,7 @@ public class TpchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, scaleFactor);
+        return Objects.hash(tableName, scaleFactor, constraint);
     }
 
     @Override
@@ -89,6 +89,7 @@ public class TpchTableHandle
         }
         TpchTableHandle other = (TpchTableHandle) obj;
         return Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.scaleFactor, other.scaleFactor);
+                Objects.equals(this.scaleFactor, other.scaleFactor) &&
+                Objects.equals(this.constraint, other.constraint);
     }
 }

@@ -217,7 +217,7 @@ public class InformationSchemaMetadata
             return ImmutableSet.of();
         }
 
-        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE).map(this::removeEmptyValues);
+        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
         if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
             return ImmutableSet.of();
         }
@@ -247,16 +247,16 @@ public class InformationSchemaMetadata
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
-        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE).map(this::removeEmptyValues);
+        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
                     .filter(this::isLowerCase)
-                    .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
+                    .filter(schema -> predicate.isEmpty() || predicate.get().test(schemaAsFixedValues(schema)))
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
         }
 
-        if (!predicate.isPresent()) {
+        if (predicate.isEmpty()) {
             return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
         }
 
@@ -275,10 +275,10 @@ public class InformationSchemaMetadata
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE).map(this::removeEmptyValues);
+        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
         if (tables.isPresent()) {
             return prefixes.stream()
-                    .peek(prefix -> verify(!prefix.asQualifiedObjectName().isPresent()))
+                    .peek(prefix -> verify(prefix.asQualifiedObjectName().isEmpty()))
                     .flatMap(prefix -> prefix.getSchemaName()
                             .map(schemaName -> Stream.of(prefix))
                             .orElseGet(() -> listSchemaNames(session)))
@@ -286,12 +286,12 @@ public class InformationSchemaMetadata
                             .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
-                    .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
+                    .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }
 
-        if (!predicate.isPresent() || !isColumnsEnumeratingTable(informationSchemaTable)) {
+        if (predicate.isEmpty() || !isColumnsEnumeratingTable(informationSchemaTable)) {
             return prefixes;
         }
 
@@ -368,12 +368,5 @@ public class InformationSchemaMetadata
     private boolean isLowerCase(String value)
     {
         return value.toLowerCase(ENGLISH).equals(value);
-    }
-
-    private Set<String> removeEmptyValues(Set<String> values)
-    {
-        return values.stream()
-                .filter(value -> !value.isEmpty())
-                .collect(toImmutableSet());
     }
 }

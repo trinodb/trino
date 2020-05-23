@@ -527,7 +527,7 @@ public class PredicatePushDown
 
             boolean filtersEquivalent =
                     newJoinFilter.isPresent() == node.getFilter().isPresent() &&
-                            (!newJoinFilter.isPresent() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
+                            (newJoinFilter.isEmpty() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
 
             PlanNode output = node;
             if (leftSource != node.getLeft() ||
@@ -580,7 +580,7 @@ public class PredicatePushDown
                 for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
                     Symbol probeSymbol = clause.getLeft();
                     Symbol buildSymbol = clause.getRight();
-                    String id = idAllocator.getNextId().toString();
+                    String id = "df_" + idAllocator.getNextId().toString();
                     predicatesBuilder.add(createDynamicFilterExpression(metadata, id, symbolAllocator.getTypes().get(probeSymbol), probeSymbol.toSymbolReference()));
                     dynamicFiltersBuilder.put(id, buildSymbol);
                 }
@@ -1387,7 +1387,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getUnnestSymbols(), node.getOrdinalitySymbol(), node.getJoinType(), node.getFilter());
+                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType(), node.getFilter());
             }
             if (!postUnnestConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postUnnestConjuncts));

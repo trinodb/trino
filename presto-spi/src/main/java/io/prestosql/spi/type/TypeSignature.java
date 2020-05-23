@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
 
 public class TypeSignature
 {
@@ -45,7 +44,7 @@ public class TypeSignature
         checkArgument(!base.isEmpty(), "base is empty");
         checkArgument(validateName(base), "Bad characters in base type: %s", base);
         checkArgument(parameters != null, "parameters is null");
-        this.parameters = unmodifiableList(new ArrayList<>(parameters));
+        this.parameters = List.copyOf(parameters);
 
         this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
     }

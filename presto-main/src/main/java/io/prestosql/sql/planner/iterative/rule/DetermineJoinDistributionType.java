@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class DetermineJoinDistributionType
         implements Rule<JoinNode>
 {
-    private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> !joinNode.getDistributionType().isPresent());
+    private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> joinNode.getDistributionType().isEmpty());
 
     private final CostComparator costComparator;
     private final TaskCountEstimator taskCountEstimator;
@@ -176,7 +176,7 @@ public class DetermineJoinDistributionType
          *
          *   TODO Decision about the distribution should be based on LocalCostEstimate only when PlanCostEstimate cannot be calculated. Otherwise cost comparator cannot take query.max-memory into account.
          */
-        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
+        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession());
         LocalCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),

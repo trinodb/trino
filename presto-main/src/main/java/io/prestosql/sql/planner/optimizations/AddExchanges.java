@@ -227,7 +227,8 @@ public class AddExchanges
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
             }
-            else if (!child.getProperties().isStreamPartitionedOn(partitioningRequirement) && !child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
+            else if ((!child.getProperties().isStreamPartitionedOn(partitioningRequirement) && !child.getProperties().isNodePartitionedOn(partitioningRequirement)) ||
+                    node.hasEmptyGroupingSet()) {
                 child = withDerivedProperties(
                         partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupingKeys(), node.getHashSymbol()),
                         child.getProperties());
@@ -528,7 +529,7 @@ public class AddExchanges
             PlanWithProperties source = node.getSource().accept(this, preferredProperties);
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
-            if (!partitioningScheme.isPresent()) {
+            if (partitioningScheme.isEmpty()) {
                 if (scaleWriters) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
                 }
@@ -1096,7 +1097,7 @@ public class AddExchanges
                 // parent does not have preference or prefers some partitioning without any explicit partitioning - just use
                 // children partitioning and don't GATHER partitioned inputs
                 // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty unpartitionedChildren
-                if (!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) {
+                if (parentGlobal.isEmpty() || parentGlobal.get().isDistributed()) {
                     return arbitraryDistributeUnion(node, partitionedChildren, partitionedOutputLayouts);
                 }
 

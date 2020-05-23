@@ -44,6 +44,7 @@ public class TestPostgreSqlCaseInsensitiveMapping
         this.postgreSqlServer = new TestingPostgreSqlServer();
         return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
                 postgreSqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.of("case-insensitive-name-matching", "true"),
                 ImmutableSet.of());
     }

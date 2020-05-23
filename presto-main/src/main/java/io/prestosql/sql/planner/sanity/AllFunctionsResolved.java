@@ -46,7 +46,7 @@ public final class AllFunctionsResolved
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, Builder<Symbol>>
+            extends DefaultExpressionTraversalVisitor<Builder<Symbol>>
     {
         @Override
         protected Void visitFunctionCall(FunctionCall node, Builder<Symbol> context)

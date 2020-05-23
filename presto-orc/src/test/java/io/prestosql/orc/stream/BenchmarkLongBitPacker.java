@@ -48,7 +48,7 @@ public class BenchmarkLongBitPacker
 {
     @Benchmark
     public Object baselineLength1(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 1, data.bits, data.input);
@@ -58,7 +58,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(2)
     public Object baselineLength2(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 2, data.bits, data.input);
@@ -68,7 +68,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(3)
     public Object baselineLength3(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 3, data.bits, data.input);
@@ -78,7 +78,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(4)
     public Object baselineLength4(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 4, data.bits, data.input);
@@ -88,7 +88,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(5)
     public Object baselineLength5(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 5, data.bits, data.input);
@@ -98,7 +98,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(6)
     public Object baselineLength6(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 6, data.bits, data.input);
@@ -108,7 +108,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(7)
     public Object baselineLength7(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 7, data.bits, data.input);
@@ -118,7 +118,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(256)
     public Object baselineLength256(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         unpackGeneric(data.buffer, 0, 256, data.bits, data.input);
@@ -127,7 +127,7 @@ public class BenchmarkLongBitPacker
 
     @Benchmark
     public Object optimizedLength1(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 1, data.bits, data.input);
@@ -137,7 +137,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(2)
     public Object optimizedLength2(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 2, data.bits, data.input);
@@ -147,7 +147,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(3)
     public Object optimizedLength3(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 3, data.bits, data.input);
@@ -157,7 +157,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(4)
     public Object optimizedLength4(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 4, data.bits, data.input);
@@ -167,7 +167,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(5)
     public Object optimizedLength5(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 5, data.bits, data.input);
@@ -177,7 +177,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(6)
     public Object optimizedLength6(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 6, data.bits, data.input);
@@ -187,7 +187,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(7)
     public Object optimizedLength7(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 7, data.bits, data.input);
@@ -197,7 +197,7 @@ public class BenchmarkLongBitPacker
     @Benchmark
     @OperationsPerInvocation(256)
     public Object optimizedLength256(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         data.input.setPosition(0);
         data.packer.unpack(data.buffer, 0, 256, data.bits, data.input);
@@ -226,7 +226,7 @@ public class BenchmarkLongBitPacker
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

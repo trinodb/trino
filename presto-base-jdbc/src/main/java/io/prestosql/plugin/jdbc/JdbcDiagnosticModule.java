@@ -58,21 +58,19 @@ public class JdbcDiagnosticModule
     @StatsCollecting
     public JdbcClient createJdbcClientWithStats(@ForBaseJdbc JdbcClient client)
     {
-        StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
-
         Logger logger = Logger.get(format("io.prestosql.plugin.jdbc.%s.jdbcclient", catalogName));
 
         JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
-                statisticsAwareJdbcClient,
+                client,
                 new ReflectiveParameterNamesProvider(),
                 logger::debug));
 
-        return ForwardingJdbcClient.of(() -> {
+        return new StatisticsAwareJdbcClient(ForwardingJdbcClient.of(() -> {
             if (logger.isDebugEnabled()) {
                 return loggingInvocationsJdbcClient;
             }
-            return statisticsAwareJdbcClient;
-        });
+            return client;
+        }));
     }
 
     @Provides

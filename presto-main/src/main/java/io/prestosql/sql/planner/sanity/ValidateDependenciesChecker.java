@@ -15,7 +15,6 @@ package io.prestosql.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -79,7 +78,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -319,6 +317,14 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
+            if (node.getTiesResolvingScheme().isPresent()) {
+                checkDependencies(
+                        createInputs(source, boundSymbols),
+                        node.getTiesResolvingScheme().get().getOrderBy(),
+                        "Invalid node. Ties resolving dependencies (%s) not in source plan output (%s)",
+                        node.getTiesResolvingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+            }
+
             return null;
         }
 
@@ -424,11 +430,11 @@ public final class ValidateDependenciesChecker
                 if (leftSymbolsSet.contains(symbol)) {
                     leftMaxPosition = i;
                 }
-                else if (!rightMinPosition.isPresent()) {
+                else if (rightMinPosition.isEmpty()) {
                     rightMinPosition = Optional.of(i);
                 }
             }
-            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
+            checkState(rightMinPosition.isEmpty() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
         }
 
         @Override
@@ -448,9 +454,7 @@ public final class ValidateDependenciesChecker
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .collect(toImmutableSet());
             Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
-            checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
-                    "Index lookup symbols are not traceable to index source: %s",
-                    lookupSymbols);
+            checkArgument(!trace.isEmpty(), "Index lookup symbols are not traceable to index source: %s", lookupSymbols);
 
             return null;
         }
@@ -491,14 +495,12 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols);
 
             ImmutableSet.Builder<Symbol> required = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getReplicateSymbols())
-                    .addAll(node.getUnnestSymbols().keySet());
-            ImmutableSet.Builder<Symbol> unnestedSymbols = ImmutableSet.builder();
-            for (List<Symbol> symbols : node.getUnnestSymbols().values()) {
-                unnestedSymbols.addAll(symbols);
-            }
-            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols.build());
-            required.addAll(expectedFilterSymbols);
+                    .addAll(node.getReplicateSymbols());
+
+            node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .forEach(required::add);
+
             checkDependencies(source.getOutputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
 
             return null;

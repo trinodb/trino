@@ -13,9 +13,11 @@
  */
 package io.prestosql.tests;
 
+import com.google.common.base.Strings;
 import io.prestosql.Session;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 public class TestDistributedEngineOnlyQueries
@@ -58,5 +60,46 @@ public class TestDistributedEngineOnlyQueries
                 "line 1:31: Column name 'A' specified more than once");
         assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
                 "line 1:49: Column name 'orderkey' specified more than once");
+    }
+
+    @Test
+    public void testTooLongQuery()
+    {
+        //  Generate a super-long query: SELECT x,x,x,x,x,... FROM (VALUES 1,2,3,4,5) t(x)
+        @Language("SQL") String longQuery = "SELECT x" + Strings.repeat(",x", 500_000) + " FROM (VALUES 1,2,3,4,5) t(x)";
+        assertQueryFails(longQuery, "Query text length \\(1000037\\) exceeds the maximum length \\(1000000\\)");
+    }
+
+    @Test
+    public void testTooManyStages()
+    {
+        @Language("SQL") String query = "WITH\n" +
+                "  t1 AS (SELECT nationkey AS x FROM nation where name='UNITED STATES'),\n" +
+                "  t2 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t1 a, t1 b, t1 c, t1 d),\n" +
+                "  t3 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t2 a, t2 b, t2 c, t2 d),\n" +
+                "  t4 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t3 a, t3 b, t3 c, t3 d),\n" +
+                "  t5 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t4 a, t4 b, t4 c, t4 d)\n" +
+                "SELECT x FROM t5\n";
+        assertQueryFails(query, "Number of stages in the query \\([0-9]+\\) exceeds the allowed maximum \\([0-9]+\\).*");
+    }
+
+    @Test
+    public void testRowSubscriptWithReservedKeyword()
+    {
+        // Subscript over field named after reserved keyword. This test needs to run in distributed
+        // mode, as it uncovers a problem during deserialization plan expressions
+        assertQuery(
+                "SELECT cast(row(1) AS row(\"cross\" bigint))[1]",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testRowTypeWithReservedKeyword()
+    {
+        // This test is here because it only reproduces the issue (https://github.com/prestosql/presto/issues/1962)
+        // when running in distributed mode
+        assertQuery(
+                "SELECT cast(row(1) AS row(\"cross\" bigint)).\"cross\"",
+                "VALUES 1");
     }
 }

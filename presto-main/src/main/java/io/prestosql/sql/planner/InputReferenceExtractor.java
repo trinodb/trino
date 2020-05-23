@@ -20,7 +20,7 @@ import io.prestosql.sql.tree.FieldReference;
 import java.util.Set;
 
 public class InputReferenceExtractor
-        extends DefaultExpressionTraversalVisitor<Void, Void>
+        extends DefaultExpressionTraversalVisitor<Void>
 {
     private final ImmutableSet.Builder<Integer> inputChannels = ImmutableSet.builder();
 

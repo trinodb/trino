@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -278,5 +279,40 @@ public final class HiveType
             default:
                 return null;
         }
+    }
+
+    public Optional<HiveType> getHiveTypeForDereferences(List<Integer> dereferences)
+    {
+        TypeInfo typeInfo = getTypeInfo();
+        for (int fieldIndex : dereferences) {
+            checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            try {
+                typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+            }
+            catch (RuntimeException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(toHiveType(typeInfo));
+    }
+
+    public List<String> getHiveDereferenceNames(List<Integer> dereferences)
+    {
+        ImmutableList.Builder<String> dereferenceNames = ImmutableList.builder();
+        TypeInfo typeInfo = getTypeInfo();
+        for (int fieldIndex : dereferences) {
+            checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+
+            checkArgument(fieldIndex >= 0, "fieldIndex cannot be negative");
+            checkArgument(fieldIndex < structTypeInfo.getAllStructFieldNames().size(),
+                    "fieldIndex should be less than the number of fields in the struct");
+            String fieldName = structTypeInfo.getAllStructFieldNames().get(fieldIndex);
+            dereferenceNames.add(fieldName);
+            typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+        }
+
+        return dereferenceNames.build();
     }
 }

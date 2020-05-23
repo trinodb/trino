@@ -28,6 +28,7 @@ import java.sql.Statement;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -48,6 +49,27 @@ public class TestPhoenixIntegrationSmokeTest
     public void destroy()
     {
         TestingPhoenixServer.shutDown();
+    }
+
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE phoenix.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   rowkeys = 'ROWKEY',\n" +
+                        "   salt_buckets = 10\n" +
+                        ")");
     }
 
     @Test

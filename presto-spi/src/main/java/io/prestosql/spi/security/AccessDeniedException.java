@@ -136,6 +136,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowCreateSchema(String schemaName)
+    {
+        throw new AccessDeniedException(format("Cannot show create schema for %s", schemaName));
+    }
+
     public static void denyShowCreateTable(String tableName)
     {
         denyShowCreateTable(tableName, null);

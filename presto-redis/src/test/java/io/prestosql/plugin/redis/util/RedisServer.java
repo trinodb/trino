@@ -18,7 +18,6 @@ import org.testcontainers.containers.GenericContainer;
 import redis.clients.jedis.JedisPool;
 
 import java.io.Closeable;
-import java.io.IOException;
 
 public class RedisServer
         implements Closeable
@@ -54,7 +53,6 @@ public class RedisServer
 
     @Override
     public void close()
-            throws IOException
     {
         jedisPool.destroy();
         container.close();

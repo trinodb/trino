@@ -182,6 +182,7 @@ Elasticsearch Presto
 ``keyword``   ``VARCHAR``
 ``text``      ``VARCHAR``
 ``date``      ``TIMESTAMP``
+``ip``        ``IPADDRESS``
 (all others)  (unsupported)
 ============= =============
 
@@ -273,6 +274,5 @@ Property Name                                    Description
 ``elasticsearch.aws.region``                     AWS region or the Elasticsearch endpoint. This option is required.
 ``elasticsearch.aws.access-key``                 AWS access key to use to connect to the Elasticsearch domain.
 ``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
-``elasticsearch.aws.use-instance-credentials``   Use the EC2 metadata service to retrieve API credentials.
 ================================================ ==================================================================
 

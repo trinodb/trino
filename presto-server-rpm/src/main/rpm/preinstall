@@ -12,8 +12,8 @@ java_version() {
 check_if_correct_java_version() {
 
 # If the string is empty return non-zero code.  We don't want false positives if /bin/java is
-# a valid java version because that will leave java8_home unset and the init.d scripts will
-# use the default java version, which may not be java 8.
+# a valid java version because that will leave JAVA_HOME unset and the init.d scripts will
+# use the default java version, which may not be the correct version.
   if [ -z $1 ] ; then
     return 1
   fi
@@ -26,9 +26,6 @@ check_if_correct_java_version() {
   if [[ ("$JAVA_MAJOR" -ge "11") ]]; then
     echo "JAVA_HOME=$1" > /tmp/presto_env.sh
     return 0
-  elif [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 161) ]]; then
-    echo "JAVA_HOME=$1" > /tmp/presto_env.sh
-    return 0
   else
     return 1
   fi
@@ -39,12 +36,7 @@ if ! check_if_correct_java_version "$JAVA_HOME"; then
   java_found=false
   for candidate in \
       /usr/lib/jvm/java-11-* \
-      /usr/lib/jvm/jdk1.8* \
-      /usr/lib/jvm/jre1.8* \
-      /usr/lib/jvm/java-8-oracle* \
-      /usr/java/jdk1.8* \
-      /usr/java/jre1.8* \
-      /usr/jdk64/jdk1.8* \
+      /usr/lib/jvm/zulu-11 \
       /usr/lib/jvm/default-java \
       /usr/java/default \
       / \
@@ -69,8 +61,6 @@ if [ "$java_found" = false ]; then
 | You can also download an OpenJDK 11 build, such as Zulu Community:   |
 |       >>> https://www.azul.com/downloads/zulu-community/ <<<         |
 |                                                                      |
-| Presto requires at least Java 1.8 update 161 (8u161), but Java 11    |
-| is strongly recommend (and will be required in the future).          |
 | NOTE: This script will attempt to find Java whether you install      |
 |       using the binary or the RPM based installer.                   |
 +======================================================================+

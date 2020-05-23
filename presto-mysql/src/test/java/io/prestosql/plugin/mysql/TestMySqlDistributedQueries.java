@@ -23,6 +23,7 @@ import org.testng.annotations.AfterClass;
 
 import java.util.Optional;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
@@ -107,18 +108,6 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
-    public void testDescribeOutput()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
     public void testCommentTable()
     {
         // MySQL connector currently does not support comment on table
@@ -129,6 +118,12 @@ public class TestMySqlDistributedQueries
     public void testDelete()
     {
         // delete is not supported
+    }
+
+    @Override
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
     }
 
     @Override

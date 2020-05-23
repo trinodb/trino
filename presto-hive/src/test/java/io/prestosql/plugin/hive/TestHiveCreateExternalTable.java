@@ -31,6 +31,7 @@ import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveCreateExternalTable
         extends AbstractTestQueryFramework
@@ -49,6 +50,32 @@ public class TestHiveCreateExternalTable
     public void testCreateExternalTableWithData()
             throws IOException
     {
+        String tableName = "test_create_external";
+        File tempDir = createTempDir();
+        File tableLocation = new File(tempDir, tableName);
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE test_create_external " +
+                        "WITH (external_location = '%s') AS " +
+                        "SELECT * FROM tpch.tiny.nation",
+                tableLocation.toURI().toASCIIString());
+
+        assertUpdate(createTableSql, 25);
+
+        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.nation");
+        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+        String tablePath = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '/') FROM " + tableName).getOnlyValue();
+        assertTrue(tablePath.startsWith(tableLocation.toURI().toString()));
+
+        assertUpdate("DROP TABLE test_create_external");
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTableAsWithExistingDirectory()
+    {
         File tempDir = createTempDir();
 
         @Language("SQL") String createTableSql = format("" +
@@ -57,13 +84,6 @@ public class TestHiveCreateExternalTable
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
 
-        assertUpdate(createTableSql, 25);
-
-        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.nation");
-        MaterializedResult actual = computeActual("SELECT * FROM test_create_external");
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
-
-        assertUpdate("DROP TABLE test_create_external");
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        assertQueryFails(createTableSql, "Target directory for table '.*' already exists:.*");
     }
 }

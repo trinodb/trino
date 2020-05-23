@@ -14,16 +14,17 @@
 package io.prestosql.elasticsearch;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
+@DefunctConfig("elasticsearch.aws.use-instance-credentials")
 public class AwsSecurityConfig
 {
     private String accessKey;
     private String secretKey;
-    private boolean useAwsInstanceCredentials;
     private String region;
 
     @NotNull
@@ -49,18 +50,6 @@ public class AwsSecurityConfig
     public AwsSecurityConfig setSecretKey(String key)
     {
         this.secretKey = key;
-        return this;
-    }
-
-    public boolean isUseInstanceCredentials()
-    {
-        return useAwsInstanceCredentials;
-    }
-
-    @Config("elasticsearch.aws.use-instance-credentials")
-    public AwsSecurityConfig setUseInstanceCredentials(boolean use)
-    {
-        this.useAwsInstanceCredentials = use;
         return this;
     }
 

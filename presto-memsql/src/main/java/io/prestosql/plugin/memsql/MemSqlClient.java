@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -85,7 +86,7 @@ public class MemSqlClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
     }

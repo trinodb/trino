@@ -85,7 +85,7 @@ public class InformationSchemaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, table);
+        return Objects.hash(catalogName, table, prefixes, limit);
     }
 
     @Override
@@ -99,6 +99,8 @@ public class InformationSchemaTableHandle
         }
         InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
         return Objects.equals(this.catalogName, other.catalogName) &&
-                this.table == other.table;
+                this.table == other.table &&
+                Objects.equals(this.prefixes, other.prefixes) &&
+                Objects.equals(this.limit, other.limit);
     }
 }

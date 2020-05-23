@@ -37,7 +37,6 @@ import io.prestosql.cost.TaskCountEstimator;
 import io.prestosql.dispatcher.DispatchExecutor;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.dispatcher.DispatchQueryFactory;
-import io.prestosql.dispatcher.DispatcherConfig;
 import io.prestosql.dispatcher.FailedDispatchQueryFactory;
 import io.prestosql.dispatcher.LocalDispatchQueryFactory;
 import io.prestosql.dispatcher.QueuedStatementResource;
@@ -109,6 +108,7 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.server.protocol.ExecutingStatementResource;
 import io.prestosql.server.remotetask.RemoteTaskStats;
+import io.prestosql.server.ui.WebUiModule;
 import io.prestosql.server.ui.WorkerResource;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.QueryType;
@@ -152,6 +152,7 @@ import io.prestosql.transaction.ForTransactionManager;
 import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
+import io.prestosql.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -201,7 +202,6 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
-        configBinder(binder).bindConfig(DispatcherConfig.class);
         jaxrsBinder(binder).bind(QueuedStatementResource.class);
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
@@ -420,10 +420,11 @@ public class CoordinatorModule
     public static TransactionManager createTransactionManager(
             TransactionManagerConfig config,
             CatalogManager catalogManager,
+            EmbedVersion embedVersion,
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, embedVersion.embedVersion(finishingExecutor));
     }
 
     private static <T extends Statement> void bindDataDefinitionTask(

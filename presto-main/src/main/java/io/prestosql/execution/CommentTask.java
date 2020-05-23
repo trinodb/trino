@@ -49,7 +49,7 @@ public class CommentTask
         if (statement.getType() == Comment.Type.TABLE) {
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-            if (!tableHandle.isPresent()) {
+            if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
             }
 

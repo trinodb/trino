@@ -82,7 +82,6 @@ public class TestTpchCostBasedPlan
         private UpdateTestFiles() {}
 
         public static void main(String[] args)
-                throws Exception
         {
             new TestTpchCostBasedPlan().generate();
         }

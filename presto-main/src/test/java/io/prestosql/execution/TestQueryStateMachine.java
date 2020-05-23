@@ -529,7 +529,7 @@ public class TestQueryStateMachine
         assertEquals(actual.getLocale(), expected.getLocale());
         assertEquals(actual.getRemoteUserAddress(), expected.getRemoteUserAddress());
         assertEquals(actual.getUserAgent(), expected.getUserAgent());
-        assertEquals(actual.getStartTime(), expected.getStartTime());
+        assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
         assertEquals(actual.getConnectorProperties(), expected.getConnectorProperties());
     }

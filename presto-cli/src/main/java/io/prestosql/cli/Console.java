@@ -315,6 +315,7 @@ public class Console
         String finalSql;
         try {
             finalSql = preprocessQuery(
+                    terminal,
                     Optional.ofNullable(queryRunner.getSession().getCatalog()),
                     Optional.ofNullable(queryRunner.getSession().getSchema()),
                     sql);

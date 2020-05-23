@@ -13,14 +13,12 @@
  */
 package io.prestosql.tests.product.launcher.env.common;
 
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.github.dockerjava.api.model.AccessMode;
-import com.github.dockerjava.api.model.Bind;
 import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -28,23 +26,10 @@ import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import javax.inject.Inject;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.tests.product.launcher.docker.DockerFiles.createTemporaryDirectoryForDocker;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.nio.file.Files.isRegularFile;
-import static java.nio.file.Files.readAllLines;
-import static java.nio.file.Files.write;
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.enableJavaDebugger;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -58,6 +43,7 @@ public final class Standard
 
     private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
 
     private final String imagesVersion;
     private final File serverPackage;
@@ -67,15 +53,17 @@ public final class Standard
     public Standard(
             PathResolver pathResolver,
             DockerFiles dockerFiles,
+            PortBinder portBinder,
             EnvironmentOptions environmentOptions)
     {
         this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
         requireNonNull(environmentOptions, "environmentOptions is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
-        serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
+        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        this.serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
-        debug = environmentOptions.debug;
+        this.debug = environmentOptions.debug;
     }
 
     @Override
@@ -92,11 +80,10 @@ public final class Standard
                 createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
                         .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
 
-        exposePort(container, 8080); // Presto default port
+        portBinder.exposePort(container, 8080); // Presto default port
 
         if (debug) {
-            container.withCreateContainerCmdModifier(this::enableDebuggerInJvmConfig);
-            exposePort(container, 5005); // debug port
+            enableJavaDebugger(container, CONTAINER_PRESTO_JVM_CONFIG, 5005); // debug port
         }
 
         return container;
@@ -125,41 +112,5 @@ public final class Standard
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofMinutes(5));
-    }
-
-    private void enableDebuggerInJvmConfig(CreateContainerCmd createContainerCmd)
-    {
-        try {
-            Bind[] binds = firstNonNull(createContainerCmd.getBinds(), new Bind[0]);
-            boolean found = false;
-
-            // Last bind wins, so we can find the last one only
-            for (int bindIndex = binds.length - 1; bindIndex >= 0; bindIndex--) {
-                Bind bind = binds[bindIndex];
-                if (!bind.getVolume().getPath().equals(CONTAINER_PRESTO_JVM_CONFIG)) {
-                    continue;
-                }
-
-                Path hostJvmConfig = Paths.get(bind.getPath());
-                checkState(isRegularFile(hostJvmConfig), "Bind for %s is not a file", CONTAINER_PRESTO_JVM_CONFIG);
-
-                Path temporaryDirectory = createTemporaryDirectoryForDocker();
-                Path newJvmConfig = temporaryDirectory.resolve("jvm.config");
-
-                List<String> jvmOptions = new ArrayList<>(readAllLines(hostJvmConfig, UTF_8));
-                jvmOptions.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:5005");
-                write(newJvmConfig, jvmOptions, UTF_8);
-
-                binds[bindIndex] = new Bind(newJvmConfig.toString(), bind.getVolume(), AccessMode.ro, bind.getSecMode(), bind.getNoCopy(), bind.getPropagationMode());
-                found = true;
-                break;
-            }
-
-            checkState(found, "Could not find %s bind", CONTAINER_PRESTO_JVM_CONFIG);
-            createContainerCmd.withBinds(binds);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 }

@@ -18,10 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveHdfsModule;
-import io.prestosql.plugin.hive.HiveLocationService;
 import io.prestosql.plugin.hive.HiveNodePartitioningProvider;
-import io.prestosql.plugin.hive.HiveTransactionManager;
-import io.prestosql.plugin.hive.LocationService;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
@@ -61,9 +58,7 @@ public class IcebergModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
-        binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(CommitTaskData.class);
 

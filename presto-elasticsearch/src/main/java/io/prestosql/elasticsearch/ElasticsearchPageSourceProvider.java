@@ -28,6 +28,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchPageSourceProvider
@@ -53,10 +54,22 @@ public class ElasticsearchPageSourceProvider
         requireNonNull(split, "split is null");
         requireNonNull(table, "table is null");
 
-        return new ElasticsearchPageSource(
+        ElasticsearchTableHandle elasticsearchTable = (ElasticsearchTableHandle) table;
+        ElasticsearchSplit elasticsearchSplit = (ElasticsearchSplit) split;
+
+        if (elasticsearchTable.getType().equals(QUERY)) {
+            return new PassthroughQueryPageSource(client, elasticsearchTable);
+        }
+
+        if (columns.isEmpty()) {
+            return new CountQueryPageSource(client, session, elasticsearchTable, elasticsearchSplit);
+        }
+
+        return new ScanQueryPageSource(
                 client,
                 session,
-                (ElasticsearchTableHandle) table, (ElasticsearchSplit) split,
+                elasticsearchTable,
+                elasticsearchSplit,
                 columns.stream()
                         .map(ElasticsearchColumnHandle.class::cast)
                         .collect(toImmutableList()));

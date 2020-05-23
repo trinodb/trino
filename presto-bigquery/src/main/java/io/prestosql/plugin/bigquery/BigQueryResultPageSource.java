@@ -15,7 +15,6 @@ package io.prestosql.plugin.bigquery;
 
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.Storage;
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -51,8 +50,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -68,37 +65,34 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class BigQueryResultPageSource
         implements ConnectorPageSource
 {
-    static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
     private static final Logger log = Logger.get(BigQueryResultPageSource.class);
+
+    private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
+
     private final BigQueryStorageClient bigQueryStorageClient;
-    private final int maxReadRowsRetries;
     private final BigQuerySplit split;
-    private final BigQueryTableHandle table;
-    private final ImmutableList<BigQueryColumnHandle> columns;
-    private final ImmutableList<Type> columnTypes;
+    private final List<Type> columnTypes;
     private final AtomicLong readBytes;
     private final PageBuilder pageBuilder;
-    private Iterator<Storage.ReadRowsResponse> responses;
-    private boolean closed;
+    private final Iterator<Storage.ReadRowsResponse> responses;
 
     public BigQueryResultPageSource(
             BigQueryStorageClientFactory bigQueryStorageClientFactory,
             int maxReadRowsRetries,
             BigQuerySplit split,
-            BigQueryTableHandle table,
-            ImmutableList<BigQueryColumnHandle> columns)
+            List<BigQueryColumnHandle> columns)
     {
-        this.bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient();
-        this.maxReadRowsRetries = maxReadRowsRetries;
-        this.split = split;
-        this.table = table;
-        this.columns = columns;
+        this.bigQueryStorageClient = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null").createBigQueryStorageClient();
+        this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
-        this.columnTypes = columns.stream().map(BigQueryColumnHandle::getPrestoType).collect(toImmutableList());
+        this.columnTypes = requireNonNull(columns, "columns is null").stream()
+                .map(BigQueryColumnHandle::getPrestoType)
+                .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
 
         log.debug("Starting to read from %s", split.getStreamName());
@@ -107,7 +101,6 @@ public class BigQueryResultPageSource
                         .setStream(Storage.Stream.newBuilder()
                                 .setName(split.getStreamName())));
         responses = new ReadRowsHelper(bigQueryStorageClient, readRowsRequest, maxReadRowsRetries).readRows();
-        closed = false;
     }
 
     @Override
@@ -201,7 +194,7 @@ public class BigQueryResultPageSource
         }
     }
 
-    private void writeSlice(BlockBuilder output, Type type, Object value)
+    private static void writeSlice(BlockBuilder output, Type type, Object value)
     {
         if (type instanceof VarcharType) {
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
@@ -262,10 +255,8 @@ public class BigQueryResultPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         bigQueryStorageClient.close();
-        closed = true;
     }
 
     Iterable<GenericRecord> parse(Storage.ReadRowsResponse response)
@@ -275,16 +266,6 @@ public class BigQueryResultPageSource
         log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), split.getStreamName());
         Schema avroSchema = new Schema.Parser().parse(split.getAvroSchema());
         return () -> new AvroBinaryIterator(avroSchema, buffer);
-    }
-
-    Stream<GenericRecord> toRecords(Storage.ReadRowsResponse response)
-    {
-        byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
-        readBytes.addAndGet(buffer.length);
-        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), split.getStreamName());
-        Schema avroSchema = new Schema.Parser().parse(split.getAvroSchema());
-        Iterable<GenericRecord> responseRecords = () -> new AvroBinaryIterator(avroSchema, buffer);
-        return StreamSupport.stream(responseRecords.spliterator(), false);
     }
 
     static class AvroBinaryIterator

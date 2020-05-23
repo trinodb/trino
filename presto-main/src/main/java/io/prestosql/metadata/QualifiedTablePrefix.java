@@ -97,10 +97,10 @@ public class QualifiedTablePrefix
 
     public SchemaTablePrefix asSchemaTablePrefix()
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return new SchemaTablePrefix();
         }
-        else if (!tableName.isPresent()) {
+        else if (tableName.isEmpty()) {
             return new SchemaTablePrefix(schemaName.get());
         }
         else {

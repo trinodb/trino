@@ -191,7 +191,7 @@ public final class FunctionsParserHelper
 
     public static void validateSignaturesCompatibility(Optional<Signature> signatureOld, Signature signatureNew)
     {
-        if (!signatureOld.isPresent()) {
+        if (signatureOld.isEmpty()) {
             return;
         }
         checkArgument(signatureOld.get().equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);

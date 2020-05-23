@@ -100,7 +100,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
 
         Optional<SemiJoinOutputFilter> semiJoinOutputFilter = extractSemiJoinOutputFilter(filterNode.getPredicate(), semiJoinNode.getSemiJoinOutput());
 
-        if (!semiJoinOutputFilter.isPresent()) {
+        if (semiJoinOutputFilter.isEmpty()) {
             return Optional.empty();
         }
 

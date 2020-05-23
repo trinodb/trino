@@ -18,17 +18,14 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.UnmodifiableIterator;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.Analysis.UnnestAnalysis;
 import io.prestosql.sql.analyzer.Field;
 import io.prestosql.sql.analyzer.RelationId;
 import io.prestosql.sql.analyzer.RelationType;
@@ -48,10 +45,10 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.AliasedRelation;
+import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
 import io.prestosql.sql.tree.Except;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -73,6 +70,7 @@ import io.prestosql.sql.tree.Relation;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.SetOperation;
+import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.TableSubquery;
@@ -83,17 +81,17 @@ import io.prestosql.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
@@ -106,7 +104,7 @@ import static io.prestosql.sql.tree.Join.Type.INNER;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
-        extends DefaultTraversalVisitor<RelationPlan, Void>
+        extends AstVisitor<RelationPlan, Void>
 {
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
@@ -143,11 +141,18 @@ class RelationPlanner
     }
 
     @Override
+    protected RelationPlan visitNode(Node node, Void context)
+    {
+        throw new IllegalStateException("Unsupported node type: " + node.getClass().getName());
+    }
+
+    @Override
     protected RelationPlan visitTable(Table node, Void context)
     {
         Query namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
 
+        RelationPlan plan;
         if (namedQuery != null) {
             RelationPlan subPlan = process(namedQuery, null);
 
@@ -155,27 +160,31 @@ class RelationPlanner
             // of the view (e.g., if the underlying tables referenced by the view changed)
             Type[] types = scope.getRelationType().getAllFields().stream().map(Field::getType).toArray(Type[]::new);
             RelationPlan withCoercions = addCoercions(subPlan, types);
-            return new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
+
+            plan = new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
+        }
+        else {
+            TableHandle handle = analysis.getTableHandle(node);
+
+            ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+            for (Field field : scope.getRelationType().getAllFields()) {
+                Symbol symbol = symbolAllocator.newSymbol(field);
+
+                outputSymbolsBuilder.add(symbol);
+                columns.put(symbol, analysis.getColumn(field));
+            }
+
+            List<Symbol> outputSymbols = outputSymbolsBuilder.build();
+            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
+
+            plan = new RelationPlan(root, scope, outputSymbols);
         }
 
-        TableHandle handle = analysis.getTableHandle(node);
+        plan = addRowFilters(node, plan);
+        plan = addColumnMasks(node, plan);
 
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        for (Field field : scope.getRelationType().getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-
-            outputSymbolsBuilder.add(symbol);
-            columns.put(symbol, analysis.getColumn(field));
-        }
-
-        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
-
-        RelationPlan tableScan = new RelationPlan(root, scope, outputSymbols);
-        tableScan = addRowFilters(node, tableScan);
-        tableScan = addColumnMasks(node, tableScan);
-        return tableScan;
+        return plan;
     }
 
     private RelationPlan addRowFilters(Table node, RelationPlan plan)
@@ -198,13 +207,15 @@ class RelationPlanner
     {
         Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
 
-        PlanNode root = plan.getRoot();
-        List<Symbol> mappings = plan.getFieldMappings();
+        // A Table can represent a WITH query, which can have anonymous fields. On the other hand,
+        // it can't have masks. The loop below expects fields to have proper names, so bail out
+        // if the masks are missing
+        if (columnMasks.isEmpty()) {
+            return plan;
+        }
 
-        TranslationMap translations = new TranslationMap(plan, analysis, lambdaDeclarationToSymbolMap);
-        translations.setFieldMappings(mappings);
-
-        PlanBuilder planBuilder = new PlanBuilder(translations, root);
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
+        TranslationMap translations = planBuilder.getTranslations();
 
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
@@ -213,10 +224,10 @@ class RelationPlanner
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask);
 
                 Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-                for (Symbol symbol : root.getOutputSymbols()) {
+                for (Symbol symbol : plan.getRoot().getOutputSymbols()) {
                     assignments.put(symbol, symbol.toSymbolReference());
                 }
-                assignments.put(mappings.get(i), translations.rewrite(mask));
+                assignments.put(plan.getFieldMappings().get(i), translations.rewrite(mask));
 
                 planBuilder = planBuilder.withNewRoot(new ProjectNode(
                         idAllocator.getNextId(),
@@ -225,7 +236,7 @@ class RelationPlanner
             }
         }
 
-        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), mappings);
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
     }
 
     @Override
@@ -268,6 +279,12 @@ class RelationPlanner
                 ratio,
                 SampleNode.Type.fromType(node.getType()));
         return new RelationPlan(planNode, analysis.getScope(node), subPlan.getFieldMappings());
+    }
+
+    @Override
+    protected RelationPlan visitLateral(Lateral node, Void context)
+    {
+        return process(node.getQuery(), context);
     }
 
     @Override
@@ -404,15 +421,9 @@ class RelationPlanner
             }
 
             // subqueries can be applied only to one side of join - left side is selected in arbitrary way
-            leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node);
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexJoinExpressions, node);
         }
-        TranslationMap translationMap = translationMapFromSourceOutputs(
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                        .build(),
-                node,
-                outputSymbols);
+        TranslationMap translationMap = initializeTranslationMap(node, outputSymbols);
         translationMap.setFieldMappings(outputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
@@ -603,7 +614,7 @@ class RelationPlanner
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
         Expression filterExpression;
-        if (!join.getCriteria().isPresent()) {
+        if (join.getCriteria().isEmpty()) {
             filterExpression = TRUE_LITERAL;
         }
         else {
@@ -614,18 +625,12 @@ class RelationPlanner
             filterExpression = (Expression) getOnlyElement(criteria.getNodes());
         }
 
-        List<Symbol> rewriterOutputSymbols = ImmutableList.<Symbol>builder()
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
                 .build();
-        TranslationMap translationMap = translationMapFromSourceOutputs(
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
-                        .build(),
-                join,
-                rewriterOutputSymbols);
-        translationMap.setFieldMappings(rewriterOutputSymbols);
+        TranslationMap translationMap = initializeTranslationMap(join, outputSymbols);
+        translationMap.setFieldMappings(outputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
 
@@ -635,14 +640,9 @@ class RelationPlanner
                 leftPlanBuilder,
                 rightPlanBuilder,
                 lateral.getQuery(),
-                true,
                 CorrelatedJoinNode.Type.typeConvert(join.getType()),
                 rewrittenFilterCondition);
 
-        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
-                .addAll(leftPlan.getRoot().getOutputSymbols())
-                .addAll(rightPlan.getRoot().getOutputSymbols())
-                .build();
         return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputSymbols);
     }
 
@@ -653,50 +653,6 @@ class RelationPlanner
 
     private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
     {
-        RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
-        // Create symbols for the result of unnesting
-        ImmutableList.Builder<Symbol> unnestedSymbolsBuilder = ImmutableList.builder();
-        for (Field field : unnestOutputDescriptor.getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            unnestedSymbolsBuilder.add(symbol);
-        }
-        ImmutableList<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
-
-        // TODO do these need translation
-        // Add a projection for all the unnest arguments
-        PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
-        planBuilder = planBuilder.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
-        TranslationMap translations = planBuilder.getTranslations();
-        ProjectNode projectNode = (ProjectNode) planBuilder.getRoot();
-
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        UnmodifiableIterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
-        for (Expression expression : node.getExpressions()) {
-            Type type = analysis.getType(expression);
-            Symbol inputSymbol = translations.get(expression);
-            if (type instanceof ArrayType) {
-                Type elementType = ((ArrayType) type).getElementType();
-                if (elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
-                    for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
-                    }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
-                }
-                else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
-                }
-            }
-            else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
-            }
-        }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-
         Optional<Expression> filterExpression = Optional.empty();
         if (joinNode.getCriteria().isPresent()) {
             JoinCriteria criteria = joinNode.getCriteria().get();
@@ -715,16 +671,48 @@ class RelationPlanner
             }
         }
 
+        return planUnnest(
+                initializePlanBuilder(leftPlan),
+                node,
+                leftPlan.getFieldMappings(),
+                filterExpression,
+                joinNode.getType(),
+                analysis.getScope(joinNode));
+    }
+
+    private RelationPlan planUnnest(PlanBuilder subPlan, Unnest node, List<Symbol> replicatedColumns, Optional<Expression> filter, Join.Type type, Scope outputScope)
+    {
+        subPlan = subPlan.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
+
+        Map<Field, Symbol> allocations = analysis.getOutputDescriptor(node)
+                .getVisibleFields().stream()
+                .collect(toImmutableMap(Function.identity(), symbolAllocator::newSymbol));
+
+        UnnestAnalysis unnestAnalysis = analysis.getUnnest(node);
+
+        ImmutableList.Builder<UnnestNode.Mapping> mappings = ImmutableList.builder();
+        for (Expression expression : node.getExpressions()) {
+            Symbol input = subPlan.translate(expression);
+            List<Symbol> outputs = unnestAnalysis.getMappings().get(NodeRef.of(expression)).stream()
+                    .map(allocations::get)
+                    .collect(toImmutableList());
+
+            mappings.add(new UnnestNode.Mapping(input, outputs));
+        }
+
         UnnestNode unnestNode = new UnnestNode(
                 idAllocator.getNextId(),
-                projectNode,
-                leftPlan.getFieldMappings(),
-                unnestSymbols.build(),
-                ordinalitySymbol,
-                JoinNode.Type.typeConvert(joinNode.getType()),
-                filterExpression);
+                subPlan.getRoot(),
+                replicatedColumns,
+                mappings.build(),
+                unnestAnalysis.getOrdinalityField().map(allocations::get),
+                JoinNode.Type.typeConvert(type),
+                filter);
 
-        return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputSymbols());
+        // TODO: Technically, we should derive the field mappings from the layout of fields and how they relate to the output symbols of the Unnest node.
+        //       That's tricky to do for a Join+Unnest because the allocations come from the Unnest, but the mappings need to be done based on the Join output fields.
+        //       Currently, it works out because, by construction, the order of the output symbols in the UnnestNode will match the order of the fields in the Join node.
+        return new RelationPlan(unnestNode, outputScope, unnestNode.getOutputSymbols());
     }
 
     @Override
@@ -748,6 +736,12 @@ class RelationPlanner
     }
 
     @Override
+    protected RelationPlan visitSubqueryExpression(SubqueryExpression node, Void context)
+    {
+        return process(node.getQuery(), context);
+    }
+
+    @Override
     protected RelationPlan visitValues(Values node, Void context)
     {
         Scope scope = analysis.getScope(node);
@@ -757,7 +751,7 @@ class RelationPlanner
             outputSymbolsBuilder.add(symbol);
         }
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        TranslationMap translationMap = translationMapFromSourceOutputs(ImmutableList.of(), node, outputSymbols);
+        TranslationMap translationMap = initializeTranslationMap(node, outputSymbols);
 
         ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
@@ -784,59 +778,31 @@ class RelationPlanner
     protected RelationPlan visitUnnest(Unnest node, Void context)
     {
         Scope scope = analysis.getScope(node);
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        for (Field field : scope.getRelationType().getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            outputSymbolsBuilder.add(symbol);
-        }
-        List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
 
-        // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
-        TranslationMap translationMap = translationMapFromSourceOutputs(ImmutableList.of(), node, unnestedSymbols);
-        ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
-        ImmutableList.Builder<Expression> values = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
-        for (Expression expression : node.getExpressions()) {
-            Type type = analysis.getType(expression);
-            Expression rewritten = translationMap.rewrite(expression);
-            rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), rewritten);
-            values.add(rewritten);
-            Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);
-            argumentSymbols.add(inputSymbol);
-            if (type instanceof ArrayType) {
-                Type elementType = ((ArrayType) type).getElementType();
-                if (elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
-                    for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
-                    }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
-                }
-                else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
-                }
-            }
-            else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
-            }
-        }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
-
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol, JoinNode.Type.INNER, Optional.empty());
-        return new RelationPlan(unnestNode, scope, unnestedSymbols);
+        return planUnnest(
+                planSingleEmptyRow(scope.getOuterQueryParent()),
+                node,
+                ImmutableList.of(),
+                Optional.empty(),
+                INNER,
+                scope);
     }
 
-    private TranslationMap translationMapFromSourceOutputs(List<Symbol> sourceOutputs, Node node, List<Symbol> outputSymbols)
+    private PlanBuilder planSingleEmptyRow(Optional<Scope> parent)
+    {
+        Scope.Builder scope = Scope.builder();
+        parent.ifPresent(scope::withOuterQueryParent);
+
+        PlanNode values = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of()));
+        TranslationMap translations = new TranslationMap(new RelationPlan(values, scope.build(), ImmutableList.of()), analysis, lambdaDeclarationToSymbolMap);
+        return new PlanBuilder(translations, values);
+    }
+
+    private TranslationMap initializeTranslationMap(Node node, List<Symbol> outputSymbols)
     {
         PlanNode dummy = new ValuesNode(
                 idAllocator.getNextId(),
-                ImmutableList.copyOf(requireNonNull(sourceOutputs, "sourceOutputs is null")),
+                ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null")),
                 ImmutableList.of());
 
         RelationPlan dummyRelationPlan = new RelationPlan(dummy, analysis.getScope(node), outputSymbols);

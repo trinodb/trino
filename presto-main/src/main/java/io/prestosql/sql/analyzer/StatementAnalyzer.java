@@ -43,7 +43,6 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
-import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
@@ -57,6 +56,7 @@ import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
+import io.prestosql.sql.analyzer.Analysis.UnnestAnalysis;
 import io.prestosql.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.SqlParser;
@@ -68,6 +68,7 @@ import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.Analyze;
+import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
@@ -77,7 +78,6 @@ import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.CreateView;
 import io.prestosql.sql.tree.Cube;
 import io.prestosql.sql.tree.Deallocate;
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.DropColumn;
@@ -141,6 +141,7 @@ import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.StartTransaction;
 import io.prestosql.sql.tree.Statement;
+import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.TableSubquery;
@@ -237,6 +238,7 @@ import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.prestosql.sql.tree.Join.Type.FULL;
+import static io.prestosql.sql.tree.Join.Type.INNER;
 import static io.prestosql.sql.tree.Join.Type.RIGHT;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -258,6 +260,7 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
     private final WarningCollector warningCollector;
+    private final CorrelationSupport correlationSupport;
 
     public StatementAnalyzer(
             Analysis analysis,
@@ -265,7 +268,8 @@ class StatementAnalyzer
             SqlParser sqlParser,
             AccessControl accessControl,
             Session session,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -274,6 +278,7 @@ class StatementAnalyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.correlationSupport = requireNonNull(correlationSupport, "correlationAllowed is null");
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)
@@ -283,7 +288,14 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        return new Visitor(outerQueryScope, warningCollector).process(node, Optional.empty());
+        return new Visitor(outerQueryScope, warningCollector, false)
+                .process(node, Optional.empty());
+    }
+
+    public Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope)
+    {
+        return new Visitor(outerQueryScope, warningCollector, true)
+                .process(table, Optional.empty());
     }
 
     /**
@@ -292,15 +304,17 @@ class StatementAnalyzer
      * (if provided) as ancestor.
      */
     private class Visitor
-            extends DefaultTraversalVisitor<Scope, Optional<Scope>>
+            extends AstVisitor<Scope, Optional<Scope>>
     {
         private final Optional<Scope> outerQueryScope;
         private final WarningCollector warningCollector;
+        private final boolean isUpdateQuery;
 
-        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector)
+        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, boolean isUpdateQuery)
         {
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.isUpdateQuery = isUpdateQuery;
         }
 
         @Override
@@ -317,6 +331,12 @@ class StatementAnalyzer
         private Scope process(Node node, Scope scope)
         {
             return process(node, Optional.of(scope));
+        }
+
+        @Override
+        protected Scope visitNode(Node node, Optional<Scope> context)
+        {
+            throw new IllegalStateException("Unsupported node type: " + node.getClass().getName());
         }
 
         @Override
@@ -340,7 +360,7 @@ class StatementAnalyzer
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-            if (!targetTableHandle.isPresent()) {
+            if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
@@ -478,6 +498,22 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
+            TableHandle handle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
+
+            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
+
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
+            }
+
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
+                }
+            }
+
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
             // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
             StatementAnalyzer analyzer = new StatementAnalyzer(
@@ -486,28 +522,13 @@ class StatementAnalyzer
                     sqlParser,
                     new AllowAllAccessControl(),
                     session,
-                    warningCollector);
+                    warningCollector,
+                    CorrelationSupport.ALLOWED);
 
-            Scope tableScope = analyzer.analyze(table, scope);
+            Scope tableScope = analyzer.analyzeForUpdate(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
             analysis.setUpdateType("DELETE", tableName);
-
-            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
-
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
-            }
-
-            TableHandle handle = metadata.getTableHandle(session, tableName)
-                    .orElseThrow(() -> new TableNotFoundException(tableName.asSchemaTableName()));
-
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
-                    throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
-                }
-            }
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -656,7 +677,7 @@ class StatementAnalyzer
             analysis.setUpdateType("CREATE VIEW", viewName);
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -842,7 +863,7 @@ class StatementAnalyzer
             Set<String> names = new HashSet<>();
             for (Field field : descriptor.getVisibleFields()) {
                 Optional<String> fieldName = field.getName();
-                if (!fieldName.isPresent()) {
+                if (fieldName.isEmpty()) {
                     throw semanticException(MISSING_COLUMN_NAME, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1);
                 }
                 if (!names.add(fieldName.get())) {
@@ -900,7 +921,7 @@ class StatementAnalyzer
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
 
-                if (queryBodyScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                if (queryBodyScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(node.getOrderBy().get());
                     warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
@@ -914,7 +935,7 @@ class StatementAnalyzer
 
             if (node.getLimit().isPresent()) {
                 boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
-                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                if (requiresOrderBy && node.getOrderBy().isEmpty()) {
                     throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
             }
@@ -938,8 +959,12 @@ class StatementAnalyzer
         @Override
         protected Scope visitUnnest(Unnest node, Optional<Scope> scope)
         {
+            ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappings = ImmutableMap.<NodeRef<Expression>, List<Field>>builder();
+
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
+                List<Field> expressionOutputs = new ArrayList<>();
+
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
@@ -947,30 +972,40 @@ class StatementAnalyzer
                     if (elementType instanceof RowType) {
                         ((RowType) elementType).getFields().stream()
                                 .map(field -> Field.newUnqualified(field.getName(), field.getType()))
-                                .forEach(outputFields::add);
+                                .forEach(expressionOutputs::add);
                     }
                     else {
-                        outputFields.add(Field.newUnqualified(Optional.empty(), elementType));
+                        expressionOutputs.add(Field.newUnqualified(Optional.empty(), elementType));
                     }
                 }
                 else if (expressionType instanceof MapType) {
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
+                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
+                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
                 }
                 else {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
+
+                outputFields.addAll(expressionOutputs);
+                mappings.put(NodeRef.of(expression), expressionOutputs);
             }
+
+            Optional<Field> ordinalityField = Optional.empty();
             if (node.isWithOrdinality()) {
-                outputFields.add(Field.newUnqualified(Optional.empty(), BIGINT));
+                ordinalityField = Optional.of(Field.newUnqualified(Optional.empty(), BIGINT));
             }
+
+            ordinalityField.ifPresent(outputFields::add);
+
+            analysis.setUnnest(node, new UnnestAnalysis(mappings.build(), ordinalityField));
+
             return createAndAssignScope(node, scope, outputFields.build());
         }
 
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -978,7 +1013,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
-            if (!table.getName().getPrefix().isPresent()) {
+            if (table.getName().getPrefix().isEmpty()) {
                 // is this a reference to a WITH query?
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
                 if (withQuery.isPresent()) {
@@ -996,8 +1031,8 @@ class StatementAnalyzer
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
-            if (!tableHandle.isPresent()) {
-                if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
+            if (tableHandle.isEmpty()) {
+                if (metadata.getCatalogHandle(session, name.getCatalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, table, "Catalog '%s' does not exist", name.getCatalogName());
                 }
                 if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
@@ -1025,11 +1060,28 @@ class StatementAnalyzer
                 analysis.setColumn(field, columnHandle);
             }
 
+            if (isUpdateQuery) {
+                // Add the row id field
+                ColumnHandle column = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get());
+                Type type = metadata.getColumnMetadata(session, tableHandle.get(), column).getType();
+                Field field = Field.newUnqualified(Optional.empty(), type);
+                fields.add(field);
+                analysis.setColumn(field, column);
+            }
+
             List<Field> outputFields = fields.build();
 
             analyzeFiltersAndMasks(table, name, tableHandle, outputFields, session.getIdentity().getUser());
 
-            return createAndAssignScope(table, scope, outputFields);
+            Scope tableScope = createAndAssignScope(table, scope, outputFields);
+
+            if (isUpdateQuery) {
+                FieldReference reference = new FieldReference(outputFields.size() - 1);
+                analyzeExpression(reference, tableScope);
+                analysis.setRowIdField(table, reference);
+            }
+
+            return tableScope;
         }
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
@@ -1040,10 +1092,12 @@ class StatementAnalyzer
 
             ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
             for (Field field : fields) {
-                List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
-                columnMasks.put(field, masks);
+                if (field.getName().isPresent()) {
+                    List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
+                    columnMasks.put(field, masks);
 
-                masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+                    masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+                }
             }
 
             List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
@@ -1216,7 +1270,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1249,7 +1303,7 @@ class StatementAnalyzer
                     verifySelectDistinct(node, outputExpressions);
                 }
 
-                if (sourceScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                if (sourceScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
                     warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
@@ -1263,7 +1317,7 @@ class StatementAnalyzer
 
             if (node.getLimit().isPresent()) {
                 boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
-                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                if (requiresOrderBy && node.getOrderBy().isEmpty()) {
                     throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
             }
@@ -1287,6 +1341,12 @@ class StatementAnalyzer
             }
 
             return outputScope;
+        }
+
+        @Override
+        protected Scope visitSubqueryExpression(SubqueryExpression node, Optional<Scope> context)
+        {
+            return process(node.getQuery(), context);
         }
 
         @Override
@@ -1321,7 +1381,7 @@ class StatementAnalyzer
                 for (int i = 0; i < descFieldSize; i++) {
                     Type descFieldType = relationType.getFieldByIndex(i).getType();
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(outputFieldTypes[i], descFieldType);
-                    if (!commonSuperType.isPresent()) {
+                    if (commonSuperType.isEmpty()) {
                         throw semanticException(
                                 TYPE_MISMATCH,
                                 node,
@@ -1436,8 +1496,9 @@ class StatementAnalyzer
             if (criteria instanceof JoinOn) {
                 Expression expression = ((JoinOn) criteria).getExpression();
 
-                // need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, output);
+                // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
+                // Correlations are only currently support in the join criteria for INNER joins
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, output, node.getType() == INNER ? CorrelationSupport.ALLOWED : CorrelationSupport.DISALLOWED);
                 Type clauseType = expressionAnalysis.getType(expression);
                 if (!clauseType.equals(BOOLEAN)) {
                     if (!clauseType.equals(UNKNOWN)) {
@@ -1475,10 +1536,10 @@ class StatementAnalyzer
                 Optional<ResolvedField> leftField = left.tryResolveField(column);
                 Optional<ResolvedField> rightField = right.tryResolveField(column);
 
-                if (!leftField.isPresent()) {
+                if (leftField.isEmpty()) {
                     throw semanticException(COLUMN_NOT_FOUND, column, "Column '%s' is missing from left side of join", column.getValue());
                 }
-                if (!rightField.isPresent()) {
+                if (rightField.isEmpty()) {
                     throw semanticException(COLUMN_NOT_FOUND, column, "Column '%s' is missing from right side of join", column.getValue());
                 }
 
@@ -1572,7 +1633,7 @@ class StatementAnalyzer
                     Type superType = fieldTypes.get(i);
 
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(fieldType, superType);
-                    if (!commonSuperType.isPresent()) {
+                    if (commonSuperType.isEmpty()) {
                         throw semanticException(TYPE_MISMATCH,
                                 node,
                                 "Values rows have mismatched types: %s vs %s",
@@ -1661,7 +1722,7 @@ class StatementAnalyzer
                 // TODO get function requirements from window function metadata when we have it
                 String name = windowFunction.getName().toString().toLowerCase(ENGLISH);
                 if (name.equals("lag") || name.equals("lead")) {
-                    if (!window.getOrderBy().isPresent()) {
+                    if (window.getOrderBy().isEmpty()) {
                         throw semanticException(MISSING_ORDER_BY, window, "%s function requires an ORDER BY window clause", windowFunction.getName());
                     }
                     if (window.getFrame().isPresent()) {
@@ -1976,7 +2037,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    if (!field.isPresent()) {
+                    if (field.isEmpty()) {
                         if (name != null) {
                             field = Optional.of(getLast(name.getOriginalParts()));
                         }
@@ -2084,7 +2145,7 @@ class StatementAnalyzer
                 if (prefix != null) {
                     // analyze prefix as an 'asterisked identifier chain'
                     Optional<AsteriskedIdentifierChainBasis> identifierChainBasis = scope.resolveAsteriskedIdentifierChainBasis(prefix, allColumns);
-                    if (!identifierChainBasis.isPresent()) {
+                    if (identifierChainBasis.isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference %s", prefix);
                     }
                     if (identifierChainBasis.get().getBasisType() == TABLE) {
@@ -2117,7 +2178,7 @@ class StatementAnalyzer
 
                 List<Field> fields = (List<Field>) scope.getRelationType().getVisibleFields();
                 if (fields.isEmpty()) {
-                    if (!node.getFrom().isPresent()) {
+                    if (node.getFrom().isEmpty()) {
                         throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed in queries without FROM clause");
                     }
                     throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
@@ -2150,7 +2211,7 @@ class StatementAnalyzer
                     fieldExpression = new FieldReference(relationType.indexOf(field));
                 }
                 else {
-                    if (!field.getName().isPresent()) {
+                    if (field.getName().isEmpty()) {
                         throw semanticException(NOT_SUPPORTED, node.getSelect(), "SELECT * from outer scope table not supported with anonymous columns");
                     }
                     checkState(field.getRelationAlias().isPresent(), "missing relation alias");
@@ -2281,7 +2342,7 @@ class StatementAnalyzer
             List<GroupingOperation> groupingOperations = extractExpressions(Iterables.concat(outputExpressions, orderByExpressions), GroupingOperation.class);
             boolean isGroupingOperationPresent = !groupingOperations.isEmpty();
 
-            if (isGroupingOperationPresent && !node.getGroupBy().isPresent()) {
+            if (isGroupingOperationPresent && node.getGroupBy().isEmpty()) {
                 throw semanticException(
                         MISSING_GROUP_BY,
                         node,
@@ -2340,7 +2401,7 @@ class StatementAnalyzer
                 // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
                 Session viewSession = createViewSession(catalog, schema, identity, session.getPath());
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector, CorrelationSupport.ALLOWED);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -2399,7 +2460,22 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
-                    warningCollector);
+                    warningCollector,
+                    correlationSupport);
+        }
+
+        private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope, CorrelationSupport correlationSupport)
+        {
+            return ExpressionAnalyzer.analyzeExpression(
+                    session,
+                    metadata,
+                    accessControl,
+                    sqlParser,
+                    scope,
+                    analysis,
+                    expression,
+                    warningCollector,
+                    correlationSupport);
         }
 
         private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
@@ -2427,7 +2503,8 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector);
+                        warningCollector,
+                        correlationSupport);
             }
             catch (PrestoException e) {
                 throw new PrestoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
@@ -2480,7 +2557,8 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector);
+                        warningCollector,
+                        correlationSupport);
             }
             catch (PrestoException e) {
                 throw new PrestoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
@@ -2526,7 +2604,7 @@ class StatementAnalyzer
         private Scope analyzeWith(Query node, Optional<Scope> scope)
         {
             // analyze WITH clause
-            if (!node.getWith().isPresent()) {
+            if (node.getWith().isEmpty()) {
                 return createScope(scope);
             }
             With with = node.getWith().get();
@@ -2614,7 +2692,8 @@ class StatementAnalyzer
                         orderByScope,
                         analysis,
                         expression,
-                        WarningCollector.NOOP);
+                        WarningCollector.NOOP,
+                        correlationSupport);
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type type = analysis.getType(expression);
@@ -2662,7 +2741,7 @@ class StatementAnalyzer
 
         private boolean analyzeLimit(FetchFirst node)
         {
-            if (!node.getRowCount().isPresent()) {
+            if (node.getRowCount().isEmpty()) {
                 analysis.setLimit(node, 1);
             }
             else {
@@ -2766,7 +2845,7 @@ class StatementAnalyzer
                 .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                 .setUserAgent(session.getUserAgent().orElse(null))
                 .setClientInfo(session.getClientInfo().orElse(null))
-                .setStartTime(session.getStartTime())
+                .setStart(session.getStart())
                 .build();
     }
 

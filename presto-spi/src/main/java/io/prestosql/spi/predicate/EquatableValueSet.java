@@ -34,11 +34,11 @@ import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * A set containing values that are uniquely identifiable.
@@ -169,9 +169,9 @@ public class EquatableValueSet
         if (!isDiscreteSet()) {
             throw new IllegalStateException("EquatableValueSet is not a discrete set");
         }
-        return unmodifiableList(entries.stream()
+        return entries.stream()
                 .map(ValueEntry::getValue)
-                .collect(Collectors.toList()));
+                .collect(toUnmodifiableList());
     }
 
     @Override
@@ -244,6 +244,25 @@ public class EquatableValueSet
     }
 
     @Override
+    public boolean overlaps(ValueSet other)
+    {
+        EquatableValueSet otherValueSet = checkCompatibility(other);
+
+        if (whiteList && otherValueSet.isWhiteList()) {
+            return setsOverlap(entries, otherValueSet.entries);
+        }
+        else if (whiteList) {
+            return !otherValueSet.entries.containsAll(entries);
+        }
+        else if (otherValueSet.isWhiteList()) {
+            return !entries.containsAll(otherValueSet.entries);
+        }
+        else {
+            return true;
+        }
+    }
+
+    @Override
     public EquatableValueSet union(ValueSet other)
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
@@ -269,6 +288,15 @@ public class EquatableValueSet
     }
 
     @Override
+    public String toString()
+    {
+        return format(
+                "%s[... (%d elements) ...]",
+                whiteList ? "" : "EXCLUDES",
+                entries.size());
+    }
+
+    @Override
     public String toString(ConnectorSession session)
     {
         return (whiteList ? "[ " : "EXCLUDES[ ") + entries.stream()
@@ -278,9 +306,25 @@ public class EquatableValueSet
 
     private static <T> Set<T> intersect(Set<T> set1, Set<T> set2)
     {
+        if (set1.size() > set2.size()) {
+            return intersect(set2, set1);
+        }
         return set1.stream()
                 .filter(set2::contains)
                 .collect(toLinkedSet());
+    }
+
+    private static <T> boolean setsOverlap(Set<T> set1, Set<T> set2)
+    {
+        if (set1.size() > set2.size()) {
+            return setsOverlap(set2, set1);
+        }
+        for (T element : set1) {
+            if (set2.contains(element)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static <T> Set<T> union(Set<T> set1, Set<T> set2)

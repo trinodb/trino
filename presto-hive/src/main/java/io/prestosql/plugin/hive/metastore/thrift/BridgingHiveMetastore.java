@@ -209,7 +209,7 @@ public class BridgingHiveMetastore
     public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (!source.isPresent()) {
+        if (source.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
@@ -222,7 +222,7 @@ public class BridgingHiveMetastore
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (!source.isPresent()) {
+        if (source.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
@@ -240,7 +240,7 @@ public class BridgingHiveMetastore
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (!source.isPresent()) {
+        if (source.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
@@ -253,7 +253,7 @@ public class BridgingHiveMetastore
     public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
         Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (!source.isPresent()) {
+        if (source.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();

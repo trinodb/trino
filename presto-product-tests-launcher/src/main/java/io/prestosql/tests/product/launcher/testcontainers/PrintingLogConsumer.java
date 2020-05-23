@@ -17,11 +17,7 @@ import io.airlift.log.Logger;
 import org.testcontainers.containers.output.BaseConsumer;
 import org.testcontainers.containers.output.OutputFrame;
 
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.output.OutputFrame.OutputType.END;
@@ -31,21 +27,13 @@ public final class PrintingLogConsumer
 {
     private static final Logger log = Logger.get(PrintingLogConsumer.class);
 
+    private final PrintStream out;
     private final String prefix;
 
-    private final PrintStream out;
-
-    public PrintingLogConsumer(String prefix)
+    public PrintingLogConsumer(PrintStream out, String prefix)
     {
+        this.out = requireNonNull(out, "out is null");
         this.prefix = requireNonNull(prefix, "prefix is null");
-
-        try {
-            // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
-            this.out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override
@@ -63,5 +51,6 @@ public final class PrintingLogConsumer
         if (outputFrame.getType() == END) {
             out.println(prefix + "(exited)");
         }
+        out.flush();
     }
 }

@@ -63,13 +63,13 @@ public class SetPathTask
         SqlPath sqlPath = new SqlPath(Optional.of(statement.getPathSpecification().toString()));
 
         for (SqlPathElement element : sqlPath.getParsedPath()) {
-            if (!element.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+            if (element.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
                 throw semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified for each path element when session catalog is not set");
             }
 
             element.getCatalog().ifPresent(catalog -> {
                 String catalogName = catalog.getValue().toLowerCase(ENGLISH);
-                if (!metadata.getCatalogHandle(session, catalogName).isPresent()) {
+                if (metadata.getCatalogHandle(session, catalogName).isEmpty()) {
                     throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName);
                 }
             });

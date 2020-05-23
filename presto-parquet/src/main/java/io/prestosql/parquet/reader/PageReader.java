@@ -24,7 +24,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
-import static java.lang.Math.toIntExact;
 
 class PageReader
 {
@@ -72,9 +71,9 @@ class PageReader
                 if (!dataPageV2.isCompressed()) {
                     return dataPageV2;
                 }
-                int uncompressedSize = toIntExact(dataPageV2.getUncompressedSize()
+                int uncompressedSize = dataPageV2.getUncompressedSize()
                         - dataPageV2.getDefinitionLevels().length()
-                        - dataPageV2.getRepetitionLevels().length());
+                        - dataPageV2.getRepetitionLevels().length();
                 return new DataPageV2(
                         dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),

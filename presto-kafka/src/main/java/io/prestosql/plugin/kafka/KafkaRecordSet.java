@@ -188,10 +188,10 @@ public class KafkaRecordSet
                             currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
                             break;
                         case KEY_CORRUPT_FIELD:
-                            currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedKey.isPresent()));
+                            currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedKey.isEmpty()));
                             break;
                         case MESSAGE_CORRUPT_FIELD:
-                            currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedValue.isPresent()));
+                            currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
                             break;
                         case PARTITION_ID_FIELD:
                             currentRowValuesMap.put(columnHandle, longValueProvider(message.partition()));

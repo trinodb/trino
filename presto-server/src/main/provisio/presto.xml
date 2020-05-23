@@ -22,7 +22,7 @@
 
     <!-- Server -->
     <artifactSet to="lib">
-        <artifact id="${project.groupId}:presto-main:${project.version}" />
+        <artifact id="${project.groupId}:presto-server-main:${project.version}" />
     </artifactSet>
 
     <!-- Plugins -->
@@ -122,8 +122,20 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/memsql">
+        <artifact id="${project.groupId}:presto-memsql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/mysql">
         <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/oracle">
+        <artifact id="${project.groupId}:presto-oracle:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -229,4 +241,9 @@
             <unpack />
         </artifact>
     </artifactSet>
+    <artifactSet to="plugin/presto-pinot">
+        <artifact id="${project.groupId}:presto-pinot:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>	
 </runtime>

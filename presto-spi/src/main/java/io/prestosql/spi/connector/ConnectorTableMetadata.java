@@ -13,7 +13,6 @@
  */
 package io.prestosql.spi.connector;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,7 +46,7 @@ public class ConnectorTableMetadata
         requireNonNull(comment, "comment is null");
 
         this.table = table;
-        this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
+        this.columns = List.copyOf(columns);
         this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
         this.comment = comment;
     }

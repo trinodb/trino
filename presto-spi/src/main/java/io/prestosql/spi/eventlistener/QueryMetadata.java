@@ -27,6 +27,7 @@ public class QueryMetadata
     private final Optional<String> transactionId;
 
     private final String query;
+    private final Optional<String> updateType;
     private final Optional<String> preparedQuery;
     private final String queryState;
 
@@ -43,6 +44,7 @@ public class QueryMetadata
             String queryId,
             Optional<String> transactionId,
             String query,
+            Optional<String> updateType,
             Optional<String> preparedQuery,
             String queryState,
             List<TableInfo> tables,
@@ -54,6 +56,7 @@ public class QueryMetadata
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.query = requireNonNull(query, "query is null");
+        this.updateType = requireNonNull(updateType, "updateType is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryState = requireNonNull(queryState, "queryState is null");
         this.tables = requireNonNull(tables, "tables is null");
@@ -79,6 +82,12 @@ public class QueryMetadata
     public String getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public Optional<String> getUpdateType()
+    {
+        return updateType;
     }
 
     @JsonProperty

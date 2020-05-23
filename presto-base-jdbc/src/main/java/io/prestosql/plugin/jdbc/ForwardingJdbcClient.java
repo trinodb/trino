@@ -190,9 +190,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        return delegate().isLimitGuaranteed();
+        return delegate().isLimitGuaranteed(session);
     }
 
     @Override

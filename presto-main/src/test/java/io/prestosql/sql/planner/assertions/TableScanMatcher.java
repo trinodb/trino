@@ -60,7 +60,7 @@ final class TableScanMatcher
         String actualTableName = tableMetadata.getTable().getTableName();
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
-                        ((!expectedConstraint.isPresent()) ||
+                        ((expectedConstraint.isEmpty()) ||
                                 domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)));
     }
 

@@ -26,6 +26,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSetProvider
@@ -44,6 +45,13 @@ public class JdbcRecordSetProvider
     {
         JdbcSplit jdbcSplit = (JdbcSplit) split;
         JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
+
+        // In the current API, the columns (and order) needed by the engine are provided via an argument to this method. Make sure that
+        // any columns that were recorded in the table handle match the requested set.
+        // If no columns are recorded, it means that applyProjection never got called (e.g., in the case all columns are being used) and all
+        // table columns should be returned. TODO: this is something that should be addressed once the getRecordSet API is revamped
+        jdbcTable.getColumns()
+                .ifPresent(tableColumns -> verify(columns.equals(tableColumns)));
 
         ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {

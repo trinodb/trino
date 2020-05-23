@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -97,6 +98,30 @@ public class IcebergTableHandle
     public SchemaTableName getSchemaTableNameWithType()
     {
         return new SchemaTableName(schemaName, tableName + "$" + tableType.name());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        IcebergTableHandle that = (IcebergTableHandle) o;
+        return Objects.equals(schemaName, that.schemaName) &&
+                Objects.equals(tableName, that.tableName) &&
+                tableType == that.tableType &&
+                Objects.equals(snapshotId, that.snapshotId) &&
+                Objects.equals(predicate, that.predicate);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, predicate);
     }
 
     @Override

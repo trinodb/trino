@@ -217,7 +217,7 @@ public class TpcdsMetadata
 
     private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return listSchemaNames(session);
         }
         if (schemaNameToScaleFactor(schemaName.get()) > 0) {

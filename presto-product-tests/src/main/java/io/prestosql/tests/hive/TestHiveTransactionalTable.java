@@ -17,6 +17,8 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -32,8 +34,9 @@ import static java.util.stream.Collectors.joining;
 public class TestHiveTransactionalTable
         extends HiveProductTest
 {
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider")
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 5 * 60 * 1000)
     public void testReadFullAcid(boolean isPartitioned, BucketingType bucketingType)
+            throws InterruptedException, ExecutionException, TimeoutException
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
@@ -59,21 +62,30 @@ public class TestHiveTransactionalTable
             // test filtering
             assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
 
+            // test minor compacted data read
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
+            onHive().executeQuery("ALTER TABLE " + tableName + " " + hivePartitionString + " COMPACT 'MINOR' AND WAIT");
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
+
             // delete a row
             onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol=2");
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1));
 
             // update the existing row
             String predicate = "fcol = 1" + (isPartitioned ? " AND part_col = 2 " : "");
             onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE " + predicate);
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(23, 1));
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
+
+            // test major compaction
+            onHive().executeQuery("ALTER TABLE " + tableName + " " + hivePartitionString + " COMPACT 'MAJOR' AND WAIT");
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider")
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 5 * 60 * 1000)
     public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -98,8 +110,17 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 2");
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
 
+            // test minor compacted data read
+            onHive().executeQuery("ALTER TABLE " + tableName + " " + hivePartitionString + " COMPACT 'MINOR' AND WAIT");
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
+
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
             assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3));
+
+            // test major compaction
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
+            onHive().executeQuery("ALTER TABLE " + tableName + " " + hivePartitionString + " COMPACT 'MAJOR' AND WAIT");
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);

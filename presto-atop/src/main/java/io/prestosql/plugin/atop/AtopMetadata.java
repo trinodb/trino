@@ -97,7 +97,7 @@ public class AtopMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return Stream.of(AtopTable.values())
                     .map(table -> new SchemaTableName(environment, table.getName()))
                     .collect(Collectors.toList());

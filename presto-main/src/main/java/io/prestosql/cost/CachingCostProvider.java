@@ -99,7 +99,7 @@ public class CachingCostProvider
         }
 
         PlanCostEstimate cost = calculateCost(memo.getNode(group));
-        verify(!memo.getCost(group).isPresent(), "Group cost already set");
+        verify(memo.getCost(group).isEmpty(), "Group cost already set");
         memo.storeCost(group, cost);
         return cost;
     }

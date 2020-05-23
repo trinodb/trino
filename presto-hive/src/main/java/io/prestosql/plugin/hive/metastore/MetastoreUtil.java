@@ -207,7 +207,7 @@ public final class MetastoreUtil
 
     public static String getPartitionLocation(Table table, Optional<Partition> partition)
     {
-        if (!partition.isPresent()) {
+        if (partition.isEmpty()) {
             return table.getStorage().getLocation();
         }
         return partition.get().getStorage().getLocation();

@@ -20,6 +20,7 @@ import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
@@ -28,7 +29,6 @@ import javax.inject.Inject;
 import java.time.Duration;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 
 @TestsEnvironment
@@ -36,15 +36,17 @@ public final class SinglenodeCassandra
         extends AbstractEnvironmentProvider
 {
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
 
     public static final String CONTAINER_PRESTO_CASSANDRA_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/cassandra.properties";
     public static final int CASSANDRA_PORT = 9042;
 
     @Inject
-    protected SinglenodeCassandra(DockerFiles dockerFiles, Standard standard)
+    protected SinglenodeCassandra(DockerFiles dockerFiles, PortBinder portBinder, Standard standard)
     {
         super(ImmutableList.of(standard));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 
     @Override
@@ -69,7 +71,7 @@ public final class SinglenodeCassandra
                 .waitingFor(new SelectedPortWaitStrategy(CASSANDRA_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
 
-        exposePort(container, CASSANDRA_PORT);
+        portBinder.exposePort(container, CASSANDRA_PORT);
 
         return container;
     }

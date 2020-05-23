@@ -29,6 +29,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.SymbolReference;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,11 +58,11 @@ public class LocalDynamicFilter
 
     private final SettableFuture<Map<Symbol, Domain>> resultFuture;
 
-    // The resulting predicate for local dynamic filtering.
-    private TupleDomain<String> result;
+    // Number of build-side partitions to be collected.
+    private final int partitionCount;
 
-    // Number of partitions left to be processed.
-    private int partitionsLeft;
+    // The resulting predicates from each build-side partition.
+    private final List<TupleDomain<String>> partitions;
 
     public LocalDynamicFilter(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, TypeProvider types, int partitionCount)
     {
@@ -72,21 +73,21 @@ public class LocalDynamicFilter
 
         this.resultFuture = SettableFuture.create();
 
-        this.result = TupleDomain.none();
-        this.partitionsLeft = partitionCount;
+        this.partitionCount = partitionCount;
+        this.partitions = new ArrayList<>(partitionCount);
     }
 
     private synchronized void addPartition(TupleDomain<String> tupleDomain)
     {
         // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
-        partitionsLeft -= 1;
-        verify(partitionsLeft >= 0);
+        verify(partitions.size() < partitionCount);
         // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
         // See the comment at TupleDomain::columnWiseUnion() for more details.
-        result = TupleDomain.columnWiseUnion(result, tupleDomain);
-        if (partitionsLeft == 0) {
+        partitions.add(tupleDomain);
+        if (partitions.size() == partitionCount) {
+            Map<Symbol, Domain> result = convertTupleDomain(TupleDomain.columnWiseUnion(partitions));
             // No more partitions are left to be processed.
-            verify(resultFuture.set(convertTupleDomain(result)), "dynamic filter result is provided more than once");
+            resultFuture.set(result);
         }
     }
 
@@ -188,8 +189,8 @@ public class LocalDynamicFilter
         return toStringHelper(this)
                 .add("probeSymbols", probeSymbols)
                 .add("buildChannels", buildChannels)
-                .add("result", result)
-                .add("partitionsLeft", partitionsLeft)
+                .add("partitionCount", partitionCount)
+                .add("partitions", partitions)
                 .toString();
     }
 }

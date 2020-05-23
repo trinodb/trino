@@ -62,12 +62,12 @@ public class SchemaTablePrefix
             return false;
         }
 
-        return !tableName.isPresent() || tableName.get().equals(schemaTableName.getTableName());
+        return tableName.isEmpty() || tableName.get().equals(schemaTableName.getTableName());
     }
 
     public boolean isEmpty()
     {
-        return !schemaName.isPresent();
+        return schemaName.isEmpty();
     }
 
     public SchemaTableName toSchemaTableName()

@@ -27,7 +27,6 @@ import io.airlift.units.Duration;
 import io.prestosql.execution.SplitRunner;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskManagerConfig;
-import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.Managed;
@@ -68,6 +67,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.execution.executor.MultilevelSplitQueue.computeLevel;
 import static io.prestosql.util.MoreMath.min;
+import static io.prestosql.version.EmbedVersion.testingVersionEmbedder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -171,13 +171,13 @@ public class TaskExecutor
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, testingVersionEmbedder(), new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), splitQueue, ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, testingVersionEmbedder(), splitQueue, ticker);
     }
 
     @VisibleForTesting
@@ -258,7 +258,7 @@ public class TaskExecutor
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
-        checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
+        checkArgument(maxDriversPerTask.isEmpty() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
         log.debug("Task scheduled " + taskId);

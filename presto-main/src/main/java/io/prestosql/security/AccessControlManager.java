@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.prestosql.FullConnectorSecurityContext;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
@@ -27,6 +26,7 @@ import io.prestosql.plugin.base.security.FileBasedSystemAccessControl;
 import io.prestosql.plugin.base.security.ForwardingSystemAccessControl;
 import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -189,7 +189,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(userName, "userName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity), userName));
+        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity, Optional.empty()), userName));
     }
 
     @Override
@@ -207,7 +207,7 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(new SystemSecurityContext(identity)));
+        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(new SystemSecurityContext(identity, Optional.empty())));
     }
 
     @Override
@@ -215,14 +215,14 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
     }
 
     @Override
     public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
     {
         for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
-            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwners);
+            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
         }
         return queryOwners;
     }
@@ -233,7 +233,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(queryOwner, "queryOwner is null");
 
-        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
     }
 
     @Override
@@ -243,7 +243,7 @@ public class AccessControlManager
         requireNonNull(catalogs, "catalogs is null");
 
         for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
-            catalogs = systemAccessControl.filterCatalogs(new SystemSecurityContext(identity), catalogs);
+            catalogs = systemAccessControl.filterCatalogs(new SystemSecurityContext(identity, Optional.empty()), catalogs);
         }
         return catalogs;
     }
@@ -333,6 +333,19 @@ public class AccessControlManager
             schemaNames = entry.getAccessControl().filterSchemas(entry.toConnectorSecurityContext(securityContext), schemaNames);
         }
         return schemaNames;
+    }
+
+    @Override
+    public void checkCanShowCreateSchema(SecurityContext securityContext, CatalogSchemaName schemaName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowCreateSchema(securityContext.toSystemSecurityContext(), schemaName));
+
+        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanShowCreateSchema(context, schemaName.getSchemaName()));
     }
 
     @Override
@@ -635,7 +648,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(propertyName, "propertyName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(new SystemSecurityContext(identity), propertyName));
+        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(new SystemSecurityContext(identity, Optional.empty()), propertyName));
     }
 
     @Override
@@ -928,14 +941,15 @@ public class AccessControlManager
 
         public ConnectorSecurityContext toConnectorSecurityContext(SecurityContext securityContext)
         {
-            return toConnectorSecurityContext(securityContext.getTransactionId(), securityContext.getIdentity());
+            return toConnectorSecurityContext(securityContext.getTransactionId(), securityContext.getIdentity(), securityContext.getQueryId());
         }
 
-        public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity)
+        public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity, QueryId queryId)
         {
-            return new FullConnectorSecurityContext(
+            return new ConnectorSecurityContext(
                     transactionManager.getConnectorTransaction(requiredTransactionId, catalogName),
-                    identity.toConnectorIdentity(catalogName.getCatalogName()));
+                    identity.toConnectorIdentity(catalogName.getCatalogName()),
+                    queryId);
         }
     }
 

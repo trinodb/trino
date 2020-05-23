@@ -189,15 +189,18 @@ public class UnaliasSymbolReferences
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
-                builder.put(canonicalize(entry.getKey()), entry.getValue());
+
+            ImmutableList.Builder<UnnestNode.Mapping> mappings = ImmutableList.builder();
+
+            for (UnnestNode.Mapping mapping : node.getMappings()) {
+                mappings.add(new UnnestNode.Mapping(canonicalize(mapping.getInput()), mapping.getOutputs()));
             }
+
             return new UnnestNode(
                     node.getId(),
                     source,
                     canonicalizeAndDistinct(node.getReplicateSymbols()),
-                    builder.build(),
+                    mappings.build(),
                     node.getOrdinalitySymbol(),
                     node.getJoinType(),
                     node.getFilter().map(this::canonicalize));
@@ -413,7 +416,14 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberSymbol()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashSymbol()));
+            return new RowNumberNode(
+                    node.getId(),
+                    context.rewrite(node.getSource()),
+                    canonicalizeAndDistinct(node.getPartitionBy()),
+                    node.isOrderSensitive(),
+                    canonicalize(node.getRowNumberSymbol()),
+                    node.getMaxRowCountPerPartition(),
+                    canonicalize(node.getHashSymbol()));
         }
 
         @Override
@@ -582,7 +592,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
         {
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupSymbols()), node.getOutputSymbols(), node.getAssignments(), node.getCurrentConstraint());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupSymbols()), node.getOutputSymbols(), node.getAssignments());
         }
 
         @Override

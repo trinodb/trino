@@ -15,7 +15,10 @@ package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
+import java.util.List;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -58,5 +61,17 @@ public class ViewAccessControl
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
         delegate.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    {
+        return delegate.getRowFilters(context, tableName);
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    {
+        return delegate.getColumnMasks(context, tableName, columnName, type);
     }
 }

@@ -15,9 +15,19 @@ package io.prestosql.plugin.hive.rubix;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.base.CatalogName;
+import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
+import io.prestosql.spi.NodeManager;
 
+import javax.inject.Singleton;
+
+import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -29,7 +39,20 @@ public class RubixModule
     {
         configBinder(binder).bindConfig(RubixConfig.class);
         binder.bind(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
-        binder.bind(RubixInitializer.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    public RubixInitializer createRubixInitializer(
+            RubixConfig rubixConfig,
+            NodeManager nodeManager,
+            CatalogName catalogName,
+            Set<DynamicConfigurationProvider> configProviders,
+            HdfsConfigurationInitializer hdfsConfigurationInitializer)
+    {
+        checkArgument(configProviders.size() == 1, "Rubix cache does not work with dynamic configuration providers");
+        RubixConfigurationInitializer configProvider = (RubixConfigurationInitializer) getOnlyElement(configProviders);
+        return new RubixInitializer(rubixConfig, nodeManager, catalogName, configProvider, hdfsConfigurationInitializer);
     }
 }

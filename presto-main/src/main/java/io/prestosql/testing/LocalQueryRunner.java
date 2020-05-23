@@ -106,8 +106,8 @@ import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.PluginManager;
 import io.prestosql.server.PluginManagerConfig;
-import io.prestosql.server.ServerConfig;
 import io.prestosql.server.SessionPropertyDefaults;
+import io.prestosql.server.security.CertificateAuthenticatorManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
@@ -173,7 +173,6 @@ import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
 import io.prestosql.util.FinalizerService;
-import io.prestosql.version.EmbedVersion;
 import org.intellij.lang.annotations.Language;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
@@ -211,6 +210,7 @@ import static io.prestosql.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static io.prestosql.version.EmbedVersion.testingVersionEmbedder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -281,7 +281,7 @@ public class LocalQueryRunner
     {
         requireNonNull(defaultSession, "defaultSession is null");
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
-        checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
+        checkArgument(defaultSession.getTransactionId().isEmpty() || !withInitialTransaction, "Already in transaction");
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
@@ -344,7 +344,7 @@ public class LocalQueryRunner
                 new HandleResolver(),
                 nodeManager,
                 nodeInfo,
-                new EmbedVersion(new ServerConfig()),
+                testingVersionEmbedder(),
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
@@ -369,6 +369,7 @@ public class LocalQueryRunner
                 new NoOpResourceGroupManager(),
                 accessControl,
                 new PasswordAuthenticatorManager(),
+                new CertificateAuthenticatorManager(),
                 eventListenerManager,
                 new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo));
@@ -399,7 +400,7 @@ public class LocalQueryRunner
                 defaultSession.getClientTags(),
                 defaultSession.getClientCapabilities(),
                 defaultSession.getResourceEstimates(),
-                defaultSession.getStartTime(),
+                defaultSession.getStart(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
                 defaultSession.getUnprocessedCatalogProperties(),

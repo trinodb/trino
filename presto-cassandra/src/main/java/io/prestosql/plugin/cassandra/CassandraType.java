@@ -454,7 +454,7 @@ public enum CassandraType
 
     public static boolean isFullySupported(DataType dataType)
     {
-        if (!toCassandraType(dataType.getName()).isPresent()) {
+        if (toCassandraType(dataType.getName()).isEmpty()) {
             return false;
         }
 

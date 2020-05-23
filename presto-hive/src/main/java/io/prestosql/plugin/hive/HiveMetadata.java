@@ -29,6 +29,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Column;
@@ -48,6 +49,7 @@ import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -65,11 +67,16 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
 import io.prestosql.spi.connector.InMemoryRecordSet;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
+import io.prestosql.spi.connector.ProjectionApplicationResult.Assignment;
+import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.connector.ViewNotFoundException;
+import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -101,6 +108,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -118,6 +126,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -126,6 +135,9 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
 import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getPartitionList;
+import static io.prestosql.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.prestosql.plugin.hive.HiveApplyProjectionUtil.find;
+import static io.prestosql.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -135,6 +147,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
@@ -150,6 +163,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isBucketExecutionEn
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isProjectionPushdownEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -257,6 +271,8 @@ public class HiveMetadata
     private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = serdeConstants.ESCAPE_CHAR;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
+    public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
+    public static final String DELTA_LAKE_PROVIDER = "delta";
 
     private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
@@ -337,8 +353,12 @@ public class HiveMetadata
             return null;
         }
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return null;
+        }
+
+        if (isDeltaLakeTable(table.get())) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Cannot query Delta Lake table");
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
@@ -418,7 +438,7 @@ public class HiveMetadata
     private Optional<SystemTable> getPropertiesSystemTable(ConnectorSession session, SchemaTableName tableName, SchemaTableName sourceTableName)
     {
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName());
-        if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (table.isEmpty() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
             throw new TableNotFoundException(tableName);
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
@@ -520,7 +540,7 @@ public class HiveMetadata
     private ConnectorTableMetadata doGetTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
-        if (!table.isPresent() || (!translateHiveViews && isHiveOrPrestoView(table.get()))) {
+        if (table.isEmpty() || (!translateHiveViews && isHiveOrPrestoView(table.get()))) {
             throw new TableNotFoundException(tableName);
         }
 
@@ -708,7 +728,7 @@ public class HiveMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
         SchemaTableName tableName = prefix.toSchemaTableName();
@@ -716,7 +736,7 @@ public class HiveMetadata
             return ImmutableList.of();
         }
         try {
-            if (!metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName()).isPresent()) {
+            if (metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName()).isEmpty()) {
                 return ImmutableList.of();
             }
         }
@@ -794,7 +814,7 @@ public class HiveMetadata
             throw new PrestoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
         }
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session, schemaName, tableName));
 
@@ -816,11 +836,12 @@ public class HiveMetadata
             }
 
             external = true;
-            targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
+            targetPath = getExternalLocationAsPath(externalLocation);
+            checkExternalPath(new HdfsContext(session, schemaName, tableName), targetPath);
         }
         else {
             external = false;
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty());
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
 
@@ -975,19 +996,27 @@ public class HiveMetadata
         }
     }
 
-    private Path getExternalPath(HdfsContext context, String location)
+    private static Path getExternalLocationAsPath(String location)
     {
         try {
-            Path path = new Path(location);
+            return new Path(location);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
+        }
+    }
+
+    private void checkExternalPath(HdfsContext context, Path path)
+    {
+        try {
             if (!isS3FileSystem(context, hdfsEnvironment, path)) {
                 if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + location);
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + path);
                 }
             }
-            return path;
         }
-        catch (IllegalArgumentException | IOException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
+        catch (IOException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + path, e);
         }
     }
 
@@ -1117,7 +1146,7 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         Optional<Table> target = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
-        if (!target.isPresent()) {
+        if (target.isEmpty()) {
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
         metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
@@ -1216,7 +1245,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session, schemaName, tableName));
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
 
         // unpartitioned tables ignore the partition storage format
@@ -1230,7 +1259,11 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
+        Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
+                .map(HiveMetadata::getExternalLocationAsPath);
+
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
+
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,
@@ -1242,7 +1275,8 @@ public class HiveMetadata
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),
-                tableProperties);
+                tableProperties,
+                externalLocation.isPresent());
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), schemaTableName);
@@ -1272,7 +1306,7 @@ public class HiveMetadata
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
                 writeInfo.getTargetPath(),
-                false,
+                handle.isExternal(),
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
 
@@ -1708,7 +1742,7 @@ public class HiveMetadata
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        if (!getView(session, viewName).isPresent()) {
+        if (getView(session, viewName).isEmpty()) {
             throw new ViewNotFoundException(viewName);
         }
 
@@ -1730,6 +1764,32 @@ public class HiveMetadata
             }
         }
         return tableNames.build();
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        checkState(filterSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
+
+        Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
+        if (db.isPresent()) {
+            return HiveSchemaProperties.fromDatabase(db.get());
+        }
+
+        throw new SchemaNotFoundException(schemaName.getSchemaName());
+    }
+
+    @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        checkState(filterSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
+
+        Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
+        if (database.isPresent()) {
+            return database.flatMap(db -> Optional.of(new PrestoPrincipal(db.getOwnerType(), db.getOwnerName())));
+        }
+
+        throw new SchemaNotFoundException(schemaName.getSchemaName());
     }
 
     @Override
@@ -1807,7 +1867,7 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) deleteHandle;
 
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
@@ -1881,10 +1941,10 @@ public class HiveMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        checkArgument(!handle.getAnalyzePartitionValues().isPresent() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
+        checkArgument(handle.getAnalyzePartitionValues().isEmpty() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, new HiveIdentity(session), handle, constraint);
-        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint.getColumns());
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint.getPredicateColumns());
 
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getCompactEffectivePredicate().equals(newHandle.getCompactEffectivePredicate()) &&
@@ -1900,11 +1960,11 @@ public class HiveMetadata
     public void validateScan(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        if (HiveSessionProperties.isQueryPartitionFilterRequired(session) && !handle.getAnalyzePartitionValues().isPresent() && handle.getEnforcedConstraint().isAll()) {
+        if (HiveSessionProperties.isQueryPartitionFilterRequired(session) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
                 Optional<Set<ColumnHandle>> referencedColumns = handle.getConstraintColumns();
-                if (!referencedColumns.isPresent() || Collections.disjoint(referencedColumns.get(), partitionColumns)) {
+                if (referencedColumns.isEmpty() || Collections.disjoint(referencedColumns.get(), partitionColumns)) {
                     String partitionColumnNames = partitionColumns.stream()
                             .map(HiveColumnHandle::getName)
                             .collect(Collectors.joining(","));
@@ -1914,6 +1974,104 @@ public class HiveMetadata
                 }
             }
         }
+    }
+
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!isProjectionPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        // Create projected column representations for supported sub expressions. Simple column references and chain of
+        // dereferences on a variable are supported right now.
+        Set<ConnectorExpression> projectedExpressions = projections.stream()
+                .flatMap(expression -> extractSupportedProjectedColumns(expression).stream())
+                .collect(toImmutableSet());
+
+        Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
+                .collect(toImmutableMap(Function.identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
+
+        // No pushdown required if all references are simple variables
+        if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
+            return Optional.empty();
+        }
+
+        Map<String, Assignment> newAssignments = new HashMap<>();
+        ImmutableMap.Builder<ConnectorExpression, Variable> expressionToVariableMappings = ImmutableMap.builder();
+
+        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+            ConnectorExpression expression = entry.getKey();
+            ProjectedColumnRepresentation projectedColumn = entry.getValue();
+
+            ColumnHandle projectedColumnHandle;
+            String projectedColumnName;
+
+            // See if input already contains a columnhandle for this projected column, avoid creating duplicates.
+            Optional<String> existingColumn = find(assignments, projectedColumn);
+
+            if (existingColumn.isPresent()) {
+                projectedColumnName = existingColumn.get();
+                projectedColumnHandle = assignments.get(projectedColumnName);
+            }
+            else {
+                // Create a new column handle
+                HiveColumnHandle oldColumnHandle = (HiveColumnHandle) assignments.get(projectedColumn.getVariable().getName());
+                projectedColumnHandle = createProjectedColumnHandle(oldColumnHandle, projectedColumn.getDereferenceIndices());
+                projectedColumnName = ((HiveColumnHandle) projectedColumnHandle).getName();
+            }
+
+            Variable projectedColumnVariable = new Variable(projectedColumnName, expression.getType());
+            Assignment newAssignment = new Assignment(projectedColumnName, projectedColumnHandle, expression.getType());
+            newAssignments.put(projectedColumnName, newAssignment);
+
+            expressionToVariableMappings.put(expression, projectedColumnVariable);
+        }
+
+        // Modify projections to refer to new variables
+        List<ConnectorExpression> newProjections = projections.stream()
+                .map(expression -> replaceWithNewVariables(expression, expressionToVariableMappings.build()))
+                .collect(toImmutableList());
+
+        List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
+        return Optional.of(new ProjectionApplicationResult<>(handle, newProjections, outputAssignments));
+    }
+
+    private HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
+    {
+        HiveType oldHiveType = column.getHiveType();
+        HiveType newHiveType = oldHiveType.getHiveTypeForDereferences(indices).get();
+
+        HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
+                // Merge indices
+                ImmutableList.<Integer>builder()
+                        .addAll(column.getHiveColumnProjectionInfo()
+                                .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                                .orElse(ImmutableList.of()))
+                        .addAll(indices)
+                        .build(),
+                // Merge names
+                ImmutableList.<String>builder()
+                        .addAll(column.getHiveColumnProjectionInfo()
+                                .map(HiveColumnProjectionInfo::getDereferenceNames)
+                                .orElse(ImmutableList.of()))
+                        .addAll(oldHiveType.getHiveDereferenceNames(indices))
+                        .build(),
+                newHiveType,
+                newHiveType.getType(typeManager));
+
+        return new HiveColumnHandle(
+                column.getBaseColumnName(),
+                column.getBaseHiveColumnIndex(),
+                column.getBaseHiveType(),
+                column.getBaseType(),
+                Optional.of(columnProjectionInfo),
+                column.getColumnType(),
+                column.getComment());
     }
 
     @Override
@@ -1962,10 +2120,10 @@ public class HiveMetadata
 
     private static OptionalInt min(OptionalInt left, OptionalInt right)
     {
-        if (!left.isPresent()) {
+        if (left.isEmpty()) {
             return right;
         }
-        if (!right.isPresent()) {
+        if (right.isEmpty()) {
             return left;
         }
         return OptionalInt.of(Math.min(left.getAsInt(), right.getAsInt()));
@@ -2076,7 +2234,7 @@ public class HiveMetadata
         }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager);
-        if (!hiveBucketHandle.isPresent()) {
+        if (hiveBucketHandle.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
             List<Column> partitionColumns = table.getPartitionColumns();
             if (partitionColumns.isEmpty()) {
@@ -2112,9 +2270,9 @@ public class HiveMetadata
     {
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
-        validateCsvColumns(tableMetadata);
+        validateColumns(tableMetadata);
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
-        if (!bucketProperty.isPresent()) {
+        if (bucketProperty.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
             List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
             if (partitionedBy.isEmpty()) {
@@ -2163,7 +2321,7 @@ public class HiveMetadata
         Set<ColumnStatisticMetadata> columnStatistics = columns.stream()
                 .filter(column -> !partitionedBy.contains(column.getName()))
                 .filter(column -> !column.isHidden())
-                .filter(column -> !analyzeColumns.isPresent() || analyzeColumns.get().contains(column.getName()))
+                .filter(column -> analyzeColumns.isEmpty() || analyzeColumns.get().contains(column.getName()))
                 .map(this::getColumnStatisticMetadata)
                 .flatMap(List::stream)
                 .collect(toImmutableSet());
@@ -2276,7 +2434,7 @@ public class HiveMetadata
     private static void validateBucketColumns(ConnectorTableMetadata tableMetadata)
     {
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
-        if (!bucketProperty.isPresent()) {
+        if (bucketProperty.isEmpty()) {
             return;
         }
         Set<String> allColumns = tableMetadata.getColumns().stream()
@@ -2294,6 +2452,12 @@ public class HiveMetadata
         if (!allColumns.containsAll(sortedBy)) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), ImmutableSet.copyOf(allColumns))));
         }
+    }
+
+    private static boolean isDeltaLakeTable(Table table)
+    {
+        return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && table.getParameters().get(SPARK_TABLE_PROVIDER_KEY).toLowerCase(ENGLISH).equals(DELTA_LAKE_PROVIDER);
     }
 
     private static void validatePartitionColumns(ConnectorTableMetadata tableMetadata)
@@ -2317,11 +2481,11 @@ public class HiveMetadata
         }
     }
 
-    private static List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
+    private List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
     {
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
-        validateCsvColumns(tableMetadata);
+        validateColumns(tableMetadata);
 
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         int ordinal = 0;
@@ -2336,11 +2500,11 @@ public class HiveMetadata
             else {
                 columnType = REGULAR;
             }
-            columnHandles.add(new HiveColumnHandle(
+            columnHandles.add(createBaseColumn(
                     column.getName(),
+                    ordinal,
                     toHiveType(typeTranslator, column.getType()),
                     column.getType(),
-                    ordinal,
                     columnType,
                     Optional.ofNullable(column.getComment())));
             ordinal++;
@@ -2349,8 +2513,13 @@ public class HiveMetadata
         return columnHandles.build();
     }
 
-    private static void validateCsvColumns(ConnectorTableMetadata tableMetadata)
+    private void validateColumns(ConnectorTableMetadata tableMetadata)
     {
+        // Validate types are supported
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            toHiveType(typeTranslator, column.getType());
+        }
+
         if (getHiveStorageFormat(tableMetadata.getProperties()) != HiveStorageFormat.CSV) {
             return;
         }

@@ -40,9 +40,9 @@ public class MockThriftMetastoreClientFactory
     public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
             throws TTransportException
     {
-        checkArgument(!delegationToken.isPresent(), "delegation token is not supported");
+        checkArgument(delegationToken.isEmpty(), "delegation token is not supported");
         Optional<ThriftMetastoreClient> client = clients.getOrDefault(address, Optional.empty());
-        if (!client.isPresent()) {
+        if (client.isEmpty()) {
             throw new TTransportException(TTransportException.TIMED_OUT);
         }
         return client.get();

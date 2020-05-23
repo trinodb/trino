@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>98</version>
+        <version>101</version>
     </parent>
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>332-SNAPSHOT</version>
+    <version>334-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -40,20 +40,20 @@
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
 
-        <air.java.version>1.8.0-161</air.java.version>
-        <air.maven.version>3.3.9</air.maven.version>
+        <project.build.targetJdk>11</project.build.targetJdk>
+        <air.modernizer.java-version>8</air.modernizer.java-version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.193</dep.airlift.version>
+        <dep.airlift.version>0.197</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.11.749</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>174</dep.tempto.version>
+        <dep.tempto.version>175</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.3.3</dep.errorprone.version>
-        <rubix.version>0.3.6</rubix.version>
+        <dep.errorprone.version>2.3.4</dep.errorprone.version>
+        <rubix.version>0.3.9</rubix.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -107,6 +107,7 @@
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
+        <module>presto-server-main</module>
         <module>presto-ml</module>
         <module>presto-geospatial</module>
         <module>presto-geospatial-toolkit</module>
@@ -139,6 +140,8 @@
         <module>presto-iceberg</module>
         <module>presto-google-sheets</module>
         <module>presto-bigquery</module>
+        <module>presto-pinot</module>
+        <module>presto-oracle</module>
     </modules>
 
     <dependencyManagement>
@@ -480,6 +483,12 @@
                 <artifactId>presto-thrift</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-pinot</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -825,13 +834,19 @@
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
-                <version>1.9.1</version>
+                <version>1.9.2</version>
             </dependency>
 
             <dependency>
                 <groupId>net.sf.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
                 <version>2.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>1.20</version>
             </dependency>
 
             <dependency>
@@ -1172,6 +1187,13 @@
                 <version>2.0.1</version>
             </dependency>
 
+            <!-- TODO: move this to Airbase -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-cbor</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
@@ -1186,15 +1208,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.checkerframework</groupId>
-                <artifactId>checker-qual</artifactId>
-                <version>2.8.2</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.12.4</version>
+                <version>1.13.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

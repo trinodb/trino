@@ -14,11 +14,13 @@
 package io.prestosql.plugin.blackhole;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -92,6 +94,18 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return ImmutableMap.of();
+    }
+
+    @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return tables.get(tableName);
@@ -108,7 +122,7 @@ public class BlackHoleMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return tables.values().stream()
-                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
+                .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
     }

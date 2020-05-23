@@ -65,6 +65,11 @@ public class ReadOnlyAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }

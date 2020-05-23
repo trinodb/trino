@@ -31,7 +31,7 @@ General Changes
 Server Changes
 --------------
 
-* Require running on Java 11. This requirement may be temporarily relaxed by adding
+* Require running on :ref:`Java 11 or above <requirements-java>`. This requirement may be temporarily relaxed by adding
   ``-Dpresto-temporarily-allow-java8=true`` to the Presto :ref:`presto_jvm_config`.
   This fallback will be removed in future versions of Presto after March 2020. (:issue:`2751`)
 * Add experimental support for running on Linux aarch64 (ARM64). (:issue:`2809`)

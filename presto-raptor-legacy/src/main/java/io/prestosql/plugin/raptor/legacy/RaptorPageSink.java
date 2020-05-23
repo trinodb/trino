@@ -101,7 +101,7 @@ public class RaptorPageSink
         if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
             temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
             temporalColumnType = Optional.of(columnTypes.get(temporalColumnIndex.getAsInt()));
-            checkArgument(temporalColumnType.get() == DATE || temporalColumnType.get() == TIMESTAMP,
+            checkArgument(temporalColumnType.get() == DATE || temporalColumnType.get().equals(TIMESTAMP),
                     "temporalColumnType can only be DATE or TIMESTAMP");
         }
         else {

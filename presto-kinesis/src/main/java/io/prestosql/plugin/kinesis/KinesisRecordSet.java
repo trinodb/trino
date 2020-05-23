@@ -333,7 +333,7 @@ public class KinesisRecordSet
                             currentRowValuesMap.put(columnHandle, longValueProvider(messageData.length));
                             break;
                         case MESSAGE_VALID_FIELD:
-                            currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedValue.isPresent()));
+                            currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
                             break;
                         default:
                             throw new IllegalArgumentException("unknown internal field " + fieldDescription);

@@ -491,6 +491,9 @@ public class KuduClientSession
             else if (domain.isOnlyNull()) {
                 builder.addPredicate(KuduPredicate.newIsNullPredicate(columnSchema));
             }
+            else if (!domain.getValues().isNone() && domain.isNullAllowed()) {
+                // no restriction
+            }
             else if (domain.getValues().isAll() && !domain.isNullAllowed()) {
                 builder.addPredicate(KuduPredicate.newIsNotNullPredicate(columnSchema));
             }

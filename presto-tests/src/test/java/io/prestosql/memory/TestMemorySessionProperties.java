@@ -37,7 +37,6 @@ public class TestMemorySessionProperties
 
     @Test(timeOut = 240_000)
     public void testSessionQueryMemoryPerNodeLimit()
-            throws Exception
     {
         assertQuery(sql);
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -54,7 +53,6 @@ public class TestMemorySessionProperties
 
     @Test(timeOut = 240_000)
     public void testSessionQueryMaxTotalMemoryPerNodeLimit()
-            throws Exception
     {
         assertQuery(sql);
         Session session = Session.builder(getQueryRunner().getDefaultSession())

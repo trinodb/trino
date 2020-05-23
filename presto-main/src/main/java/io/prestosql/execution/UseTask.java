@@ -50,7 +50,7 @@ public class UseTask
                 .orElseGet(() -> session.getCatalog().orElseThrow(() ->
                         semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified when session catalog is not set")));
 
-        if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
+        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
             throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 

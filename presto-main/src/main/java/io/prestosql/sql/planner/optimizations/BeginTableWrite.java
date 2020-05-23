@@ -231,7 +231,7 @@ public class BeginTableWrite
 
         public void addMaterializedHandle(WriterTarget handle, WriterTarget materializedHandle)
         {
-            checkState(!this.handle.isPresent(), "can only have one WriterTarget in a subtree");
+            checkState(this.handle.isEmpty(), "can only have one WriterTarget in a subtree");
             this.handle = Optional.of(handle);
             this.materializedHandle = Optional.of(materializedHandle);
         }

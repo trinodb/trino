@@ -272,7 +272,7 @@ public class BaseJdbcClient
                             .setComment(comment)
                             .build());
                 }
-                if (!columnMapping.isPresent()) {
+                if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                     verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
                 }
@@ -430,7 +430,7 @@ public class BaseJdbcClient
                 columnList.add(getColumnSql(session, column, columnName));
             }
 
-            String sql = createTableSql(tableName, remoteSchema, catalog, columnList.build());
+            String sql = createTableSql(catalog, remoteSchema, tableName, columnList.build());
             execute(connection, sql);
 
             return new JdbcOutputTableHandle(
@@ -444,7 +444,7 @@ public class BaseJdbcClient
         }
     }
 
-    protected String createTableSql(String tableName, String remoteSchema, String catalog, List<String> columns)
+    protected String createTableSql(String catalog, String remoteSchema, String tableName, List<String> columns)
     {
         return format("CREATE TABLE %s (%s)", quoted(catalog, remoteSchema, tableName), join(", ", columns));
     }
@@ -865,7 +865,7 @@ public class BaseJdbcClient
 
     protected Function<String, String> tryApplyLimit(OptionalLong limit)
     {
-        if (!limit.isPresent()) {
+        if (limit.isEmpty()) {
             return Function.identity();
         }
         return limitFunction()
@@ -885,7 +885,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
         throw new PrestoException(JDBC_ERROR, "limitFunction() is implemented without isLimitGuaranteed()");
     }

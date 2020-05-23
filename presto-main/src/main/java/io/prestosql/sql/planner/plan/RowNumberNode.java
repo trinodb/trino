@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
@@ -33,6 +34,14 @@ public final class RowNumberNode
 {
     private final PlanNode source;
     private final List<Symbol> partitionBy;
+    /*
+     * This flag indicates that the node depends on the row order established by the subplan.
+     * It is taken into account while adding local exchanges to the plan, ensuring that sorted order
+     * of data will be respected.
+     * Note: if the subplan doesn't produce sorted output, this flag doesn't change the resulting plan.
+     * Note: this flag is used for planning of queries involving ORDER BY and OFFSET.
+     */
+    private final boolean orderSensitive;
     private final Optional<Integer> maxRowCountPerPartition;
     private final Symbol rowNumberSymbol;
     private final Optional<Symbol> hashSymbol;
@@ -42,6 +51,7 @@ public final class RowNumberNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("orderSensitive") boolean orderSensitive,
             @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
@@ -50,12 +60,15 @@ public final class RowNumberNode
 
         requireNonNull(source, "source is null");
         requireNonNull(partitionBy, "partitionBy is null");
+        checkArgument(!orderSensitive || partitionBy.isEmpty(), "unexpected partitioning in order sensitive node");
         requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
+        checkArgument(maxRowCountPerPartition.isEmpty() || maxRowCountPerPartition.get() > 0, "maxRowCountPerPartition must be greater than zero");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
+        this.orderSensitive = orderSensitive;
         this.rowNumberSymbol = rowNumberSymbol;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.hashSymbol = hashSymbol;
@@ -86,6 +99,12 @@ public final class RowNumberNode
     }
 
     @JsonProperty
+    public boolean isOrderSensitive()
+    {
+        return orderSensitive;
+    }
+
+    @JsonProperty
     public Symbol getRowNumberSymbol()
     {
         return rowNumberSymbol;
@@ -112,6 +131,6 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
+        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, orderSensitive, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
     }
 }

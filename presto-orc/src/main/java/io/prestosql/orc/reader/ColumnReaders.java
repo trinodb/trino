@@ -17,13 +17,19 @@ import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcBlockFactory;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.OrcReader;
 import io.prestosql.spi.type.Type;
 
 public final class ColumnReaders
 {
     private ColumnReaders() {}
 
-    public static ColumnReader createColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
+    public static ColumnReader createColumnReader(
+            Type type,
+            OrcColumn column,
+            OrcReader.ProjectedLayout projectedLayout,
+            AggregatedMemoryContext systemMemoryContext,
+            OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         switch (column.getColumnType()) {
@@ -50,7 +56,7 @@ public final class ColumnReaders
             case LIST:
                 return new ListColumnReader(type, column, systemMemoryContext, blockFactory);
             case STRUCT:
-                return new StructColumnReader(type, column, systemMemoryContext, blockFactory);
+                return new StructColumnReader(type, column, projectedLayout, systemMemoryContext, blockFactory);
             case MAP:
                 return new MapColumnReader(type, column, systemMemoryContext, blockFactory);
             case DECIMAL:

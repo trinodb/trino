@@ -139,6 +139,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(SystemSecurityContext context, CatalogSchemaName schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }

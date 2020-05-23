@@ -27,6 +27,7 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.eventlistener.ColumnInfo;
@@ -38,6 +39,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.Identifier;
@@ -57,6 +59,7 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.Table;
+import io.prestosql.sql.tree.Unnest;
 import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
@@ -79,6 +82,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
@@ -150,6 +154,7 @@ public class Analysis
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
 
+    private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
@@ -159,6 +164,9 @@ public class Analysis
 
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
+
+    // row id field for update/delete queries
+    private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
@@ -675,6 +683,16 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
+    public void setUnnest(Unnest node, UnnestAnalysis analysis)
+    {
+        unnestAnalysis.put(NodeRef.of(node), analysis);
+    }
+
+    public UnnestAnalysis getUnnest(Unnest node)
+    {
+        return unnestAnalysis.get(NodeRef.of(node));
+    }
+
     public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
@@ -769,6 +787,7 @@ public class Analysis
                     NodeRef<Table> table = entry.getKey();
 
                     List<ColumnInfo> columns = referencedFields.get(table).stream()
+                            .filter(field -> field.getName().isPresent()) // For DELETE queries, the synthetic column for row id doesn't have a name
                             .map(field -> {
                                 String fieldName = field.getName().get();
 
@@ -800,6 +819,16 @@ public class Analysis
         return resolvedFunctions.entrySet().stream()
                 .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
                 .collect(toImmutableList());
+    }
+
+    public void setRowIdField(Table table, FieldReference field)
+    {
+        rowIdField.put(NodeRef.of(table), field);
+    }
+
+    public FieldReference getRowIdField(Table table)
+    {
+        return rowIdField.get(NodeRef.of(table));
     }
 
     @Immutable
@@ -986,6 +1015,31 @@ public class Analysis
         }
     }
 
+    public static class UnnestAnalysis
+    {
+        private final Map<NodeRef<Expression>, List<Field>> mappings;
+        private final Optional<Field> ordinalityField;
+
+        public UnnestAnalysis(Map<NodeRef<Expression>, List<Field>> mappings, Optional<Field> ordinalityField)
+        {
+            requireNonNull(mappings, "mappings is null");
+            this.mappings = mappings.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
+
+            this.ordinalityField = requireNonNull(ordinalityField, "ordinalityField is null");
+        }
+
+        public Map<NodeRef<Expression>, List<Field>> getMappings()
+        {
+            return mappings;
+        }
+
+        public Optional<Field> getOrdinalityField()
+        {
+            return ordinalityField;
+        }
+    }
+
     public static final class AccessControlInfo
     {
         private final AccessControl accessControl;
@@ -1002,9 +1056,9 @@ public class Analysis
             return accessControl;
         }
 
-        public SecurityContext getSecurityContext(TransactionId transactionId)
+        public SecurityContext getSecurityContext(TransactionId transactionId, QueryId queryId)
         {
-            return new SecurityContext(transactionId, identity);
+            return new SecurityContext(transactionId, identity, queryId);
         }
 
         @Override

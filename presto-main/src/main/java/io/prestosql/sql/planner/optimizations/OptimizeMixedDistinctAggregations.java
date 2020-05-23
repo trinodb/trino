@@ -223,7 +223,7 @@ public class OptimizeMixedDistinctAggregations
             Optional<AggregateInfo> aggregateInfo = context.get();
 
             // presence of aggregateInfo => mask also present
-            if (!aggregateInfo.isPresent() || !aggregateInfo.get().getMask().equals(node.getMarkerSymbol())) {
+            if (aggregateInfo.isEmpty() || !aggregateInfo.get().getMask().equals(node.getMarkerSymbol())) {
                 return context.defaultRewrite(node, Optional.empty());
             }
 
@@ -426,7 +426,7 @@ public class OptimizeMixedDistinctAggregations
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
-                if (!aggregation.getMask().isPresent()) {
+                if (aggregation.getMask().isEmpty()) {
                     Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
@@ -498,7 +498,7 @@ public class OptimizeMixedDistinctAggregations
         public List<Symbol> getOriginalNonDistinctAggregateArgs()
         {
             return aggregations.values().stream()
-                    .filter(aggregation -> !aggregation.getMask().isPresent())
+                    .filter(aggregation -> aggregation.getMask().isEmpty())
                     .flatMap(aggregation -> aggregation.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)

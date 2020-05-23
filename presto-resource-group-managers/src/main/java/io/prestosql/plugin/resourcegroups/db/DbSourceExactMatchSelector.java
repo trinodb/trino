@@ -47,7 +47,7 @@ public class DbSourceExactMatchSelector
     @Override
     public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
-        if (!criteria.getSource().isPresent()) {
+        if (criteria.getSource().isEmpty()) {
             return Optional.empty();
         }
         try {

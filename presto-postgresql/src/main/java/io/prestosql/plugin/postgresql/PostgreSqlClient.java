@@ -260,7 +260,7 @@ public class PostgreSqlClient
                                 .setComment(comment)
                                 .build());
                     }
-                    if (!columnMapping.isPresent()) {
+                    if (columnMapping.isEmpty()) {
                         UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                         verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
                     }
@@ -369,7 +369,7 @@ public class PostgreSqlClient
             Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
 
             if (arrayMapping == AS_ARRAY) {
-                if (!typeHandle.getArrayDimensions().isPresent()) {
+                if (typeHandle.getArrayDimensions().isEmpty()) {
                     return Optional.empty();
                 }
                 return baseElementMapping
@@ -434,7 +434,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
     }
@@ -606,7 +606,7 @@ public class PostgreSqlClient
                 return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
             }
             catch (JsonProcessingException e) {
-                throw new PrestoException(JDBC_ERROR, "Cast to JSON failed for  " + type.getDisplayName(), e);
+                throw new PrestoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
             }
         };
     }

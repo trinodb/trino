@@ -28,6 +28,7 @@ import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.Connector;
@@ -37,8 +38,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
@@ -58,7 +57,6 @@ import java.util.Set;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -72,6 +70,7 @@ public class TestAccessControlManager
 {
     private static final Principal PRINCIPAL = new BasicPrincipal("principal");
     private static final String USER_NAME = "user_name";
+    private static final QueryId queryId = new QueryId("query_id");
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
     public void testInitializing()
@@ -102,7 +101,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    SecurityContext context = new SecurityContext(transactionId, identity);
+                    SecurityContext context = new SecurityContext(transactionId, identity, queryId);
                     accessControlManager.checkCanSetCatalogSessionProperty(context, "catalog", "property");
                     accessControlManager.checkCanShowSchemas(context, "catalog");
                     accessControlManager.checkCanShowTables(context, new CatalogSchemaName("catalog", "schema"));
@@ -121,7 +120,7 @@ public class TestAccessControlManager
         try {
             transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
-                        accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity), tableName);
+                        accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId), tableName);
                     });
             fail();
         }
@@ -240,7 +239,7 @@ public class TestAccessControlManager
     private static SecurityContext context(TransactionId transactionId)
     {
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
-        return new SecurityContext(transactionId, identity);
+        return new SecurityContext(transactionId, identity, queryId);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")
@@ -458,130 +457,5 @@ public class TestAccessControlManager
     private static class DenyConnectorAccessControl
             implements ConnectorAccessControl
     {
-        @Override
-        public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-        {
-            denySelectColumns(tableName.toString(), columnNames);
-        }
-
-        @Override
-        public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 }

@@ -13,15 +13,23 @@
  */
 package io.prestosql.plugin.hive.rubix;
 
+import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.PrestoClusterManager;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.spi.HostAddress;
 import org.apache.hadoop.conf.Configuration;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
+
+import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.qubole.rubix.spi.CacheConfig.enableHeartbeat;
@@ -29,23 +37,29 @@ import static com.qubole.rubix.spi.CacheConfig.setBookKeeperServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setClusterNodeRefreshTime;
-import static com.qubole.rubix.spi.CacheConfig.setClusterNodesFetchRetryCount;
 import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
 import static com.qubole.rubix.spi.CacheConfig.setCurrentNodeHostName;
 import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
 import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
-import static com.qubole.rubix.spi.CacheConfig.setRubixClusterType;
-import static com.qubole.rubix.spi.CacheConfig.setWorkerNodeInfoExpiryPeriod;
-import static com.qubole.rubix.spi.ClusterType.PRESTOSQL_CLUSTER_MANAGER;
+import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
+import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static java.util.Objects.requireNonNull;
 
 public class RubixConfigurationInitializer
-        implements ConfigurationInitializer
+        implements DynamicConfigurationProvider
 {
     private static final String RUBIX_S3_FS_CLASS_NAME = CachingPrestoS3FileSystem.class.getName();
-    private static final String RUBIX_AZURE_FS_CLASS_NAME = CachingPrestoNativeAzureFileSystem.class.getName();
+
+    private static final String RUBIX_NATIVE_AZURE_FS_CLASS_NAME = CachingPrestoNativeAzureFileSystem.class.getName();
+    private static final String RUBIX_SECURE_NATIVE_AZURE_FS_CLASS_NAME = CachingPrestoSecureNativeAzureFileSystem.class.getName();
+    private static final String RUBIX_AZURE_BLOB_FS_CLASS_NAME = CachingPrestoAzureBlobFileSystem.class.getName();
+    private static final String RUBIX_SECURE_AZURE_BLOB_FS_CLASS_NAME = CachingPrestoSecureAzureBlobFileSystem.class.getName();
+
     private static final String RUBIX_GS_FS_CLASS_NAME = CachingPrestoGoogleHadoopFileSystem.class.getName();
+
+    private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
 
     private final boolean parallelWarmupEnabled;
     private final String cacheLocation;
@@ -53,34 +67,39 @@ public class RubixConfigurationInitializer
     private final int dataTransferServerPort;
 
     // Configs below are dependent on node joining the cluster
-    private boolean cacheNotReady = true;
+    private volatile boolean cacheReady;
     private boolean isMaster;
+    @Nullable
     private HostAddress masterAddress;
+    @Nullable
     private String nodeAddress;
 
     @Inject
     public RubixConfigurationInitializer(RubixConfig config)
     {
-        this.parallelWarmupEnabled = config.isParallelWarmupEnabled();
+        this.parallelWarmupEnabled = config.getReadMode().isParallelWarmupEnabled();
         this.cacheLocation = config.getCacheLocation();
         this.bookKeeperServerPort = config.getBookKeeperServerPort();
         this.dataTransferServerPort = config.getDataTransferServerPort();
     }
 
     @Override
-    public void initializeConfiguration(Configuration config)
+    public void updateConfiguration(Configuration config, HdfsContext context, URI uri)
     {
-        if (cacheNotReady) {
+        if (!cacheReady) {
             setCacheDataEnabled(config, false);
+            setCacheKey(config, "rubix_disabled");
             return;
         }
 
         updateConfiguration(config);
+        setCacheKey(config, "rubix_enabled");
     }
 
-    public Configuration updateConfiguration(Configuration config)
+    void updateConfiguration(Configuration config)
     {
         checkState(masterAddress != null, "masterAddress is not set");
+        checkState(nodeAddress != null, "nodeAddress is not set");
         setCacheDataEnabled(config, true);
         setOnMaster(config, isMaster);
         setCoordinatorHostName(config, masterAddress.getHostText());
@@ -93,38 +112,44 @@ public class RubixConfigurationInitializer
         setDataTransferServerPort(config, dataTransferServerPort);
 
         setEmbeddedMode(config, true);
-        setRubixClusterType(config, PRESTOSQL_CLUSTER_MANAGER);
         enableHeartbeat(config, false);
         setClusterNodeRefreshTime(config, 10);
-        setClusterNodesFetchRetryCount(config, Integer.MAX_VALUE);
-        setWorkerNodeInfoExpiryPeriod(config, 1);
 
         config.set("fs.s3.impl", RUBIX_S3_FS_CLASS_NAME);
         config.set("fs.s3a.impl", RUBIX_S3_FS_CLASS_NAME);
         config.set("fs.s3n.impl", RUBIX_S3_FS_CLASS_NAME);
-        config.set("fs.wasb.impl", RUBIX_AZURE_FS_CLASS_NAME);
+
+        config.set("fs.wasb.impl", RUBIX_NATIVE_AZURE_FS_CLASS_NAME);
+        config.set("fs.wasbs.impl", RUBIX_SECURE_NATIVE_AZURE_FS_CLASS_NAME);
+        config.set("fs.abfs.impl", RUBIX_AZURE_BLOB_FS_CLASS_NAME);
+        config.set("fs.abfss.impl", RUBIX_SECURE_AZURE_BLOB_FS_CLASS_NAME);
+
         config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
-        return config;
+
+        config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
+
+        // TODO: remove after https://github.com/qubole/rubix/pull/385 is merged
+        setPrestoClusterManager(config, "com.qubole.rubix.prestosql.PrestoClusterManager");
     }
 
-    public void setMaster(boolean master)
+    void setMaster(boolean master)
     {
         isMaster = master;
     }
 
-    public void setMasterAddress(HostAddress masterAddress)
+    void setMasterAddress(HostAddress masterAddress)
     {
-        this.masterAddress = masterAddress;
+        this.masterAddress = requireNonNull(masterAddress, "masterAddress is null");
     }
 
-    public void setCurrentNodeAddress(String nodeAddress)
+    void setCurrentNodeAddress(String nodeAddress)
     {
-        this.nodeAddress = nodeAddress;
+        this.nodeAddress = requireNonNull(nodeAddress, "nodeAddress is null");
     }
 
-    public void initializationDone()
+    void initializationDone()
     {
         checkState(masterAddress != null, "masterAddress is not set");
-        cacheNotReady = false;
+        cacheReady = true;
     }
 }

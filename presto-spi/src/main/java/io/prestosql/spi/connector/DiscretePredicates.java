@@ -15,10 +15,8 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.predicate.TupleDomain;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public final class DiscretePredicates
@@ -32,7 +30,7 @@ public final class DiscretePredicates
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns is empty");
         }
-        this.columns = unmodifiableList(new ArrayList<>(columns));
+        this.columns = List.copyOf(columns);
         // do not copy predicates because it may be lazy
         this.predicates = requireNonNull(predicates, "predicates is null");
     }

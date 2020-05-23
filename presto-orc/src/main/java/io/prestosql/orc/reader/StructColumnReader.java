@@ -20,6 +20,7 @@ import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcBlockFactory;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
@@ -74,7 +75,7 @@ public class StructColumnReader
 
     private boolean rowGroupOpen;
 
-    StructColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
+    StructColumnReader(Type type, OrcColumn column, OrcReader.ProjectedLayout readLayout, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -96,8 +97,12 @@ public class StructColumnReader
             fieldNames.add(fieldName);
 
             OrcColumn fieldStream = nestedColumns.get(fieldName);
+
             if (fieldStream != null) {
-                structFields.put(fieldName, createColumnReader(field.getType(), fieldStream, systemMemoryContext, blockFactory));
+                OrcReader.ProjectedLayout fieldLayout = readLayout.getFieldLayout(fieldName);
+                if (fieldLayout != null) {
+                    structFields.put(fieldName, createColumnReader(field.getType(), fieldStream, fieldLayout, systemMemoryContext, blockFactory));
+                }
             }
         }
         this.fieldNames = fieldNames.build();

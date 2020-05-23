@@ -52,7 +52,7 @@ public class TypeSignatureParser
 
     public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
     {
-        if (!signature.contains("<") && !signature.contains("(")) {
+        if (!signature.contains("(")) {
             if (signature.equalsIgnoreCase(StandardTypes.VARCHAR)) {
                 return VarcharType.createUnboundedVarcharType().getTypeSignature();
             }

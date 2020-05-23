@@ -126,8 +126,8 @@ public class FileSingleStreamSpillerFactory
         this.roundRobinIndex = 0;
 
         this.spillPathHealthCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(SPILL_PATH_HEALTH_EXPIRY_INTERVAL)
-            .build(CacheLoader.from(path -> isAccessible(path) && isSeeminglyHealthy(path)));
+                .expireAfterWrite(SPILL_PATH_HEALTH_EXPIRY_INTERVAL)
+                .build(CacheLoader.from(path -> isAccessible(path) && isSeeminglyHealthy(path)));
     }
 
     @PostConstruct

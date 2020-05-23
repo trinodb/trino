@@ -203,6 +203,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
     private final TypeCoercion typeCoercion;
+    private final CorrelationSupport correlationSupport;
 
     public ExpressionAnalyzer(
             Metadata metadata,
@@ -212,7 +213,8 @@ public class ExpressionAnalyzer
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            CorrelationSupport correlationSupport)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -223,6 +225,7 @@ public class ExpressionAnalyzer
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.correlationSupport = requireNonNull(correlationSupport, "correlation is null");
     }
 
     public Map<NodeRef<FunctionCall>, ResolvedFunction> getResolvedFunctions()
@@ -411,6 +414,10 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
         {
+            if (!resolvedField.isLocal() && correlationSupport != CorrelationSupport.ALLOWED) {
+                throw semanticException(NOT_SUPPORTED, node, "Reference to column '%s' from outer scope not allowed in this context", node);
+            }
+
             return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getField(), context);
         }
 
@@ -472,7 +479,7 @@ public class ExpressionAnalyzer
             }
 
             if (rowFieldType == null) {
-                throw missingAttributeException(node);
+                throw missingAttributeException(node, qualifiedName);
             }
 
             return setExpressionType(node, rowFieldType);
@@ -524,7 +531,7 @@ public class ExpressionAnalyzer
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
 
-            if (!typeCoercion.getCommonSuperType(firstType, secondType).isPresent()) {
+            if (typeCoercion.getCommonSuperType(firstType, secondType).isEmpty()) {
                 throw semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
             }
 
@@ -600,7 +607,7 @@ public class ExpressionAnalyzer
 
                 Optional<Type> operandCommonType = typeCoercion.getCommonSuperType(commonType, whenOperandType);
 
-                if (!operandCommonType.isPresent()) {
+                if (operandCommonType.isEmpty()) {
                     throw semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType);
                 }
 
@@ -991,7 +998,8 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         warningCollector,
-                                        isDescribe);
+                                        isDescribe,
+                                        correlationSupport);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration lambdaArgument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(lambdaArgument, getExpressionType(lambdaArgument));
@@ -1444,7 +1452,7 @@ public class ExpressionAnalyzer
             Type superType = UNKNOWN;
             for (Expression expression : expressions) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, process(expression, context));
-                if (!newSuperType.isPresent()) {
+                if (newSuperType.isEmpty()) {
                     throw semanticException(TYPE_MISMATCH, expression, message, superType);
                 }
                 superType = newSuperType.get();
@@ -1574,7 +1582,6 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
-                analyzer.getLambdaArgumentReferences(),
                 analyzer.getWindowFunctions());
     }
 
@@ -1586,9 +1593,10 @@ public class ExpressionAnalyzer
             Scope scope,
             Analysis analysis,
             Expression expression,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1616,7 +1624,6 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
-                analyzer.getLambdaArgumentReferences(),
                 analyzer.getWindowFunctions());
     }
 
@@ -1629,15 +1636,29 @@ public class ExpressionAnalyzer
             TypeProvider types,
             WarningCollector warningCollector)
     {
+        return create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector, CorrelationSupport.ALLOWED);
+    }
+
+    public static ExpressionAnalyzer create(
+            Analysis analysis,
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            TypeProvider types,
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
+    {
         return new ExpressionAnalyzer(
                 metadata,
                 accessControl,
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, correlationSupport),
                 session,
                 types,
                 analysis.getParameters(),
                 warningCollector,
-                analysis.isDescribe());
+                analysis.isDescribe(),
+                correlationSupport);
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(
@@ -1718,6 +1739,7 @@ public class ExpressionAnalyzer
                 symbolTypes,
                 parameters,
                 warningCollector,
-                isDescribe);
+                isDescribe,
+                CorrelationSupport.ALLOWED);
     }
 }

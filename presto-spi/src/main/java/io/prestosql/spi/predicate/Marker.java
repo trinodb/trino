@@ -23,6 +23,7 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import static io.prestosql.spi.predicate.Utils.blockToNativeValue;
 import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
@@ -66,7 +67,7 @@ public final class Marker
         if (!type.isOrderable()) {
             throw new IllegalArgumentException("type must be orderable");
         }
-        if (!valueBlock.isPresent() && bound == Bound.EXACTLY) {
+        if (valueBlock.isEmpty() && bound == Bound.EXACTLY) {
             throw new IllegalArgumentException("Cannot be equal to unbounded");
         }
         if (valueBlock.isPresent() && valueBlock.get().getPositionCount() != 1) {
@@ -135,7 +136,7 @@ public final class Marker
 
     public Object getValue()
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No value to get");
         }
         return blockToNativeValue(type, valueBlock.get());
@@ -143,7 +144,7 @@ public final class Marker
 
     public Object getPrintableValue(ConnectorSession session)
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No value to get");
         }
         return type.getObjectValue(session, valueBlock.get(), 0);
@@ -157,12 +158,12 @@ public final class Marker
 
     public boolean isUpperUnbounded()
     {
-        return !valueBlock.isPresent() && bound == Bound.BELOW;
+        return valueBlock.isEmpty() && bound == Bound.BELOW;
     }
 
     public boolean isLowerUnbounded()
     {
-        return !valueBlock.isPresent() && bound == Bound.ABOVE;
+        return valueBlock.isEmpty() && bound == Bound.ABOVE;
     }
 
     private void checkTypeCompatibility(Marker marker)
@@ -191,7 +192,7 @@ public final class Marker
 
     public Marker greaterAdjacent()
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No marker adjacent to unbounded");
         }
         switch (bound) {
@@ -208,7 +209,7 @@ public final class Marker
 
     public Marker lesserAdjacent()
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No marker adjacent to unbounded");
         }
         switch (bound) {
@@ -291,7 +292,22 @@ public final class Marker
         return Objects.equals(this.type, other.type)
                 && this.bound == other.bound
                 && ((this.valueBlock.isPresent()) == (other.valueBlock.isPresent()))
-                && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
+                && (this.valueBlock.isEmpty() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
+    }
+
+    @Override
+    public String toString()
+    {
+        StringJoiner stringJoiner = new StringJoiner(", ", Marker.class.getSimpleName() + "[", "]");
+        if (isLowerUnbounded()) {
+            stringJoiner.add("lower unbounded");
+        }
+        else if (isUpperUnbounded()) {
+            stringJoiner.add("upper unbounded");
+        }
+        stringJoiner.add("bound=" + bound);
+        valueBlock.ifPresent(valueBlock -> stringJoiner.add("valueBlock=..."));
+        return stringJoiner.toString();
     }
 
     public String toString(ConnectorSession session)

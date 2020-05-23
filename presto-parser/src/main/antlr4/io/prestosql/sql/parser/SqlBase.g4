@@ -97,6 +97,7 @@ statement
     | EXPLAIN ANALYZE? VERBOSE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
+    | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
     | SHOW TABLES ((FROM | IN) qualifiedName)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
@@ -104,7 +105,8 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCatalogs
-    | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
+    | SHOW COLUMNS (FROM | IN) qualifiedName?
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showColumns
     | SHOW STATS FOR qualifiedName                                     #showStats
     | SHOW STATS FOR '(' querySpecification ')'                        #showStatsForQuery
     | SHOW CURRENT? ROLES ((FROM | IN) identifier)?                    #showRoles

@@ -18,8 +18,6 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.connector.ConnectorPageSource;
 
-import java.io.IOException;
-
 public class BigQueryEmptyProjectionPageSource
         implements ConnectorPageSource
 {
@@ -69,7 +67,6 @@ public class BigQueryEmptyProjectionPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         // nothing to do
     }

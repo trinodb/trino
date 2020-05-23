@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 public class TpcdsTableLayoutHandle
@@ -40,5 +42,25 @@ public class TpcdsTableLayoutHandle
     public String toString()
     {
         return table.getTableName();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TpcdsTableLayoutHandle that = (TpcdsTableLayoutHandle) o;
+        return Objects.equals(table, that.table);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return table.hashCode();
     }
 }

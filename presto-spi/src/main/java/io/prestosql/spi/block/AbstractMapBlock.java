@@ -29,8 +29,6 @@ import static io.prestosql.spi.block.BlockUtil.compactArray;
 import static io.prestosql.spi.block.BlockUtil.compactOffsets;
 import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
 import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -46,7 +44,7 @@ public abstract class AbstractMapBlock
     @Override
     public final List<Block> getChildren()
     {
-        return unmodifiableList(asList(getRawKeyBlock(), getRawValueBlock()));
+        return List.of(getRawKeyBlock(), getRawValueBlock());
     }
 
     protected MapType getMapType()

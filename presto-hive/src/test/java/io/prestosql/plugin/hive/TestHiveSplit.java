@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -75,7 +76,7 @@ public class TestHiveSplit
                         BUCKETING_V1,
                         32,
                         16,
-                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT, 5, ColumnType.REGULAR, Optional.of("comment"))))),
+                        ImmutableList.of(createBaseColumn("col", 5, HIVE_LONG, BIGINT, ColumnType.REGULAR, Optional.of("comment"))))),
                 false,
                 Optional.of(deleteDeltaLocations));
 

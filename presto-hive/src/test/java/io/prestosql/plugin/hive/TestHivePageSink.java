@@ -60,6 +60,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveCompressionCodec.NONE;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
@@ -265,7 +266,8 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 Optional.empty(),
                 "test",
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
@@ -291,7 +293,7 @@ public class TestHivePageSink
         for (int i = 0; i < columns.size(); i++) {
             LineItemColumn column = columns.get(i);
             HiveType hiveType = getHiveType(column.getType());
-            handles.add(new HiveColumnHandle(column.getColumnName(), hiveType, hiveType.getType(TYPE_MANAGER), i, REGULAR, Optional.empty()));
+            handles.add(createBaseColumn(column.getColumnName(), i, hiveType, hiveType.getType(TYPE_MANAGER), REGULAR, Optional.empty()));
         }
         return handles.build();
     }

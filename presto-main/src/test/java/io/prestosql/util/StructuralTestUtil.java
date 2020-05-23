@@ -28,6 +28,7 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -125,6 +126,9 @@ public final class StructuralTestUtil
             }
             else if (element instanceof SqlDecimal) {
                 type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) element).getUnscaledValue()));
+            }
+            else if (element instanceof BigDecimal) {
+                type.writeSlice(blockBuilder, Decimals.encodeScaledValue((BigDecimal) element));
             }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);

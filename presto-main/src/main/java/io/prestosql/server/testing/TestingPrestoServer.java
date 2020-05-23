@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -67,6 +68,7 @@ import io.prestosql.server.PluginManager;
 import io.prestosql.server.ServerMainModule;
 import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.server.ShutdownAction;
+import io.prestosql.server.security.CertificateAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
@@ -203,7 +205,6 @@ public class TestingPrestoServer
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
-                .put("presto.version", "testversion")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4");
@@ -223,7 +224,7 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
-                .add(new ServerMainModule())
+                .add(new ServerMainModule("testversion"))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     binder.bind(String.class)
@@ -293,6 +294,7 @@ public class TestingPrestoServer
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
+            injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
             dispatchManager = null;
@@ -324,15 +326,18 @@ public class TestingPrestoServer
     public void close()
             throws IOException
     {
-        try {
-            if (lifeCycleManager != null) {
-                lifeCycleManager.stop();
-            }
-        }
-        finally {
-            if (isDirectory(baseDataDir) && !preserveData) {
-                deleteRecursively(baseDataDir, ALLOW_INSECURE);
-            }
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> {
+                if (isDirectory(baseDataDir) && !preserveData) {
+                    deleteRecursively(baseDataDir, ALLOW_INSECURE);
+                }
+            });
+
+            closer.register(() -> {
+                if (lifeCycleManager != null) {
+                    lifeCycleManager.stop();
+                }
+            });
         }
     }
 

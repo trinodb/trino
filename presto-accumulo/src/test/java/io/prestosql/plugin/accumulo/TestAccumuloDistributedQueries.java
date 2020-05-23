@@ -93,18 +93,15 @@ public class TestAccumuloDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
 
         this.assertCreateTableAsSelect(
-                "test_group",
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
                 "SELECT count(DISTINCT orderstatus) FROM orders");
 
         this.assertCreateTableAsSelect(
-                "test_with_data",
                 "SELECT * FROM orders WITH DATA",
                 "SELECT * FROM orders",
                 "SELECT count(*) FROM orders");
 
         this.assertCreateTableAsSelect(
-                "test_with_no_data",
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
@@ -340,18 +337,6 @@ public class TestAccumuloDistributedQueries
         finally {
             assertUpdate("DROP TABLE test_create_table_empty_columns");
         }
-    }
-
-    @Override
-    public void testDescribeOutput()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
     }
 
     @Override

@@ -133,7 +133,7 @@ public class TestReadBloomFilter
         OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
-        assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
+        assertEquals(orcReader.getFooter().getRowsInRowGroup().orElse(0), 10_000);
 
         return orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),

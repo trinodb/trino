@@ -51,7 +51,7 @@ public class RemoveRedundantDistinctLimit
     @Override
     public Result apply(DistinctLimitNode node, Captures captures, Context context)
     {
-        checkArgument(!node.getHashSymbol().isPresent(), "HashSymbol should be empty");
+        checkArgument(node.getHashSymbol().isEmpty(), "HashSymbol should be empty");
         if (node.getLimit() == 0) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
@@ -59,7 +59,8 @@ public class RemoveRedundantDistinctLimit
             return Result.ofPlanNode(node.getSource());
         }
         if (isAtMost(node.getSource(), context.getLookup(), node.getLimit())) {
-            return Result.ofPlanNode(new AggregationNode(node.getId(),
+            return Result.ofPlanNode(new AggregationNode(
+                    node.getId(),
                     node.getSource(),
                     ImmutableMap.of(),
                     singleGroupingSet(node.getDistinctSymbols()),

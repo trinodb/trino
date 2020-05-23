@@ -59,7 +59,7 @@ public class MongoTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName);
+        return Objects.hash(schemaTableName, constraint);
     }
 
     @Override
@@ -72,7 +72,8 @@ public class MongoTableHandle
             return false;
         }
         MongoTableHandle other = (MongoTableHandle) obj;
-        return Objects.equals(this.schemaTableName, other.schemaTableName);
+        return Objects.equals(this.schemaTableName, other.schemaTableName) &&
+                Objects.equals(this.constraint, other.constraint);
     }
 
     @Override

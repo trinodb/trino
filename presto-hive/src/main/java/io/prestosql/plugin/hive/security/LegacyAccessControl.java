@@ -102,6 +102,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
@@ -120,7 +125,7 @@ public class LegacyAccessControl
 
         Optional<Table> target = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle())).getTable(new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName());
 
-        if (!target.isPresent()) {
+        if (target.isEmpty()) {
             denyDropTable(tableName.toString(), "Table not found");
         }
 

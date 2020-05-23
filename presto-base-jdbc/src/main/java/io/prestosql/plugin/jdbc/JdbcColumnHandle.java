@@ -130,10 +130,10 @@ public final class JdbcColumnHandle
     @Override
     public String toString()
     {
-        return Joiner.on(":").join(
+        return Joiner.on(":").skipNulls().join(
                 columnName,
                 columnType.getDisplayName(),
-                jdbcTypeHandle.getJdbcTypeName());
+                jdbcTypeHandle.getJdbcTypeName().orElse(null));
     }
 
     public static Builder builder()

@@ -32,6 +32,7 @@ import java.util.Objects;
 
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
+import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.createPrestoContainer;
 import static java.util.Objects.requireNonNull;
@@ -73,7 +74,8 @@ public final class MultinodeTlsKerberos
             verify(Objects.equals(container.getDockerImageName(), prestoDockerImageName), "Expected image '%s', but is '%s'", prestoDockerImageName, container.getDockerImageName());
             container
                     .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-master.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY)
-                    .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY);
+                    .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY)
+                    .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties"), CONTAINER_PRESTO_ICEBERG_PROPERTIES, READ_ONLY);
         });
 
         addPrestoWorker(builder, "presto-worker-1");
@@ -87,7 +89,8 @@ public final class MultinodeTlsKerberos
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withNetworkAliases(workerName + ".docker.cluster")
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY);
+                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY)
+                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties"), CONTAINER_PRESTO_ICEBERG_PROPERTIES, READ_ONLY);
 
         builder.addContainer(workerName, container);
     }

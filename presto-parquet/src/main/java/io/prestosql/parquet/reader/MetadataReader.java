@@ -231,18 +231,31 @@ public final class MetadataReader
             max = min;
         }
         else {
-            // For min it's enough to retain leading all-ASCII, because this produces a strictly lower value.
-            int minFirstNonAsciiOffset = firstOutsideRange(min, 0, 128);
-            min = Arrays.copyOf(min, minFirstNonAsciiOffset);
+            int commonPrefix = commonPrefix(min, max);
 
-            // For max we chop away everything at the first non-ASCII, then increment last character.
-            int maxFirstBadCharacter = firstOutsideRange(max, 0, 127); // last ASCII is also bad because we can't increment it
-            if (maxFirstBadCharacter == 0) {
-                // We can't help.
+            // For min we can retain all-ASCII, because this produces a strictly lower value.
+            int minGoodLength = commonPrefix;
+            while (minGoodLength < min.length && isAscii(min[minGoodLength])) {
+                minGoodLength++;
+            }
+
+            // For max we can be sure only of the part matching the min. When they differ, we can consider only one next, and only if both are ASCII
+            int maxGoodLength = commonPrefix;
+            if (maxGoodLength < max.length && maxGoodLength < min.length && isAscii(min[maxGoodLength]) && isAscii(max[maxGoodLength])) {
+                maxGoodLength++;
+            }
+            // Incrementing 127 would overflow. Incrementing within non-ASCII can have side-effects.
+            while (maxGoodLength > 0 && (max[maxGoodLength - 1] == 127 || !isAscii(max[maxGoodLength - 1]))) {
+                maxGoodLength--;
+            }
+            if (maxGoodLength == 0) {
+                // We can return just min bound, but code downstream likely expects both are present or both are absent.
                 return;
             }
-            max[maxFirstBadCharacter - 1]++;
-            max = Arrays.copyOf(max, maxFirstBadCharacter);
+
+            min = Arrays.copyOf(min, minGoodLength);
+            max = Arrays.copyOf(max, maxGoodLength);
+            max[maxGoodLength - 1]++;
         }
 
         columnStatistics.setMinMaxFromBytes(min, max);
@@ -251,13 +264,18 @@ public final class MetadataReader
         }
     }
 
-    private static int firstOutsideRange(byte[] bytes, int rangeStartInclusive, int rangeEndExclusive)
+    private static boolean isAscii(byte b)
     {
-        int offset = 0;
-        while (offset < bytes.length && rangeStartInclusive <= bytes[offset] && bytes[offset] < rangeEndExclusive) {
-            offset++;
+        return 0 <= b;
+    }
+
+    private static int commonPrefix(byte[] a, byte[] b)
+    {
+        int commonPrefixLength = 0;
+        while (commonPrefixLength < a.length && commonPrefixLength < b.length && a[commonPrefixLength] == b[commonPrefixLength]) {
+            commonPrefixLength++;
         }
-        return offset;
+        return commonPrefixLength;
     }
 
     private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)

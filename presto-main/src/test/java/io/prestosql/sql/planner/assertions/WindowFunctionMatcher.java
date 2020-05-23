@@ -71,7 +71,7 @@ public class WindowFunctionMatcher
             Function function = assignment.getValue();
             boolean signatureMatches = resolvedFunction.map(assignment.getValue().getResolvedFunction()::equals).orElse(true);
             if (signatureMatches && windowFunctionMatches(function, expectedCall, expectedFrame)) {
-                checkState(!result.isPresent(), "Ambiguous function calls in %s", windowNode);
+                checkState(result.isEmpty(), "Ambiguous function calls in %s", windowNode);
                 result = Optional.of(assignment.getKey());
             }
         }

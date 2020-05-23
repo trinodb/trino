@@ -37,9 +37,8 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
-import static io.prestosql.connector.system.jdbc.FilterUtil.stringFilter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
+import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -86,14 +85,14 @@ public class TableCommentSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Optional<String> catalogFilter = stringFilter(constraint, 0);
-        Optional<String> schemaFilter = stringFilter(constraint, 1);
-        Optional<String> tableFilter = stringFilter(constraint, 2);
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
 
-        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
+        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> names = ImmutableSet.of();

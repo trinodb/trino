@@ -793,7 +793,7 @@ export class QueryDetail extends React.Component {
             }
             this.resetTimer();
         }.bind(this))
-            .error(() => {
+            .fail(() => {
                 this.setState({
                     initialized: true,
                 });
@@ -1334,14 +1334,6 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {query.queryStats.totalScheduledTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Blocked Time
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.totalBlockedTime}
                                         </td>
                                     </tr>
                                     <tr>

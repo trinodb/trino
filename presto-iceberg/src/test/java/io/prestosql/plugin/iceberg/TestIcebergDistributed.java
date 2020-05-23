@@ -52,18 +52,6 @@ public class TestIcebergDistributed
     }
 
     @Override
-    public void testDescribeOutput()
-    {
-        // Iceberg does not support parameterized varchar
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        // Iceberg does not support parameterized varchar
-    }
-
-    @Override
     public void testCommentTable()
     {
         // Iceberg connector does not support comment on table
@@ -88,7 +76,6 @@ public class TestIcebergDistributed
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("tinyint")
                 || typeName.equals("smallint")
-                || typeName.equals("timestamp")
                 || typeName.startsWith("char(")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }

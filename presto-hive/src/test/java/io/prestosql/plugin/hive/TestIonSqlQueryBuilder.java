@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.longDecimal;
 import static io.prestosql.plugin.hive.HiveTestUtils.shortDecimal;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DATE;
@@ -56,9 +57,9 @@ public class TestIonSqlQueryBuilder
     {
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("n_nationkey", HIVE_INT, INTEGER, 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("n_name", HIVE_STRING, VARCHAR, 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("n_regionkey", HIVE_INT, INTEGER, 2, REGULAR, Optional.empty()));
+                createBaseColumn("n_nationkey", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty()),
+                createBaseColumn("n_name", 1, HIVE_STRING, VARCHAR, REGULAR, Optional.empty()),
+                createBaseColumn("n_regionkey", 2, HIVE_INT, INTEGER, REGULAR, Optional.empty()));
 
         assertEquals("SELECT s._1, s._2, s._3 FROM S3Object s",
                 queryBuilder.buildSql(columns, TupleDomain.all()));
@@ -81,9 +82,9 @@ public class TestIonSqlQueryBuilder
         TypeManager typeManager = this.typeManager;
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("quantity", HiveType.valueOf("decimal(20,0)"), DecimalType.createDecimalType(), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("extendedprice", HiveType.valueOf("decimal(20,2)"), DecimalType.createDecimalType(), 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("discount", HiveType.valueOf("decimal(10,2)"), DecimalType.createDecimalType(), 2, REGULAR, Optional.empty()));
+                createBaseColumn("quantity", 0, HiveType.valueOf("decimal(20,0)"), DecimalType.createDecimalType(), REGULAR, Optional.empty()),
+                createBaseColumn("extendedprice", 1, HiveType.valueOf("decimal(20,2)"), DecimalType.createDecimalType(), REGULAR, Optional.empty()),
+                createBaseColumn("discount", 2, HiveType.valueOf("decimal(10,2)"), DecimalType.createDecimalType(), REGULAR, Optional.empty()));
         DecimalType decimalType = DecimalType.createDecimalType(10, 2);
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(
                 ImmutableMap.of(
@@ -101,8 +102,8 @@ public class TestIonSqlQueryBuilder
     {
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("t1", HIVE_TIMESTAMP, TIMESTAMP, 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("t2", HIVE_DATE, DATE, 1, REGULAR, Optional.empty()));
+                createBaseColumn("t1", 0, HIVE_TIMESTAMP, TIMESTAMP, REGULAR, Optional.empty()),
+                createBaseColumn("t2", 1, HIVE_DATE, DATE, REGULAR, Optional.empty()));
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 columns.get(1), Domain.create(SortedRangeSet.copyOf(DATE, ImmutableList.of(Range.equal(DATE, (long) DateTimeUtils.parseDate("2001-08-22")))), false)));
 
@@ -114,9 +115,9 @@ public class TestIonSqlQueryBuilder
     {
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("quantity", HIVE_INT, INTEGER, 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("extendedprice", HIVE_DOUBLE, DOUBLE, 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("discount", HIVE_DOUBLE, DOUBLE, 2, REGULAR, Optional.empty()));
+                createBaseColumn("quantity", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty()),
+                createBaseColumn("extendedprice", 1, HIVE_DOUBLE, DOUBLE, REGULAR, Optional.empty()),
+                createBaseColumn("discount", 2, HIVE_DOUBLE, DOUBLE, REGULAR, Optional.empty()));
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(
                 ImmutableMap.of(
                         columns.get(0), Domain.create(ofRanges(Range.lessThan(BIGINT, 50L)), false),

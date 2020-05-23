@@ -227,7 +227,7 @@ public class ShardOrganizationManager
             return false;
         }
 
-        if (!info.getLastStartTimeMillis().isPresent()) {
+        if (info.getLastStartTimeMillis().isEmpty()) {
             return true;
         }
 

@@ -115,7 +115,7 @@ public class TextRenderer
     private String printStats(PlanRepresentation plan, NodeRepresentation node)
     {
         StringBuilder output = new StringBuilder();
-        if (!node.getStats().isPresent() || !(plan.getTotalCpuTime().isPresent() && plan.getTotalScheduledTime().isPresent())) {
+        if (node.getStats().isEmpty() || !(plan.getTotalCpuTime().isPresent() && plan.getTotalScheduledTime().isPresent())) {
             return "";
         }
 

@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -176,7 +177,7 @@ public final class HiveBucketing
     public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table, TypeManager typeManager)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
-        if (!hiveBucketProperty.isPresent()) {
+        if (hiveBucketProperty.isEmpty()) {
             return Optional.empty();
         }
 
@@ -201,7 +202,7 @@ public final class HiveBucketing
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (!table.getStorage().getBucketProperty().isPresent()) {
+        if (table.getStorage().getBucketProperty().isEmpty()) {
             return Optional.empty();
         }
 
@@ -211,7 +212,7 @@ public final class HiveBucketing
         }
 
         Optional<Map<ColumnHandle, List<NullableValue>>> bindings = TupleDomain.extractDiscreteValues(effectivePredicate);
-        if (!bindings.isPresent()) {
+        if (bindings.isEmpty()) {
             return Optional.empty();
         }
         Optional<Set<Integer>> buckets = getHiveBuckets(table, bindings.get());
@@ -224,7 +225,7 @@ public final class HiveBucketing
                         .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
                         .findFirst()
                         .map(Entry::getValue));
-        if (!domain.isPresent()) {
+        if (domain.isEmpty()) {
             return Optional.empty();
         }
         ValueSet values = domain.get().getValues();
@@ -353,6 +354,25 @@ public final class HiveBucketing
         public Set<Integer> getBucketsToKeep()
         {
             return bucketsToKeep;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            HiveBucketFilter other = (HiveBucketFilter) obj;
+            return Objects.equals(this.bucketsToKeep, other.bucketsToKeep);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(bucketsToKeep);
         }
     }
 }

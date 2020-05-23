@@ -14,12 +14,15 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
 import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.utils.JdbcDriverUtils;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import javax.inject.Named;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -48,6 +51,10 @@ public class TestHiveStorageFormats
 {
     private static final String TPCH_SCHEMA = "tiny";
 
+    @Inject(optional = true)
+    @Named("databases.presto.admin_role_enabled")
+    private boolean adminRoleEnabled;
+
     @DataProvider(name = "storage_formats")
     public static Object[][] storageFormats()
     {
@@ -67,7 +74,7 @@ public class TestHiveStorageFormats
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -110,7 +117,7 @@ public class TestHiveStorageFormats
     public void testCreateTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -136,7 +143,7 @@ public class TestHiveStorageFormats
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -179,7 +186,7 @@ public class TestHiveStorageFormats
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
-        setRole("admin");
+        setAdminRole();
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -249,11 +256,15 @@ public class TestHiveStorageFormats
                 .containsExactly(expectedRows);
     }
 
-    private static void setRole(String role)
+    private void setAdminRole()
     {
+        if (adminRoleEnabled) {
+            return;
+        }
+
         Connection connection = defaultQueryExecutor().getConnection();
         try {
-            JdbcDriverUtils.setRole(connection, role);
+            JdbcDriverUtils.setRole(connection, "admin");
         }
         catch (SQLException e) {
             throw new RuntimeException(e);

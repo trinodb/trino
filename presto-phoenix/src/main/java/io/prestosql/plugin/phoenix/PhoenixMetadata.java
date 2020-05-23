@@ -18,27 +18,21 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.JdbcMetadata;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNewTableLayout;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SchemaTablePrefix;
-import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.Type;
@@ -86,7 +80,7 @@ import static org.apache.phoenix.util.PhoenixRuntime.getTable;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
 
 public class PhoenixMetadata
-        implements ConnectorMetadata
+        extends JdbcMetadata
 {
     // Maps to Phoenix's default empty schema
     public static final String DEFAULT_SCHEMA = "default";
@@ -97,13 +91,8 @@ public class PhoenixMetadata
     @Inject
     public PhoenixMetadata(PhoenixClient phoenixClient)
     {
+        super(phoenixClient, true);
         this.phoenixClient = requireNonNull(phoenixClient, "client is null");
-    }
-
-    @Override
-    public List<String> listSchemaNames(ConnectorSession session)
-    {
-        return ImmutableList.copyOf(phoenixClient.getSchemaNames(JdbcIdentity.from(session)));
     }
 
     @Override
@@ -119,26 +108,12 @@ public class PhoenixMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new PhoenixTableLayoutHandle(tableHandle, constraint.getSummary(), desiredColumns));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         return getTableMetadata(session, table, false);
     }
 
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
         List<ColumnMetadata> columnMetadata = phoenixClient.getColumns(session, handle).stream()
@@ -148,13 +123,7 @@ public class PhoenixMetadata
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata, getTableProperties(session, handle));
     }
 
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return true;
-    }
-
-    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle handle)
+    private Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle handle)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
@@ -269,7 +238,13 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public boolean supportsMissingColumnsOnInsert()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         List<JdbcColumnHandle> allColumns = phoenixClient.getColumns(session, handle);
@@ -329,7 +304,7 @@ public class PhoenixMetadata
         phoenixClient.dropTable(JdbcIdentity.from(session), (JdbcTableHandle) tableHandle);
     }
 
-    public JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    private JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Optional<String> schema = Optional.of(schemaTableName.getSchemaName());
@@ -414,48 +389,5 @@ public class PhoenixMetadata
             }
             throw new PrestoException(PHOENIX_METADATA_ERROR, "Error creating Phoenix table", e);
         }
-    }
-
-    @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
-    {
-        return phoenixClient.getTableNames(JdbcIdentity.from(session), schemaName);
-    }
-
-    @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
-
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (JdbcColumnHandle column : phoenixClient.getColumns(session, jdbcTableHandle)) {
-            columnHandles.put(column.getColumnMetadata().getName(), column);
-        }
-        return columnHandles.build();
-    }
-
-    @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        return ((JdbcColumnHandle) columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        List<SchemaTableName> tables = prefix.toOptionalSchemaTableName()
-                .<List<SchemaTableName>>map(ImmutableList::of)
-                .orElseGet(() -> listTables(session, prefix.getSchema()));
-        for (SchemaTableName tableName : tables) {
-            try {
-                phoenixClient.getTableHandle(JdbcIdentity.from(session), tableName)
-                        .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
-            }
-        }
-        return columns.build();
     }
 }

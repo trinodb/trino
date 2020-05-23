@@ -18,13 +18,11 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.type.Type;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class PageBuilder
@@ -67,7 +65,7 @@ public class PageBuilder
 
     private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types, Optional<BlockBuilder[]> templateBlockBuilders)
     {
-        this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
+        this.types = List.copyOf(requireNonNull(types, "types is null"));
 
         pageBuilderStatus = new PageBuilderStatus(maxPageBytes);
         blockBuilders = new BlockBuilder[types.size()];
@@ -170,7 +168,7 @@ public class PageBuilder
             }
         }
 
-        return new Page(blocks);
+        return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
     }
 
     private static void checkArgument(boolean expression, String errorMessage)

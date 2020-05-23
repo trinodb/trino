@@ -73,6 +73,14 @@ public final class TwoMixedHives
                     dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive2.properties"),
                     CONTAINER_PRESTO_ETC + "/catalog/hive2.properties",
                     READ_ONLY);
+            container.withFileSystemBind(
+                    dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg1.properties"),
+                    CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties",
+                    READ_ONLY);
+            container.withFileSystemBind(
+                    dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg2.properties"),
+                    CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties",
+                    READ_ONLY);
         });
 
         builder.addContainer("hadoop-master-2", createHadoopMaster2());

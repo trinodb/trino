@@ -344,7 +344,7 @@ public class JoinNode
 
     public boolean isCrossJoin()
     {
-        return criteria.isEmpty() && !filter.isPresent() && type == INNER;
+        return criteria.isEmpty() && filter.isEmpty() && type == INNER;
     }
 
     public static class EquiJoinClause

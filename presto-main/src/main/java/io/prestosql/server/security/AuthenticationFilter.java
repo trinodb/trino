@@ -14,9 +14,7 @@
 package io.prestosql.server.security;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HttpHeaders;
 import io.prestosql.server.InternalAuthenticationManager;
 import io.prestosql.server.ui.WebUiAuthenticationManager;
 import io.prestosql.spi.security.Identity;
@@ -29,23 +27,20 @@ import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
 import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.io.ByteStreams.copy;
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
-import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
+import static io.prestosql.server.ServletSecurityUtils.skipRequestBody;
+import static io.prestosql.server.ServletSecurityUtils.withAuthenticatedIdentity;
 import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
@@ -54,10 +49,7 @@ import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 public class AuthenticationFilter
         implements Filter
 {
-    private static final String HTTPS_PROTOCOL = "https";
-
     private final List<Authenticator> authenticators;
-    private final boolean httpsForwardingEnabled;
     private final InternalAuthenticationManager internalAuthenticationManager;
     private final WebUiAuthenticationManager uiAuthenticationManager;
 
@@ -68,7 +60,6 @@ public class AuthenticationFilter
             WebUiAuthenticationManager uiAuthenticationManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
-        this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
         this.uiAuthenticationManager = requireNonNull(uiAuthenticationManager, "uiAuthenticationManager is null");
     }
@@ -150,19 +141,6 @@ public class AuthenticationFilter
         sendErrorMessage(response, SC_UNAUTHORIZED, error);
     }
 
-    private static void sendErrorMessage(HttpServletResponse response, int errorCode, String errorMessage)
-            throws IOException
-    {
-        // Clients should use the response body rather than the HTTP status
-        // message (which does not exist with HTTP/2), but the status message
-        // still needs to be sent for compatibility with existing clients.
-        response.setStatus(errorCode, errorMessage);
-        response.setContentType(PLAIN_TEXT_UTF_8.toString());
-        try (PrintWriter writer = response.getWriter()) {
-            writer.write(errorMessage);
-        }
-    }
-
     private static void handleInsecureRequest(FilterChain nextFilter, HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException
     {
@@ -175,7 +153,7 @@ public class AuthenticationFilter
             return;
         }
 
-        if (!basicAuthCredentials.isPresent()) {
+        if (basicAuthCredentials.isEmpty()) {
             nextFilter.doFilter(request, response);
             return;
         }
@@ -190,57 +168,6 @@ public class AuthenticationFilter
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
     {
-        if (authenticators.isEmpty()) {
-            return false;
-        }
-        if (request.isSecure()) {
-            return true;
-        }
-        return httpsForwardingEnabled && Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
-    }
-
-    private static void withAuthenticatedIdentity(FilterChain nextFilter, HttpServletRequest request, HttpServletResponse response, Identity authenticatedIdentity)
-            throws IOException, ServletException
-    {
-        request.setAttribute(AUTHENTICATED_IDENTITY, authenticatedIdentity);
-        try {
-            nextFilter.doFilter(withPrincipal(request, authenticatedIdentity.getPrincipal()), response);
-        }
-        finally {
-            // destroy identity if identity is still attached to the request
-            Optional.ofNullable(request.getAttribute(AUTHENTICATED_IDENTITY))
-                    .map(Identity.class::cast)
-                    .ifPresent(Identity::destroy);
-        }
-    }
-
-    private static ServletRequest withPrincipal(HttpServletRequest request, Optional<Principal> principal)
-    {
-        requireNonNull(principal, "principal is null");
-        if (!principal.isPresent()) {
-            return request;
-        }
-        return new HttpServletRequestWrapper(request)
-        {
-            @Override
-            public Principal getUserPrincipal()
-            {
-                return principal.get();
-            }
-        };
-    }
-
-    private static void skipRequestBody(HttpServletRequest request)
-            throws IOException
-    {
-        // If we send the challenge without consuming the body of the request,
-        // the server will close the connection after sending the response.
-        // The client may interpret this as a failed request and not resend the
-        // request with the authentication header. We can avoid this behavior
-        // in the client by reading and discarding the entire body of the
-        // unauthenticated request before sending the response.
-        try (InputStream inputStream = request.getInputStream()) {
-            copy(inputStream, nullOutputStream());
-        }
+        return !authenticators.isEmpty() && request.isSecure();
     }
 }

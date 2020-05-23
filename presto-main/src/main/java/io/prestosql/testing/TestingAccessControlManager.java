@@ -20,6 +20,7 @@ import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
@@ -112,6 +113,7 @@ public class TestingAccessControlManager
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
     private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
     private Predicate<String> deniedCatalogs = s -> true;
+    private Predicate<SchemaTableName> deniedTables = s -> true;
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -155,6 +157,7 @@ public class TestingAccessControlManager
     {
         denyPrivileges.clear();
         deniedCatalogs = s -> true;
+        deniedTables = s -> true;
         rowFilters.clear();
         columnMasks.clear();
     }
@@ -164,6 +167,11 @@ public class TestingAccessControlManager
         this.deniedCatalogs = this.deniedCatalogs.and(deniedCatalogs);
     }
 
+    public void denyTables(Predicate<SchemaTableName> deniedTables)
+    {
+        this.deniedTables = this.deniedTables.and(deniedTables);
+    }
+
     @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
@@ -171,6 +179,17 @@ public class TestingAccessControlManager
                 identity,
                 catalogs.stream()
                         .filter(this.deniedCatalogs)
+                        .collect(toImmutableSet()));
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
+    {
+        return super.filterTables(
+                context,
+                catalogName,
+                tableNames.stream()
+                        .filter(this.deniedTables)
                         .collect(toImmutableSet()));
     }
 

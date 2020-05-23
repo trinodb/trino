@@ -791,10 +791,13 @@ public class TestSqlParser
     @Test
     public void testShowColumns()
     {
-        assertStatement("SHOW COLUMNS FROM a", new ShowColumns(QualifiedName.of("a")));
-        assertStatement("SHOW COLUMNS FROM a.b", new ShowColumns(QualifiedName.of("a", "b")));
-        assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table")));
-        assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table")));
+        assertStatement("SHOW COLUMNS FROM a", new ShowColumns(QualifiedName.of("a"), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW COLUMNS FROM a.b", new ShowColumns(QualifiedName.of("a", "b"), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table"), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table"), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW COLUMNS FROM a.b LIKE '%$_%' ESCAPE '$'", new ShowColumns(QualifiedName.of("a", "b"), Optional.of("%$_%"), Optional.of("$")));
+        assertInvalidStatemennt("SHOW COLUMNS FROM a.b LIKE null", "mismatched input 'null'. Expecting: <string>");
+        assertInvalidStatemennt("SHOW COLUMNS FROM a.b LIKE 'a' ESCAPE null'", "mismatched input 'null'. Expecting: <string>");
     }
 
     @Test
@@ -2501,6 +2504,19 @@ public class TestSqlParser
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query, new ParsingOptions()));
         assertFormattedSql(SQL_PARSER, expected);
+    }
+
+    private static void assertInvalidStatemennt(String statement, String expectedErrorMessageRegex)
+    {
+        try {
+            Statement result = SQL_PARSER.createStatement(statement, new ParsingOptions());
+            fail("Expected to throw ParsingException for input:[" + statement + "], but got: " + result);
+        }
+        catch (ParsingException e) {
+            if (!e.getErrorMessage().matches(expectedErrorMessageRegex)) {
+                fail(format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
+            }
+        }
     }
 
     private static void assertExpression(String expression, Expression expected)

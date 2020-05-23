@@ -138,7 +138,7 @@ public class MongoMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
@@ -227,7 +227,7 @@ public class MongoMetadata
 
         for (MongoIndex index : tableInfo.getIndexes()) {
             for (MongodbIndexKey key : index.getKeys()) {
-                if (!key.getSortOrder().isPresent()) {
+                if (key.getSortOrder().isEmpty()) {
                     continue;
                 }
                 if (columns.get(key.getName()) != null) {

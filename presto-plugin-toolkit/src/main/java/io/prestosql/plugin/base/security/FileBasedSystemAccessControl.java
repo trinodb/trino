@@ -72,6 +72,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
@@ -174,10 +175,10 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
-        if (!impersonationRules.isPresent()) {
+        if (impersonationRules.isEmpty()) {
             // if there are principal user match rules, we assume that impersonation checks are
             // handled there; otherwise, impersonation must be manually configured
-            if (!principalUserMatchRules.isPresent()) {
+            if (principalUserMatchRules.isEmpty()) {
                 denyImpersonateUser(context.getIdentity().getUser(), userName);
             }
             return;
@@ -202,11 +203,11 @@ public class FileBasedSystemAccessControl
         requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");
 
-        if (!principalUserMatchRules.isPresent()) {
+        if (principalUserMatchRules.isEmpty()) {
             return;
         }
 
-        if (!principal.isPresent()) {
+        if (principal.isEmpty()) {
             denySetUser(principal, userName);
         }
 
@@ -228,7 +229,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return;
         }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.EXECUTE)) {
@@ -239,7 +240,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return;
         }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.VIEW)) {
@@ -250,7 +251,7 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return queryOwners;
         }
         Identity identity = context.getIdentity();
@@ -262,7 +263,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!queryAccessRules.isPresent()) {
+        if (queryAccessRules.isEmpty()) {
             return;
         }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.KILL)) {
@@ -371,6 +372,14 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
             denyShowCreateTable(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanShowCreateSchema(SystemSecurityContext context, CatalogSchemaName schemaName)
+    {
+        if (!canAccessCatalog(context.getIdentity(), schemaName.getCatalogName(), ALL)) {
+            denyShowCreateSchema(schemaName.toString());
         }
     }
 

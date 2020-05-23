@@ -45,7 +45,7 @@ public class ExtendedSimpleAddressSelector
     @Override
     public Optional<SimpleAddress> selectAddress(Optional<String> context, Set<SimpleAddress> attempted)
     {
-        if (!context.isPresent()) {
+        if (context.isEmpty()) {
             return delegate.selectAddress(context, attempted);
         }
 

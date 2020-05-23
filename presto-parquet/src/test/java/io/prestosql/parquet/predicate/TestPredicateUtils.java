@@ -24,6 +24,11 @@ import java.util.Set;
 
 import static com.google.common.collect.Sets.union;
 import static io.prestosql.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
+import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static org.apache.parquet.column.Encoding.BIT_PACKED;
 import static org.apache.parquet.column.Encoding.PLAIN;
 import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
@@ -37,6 +42,30 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPredicateUtils
 {
+    @Test
+    public void testIsStatisticsOverflow()
+    {
+        assertFalse(isStatisticsOverflow(TINYINT, new ParquetIntegerStatistics(-10L, 10L)));
+        assertTrue(isStatisticsOverflow(TINYINT, new ParquetIntegerStatistics(-129L, 10L)));
+        assertTrue(isStatisticsOverflow(TINYINT, new ParquetIntegerStatistics(-10L, 129L)));
+
+        assertFalse(isStatisticsOverflow(SMALLINT, new ParquetIntegerStatistics(-32_000L, 32_000L)));
+        assertTrue(isStatisticsOverflow(SMALLINT, new ParquetIntegerStatistics(-100_000L, 32_000L)));
+        assertTrue(isStatisticsOverflow(SMALLINT, new ParquetIntegerStatistics(-32_000L, 100_000L)));
+
+        assertFalse(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-2_000_000_000L, 2_000_000_000L)));
+        assertTrue(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-3_000_000_000L, 2_000_000_000L)));
+        assertTrue(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-2_000_000_000L, 3_000_000_000L)));
+
+        // short decimal
+        assertFalse(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-10_000L, 10_000L)));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-100_000L, 10_000L)));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-10_000L, 100_000L)));
+
+        // long decimal
+        assertFalse(isStatisticsOverflow(createDecimalType(19, 0), new ParquetIntegerStatistics(-1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L)));
+    }
+
     @Test
     @SuppressWarnings("deprecation")
     public void testDictionaryEncodingV1()

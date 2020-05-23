@@ -126,7 +126,7 @@ public class IndexJoinOptimizer
                 if (leftIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<Symbol, Symbol> trace = IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinSymbols));
-                    checkState(!trace.isEmpty() && leftJoinSymbols.containsAll(trace.keySet()));
+                    checkState(!trace.isEmpty());
                 }
 
                 Optional<PlanNode> rightIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
@@ -139,7 +139,7 @@ public class IndexJoinOptimizer
                 if (rightIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<Symbol, Symbol> trace = IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinSymbols));
-                    checkState(!trace.isEmpty() && rightJoinSymbols.containsAll(trace.keySet()));
+                    checkState(!trace.isEmpty());
                 }
 
                 switch (node.getType()) {
@@ -171,14 +171,14 @@ public class IndexJoinOptimizer
 
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
-                        if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
+                        if (node.getFilter().isEmpty() && rightIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
-                        if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
+                        if (node.getFilter().isEmpty() && leftIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
                         }
                         break;
@@ -306,7 +306,7 @@ public class IndexJoinOptimizer
             Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
 
             Optional<ResolvedIndex> optionalResolvedIndex = metadata.resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
-            if (!optionalResolvedIndex.isPresent()) {
+            if (optionalResolvedIndex.isEmpty()) {
                 // No index available, so give up by returning something
                 return node;
             }
@@ -320,8 +320,7 @@ public class IndexJoinOptimizer
                     node.getTable(),
                     context.getLookupSymbols(),
                     node.getOutputSymbols(),
-                    node.getAssignments(),
-                    simplifiedConstraint);
+                    node.getAssignments());
 
             Expression resultingPredicate = combineConjuncts(
                     metadata,

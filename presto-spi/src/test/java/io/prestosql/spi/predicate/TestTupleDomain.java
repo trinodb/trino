@@ -105,6 +105,7 @@ public class TestTupleDomain
                         .build());
 
         assertEquals(tupleDomain1.intersect(tupleDomain2), expectedTupleDomain);
+        assertEquals(tupleDomain2.intersect(tupleDomain1), expectedTupleDomain);
     }
 
     @Test

@@ -13,28 +13,38 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
+import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.matching.Pattern.empty;
 import static io.prestosql.matching.Pattern.nonEmpty;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.prestosql.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.filter;
+import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.subquery;
+import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
+import static io.prestosql.sql.planner.plan.Patterns.project;
+import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -66,18 +76,7 @@ import static java.util.Objects.requireNonNull;
  * Note that only conjunction predicates in FilterNode are supported
  */
 public class TransformCorrelatedScalarAggregationToJoin
-        implements Rule<CorrelatedJoinNode>
 {
-    private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
-            .with(nonEmpty(correlation()))
-            .with(filter().equalTo(TRUE_LITERAL)); // todo non-trivial join filter: adding filter/project on top of aggregation
-
-    @Override
-    public Pattern<CorrelatedJoinNode> getPattern()
-    {
-        return PATTERN;
-    }
-
     private final Metadata metadata;
 
     public TransformCorrelatedScalarAggregationToJoin(Metadata metadata)
@@ -85,36 +84,120 @@ public class TransformCorrelatedScalarAggregationToJoin
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    @Override
-    public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
+    public Set<Rule<?>> rules()
     {
-        PlanNode subquery = correlatedJoinNode.getSubquery();
-
-        if (!isScalar(subquery, context.getLookup())) {
-            return Result.empty();
-        }
-
-        Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
-        if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {
-            return Result.empty();
-        }
-
-        ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(metadata, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
-
-        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(correlatedJoinNode, aggregation.get());
-
-        if (rewrittenNode instanceof CorrelatedJoinNode) {
-            return Result.empty();
-        }
-
-        return Result.ofPlanNode(rewrittenNode);
+        return ImmutableSet.of(
+                new TransformCorrelatedScalarAggregationToJoin.TransformCorrelatedScalarAggregationWithProjection(metadata),
+                new TransformCorrelatedScalarAggregationToJoin.TransformCorrelatedScalarAggregationWithoutProjection(metadata));
     }
 
-    private static Optional<AggregationNode> findAggregation(PlanNode rootNode, Lookup lookup)
+    @VisibleForTesting
+    static final class TransformCorrelatedScalarAggregationWithProjection
+            implements Rule<CorrelatedJoinNode>
     {
-        return searchFrom(rootNode, lookup)
-                .where(AggregationNode.class::isInstance)
-                .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
-                .findFirst();
+        private static final Capture<ProjectNode> PROJECTION = newCapture();
+        private static final Capture<AggregationNode> AGGREGATION = newCapture();
+
+        private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
+                .with(nonEmpty(correlation()))
+                .with(filter().equalTo(TRUE_LITERAL))
+                .with(subquery().matching(project()
+                        .capturedAs(PROJECTION)
+                        .with(source().matching(aggregation()
+                                .with(empty(groupingColumns()))
+                                .capturedAs(AGGREGATION)))));
+
+        private final Metadata metadata;
+
+        @VisibleForTesting
+        TransformCorrelatedScalarAggregationWithProjection(Metadata metadata)
+        {
+            this.metadata = requireNonNull(metadata, "metadata is null");
+        }
+
+        @Override
+        public Pattern<CorrelatedJoinNode> getPattern()
+        {
+            return PATTERN;
+        }
+
+        @Override
+        public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
+        {
+            PlanNode rewrittenNode = new ScalarAggregationToJoinRewriter(metadata, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup())
+                    .rewriteScalarAggregation(correlatedJoinNode, captures.get(AGGREGATION));
+
+            if (rewrittenNode instanceof CorrelatedJoinNode) {
+                // Failed to decorrelate subquery
+                return Result.empty();
+            }
+
+            // Restrict outputs and apply projection
+            Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());
+            List<Symbol> expectedAggregationOutputs = rewrittenNode.getOutputSymbols().stream()
+                    .filter(outputSymbols::contains)
+                    .collect(toImmutableList());
+
+            Assignments assignments = Assignments.builder()
+                    .putIdentities(expectedAggregationOutputs)
+                    .putAll(captures.get(PROJECTION).getAssignments())
+                    .build();
+
+            return Result.ofPlanNode(new ProjectNode(
+                    context.getIdAllocator().getNextId(),
+                    rewrittenNode,
+                    assignments));
+        }
+    }
+
+    @VisibleForTesting
+    static final class TransformCorrelatedScalarAggregationWithoutProjection
+            implements Rule<CorrelatedJoinNode>
+    {
+        private static final Capture<AggregationNode> AGGREGATION = newCapture();
+
+        private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
+                .with(nonEmpty(correlation()))
+                .with(filter().equalTo(TRUE_LITERAL)) // todo non-trivial join filter: adding filter/project on top of aggregation
+                .with(subquery().matching(aggregation()
+                        .with(empty(groupingColumns()))
+                        .capturedAs(AGGREGATION)));
+
+        private final Metadata metadata;
+
+        @VisibleForTesting
+        TransformCorrelatedScalarAggregationWithoutProjection(Metadata metadata)
+        {
+            this.metadata = requireNonNull(metadata, "metadata is null");
+        }
+
+        @Override
+        public Pattern<CorrelatedJoinNode> getPattern()
+        {
+            return PATTERN;
+        }
+
+        @Override
+        public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
+        {
+            PlanNode rewrittenNode = new ScalarAggregationToJoinRewriter(metadata, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup())
+                    .rewriteScalarAggregation(correlatedJoinNode, captures.get(AGGREGATION));
+
+            if (rewrittenNode instanceof CorrelatedJoinNode) {
+                // Failed to decorrelate subquery
+                return Result.empty();
+            }
+
+            // Restrict outputs
+            Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());
+            List<Symbol> expectedAggregationOutputs = rewrittenNode.getOutputSymbols().stream()
+                    .filter(outputSymbols::contains)
+                    .collect(toImmutableList());
+
+            return Result.ofPlanNode(new ProjectNode(
+                    context.getIdAllocator().getNextId(),
+                    rewrittenNode,
+                    Assignments.identity(expectedAggregationOutputs)));
+        }
     }
 }

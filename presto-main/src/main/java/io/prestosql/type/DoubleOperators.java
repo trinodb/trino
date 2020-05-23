@@ -256,6 +256,9 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (value == 0) {
+            value = 0;
+        }
         return AbstractLongType.hash(doubleToLongBits(value));
     }
 
@@ -376,6 +379,9 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long xxHash64(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (value == 0) {
+            value = 0;
+        }
         return XxHash64.hash(Double.doubleToLongBits(value));
     }
 }

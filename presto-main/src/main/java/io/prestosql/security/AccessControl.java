@@ -128,6 +128,13 @@ public interface AccessControl
     Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames);
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE SCHEMA.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName);
+
+    /**
      * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed

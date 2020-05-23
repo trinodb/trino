@@ -85,6 +85,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.prestosql.plugin.hive.HiveColumnProjectionInfo.generatePartialName;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -473,13 +475,47 @@ public abstract class AbstractTestHiveFileFormats
     protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
     {
         List<HiveColumnHandle> columns = new ArrayList<>();
+        Map<String, Integer> hiveColumnIndexes = new HashMap<>();
+
         int nextHiveColumnIndex = 0;
         for (int i = 0; i < testColumns.size(); i++) {
             TestColumn testColumn = testColumns.get(i);
-            int columnIndex = testColumn.isPartitionKey() ? -1 : nextHiveColumnIndex++;
 
-            HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-            columns.add(new HiveColumnHandle(testColumn.getName(), hiveType, hiveType.getType(TYPE_MANAGER), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+            int columnIndex;
+            if (testColumn.isPartitionKey()) {
+                columnIndex = -1;
+            }
+            else {
+                if (hiveColumnIndexes.get(testColumn.getBaseName()) != null) {
+                    columnIndex = hiveColumnIndexes.get(testColumn.getBaseName());
+                }
+                else {
+                    columnIndex = nextHiveColumnIndex++;
+                    hiveColumnIndexes.put(testColumn.getBaseName(), columnIndex);
+                }
+            }
+
+            if (testColumn.getDereferenceNames().size() == 0) {
+                HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
+                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, hiveType.getType(TYPE_MANAGER), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+            }
+            else {
+                HiveType baseHiveType = HiveType.valueOf(testColumn.getBaseObjectInspector().getTypeName());
+                HiveType partialHiveType = baseHiveType.getHiveTypeForDereferences(testColumn.getDereferenceIndices()).get();
+                HiveColumnHandle hiveColumnHandle = new HiveColumnHandle(
+                        testColumn.getBaseName(),
+                        columnIndex,
+                        baseHiveType,
+                        baseHiveType.getType(TYPE_MANAGER),
+                        Optional.of(new HiveColumnProjectionInfo(
+                                testColumn.getDereferenceIndices(),
+                                testColumn.getDereferenceNames(),
+                                partialHiveType,
+                                partialHiveType.getType(TYPE_MANAGER))),
+                        testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR,
+                        Optional.empty());
+                columns.add(hiveColumnHandle);
+            }
         }
         return columns;
     }
@@ -817,6 +853,10 @@ public abstract class AbstractTestHiveFileFormats
 
     public static final class TestColumn
     {
+        private final String baseName;
+        private final ObjectInspector baseObjectInspector;
+        private final List<String> dereferenceNames;
+        private final List<Integer> dereferenceIndices;
         private final String name;
         private final ObjectInspector objectInspector;
         private final Object writeValue;
@@ -830,11 +870,30 @@ public abstract class AbstractTestHiveFileFormats
 
         public TestColumn(String name, ObjectInspector objectInspector, Object writeValue, Object expectedValue, boolean partitionKey)
         {
-            this.name = requireNonNull(name, "name is null");
+            this(name, objectInspector, ImmutableList.of(), ImmutableList.of(), objectInspector, writeValue, expectedValue, partitionKey);
+        }
+
+        public TestColumn(
+                String baseName,
+                ObjectInspector baseObjectInspector,
+                List<String> dereferenceNames,
+                List<Integer> dereferenceIndices,
+                ObjectInspector objectInspector,
+                Object writeValue,
+                Object expectedValue,
+                boolean partitionKey)
+        {
+            this.baseName = requireNonNull(baseName, "baseName is null");
+            this.baseObjectInspector = requireNonNull(baseObjectInspector, "baseObjectInspector is null");
+            this.dereferenceNames = requireNonNull(dereferenceNames, "dereferenceNames is null");
+            this.dereferenceIndices = requireNonNull(dereferenceIndices, "dereferenceIndices is null");
+            checkArgument(dereferenceIndices.size() == dereferenceNames.size(), "dereferenceIndices and dereferenceNames should have the same size");
+            this.name = baseName + generatePartialName(dereferenceNames);
             this.objectInspector = requireNonNull(objectInspector, "objectInspector is null");
             this.writeValue = writeValue;
             this.expectedValue = expectedValue;
             this.partitionKey = partitionKey;
+            checkArgument(dereferenceNames.size() == 0 || partitionKey == false, "partial column cannot be a partition key");
         }
 
         public String getName()
@@ -842,9 +901,29 @@ public abstract class AbstractTestHiveFileFormats
             return name;
         }
 
+        public String getBaseName()
+        {
+            return baseName;
+        }
+
+        public List<String> getDereferenceNames()
+        {
+            return dereferenceNames;
+        }
+
+        public List<Integer> getDereferenceIndices()
+        {
+            return dereferenceIndices;
+        }
+
         public String getType()
         {
             return objectInspector.getTypeName();
+        }
+
+        public ObjectInspector getBaseObjectInspector()
+        {
+            return baseObjectInspector;
         }
 
         public ObjectInspector getObjectInspector()
@@ -871,7 +950,9 @@ public abstract class AbstractTestHiveFileFormats
         public String toString()
         {
             StringBuilder sb = new StringBuilder("TestColumn{");
-            sb.append("name='").append(name).append('\'');
+            sb.append("baseName='").append(baseName).append("'");
+            sb.append("dereferenceNames=").append("[").append(dereferenceNames.stream().collect(Collectors.joining(","))).append("]");
+            sb.append("name=").append(name);
             sb.append(", objectInspector=").append(objectInspector);
             sb.append(", writeValue=").append(writeValue);
             sb.append(", expectedValue=").append(expectedValue);

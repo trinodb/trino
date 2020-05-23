@@ -27,6 +27,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractKuduIntegrationSmokeTest
@@ -71,8 +72,29 @@ public abstract class AbstractKuduIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testShowCreateTable()
     {
+        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .matches("CREATE TABLE kudu\\.\\w+\\.orders \\Q(\n" +
+                        "   orderkey bigint WITH ( nullable = true ),\n" +
+                        "   custkey bigint WITH ( nullable = true ),\n" +
+                        "   orderstatus varchar WITH ( nullable = true ),\n" +
+                        "   totalprice double WITH ( nullable = true ),\n" +
+                        "   orderdate varchar WITH ( nullable = true ),\n" +
+                        "   orderpriority varchar WITH ( nullable = true ),\n" +
+                        "   clerk varchar WITH ( nullable = true ),\n" +
+                        "   shippriority integer WITH ( nullable = true ),\n" +
+                        "   comment varchar WITH ( nullable = true )\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   number_of_replicas = 3,\n" +
+                        "   partition_by_hash_buckets = 2,\n" +
+                        "   partition_by_hash_columns = ARRAY['row_uuid'],\n" +
+                        "   partition_by_range_columns = ARRAY['row_uuid'],\n" +
+                        "   range_partitions = '[{\"lower\":null,\"upper\":null}]'\n" +
+                        ")");
+
         assertUpdate("CREATE TABLE IF NOT EXISTS test_show_create_table (\n" +
                 "id INT WITH (primary_key=true),\n" +
                 "user_name VARCHAR\n" +

@@ -30,6 +30,7 @@ import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryR
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -41,6 +42,17 @@ public class TestIcebergSmoke
             throws Exception
     {
         return createIcebergQueryRunner(ImmutableMap.of());
+    }
+
+    @Test
+    public void testShowCreateSchema()
+    {
+        assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
+                .matches("CREATE SCHEMA iceberg.tpch\n" +
+                         "AUTHORIZATION USER user\n" +
+                         "WITH \\(\n" +
+                         "   location = '.*/iceberg_data/tpch'\n" +
+                         "\\)");
     }
 
     @Test
@@ -60,6 +72,26 @@ public class TestIcebergSmoke
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   clerk varchar,\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
     }
 
     @Test

@@ -46,6 +46,7 @@ import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -134,7 +135,7 @@ public class OrcMetadataReader
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
         return new Footer(
                 footer.getNumberOfRows(),
-                footer.getRowIndexStride(),
+                footer.getRowIndexStride() == 0 ? OptionalInt.empty() : OptionalInt.of(footer.getRowIndexStride()),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),

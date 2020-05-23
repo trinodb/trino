@@ -67,7 +67,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.powerSet;
-import static com.google.common.collect.Streams.stream;
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.prestosql.SystemSessionProperties.getMaxReorderedJoins;
@@ -109,7 +108,7 @@ public class ReorderJoins
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.pattern = join().matching(
-                joinNode -> !joinNode.getDistributionType().isPresent()
+                joinNode -> joinNode.getDistributionType().isEmpty()
                         && joinNode.getType() == INNER
                         && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), metadata));
     }
@@ -132,7 +131,7 @@ public class ReorderJoins
         // try reorder joins with projection pushdown first
         MultiJoinNode multiJoinNode = toMultiJoinNode(metadata, joinNode, context, true);
         JoinEnumerationResult resultWithProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
-        if (!resultWithProjectionPushdown.getPlanNode().isPresent()) {
+        if (resultWithProjectionPushdown.getPlanNode().isEmpty()) {
             return Result.empty();
         }
 
@@ -143,7 +142,7 @@ public class ReorderJoins
         // try reorder joins without projection pushdown
         multiJoinNode = toMultiJoinNode(metadata, joinNode, context, false);
         JoinEnumerationResult resultWithoutProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
-        if (!resultWithoutProjectionPushdown.getPlanNode().isPresent()
+        if (resultWithoutProjectionPushdown.getPlanNode().isEmpty()
                 || costComparator.compare(context.getSession(), resultWithProjectionPushdown.cost, resultWithoutProjectionPushdown.cost) < 0) {
             return Result.ofPlanNode(resultWithProjectionPushdown.getPlanNode().get());
         }
@@ -348,7 +347,7 @@ public class ReorderJoins
             // This takes all conjuncts that were part of allFilters that
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
-            stream(nonInferrableConjuncts(metadata, allFilter))
+            nonInferrableConjuncts(metadata, allFilter).stream()
                     .map(conjunct -> allFilterInference.rewrite(conjunct, Sets.union(leftSymbols, rightSymbols)))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
@@ -372,7 +371,7 @@ public class ReorderJoins
                 Set<Symbol> scope = ImmutableSet.copyOf(outputSymbols);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
-                stream(nonInferrableConjuncts(metadata, allFilter))
+                nonInferrableConjuncts(metadata, allFilter).stream()
                         .map(conjunct -> allFilterInference.rewrite(conjunct, scope))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
@@ -594,7 +593,7 @@ public class ReorderJoins
                     }
 
                     Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(metadata, (ProjectNode) resolved, lookup, planNodeIdAllocator);
-                    if (!rewrittenNode.isPresent()) {
+                    if (rewrittenNode.isEmpty()) {
                         sources.add(node);
                         return;
                     }
@@ -675,7 +674,7 @@ public class ReorderJoins
         {
             this.planNode = requireNonNull(planNode, "planNode is null");
             this.cost = requireNonNull(cost, "cost is null");
-            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && !planNode.isPresent()
+            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && planNode.isEmpty()
                             || (!cost.hasUnknownComponents() || !cost.equals(PlanCostEstimate.infinite())) && planNode.isPresent(),
                     "planNode should be present if and only if cost is known");
         }

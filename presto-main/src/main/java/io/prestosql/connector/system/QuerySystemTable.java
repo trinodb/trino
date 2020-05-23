@@ -110,7 +110,7 @@ public class QuerySystemTable
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
         for (BasicQueryInfo queryInfo : queries) {
             Optional<QueryInfo> fullQueryInfo = dispatchManager.get().getFullQueryInfo(queryInfo.getQueryId());
-            if (!fullQueryInfo.isPresent()) {
+            if (fullQueryInfo.isEmpty()) {
                 continue;
             }
             QueryStats queryStats = fullQueryInfo.get().getQueryStats();

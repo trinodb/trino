@@ -99,14 +99,14 @@ public class ParquetReader
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
-        this.blocks = blocks;
+        this.columns = requireNonNull(messageColumnIO, "messageColumnIO is null").getLeaves();
+        this.blocks = requireNonNull(blocks, "blocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
-        columns = messageColumnIO.getLeaves();
         this.options = requireNonNull(options, "options is null");
-        columnReaders = new PrimitiveColumnReader[columns.size()];
-        maxBytesPerCell = new long[columns.size()];
+        this.columnReaders = new PrimitiveColumnReader[columns.size()];
+        this.maxBytesPerCell = new long[columns.size()];
 
         Map<ChunkKey, DiskRange> ranges = new HashMap<>();
         for (int rowGroup = 0; rowGroup < blocks.size(); rowGroup++) {
@@ -119,7 +119,7 @@ public class ParquetReader
             }
         }
 
-        chunkReaders = dataSource.planRead(ranges);
+        this.chunkReaders = dataSource.planRead(ranges);
     }
 
     @Override
@@ -137,7 +137,7 @@ public class ParquetReader
             return -1;
         }
 
-        batchSize = toIntExact(min(nextBatchSize, maxBatchSize));
+        batchSize = min(nextBatchSize, maxBatchSize);
         nextBatchSize = min(batchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_VECTOR_LENGTH);
         batchSize = toIntExact(min(batchSize, currentGroupRowCount - nextRowInGroup));
 

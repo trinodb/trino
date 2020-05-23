@@ -72,8 +72,8 @@ public class KdbTree
             this.right = requireNonNull(right, "right is null");
             if (leafId.isPresent()) {
                 checkArgument(leafId.getAsInt() >= 0, "leafId must be >= 0");
-                checkArgument(!left.isPresent(), "Leaf node cannot have left child");
-                checkArgument(!right.isPresent(), "Leaf node cannot have right child");
+                checkArgument(left.isEmpty(), "Leaf node cannot have left child");
+                checkArgument(right.isEmpty(), "Leaf node cannot have right child");
             }
             else {
                 checkArgument(left.isPresent(), "Intermediate node must have left child");
@@ -292,12 +292,12 @@ public class KdbTree
         // Split over longer side
         boolean splitVertically = extent.getWidth() >= extent.getHeight();
         Optional<SplitResult<Node>> splitResult = trySplit(splitVertically ? BY_X : BY_Y, maxItemsPerNode, level, extent, items, leafIdAllocator);
-        if (!splitResult.isPresent()) {
+        if (splitResult.isEmpty()) {
             // Try spitting by the other side
             splitResult = trySplit(splitVertically ? BY_Y : BY_X, maxItemsPerNode, level, extent, items, leafIdAllocator);
         }
 
-        if (!splitResult.isPresent()) {
+        if (splitResult.isEmpty()) {
             return newLeaf(extent, leafIdAllocator.next());
         }
 

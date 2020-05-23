@@ -34,7 +34,6 @@ public class TestValueStore
 
     @BeforeMethod(alwaysRun = true)
     public void setUp()
-            throws Exception
     {
         type = VarcharType.createVarcharType(100);
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 100, 10);

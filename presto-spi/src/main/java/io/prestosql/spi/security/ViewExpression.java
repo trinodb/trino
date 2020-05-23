@@ -31,7 +31,7 @@ public class ViewExpression
         this.schema = requireNonNull(schema, "schema is null");
         this.expression = requireNonNull(expression, "expression is null");
 
-        if (!catalog.isPresent() && schema.isPresent()) {
+        if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
     }
