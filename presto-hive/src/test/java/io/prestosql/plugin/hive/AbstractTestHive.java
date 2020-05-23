@@ -760,6 +760,7 @@ public abstract class AbstractTestHive
                 false,
                 true,
                 false,
+                true,
                 1000,
                 Optional.empty(),
                 TYPE_MANAGER,

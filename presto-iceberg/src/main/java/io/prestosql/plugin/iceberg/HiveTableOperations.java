@@ -218,7 +218,7 @@ public class HiveTableOperations
             throw e;
         }
 
-        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
+        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner(), true);
         ConnectorIdentity identity = ConnectorIdentity.ofUser(table.getOwner());
         HiveIdentity context = new HiveIdentity(identity);
         if (base == null) {

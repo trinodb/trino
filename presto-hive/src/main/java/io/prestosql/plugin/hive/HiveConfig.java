@@ -130,6 +130,7 @@ public class HiveConfig
     private boolean partitionUseColumnNames;
 
     private boolean projectionPushdownEnabled = true;
+    private boolean grantOption = true;
 
     public int getMaxInitialSplits()
     {
@@ -935,6 +936,19 @@ public class HiveConfig
     public HiveConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    public boolean getGrantOption()
+    {
+        return grantOption;
+    }
+
+    @Config("hive.grant-option")
+    @ConfigDescription("Creating a table grants grantable or non grantable default priviliges")
+    public HiveConfig setGrantOption(boolean grantOption)
+    {
+        this.grantOption = grantOption;
         return this;
     }
 }

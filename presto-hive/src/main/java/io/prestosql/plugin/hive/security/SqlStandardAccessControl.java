@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.base.CatalogName;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -98,13 +99,16 @@ public class SqlStandardAccessControl
 
     private final String catalogName;
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final HiveConfig hiveConfig;
 
     @Inject
     public SqlStandardAccessControl(
             CatalogName catalogName,
+            HiveConfig hiveConfig,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
+        this.hiveConfig = requireNonNull(hiveConfig, "hiveConfig is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
     }
 
@@ -154,8 +158,9 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
+        boolean grantOptionRequired = hiveConfig.getGrantOption();
         // This should really be OWNERSHIP, but Hive uses `SELECT with GRANT`
-        if (!checkTablePermission(context, tableName, SELECT, true)) {
+        if (!checkTablePermission(context, tableName, SELECT, grantOptionRequired)) {
             denyShowCreateTable(tableName.toString());
         }
     }
