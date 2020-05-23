@@ -125,7 +125,10 @@ public class RubixInitializer
     {
         try (Closer closer = Closer.create()) {
             closer.register(() -> {
-                if (bookKeeperServer != null && bookKeeperServer.isServerUp()) {
+                if (bookKeeperServer != null) {
+                    // This might throw NPE if Thrift server hasn't started yet (it's initialized
+                    // asynchronously from BookKeeperServer thread).
+                    // TODO: improve stopping of BookKeeperServer server in Rubix
                     bookKeeperServer.stopServer();
                     bookKeeperServer = null;
                 }
@@ -170,8 +173,7 @@ public class RubixInitializer
     private void setupRubixMetrics()
     {
         Configuration configuration = getRubixConfiguration();
-        bookKeeperServer = new BookKeeperServer();
-        bookKeeperServer.setupServer(configuration, new MetricRegistry());
+        new BookKeeperServer().setupServer(configuration, new MetricRegistry());
         CachingFileSystem.setLocalBookKeeper(null, "catalog=" + catalogName);
     }
 
