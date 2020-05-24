@@ -52,6 +52,8 @@ import static com.qubole.rubix.spi.CacheConfig.enableHeartbeat;
 import static com.qubole.rubix.spi.CacheConfig.setBookKeeperServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataEnabled;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataExpirationAfterWrite;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataFullnessPercentage;
 import static com.qubole.rubix.spi.CacheConfig.setClusterNodeRefreshTime;
 import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
 import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
@@ -104,6 +106,8 @@ public class RubixInitializer
     private final boolean startServerOnCoordinator;
     private final boolean parallelWarmupEnabled;
     private final String cacheLocation;
+    private final long cacheTtlMillis;
+    private final int diskUsagePercentage;
     private final int bookKeeperServerPort;
     private final int dataTransferServerPort;
     private final NodeManager nodeManager;
@@ -141,6 +145,8 @@ public class RubixInitializer
         this.startServerOnCoordinator = rubixConfig.isStartServerOnCoordinator();
         this.parallelWarmupEnabled = rubixConfig.getReadMode().isParallelWarmupEnabled();
         this.cacheLocation = rubixConfig.getCacheLocation();
+        this.cacheTtlMillis = rubixConfig.getCacheTtl().toMillis();
+        this.diskUsagePercentage = rubixConfig.getDiskUsagePercentage();
         this.bookKeeperServerPort = rubixConfig.getBookKeeperServerPort();
         this.dataTransferServerPort = rubixConfig.getDataTransferServerPort();
         this.nodeManager = nodeManager;
@@ -260,6 +266,8 @@ public class RubixInitializer
 
         setIsParallelWarmupEnabled(config, parallelWarmupEnabled);
         setCacheDataDirPrefix(config, cacheLocation);
+        setCacheDataExpirationAfterWrite(config, cacheTtlMillis);
+        setCacheDataFullnessPercentage(config, diskUsagePercentage);
         setBookKeeperServerPort(config, bookKeeperServerPort);
         setDataTransferServerPort(config, dataTransferServerPort);
 
