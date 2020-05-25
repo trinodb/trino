@@ -23,6 +23,7 @@ import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.spi.HostAddress;
 import org.apache.hadoop.conf.Configuration;
 
@@ -86,7 +87,12 @@ public class RubixConfigurationInitializer
     @Override
     public void updateConfiguration(Configuration config, HdfsContext context, URI uri)
     {
-        if (!cacheReady) {
+        // Assume cache is disabled if session property is not available.
+        // HdfsContext won't have session only when it's created by HiveMetastore objects.
+        boolean cacheEnabled = context.getSession()
+                .map(HiveSessionProperties::isCacheEnabled)
+                .orElse(false);
+        if (!cacheReady || !cacheEnabled) {
             setCacheDataEnabled(config, false);
             setCacheKey(config, "rubix_disabled");
             return;
