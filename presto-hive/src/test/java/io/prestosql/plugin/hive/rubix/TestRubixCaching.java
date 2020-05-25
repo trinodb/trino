@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.rubix;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
@@ -27,10 +28,13 @@ import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode;
-import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -60,14 +64,17 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static com.qubole.rubix.spi.CacheConfig.setRemoteFetchProcessInterval;
+import static com.qubole.rubix.spi.CacheUtil.skipCache;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.NodeVersion.UNKNOWN;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode.ASYNC;
 import static io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode.READ_THROUGH;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempDirectory;
@@ -88,8 +95,10 @@ public class TestRubixCaching
     private java.nio.file.Path tempDirectory;
     private Path cacheStoragePath;
     private HdfsConfig config;
+    private List<PropertyMetadata<?>> hiveSessionProperties;
     private HdfsContext context;
     private RubixInitializer rubixInitializer;
+    private RubixConfigurationInitializer rubixConfigInitializer;
     private FileSystem nonCachingFileSystem;
     private FileSystem cachingFileSystem;
 
@@ -99,7 +108,15 @@ public class TestRubixCaching
     {
         cacheStoragePath = getStoragePath("/");
         config = new HdfsConfig();
-        context = new HdfsContext(ConnectorIdentity.ofUser("user"));
+        hiveSessionProperties = getHiveSessionProperties(
+                new HiveConfig(),
+                new RubixEnabledConfig().setCacheEnabled(true),
+                new OrcReaderConfig()).getSessionProperties();
+        context = new HdfsContext(
+                TestingConnectorSession.builder()
+                        .setPropertyMetadata(hiveSessionProperties)
+                        .build(),
+                "test");
 
         nonCachingFileSystem = getNonCachingFileSystem();
     }
@@ -116,10 +133,11 @@ public class TestRubixCaching
     private void initializeCachingFileSystem(RubixConfig rubixConfig)
             throws IOException
     {
-        cachingFileSystem = getCachingFileSystem(initializeRubix(rubixConfig));
+        initializeRubix(rubixConfig);
+        cachingFileSystem = getCachingFileSystem();
     }
 
-    private RubixConfigurationInitializer initializeRubix(RubixConfig rubixConfig)
+    private void initializeRubix(RubixConfig rubixConfig)
             throws IOException
     {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
@@ -138,7 +156,7 @@ public class TestRubixCaching
                 cacheDirectories.stream()
                         .map(java.nio.file.Path::toString)
                         .collect(toImmutableList())));
-        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
+        rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(
                 config,
                 ImmutableSet.of(
@@ -159,12 +177,15 @@ public class TestRubixCaching
                 rubixConfigInitializer,
                 configurationInitializer);
         rubixInitializer.initializeRubix();
-
-        return rubixConfigInitializer;
     }
 
-    private FileSystem getCachingFileSystem(
-            RubixConfigurationInitializer rubixConfigInitializer)
+    private FileSystem getCachingFileSystem()
+            throws IOException
+    {
+        return getCachingFileSystem(context);
+    }
+
+    private FileSystem getCachingFileSystem(HdfsContext context)
             throws IOException
     {
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
@@ -256,7 +277,8 @@ public class TestRubixCaching
     public void testCacheRead(ReadMode readMode)
             throws Exception
     {
-        initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
+        RubixConfig rubixConfig = new RubixConfig().setReadMode(readMode);
+        initializeCachingFileSystem(rubixConfig);
         byte[] randomData = new byte[(int) SMALL_FILE_SIZE.toBytes()];
         new Random().nextBytes(randomData);
 
@@ -295,6 +317,41 @@ public class TestRubixCaching
                     // data should be read from cache only
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
                     assertEquals(getRemoteReadsCount(), firstRemoteReadsCount);
+                });
+
+        long secondRemoteReadsCount = getRemoteReadsCount();
+        long secondCachedReadsCount = getCachedReadsCount();
+
+        // read data with cache disabled via session property
+        HdfsContext nonCachingContext = new HdfsContext(
+                TestingConnectorSession.builder()
+                        .setPropertyMetadata(hiveSessionProperties)
+                        .setPropertyValues(ImmutableMap.of("cache_enabled", false))
+                        .build(),
+                "test");
+        try (FileSystem cachingFileSystemWithCacheDisabled = getCachingFileSystem(nonCachingContext)) {
+            assertEquals(readFile(cachingFileSystemWithCacheDisabled.open(file)), randomData);
+
+            // non-caching (native) file system should be used
+            sleep(1000);
+            assertTrue(skipCache(file.toString(), cachingFileSystemWithCacheDisabled.getConf()));
+            assertEquals(secondCachedReadsCount, getCachedReadsCount());
+            assertEquals(secondRemoteReadsCount, getRemoteReadsCount());
+        }
+
+        // re-initialize caching file system to flush file system cache
+        cachingFileSystem.close();
+        cachingFileSystem = getCachingFileSystem();
+
+        // read data with re-enabled cache
+        assertEquals(readFile(cachingFileSystem.open(file)), randomData);
+
+        assertEventually(
+                new Duration(10, SECONDS),
+                () -> {
+                    // data should be read from cache only
+                    assertGreaterThan(getCachedReadsCount(), secondCachedReadsCount);
+                    assertEquals(getRemoteReadsCount(), secondRemoteReadsCount);
                 });
     }
 
