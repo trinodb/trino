@@ -15,7 +15,6 @@
 package io.prestosql.operator.scalar;
 
 import io.prestosql.Session;
-import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -46,17 +45,6 @@ public class TestDateTimeFunctions
         assertInvalidFunction(
                 "format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')",
                 "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
-    }
-
-    @Test
-    public void testLocalTime()
-    {
-        Session localSession = Session.builder(session)
-                .setStart(Instant.ofEpochMilli(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis()))
-                .build();
-        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "14:30:00.000");
-        }
     }
 
     @Test
