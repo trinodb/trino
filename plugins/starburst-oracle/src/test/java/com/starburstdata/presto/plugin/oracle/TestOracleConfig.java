@@ -32,6 +32,7 @@ public class TestOracleConfig
                 .setConnectionPoolingEnabled(true)
                 .setNumberRoundingMode(RoundingMode.UNNECESSARY)
                 .setDefaultNumberScale(null)
+                .setVarchar2MaxBytes(4000)
                 .setParallelismType(NO_PARALLELISM)
                 .setAuthenticationType(OracleAuthenticationType.PASSWORD)
                 .setMaxSplitsPerScan(10));
@@ -46,6 +47,7 @@ public class TestOracleConfig
                 .put("oracle.connection-pool.enabled", "false")
                 .put("oracle.number.rounding-mode", "HALF_EVEN")
                 .put("oracle.number.default-scale", "0")
+                .put("oracle.varchar2.max-bytes", "5000")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
@@ -57,6 +59,7 @@ public class TestOracleConfig
                 .setConnectionPoolingEnabled(false)
                 .setNumberRoundingMode(RoundingMode.HALF_EVEN)
                 .setDefaultNumberScale(0)
+                .setVarchar2MaxBytes(5000)
                 .setAuthenticationType(OracleAuthenticationType.KERBEROS)
                 .setParallelismType(PARTITIONS)
                 .setMaxSplitsPerScan(42);
@@ -73,6 +76,7 @@ public class TestOracleConfig
                 .put("oracle.connection-pool.enabled", "false")
                 .put("oracle.number.rounding-mode", "HALF_EVEN")
                 .put("oracle.number.default-scale", "0")
+                .put("oracle.varchar2.max-bytes", "5000")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
@@ -84,6 +88,7 @@ public class TestOracleConfig
                 .setConnectionPoolingEnabled(false)
                 .setNumberRoundingMode(RoundingMode.HALF_EVEN)
                 .setDefaultNumberScale(0)
+                .setVarchar2MaxBytes(5000)
                 .setAuthenticationType(OracleAuthenticationType.KERBEROS)
                 .setParallelismType(PARTITIONS)
                 .setMaxSplitsPerScan(42);
