@@ -15,6 +15,7 @@ package io.prestosql.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -29,9 +30,12 @@ import io.prestosql.spi.type.TypeUtils;
 
 import javax.inject.Inject;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -64,28 +68,44 @@ public final class MemoryPageSourceProvider
         MemoryTableHandle memoryTable = (MemoryTableHandle) table;
         OptionalDouble sampleRatio = memoryTable.getSampleRatio();
 
-        if (dynamicFilter.isNone()) {
+        TupleDomain<MemoryColumnHandle> filter = memoryTable
+                .getFilter()
+                .intersect(dynamicFilter.transform(MemoryColumnHandle.class::cast));
+        if (filter.isNone()) {
             return new FixedPageSource(ImmutableList.of());
         }
-        Map<Integer, Domain> domains = dynamicFilter
-                .transform(columns::indexOf)
+        List<Integer> outputColumns = columns.stream()
+                                             .map(MemoryColumnHandle.class::cast)
+                                             .map(MemoryColumnHandle::getColumnIndex)
+                                             .collect(toList());
+        Set<Integer> scanColumnsSet = new HashSet<>(outputColumns);
+        scanColumnsSet.addAll(filter.transform(MemoryColumnHandle::getColumnIndex).getDomains().get().keySet());
+        List<Integer> scanColumns = ImmutableList.copyOf(scanColumnsSet);
+
+        Map<Integer, Domain> domains = filter
+                .transform(column -> scanColumns.indexOf(column.getColumnIndex()))
                 .getDomains()
                 .get();
 
-        List<Integer> columnIndexes = columns.stream()
-                .map(MemoryColumnHandle.class::cast)
-                .map(MemoryColumnHandle::getColumnIndex).collect(toList());
         List<Page> pages = pagesStore.getPages(
                 tableId,
                 partNumber,
                 totalParts,
-                columnIndexes,
+                scanColumns,
                 expectedRows,
                 memorySplit.getLimit(),
                 sampleRatio);
+        List<Integer> columnIndices = outputColumns.stream().map(scanColumns::indexOf).collect(Collectors.toList());
         return new FixedPageSource(pages.stream()
                 .map(page -> applyFilter(page, domains))
+                .map(page -> selectColumns(page, columnIndices))
                 .collect(toList()));
+    }
+
+    private Page selectColumns(Page page, List<Integer> columnIndices)
+    {
+        Block[] blocks = columnIndices.stream().map(page::getBlock).toArray(Block[]::new);
+        return new Page(page.getPositionCount(), blocks);
     }
 
     private Page applyFilter(Page page, Map<Integer, Domain> domains)

@@ -35,12 +35,15 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.ViewNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 
@@ -384,7 +387,13 @@ public class MemoryMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        return new ConnectorTableProperties();
+        MemoryTableHandle handle = (MemoryTableHandle) table;
+        return new ConnectorTableProperties(
+                handle.getFilter().transform(ColumnHandle.class::cast),
+                /*tablePartitioning*/ Optional.empty(),
+                /*streamPartitioningColumns*/ Optional.empty(),
+                /*discretePredicates*/ Optional.empty(),
+                /*localProperties*/ ImmutableList.of());
     }
 
     public List<MemoryDataFragment> getDataFragments(long tableId)
@@ -402,7 +411,7 @@ public class MemoryMetadata
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new MemoryTableHandle(table.getId(), OptionalLong.of(limit), OptionalDouble.empty()),
+                new MemoryTableHandle(table.getId(), table.getFilter(), OptionalLong.of(limit), OptionalDouble.empty()),
                 true));
     }
 
@@ -415,6 +424,25 @@ public class MemoryMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)));
+        return Optional.of(new MemoryTableHandle(table.getId(), table.getFilter(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) handle;
+
+        TupleDomain<MemoryColumnHandle> oldFilter = table.getFilter();
+        TupleDomain<MemoryColumnHandle> newFilter = oldFilter.intersect(constraint.getSummary().transform(MemoryColumnHandle.class::cast));
+        if (oldFilter.equals(newFilter)) {
+            return Optional.empty();
+        }
+
+        MemoryTableHandle newTable = new MemoryTableHandle(
+                table.getId(),
+                newFilter,
+                table.getLimit(),
+                table.getSampleRatio());
+        return Optional.of(new ConstraintApplicationResult(newTable, TupleDomain.all()));
     }
 }

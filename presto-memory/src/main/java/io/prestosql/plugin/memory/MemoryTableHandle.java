@@ -16,6 +16,7 @@ package io.prestosql.plugin.memory;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 import java.util.OptionalDouble;
@@ -27,21 +28,24 @@ public final class MemoryTableHandle
         implements ConnectorTableHandle
 {
     private final long id;
+    private final TupleDomain<MemoryColumnHandle> filter;
     private final OptionalLong limit;
     private final OptionalDouble sampleRatio;
 
     public MemoryTableHandle(long id)
     {
-        this(id, OptionalLong.empty(), OptionalDouble.empty());
+        this(id, TupleDomain.all(), OptionalLong.empty(), OptionalDouble.empty());
     }
 
     @JsonCreator
     public MemoryTableHandle(
             @JsonProperty("id") long id,
+            @JsonProperty("filter") TupleDomain<MemoryColumnHandle> filter,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("sampleRatio") OptionalDouble sampleRatio)
     {
         this.id = id;
+        this.filter = requireNonNull(filter, "filter is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.sampleRatio = requireNonNull(sampleRatio, "sampleRatio is null");
     }
@@ -50,6 +54,12 @@ public final class MemoryTableHandle
     public long getId()
     {
         return id;
+    }
+
+    @JsonProperty
+    public TupleDomain<MemoryColumnHandle> getFilter()
+    {
+        return filter;
     }
 
     @JsonProperty

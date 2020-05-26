@@ -86,8 +86,6 @@ public class TestMemorySmoke
     @Test
     public void testJoinDynamicFilteringNone()
     {
-        final long buildSideRowsCount = 15_000L;
-        assertQueryResult("SELECT COUNT() FROM orders", buildSideRowsCount);
         assertQueryResult("SELECT COUNT() FROM orders WHERE totalprice < 0", 0L);
 
         Session session = Session.builder(getSession())
@@ -106,15 +104,12 @@ public class TestMemorySmoke
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .map(OperatorStats::getInputPositions)
                 .collect(toImmutableSet());
-        assertEquals(rowsRead, ImmutableSet.of(0L, buildSideRowsCount));
+        assertEquals(rowsRead, ImmutableSet.of(0L));
     }
 
     @Test
     public void testJoinDynamicFilteringSingleValue()
     {
-        final long buildSideRowsCount = 15_000L;
-
-        assertQueryResult("SELECT COUNT() FROM orders", buildSideRowsCount);
         assertQueryResult("SELECT COUNT() FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
         assertQueryResult("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
         assertQueryResult("SELECT COUNT() FROM lineitem WHERE orderkey = 1", 6L);
@@ -135,7 +130,33 @@ public class TestMemorySmoke
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .map(OperatorStats::getInputPositions)
                 .collect(toImmutableSet());
-        assertEquals(rowsRead, ImmutableSet.of(6L, buildSideRowsCount));
+        assertEquals(rowsRead, ImmutableSet.of(6L, 1L));
+    }
+
+    @Test
+    public void testJoinDynamicFilteringIntersectWithPredicatePushdown()
+    {
+        assertQueryResult("SELECT COUNT() FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
+        assertQueryResult("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
+        assertQueryResult("SELECT COUNT() FROM lineitem WHERE orderkey = 1", 6L);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, "SELECT * FROM lineitem JOIN orders " +
+                "ON lineitem.orderkey = orders.orderkey AND lineitem.linenumber = 1 AND orders.comment = 'nstructions sleep furiously among '");
+        assertEquals(result.getResult().getRowCount(), 1);
+
+        // Probe-side is dynamically filtered:
+        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.getQueryId()).getQueryStats();
+        Set<Long> rowsRead = stats.getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .map(OperatorStats::getInputPositions)
+                .collect(toImmutableSet());
+        assertEquals(rowsRead, ImmutableSet.of(1L));
     }
 
     @Test
