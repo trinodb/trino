@@ -15,7 +15,6 @@
 package io.prestosql.operator.scalar;
 
 import io.prestosql.Session;
-import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -45,17 +44,6 @@ public class TestDateTimeFunctionsLegacy
     public void testFormatDateCanImplicitlyAddTimeZoneToTimestampLiteral()
     {
         assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 " + DATE_TIME_ZONE.getID());
-    }
-
-    @Test
-    public void testLocalTime()
-    {
-        Session localSession = Session.builder(session)
-                .setStart(Instant.ofEpochMilli(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis()))
-                .build();
-        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "13:30:00.000");
-        }
     }
 
     @Test
