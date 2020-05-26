@@ -59,6 +59,15 @@ public abstract class DefaultTraversalVisitor<C>
         return null;
     }
 
+    protected Void visitFormat(Format node, C context)
+    {
+        for (Expression expr : node.getExpressions()) {
+            process(expr, context);
+        }
+
+        return null;
+    }
+
     @Override
     protected Void visitAtTimeZone(AtTimeZone node, C context)
     {

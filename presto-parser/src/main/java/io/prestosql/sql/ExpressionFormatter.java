@@ -170,7 +170,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitFormat(Format node, Void context)
         {
-            return "format(" + joinExpressions(node.getArguments()) + ")";
+            return "format(" + joinExpressions(node.getExpressions()) + ")";
         }
 
         @Override

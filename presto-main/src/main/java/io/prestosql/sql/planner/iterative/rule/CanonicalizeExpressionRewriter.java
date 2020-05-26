@@ -248,6 +248,7 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteFormat(Format node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
+            Expression format = treeRewriter.rewrite(node.getFormat(), context);
             List<Expression> arguments = node.getArguments().stream()
                     .map(value -> treeRewriter.rewrite(value, context))
                     .collect(toImmutableList());
@@ -258,8 +259,8 @@ public final class CanonicalizeExpressionRewriter
 
             return new FunctionCallBuilder(metadata)
                     .setName(QualifiedName.of(FormatFunction.NAME))
-                    .addArgument(VARCHAR, arguments.get(0))
-                    .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
+                    .addArgument(VARCHAR, format)
+                    .addArgument(RowType.anonymous(argumentTypes), new Row(arguments))
                     .build();
         }
     }

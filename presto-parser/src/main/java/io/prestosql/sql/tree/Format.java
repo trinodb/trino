@@ -25,29 +25,44 @@ import static java.util.Objects.requireNonNull;
 public class Format
         extends Expression
 {
+    private final Expression format;
     private final List<Expression> arguments;
+    private final List<Expression> expressions;
 
-    public Format(List<Expression> arguments)
+    public Format(Expression format, List<Expression> arguments)
     {
-        this(Optional.empty(), arguments);
+        this(Optional.empty(), format, arguments);
     }
 
-    public Format(NodeLocation location, List<Expression> arguments)
+    public Format(NodeLocation location, Expression format, List<Expression> arguments)
     {
-        this(Optional.of(location), arguments);
+        this(Optional.of(location), format, arguments);
     }
 
-    private Format(Optional<NodeLocation> location, List<Expression> arguments)
+    private Format(Optional<NodeLocation> location, Expression format, List<Expression> arguments)
     {
         super(location);
+        requireNonNull(format, "format is null");
         requireNonNull(arguments, "arguments is null");
-        checkArgument(arguments.size() >= 2, "must have at least two arguments");
+        checkArgument(arguments.size() >= 1, "must have at least one argument");
+        this.format = format;
         this.arguments = ImmutableList.copyOf(arguments);
+        this.expressions = ImmutableList.<Expression>builder().add(format).addAll(arguments).build();
     }
 
     public List<Expression> getArguments()
     {
         return arguments;
+    }
+
+    public Expression getFormat()
+    {
+        return format;
+    }
+
+    public List<Expression> getExpressions()
+    {
+        return expressions;
     }
 
     @Override
@@ -59,7 +74,7 @@ public class Format
     @Override
     public List<? extends Node> getChildren()
     {
-        return arguments;
+        return expressions;
     }
 
     @Override
@@ -71,14 +86,13 @@ public class Format
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-
         Format o = (Format) obj;
-        return Objects.equals(arguments, o.arguments);
+        return Objects.equals(expressions, o.expressions);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(arguments);
+        return Objects.hash(expressions);
     }
 }

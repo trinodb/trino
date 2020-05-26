@@ -646,6 +646,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testFormat()
+    {
+        assertQuery("select format('%.6f', sum(1000000 / 1e6))", "SELECT 1.000000");
+        assertQuery("select format('%.6f', avg(1))", "SELECT 1.000000");
+        assertQuery("select format('%d', count(1))", "SELECT 1");
+        assertQuery("select format('%d', arbitrary(1))", "SELECT 1");
+        assertQuery("select format('%s %s %s %s %s', sum(1), avg(1), count(1), max(1), min(1))", "SELECT '1 1.0 1 1 1'");
+        assertQuery("SELECT format('%s', approx_distinct(1.0))", "SELECT 1");
+
+        assertQuery("select format('%d', cast(sum(totalprice / 1e6) as BIGINT)) from orders", "SELECT CAST(sum(totalprice / 1e6) as BIGINT) from orders");
+    }
+
+    @Test
     public void testQuotedIdentifiers()
     {
         assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");

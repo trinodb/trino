@@ -1050,15 +1050,16 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFormat(Format node, StackableAstVisitorContext<Context> context)
         {
+            Type format = process(node.getFormat(), context);
             List<Type> arguments = node.getArguments().stream()
                     .map(expression -> process(expression, context))
                     .collect(toImmutableList());
 
-            if (!isVarcharType(arguments.get(0))) {
-                throw semanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
+            if (!isVarcharType(format)) {
+                throw semanticException(TYPE_MISMATCH, node.getFormat(), "Type of the format argument to format() function must be VARCHAR (actual: %s)", format);
             }
 
-            for (int i = 1; i < arguments.size(); i++) {
+            for (int i = 0; i < arguments.size(); i++) {
                 try {
                     FormatFunction.validateType(metadata, arguments.get(i));
                 }

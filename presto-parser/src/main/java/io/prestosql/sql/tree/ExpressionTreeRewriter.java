@@ -902,9 +902,11 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
+            Expression format = rewrite(node.getFormat(), context.get());
             List<Expression> arguments = rewrite(node.getArguments(), context);
-            if (!sameElements(node.getArguments(), arguments)) {
-                return new Format(arguments);
+
+            if (format != node.getFormat() || !sameElements(arguments, node.getArguments())) {
+                return new Format(format, arguments);
             }
 
             return node;

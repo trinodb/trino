@@ -1611,7 +1611,10 @@ class AstBuilder
             check(nullTreatment == null, "Null treatment clause not valid for 'format' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
 
-            return new Format(getLocation(context), visit(context.expression(), Expression.class));
+            return new Format(
+                    getLocation(context),
+                    (Expression) visit(context.expression(0)),
+                    visit(context.expression().subList(1, context.expression().size()), Expression.class));
         }
 
         if (name.toString().equalsIgnoreCase("$internal$bind")) {

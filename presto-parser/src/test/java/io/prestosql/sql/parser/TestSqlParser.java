@@ -712,9 +712,26 @@ public class TestSqlParser
     @Test
     public void testFormat()
     {
-        assertExpression("format('%s', 'abc')", new Format(ImmutableList.of(new StringLiteral("%s"), new StringLiteral("abc"))));
-        assertExpression("format('%d %s', 123, 'x')", new Format(ImmutableList.of(new StringLiteral("%d %s"), new LongLiteral("123"), new StringLiteral("x"))));
+        assertExpression("format('%s', 'abc')", new Format(new StringLiteral("%s"), ImmutableList.of(new StringLiteral("abc"))));
+        assertExpression("format('%d %s', 123, 'x')", new Format(new StringLiteral("%d %s"), ImmutableList.of(new LongLiteral("123"), new StringLiteral("x"))));
+        assertExpression(
+                "format('%.6f', sum(1))",
+                new Format(
+                        new StringLiteral("%.6f"),
+                        ImmutableList.of(
+                                new FunctionCall(
+                                        QualifiedName.of("sum"),
+                                        ImmutableList.of(new LongLiteral("1"))))));
+        assertExpression(
+                "format('%.6f %d', sum(1), 1)",
+                new Format(new StringLiteral("%.6f %d"),
+                        ImmutableList.of(
+                                new FunctionCall(
+                                        QualifiedName.of("sum"),
+                                        ImmutableList.of(new LongLiteral("1"))),
+                                new LongLiteral("1"))));
 
+        assertInvalidExpression("format(123.0, sum(1), 1)", "Unexpected decimal literal: 123.0");
         assertInvalidExpression("format()", "The 'format' function must have at least two arguments");
         assertInvalidExpression("format('%s')", "The 'format' function must have at least two arguments");
     }
