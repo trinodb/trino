@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -39,6 +41,7 @@ import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
@@ -51,15 +54,20 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.isAllowAggregationPushdown;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
         implements ConnectorMetadata
 {
+    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_presto_generated_";
+
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
 
@@ -101,6 +109,12 @@ public class JdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (handle.getGroupingSets().isPresent()) {
+            // handle's aggregations are applied after constraint, so we cannot apply filter if aggregates is already set
+            // TODO (https://github.com/prestosql/presto/issues/4112) allow filter pushdown after aggregation pushdown
+            return Optional.empty();
+        }
+
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain)) {
@@ -113,6 +127,7 @@ public class JdbcMetadata
                 handle.getSchemaName(),
                 handle.getTableName(),
                 newDomain,
+                Optional.empty(), // groupBy
                 handle.getLimit(),
                 handle.getColumns());
 
@@ -143,6 +158,7 @@ public class JdbcMetadata
                         handle.getSchemaName(),
                         handle.getTableName(),
                         handle.getConstraint(),
+                        handle.getGroupingSets(),
                         handle.getLimit(),
                         Optional.of(newColumns)),
                 projections,
@@ -152,6 +168,87 @@ public class JdbcMetadata
                                 assignment.getValue(),
                                 ((JdbcColumnHandle) assignment.getValue()).getColumnType()))
                         .collect(toImmutableList())));
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        if (!isAllowAggregationPushdown(session)) {
+            return Optional.empty();
+        }
+
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        if (handle.getLimit().isPresent()) {
+            // handle's limit is applied after aggregations, so we cannot apply aggregations if limit is already set
+            return Optional.empty();
+        }
+
+        if (handle.getGroupingSets().isPresent()) {
+            // table handle cannot express aggregation on top of aggregation
+            return Optional.empty();
+        }
+
+        // Global aggregation is represented by [[]]
+        verify(!groupingSets.isEmpty(), "No grouping sets provided");
+
+        if (groupingSets.size() > 1 && !jdbcClient.supportsGroupingSets()) {
+            return Optional.empty();
+        }
+
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
+        Map<String, JdbcColumnHandle> columnByName = columns.stream()
+                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
+
+        int syntheticNextIdentifier = 1;
+
+        ImmutableList.Builder<JdbcColumnHandle> newColumns = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        for (AggregateFunction aggregate : aggregates) {
+            Optional<JdbcExpression> expression = jdbcClient.implementAggregation(aggregate, assignments);
+            if (expression.isEmpty()) {
+                return Optional.empty();
+            }
+
+            while (columnByName.containsKey(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)) {
+                syntheticNextIdentifier++;
+            }
+
+            JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
+                    .setExpression(Optional.of(expression.get().getExpression()))
+                    .setColumnName(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)
+                    .setJdbcTypeHandle(expression.get().getJdbcTypeHandle())
+                    .setColumnType(aggregate.getOutputType())
+                    .setComment(Optional.of("synthetic"))
+                    .build();
+            syntheticNextIdentifier++;
+
+            newColumns.add(newColumn);
+            projections.add(new Variable(newColumn.getColumnName(), aggregate.getOutputType()));
+            resultAssignments.add(new Assignment(newColumn.getColumnName(), newColumn, aggregate.getOutputType()));
+        }
+
+        handle = new JdbcTableHandle(
+                handle.getSchemaTableName(),
+                handle.getCatalogName(),
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getConstraint(),
+                Optional.of(groupingSets.stream()
+                        .map(groupingSet -> groupingSet.stream()
+                                .map(JdbcColumnHandle.class::cast)
+                                .collect(toImmutableList()))
+                        .collect(toImmutableList())),
+                OptionalLong.empty(), // limit
+                Optional.of(newColumns.build()));
+
+        return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
     }
 
     @Override
@@ -173,6 +270,7 @@ public class JdbcMetadata
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getConstraint(),
+                handle.getGroupingSets(),
                 OptionalLong.of(limit),
                 handle.getColumns());
 

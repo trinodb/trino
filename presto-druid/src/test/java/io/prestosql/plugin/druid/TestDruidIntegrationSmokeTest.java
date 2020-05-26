@@ -22,6 +22,7 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.assertions.Assert;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -65,6 +66,16 @@ public class TestDruidIntegrationSmokeTest
         if (druidServer != null) {
             druidServer.close();
         }
+    }
+
+    @Override
+    public void testAggregation()
+    {
+        assertThatThrownBy(super::testAggregation)
+                .hasRootCauseMessage("line 1:26: Table 'druid.druid.nation' does not exist");
+
+        // TODO (https://github.com/prestosql/presto/issues/4116)
+        throw new SkipException("TODO");
     }
 
     @Test
@@ -162,6 +173,9 @@ public class TestDruidIntegrationSmokeTest
     {
         assertThatThrownBy(super::testJoin)
                 .hasRootCauseMessage("line 1:36: Table 'druid.druid.nation' does not exist");
+
+        // TODO (https://github.com/prestosql/presto/issues/4116)
+        throw new SkipException("TODO");
     }
 
     /**
