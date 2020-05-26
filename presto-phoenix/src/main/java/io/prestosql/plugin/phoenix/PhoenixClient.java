@@ -180,6 +180,7 @@ public class PhoenixClient
                 table.getCatalogName(),
                 table.getSchemaName(),
                 table.getTableName(),
+                table.getGroupingSets(),
                 columnHandles,
                 phoenixSplit.getConstraint(),
                 split.getAdditionalPredicate(),

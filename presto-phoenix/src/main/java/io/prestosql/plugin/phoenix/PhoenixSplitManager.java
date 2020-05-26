@@ -85,6 +85,7 @@ public class PhoenixSplitManager
                     tableHandle.getCatalogName(),
                     tableHandle.getSchemaName(),
                     tableHandle.getTableName(),
+                    tableHandle.getGroupingSets(),
                     columns,
                     tableHandle.getConstraint(),
                     Optional.empty(),

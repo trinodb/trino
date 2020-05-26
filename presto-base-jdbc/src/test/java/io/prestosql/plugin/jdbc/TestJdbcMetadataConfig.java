@@ -28,7 +28,8 @@ public class TestJdbcMetadataConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(JdbcMetadataConfig.class)
-                .setAllowDropTable(false));
+                .setAllowDropTable(false)
+                .setAllowAggregationPushdown(true));
     }
 
     @Test
@@ -36,10 +37,12 @@ public class TestJdbcMetadataConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("allow-drop-table", "true")
+                .put("allow-aggregation-pushdown", "false")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
-                .setAllowDropTable(true);
+                .setAllowDropTable(true)
+                .setAllowAggregationPushdown(false);
 
         assertFullMapping(properties, expected);
     }

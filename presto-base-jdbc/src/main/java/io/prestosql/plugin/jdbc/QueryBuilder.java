@@ -30,11 +30,13 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -92,23 +94,19 @@ public class QueryBuilder
             String catalog,
             String schema,
             String table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<String> additionalPredicate,
             Function<String, String> sqlFunction)
             throws SQLException
     {
-        StringBuilder sql = new StringBuilder();
-
-        sql.append("SELECT ");
-        sql.append(getProjection(columns));
-
-        sql.append(" FROM ");
-        sql.append(getRelation(catalog, schema, table));
+        String sql = "SELECT " + getProjection(columns);
+        sql += " FROM " + getRelation(catalog, schema, table);
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> clauses = toConjuncts(client, session, connection, columns, tupleDomain, accumulator);
+        List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator);
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
                     .addAll(clauses)
@@ -116,11 +114,12 @@ public class QueryBuilder
                     .build();
         }
         if (!clauses.isEmpty()) {
-            sql.append(" WHERE ")
-                    .append(Joiner.on(" AND ").join(clauses));
+            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
         }
 
-        String query = sqlFunction.apply(sql.toString());
+        sql += getGroupBy(groupingSets);
+
+        String query = sqlFunction.apply(sql);
         log.debug("Preparing query: %s", query);
         PreparedStatement statement = client.getPreparedStatement(connection, query);
 
@@ -159,8 +158,7 @@ public class QueryBuilder
             return "1";
         }
         return columns.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .map(this::quote)
+                .map(jdbcColumnHandle -> format("%s AS %s", jdbcColumnHandle.toSqlExpression(this::quote), quote(jdbcColumnHandle.getColumnName())))
                 .collect(joining(", "));
     }
 
@@ -187,7 +185,6 @@ public class QueryBuilder
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
             List<TypeAndValue> accumulator)
     {
@@ -195,12 +192,10 @@ public class QueryBuilder
             return ImmutableList.of(ALWAYS_FALSE);
         }
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (JdbcColumnHandle column : columns) {
-            Domain domain = tupleDomain.getDomains().get().get(column);
-            if (domain != null) {
-                domain = pushDownDomain(client, session, connection, column, domain);
-                builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
-            }
+        for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
+            Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
+            builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
         }
         return builder.build();
     }
@@ -283,6 +278,33 @@ public class QueryBuilder
     {
         bindValue(value, column, accumulator);
         return quote(columnName) + " " + operator + " ?";
+    }
+
+    private String getGroupBy(Optional<List<List<JdbcColumnHandle>>> groupingSets)
+    {
+        if (groupingSets.isEmpty()) {
+            return "";
+        }
+
+        verify(!groupingSets.get().isEmpty());
+        if (groupingSets.get().size() == 1) {
+            List<JdbcColumnHandle> groupingSet = getOnlyElement(groupingSets.get());
+            if (groupingSet.isEmpty()) {
+                // global aggregation
+                return "";
+            }
+            return " GROUP BY " + groupingSet.stream()
+                    .map(JdbcColumnHandle::getColumnName)
+                    .map(this::quote)
+                    .collect(joining(", "));
+        }
+        return " GROUP BY GROUPING SETS " +
+                groupingSets.get().stream()
+                        .map(groupingSet -> groupingSet.stream()
+                                .map(JdbcColumnHandle::getColumnName)
+                                .map(this::quote)
+                                .collect(joining(", ", "(", ")")))
+                        .collect(joining(", ", "(", ")"));
     }
 
     protected String quote(String name)
