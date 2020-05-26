@@ -112,9 +112,9 @@ public class JdbcMetadata
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTableName(),
-                handle.getColumns(),
                 newDomain,
-                handle.getLimit());
+                handle.getLimit(),
+                handle.getColumns());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
@@ -142,9 +142,9 @@ public class JdbcMetadata
                         handle.getCatalogName(),
                         handle.getSchemaName(),
                         handle.getTableName(),
-                        Optional.of(newColumns),
                         handle.getConstraint(),
-                        handle.getLimit()),
+                        handle.getLimit(),
+                        Optional.of(newColumns)),
                 projections,
                 assignments.entrySet().stream()
                         .map(assignment -> new Assignment(
@@ -172,9 +172,9 @@ public class JdbcMetadata
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTableName(),
-                handle.getColumns(),
                 handle.getConstraint(),
-                OptionalLong.of(limit));
+                OptionalLong.of(limit),
+                handle.getColumns());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
     }
