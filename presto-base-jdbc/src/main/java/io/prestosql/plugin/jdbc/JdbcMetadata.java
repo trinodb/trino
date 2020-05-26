@@ -52,6 +52,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
@@ -212,6 +213,7 @@ public class JdbcMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
+        verify(!jdbcTableHandle.isSynthetic(), "Not a table reference: %s", jdbcTableHandle);
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
@@ -252,6 +254,7 @@ public class JdbcMetadata
             throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        verify(!handle.isSynthetic(), "Not a table reference: %s", handle);
         jdbcClient.dropTable(JdbcIdentity.from(session), handle);
     }
 
@@ -296,6 +299,7 @@ public class JdbcMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
+        verify(!((JdbcTableHandle) tableHandle).isSynthetic(), "Not a table reference: %s", tableHandle);
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columns.stream().map(JdbcColumnHandle.class::cast).collect(toImmutableList()));
         setRollback(() -> jdbcClient.rollbackCreateTable(JdbcIdentity.from(session), handle));
         return handle;
@@ -319,6 +323,7 @@ public class JdbcMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.addColumn(session, tableHandle, columnMetadata);
     }
 
@@ -327,6 +332,7 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.dropColumn(JdbcIdentity.from(session), tableHandle, columnHandle);
     }
 
@@ -335,6 +341,7 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.renameColumn(JdbcIdentity.from(session), tableHandle, columnHandle, target);
     }
 
@@ -342,6 +349,7 @@ public class JdbcMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle table, SchemaTableName newTableName)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.renameTable(JdbcIdentity.from(session), tableHandle, newTableName);
     }
 

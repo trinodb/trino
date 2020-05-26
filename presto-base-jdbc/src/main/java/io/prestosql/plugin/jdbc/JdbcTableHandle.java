@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -111,6 +112,12 @@ public final class JdbcTableHandle
     public OptionalLong getLimit()
     {
         return limit;
+    }
+
+    @JsonIgnore
+    public boolean isSynthetic()
+    {
+        return !constraint.isAll() || limit.isPresent();
     }
 
     @Override
