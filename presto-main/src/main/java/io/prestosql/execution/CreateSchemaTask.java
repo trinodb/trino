@@ -13,6 +13,7 @@
  */
 package io.prestosql.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
@@ -34,6 +35,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
 import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
+import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
@@ -59,7 +61,12 @@ public class CreateSchemaTask
     @Override
     public ListenableFuture<?> execute(CreateSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        Session session = stateMachine.getSession();
+        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+    }
+
+    @VisibleForTesting
+    ListenableFuture<?> internalExecute(CreateSchema statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
         // TODO: validate that catalog exists
@@ -86,7 +93,15 @@ public class CreateSchemaTask
                 parameterExtractor(statement, parameters));
 
         PrestoPrincipal principal = getCreatePrincipal(statement, session, metadata);
-        metadata.createSchema(session, schema, properties, principal);
+        try {
+            metadata.createSchema(session, schema, properties, principal);
+        }
+        catch (PrestoException e) {
+            // connectors are not required to handle the ignoreExisting flag
+            if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
+                throw e;
+            }
+        }
 
         return immediateFuture(null);
     }
