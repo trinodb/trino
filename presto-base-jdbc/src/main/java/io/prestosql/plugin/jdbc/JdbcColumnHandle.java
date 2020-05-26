@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -96,6 +97,12 @@ public final class JdbcColumnHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonIgnore
+    public boolean isSynthetic()
+    {
+        return false;
     }
 
     public ColumnMetadata getColumnMetadata()
