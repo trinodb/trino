@@ -29,6 +29,6 @@ public class TestKuduSmokeTestWithDisabledInferSchema
     @Test
     public void testListingOfTableForDefaultSchema()
     {
-        assertQuery("SHOW TABLES FROM default", "VALUES 'orders'");
+        assertQuery("SHOW TABLES FROM default", "VALUES ('customer'), ('nation'), ('orders'), ('region')");
     }
 }

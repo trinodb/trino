@@ -26,7 +26,10 @@ import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRun
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
@@ -42,7 +45,7 @@ public abstract class AbstractKuduIntegrationSmokeTest
             throws Exception
     {
         kuduServer = new TestingKuduServer();
-        return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), ORDERS);
+        return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
