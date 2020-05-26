@@ -41,13 +41,15 @@ public final class JdbcTableHandle
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
-    private final Optional<List<JdbcColumnHandle>> columns;
     private final TupleDomain<ColumnHandle> constraint;
     private final OptionalLong limit;
 
+    // columns of the relation described by this handle, after projections, aggregations, etc.
+    private final Optional<List<JdbcColumnHandle>> columns;
+
     public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
     {
-        this(schemaTableName, catalogName, schemaName, tableName, Optional.empty(), TupleDomain.all(), OptionalLong.empty());
+        this(schemaTableName, catalogName, schemaName, tableName, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
     }
 
     @JsonCreator
@@ -56,18 +58,18 @@ public final class JdbcTableHandle
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("limit") OptionalLong limit)
+            @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "tableName is null");
-        requireNonNull(columns, "columns is null");
-        this.columns = columns.map(ImmutableList::copyOf);
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.limit = requireNonNull(limit, "limit is null");
+        requireNonNull(columns, "columns is null");
+        this.columns = columns.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
@@ -97,12 +99,6 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
-    public Optional<List<JdbcColumnHandle>> getColumns()
-    {
-        return columns;
-    }
-
-    @JsonProperty
     public TupleDomain<ColumnHandle> getConstraint()
     {
         return constraint;
@@ -112,6 +108,12 @@ public final class JdbcTableHandle
     public OptionalLong getLimit()
     {
         return limit;
+    }
+
+    @JsonProperty
+    public Optional<List<JdbcColumnHandle>> getColumns()
+    {
+        return columns;
     }
 
     @JsonIgnore
@@ -131,15 +133,15 @@ public final class JdbcTableHandle
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
         return Objects.equals(this.schemaTableName, o.schemaTableName) &&
-                Objects.equals(this.columns, o.columns) &&
                 Objects.equals(this.constraint, o.constraint) &&
-                Objects.equals(this.limit, o.limit);
+                Objects.equals(this.limit, o.limit) &&
+                Objects.equals(this.columns, o.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, columns, constraint, limit);
+        return Objects.hash(schemaTableName, constraint, limit, columns);
     }
 
     @Override
@@ -148,8 +150,8 @@ public final class JdbcTableHandle
         StringBuilder builder = new StringBuilder();
         builder.append(schemaTableName).append(" ");
         Joiner.on(".").skipNulls().appendTo(builder, catalogName, schemaName, tableName);
-        columns.ifPresent(value -> builder.append(" columns=").append(value));
         limit.ifPresent(value -> builder.append(" limit=").append(value));
+        columns.ifPresent(value -> builder.append(" columns=").append(value));
         return builder.toString();
     }
 }
