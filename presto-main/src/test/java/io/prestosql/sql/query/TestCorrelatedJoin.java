@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestCorrelatedJoin
 {
     private QueryAssertions assertions;
@@ -37,8 +39,8 @@ public class TestCorrelatedJoin
     @Test
     public void testJoinInCorrelatedJoinInput()
     {
-        assertions.assertQuery(
-                "SELECT * FROM (VALUES 1) t1(a) JOIN (VALUES 2) t2(b) ON a < b, LATERAL (VALUES 3)",
-                "VALUES (1, 2, 3)");
+        assertThat(assertions.query(
+                "SELECT * FROM (VALUES 1) t1(a) JOIN (VALUES 2) t2(b) ON a < b, LATERAL (VALUES 3)"))
+                .matches("VALUES (1, 2, 3)");
     }
 }

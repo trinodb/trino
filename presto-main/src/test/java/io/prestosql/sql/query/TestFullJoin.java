@@ -13,13 +13,11 @@
  */
 package io.prestosql.sql.query;
 
-import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.query.QueryAssertions.assertContains;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFullJoin
 {
@@ -41,25 +39,22 @@ public class TestFullJoin
     @Test
     public void testFullJoinWithLimit()
     {
-        MaterializedResult actual = assertions.execute(
-                "SELECT * FROM (VALUES 1, 2) AS l(v) FULL OUTER JOIN (VALUES 2, 1) AS r(v) ON l.v = r.v LIMIT 1");
+        assertThat(assertions.query(
+                "SELECT * FROM (VALUES 1, 2) AS l(v) FULL OUTER JOIN (VALUES 2, 1) AS r(v) ON l.v = r.v LIMIT 1"))
+                .satisfies(actual -> assertThat(actual.getMaterializedRows())
+                        .hasSize(1)
+                        .containsAnyElementsOf(assertions.execute("VALUES (1,1), (2,2)").getMaterializedRows()));
 
-        assertEquals(actual.getMaterializedRows().size(), 1);
-        assertContains(assertions.execute("VALUES (1,1), (2,2)"), actual);
-
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2) AS l(v) FULL OUTER JOIN (VALUES 2) AS r(v) ON l.v = r.v " +
                         "ORDER BY l.v NULLS FIRST " +
-                        "LIMIT 1",
-                "VALUES (1, CAST(NULL AS INTEGER))");
+                        "LIMIT 1"))
+                .matches("VALUES (1, CAST(NULL AS INTEGER))");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 2) AS l(v) FULL OUTER JOIN (VALUES 1, 2) AS r(v) ON l.v = r.v " +
                         "ORDER BY r.v NULLS FIRST " +
-                        "LIMIT 1",
-                "VALUES (CAST(NULL AS INTEGER), 1)");
-
-        assertEquals(actual.getMaterializedRows().size(), 1);
-        assertContains(assertions.execute("VALUES (1,1), (2,2)"), actual);
+                        "LIMIT 1"))
+                .matches("VALUES (CAST(NULL AS INTEGER), 1)");
     }
 }
