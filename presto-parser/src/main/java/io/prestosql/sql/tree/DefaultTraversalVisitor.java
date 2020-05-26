@@ -59,6 +59,7 @@ public abstract class DefaultTraversalVisitor<C>
         return null;
     }
 
+    @Override
     protected Void visitFormat(Format node, C context)
     {
         for (Expression expr : node.getExpressions()) {
