@@ -1119,6 +1119,9 @@ public final class MetadataManager
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets)
     {
+        // Global aggregation is represented by [[]]
+        checkArgument(!groupingSets.isEmpty(), "No grouping sets provided");
+
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 

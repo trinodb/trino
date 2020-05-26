@@ -163,6 +163,7 @@ public class DruidJdbcClient
                         null,
                         schemaName,
                         table.getTableName(),
+                        table.getGroupingSets(),
                         columns,
                         table.getConstraint(),
                         split.getAdditionalPredicate(),

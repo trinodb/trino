@@ -377,6 +377,7 @@ public abstract class BaseJdbcClient
                 table.getCatalogName(),
                 table.getSchemaName(),
                 table.getTableName(),
+                table.getGroupingSets(),
                 columns,
                 table.getConstraint(),
                 split.getAdditionalPredicate(),

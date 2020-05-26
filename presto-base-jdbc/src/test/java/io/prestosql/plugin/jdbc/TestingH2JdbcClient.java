@@ -13,11 +13,36 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.ColumnHandle;
+
+import java.sql.Types;
+import java.util.Map;
+import java.util.Optional;
+
 class TestingH2JdbcClient
         extends BaseJdbcClient
 {
+    private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), -1, -1, Optional.empty());
+
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
         super(config, "\"", connectionFactory);
+    }
+
+    @Override
+    public boolean supportsGroupingSets()
+    {
+        return false;
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return new AggregateFunctionRewriter(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
+                .rewrite(aggregate, assignments);
     }
 }
