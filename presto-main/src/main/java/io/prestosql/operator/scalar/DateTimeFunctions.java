@@ -124,10 +124,13 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME)
     public static long localTime(ConnectorSession session)
     {
-        if (session.isLegacyTimestamp()) {
-            return UTC_CHRONOLOGY.millisOfDay().get(session.getStart().toEpochMilli());
-        }
         ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+        if (session.isLegacyTimestamp()) {
+            // It is ok for this method to use the Object interfaces because it is constant folded during plan optimization
+            return new DateTime(session.getStart().toEpochMilli(), localChronology)
+                    .withDate(new LocalDate(1970, 1, 1))
+                    .getMillis();
+        }
         return localChronology.millisOfDay().get(session.getStart().toEpochMilli());
     }
 
