@@ -109,13 +109,12 @@ public final class DateTimeFunctions
         // and we need to have UTC millis for packDateTimeWithZone
         long millis = UTC_CHRONOLOGY.millisOfDay().get(session.getStart().toEpochMilli());
 
-        if (!session.isLegacyTimestamp()) {
-            // However, those UTC millis are pointing to the correct UTC timestamp
-            // Our TIME WITH TIME ZONE representation does use UTC 1970-01-01 representation
-            // So we have to hack here in order to get valid representation
-            // of TIME WITH TIME ZONE
-            millis -= valueToSessionTimeZoneOffsetDiff(session.getStart().toEpochMilli(), getDateTimeZone(session.getTimeZoneKey()));
-        }
+        // However, those UTC millis are pointing to the correct UTC timestamp
+        // Our TIME WITH TIME ZONE representation does use UTC 1970-01-01 representation
+        // So we have to hack here in order to get valid representation
+        // of TIME WITH TIME ZONE
+        millis -= valueToSessionTimeZoneOffsetDiff(session.getStart().toEpochMilli(), getDateTimeZone(session.getTimeZoneKey()));
+
         return packDateTimeWithZone(millis, session.getTimeZoneKey());
     }
 
