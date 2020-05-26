@@ -1722,7 +1722,7 @@ public class HiveMetadata
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
                 .setLocation("");
         Table table = tableBuilder.build();
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser(), grantOption);
+        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser(), true);
 
         Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
