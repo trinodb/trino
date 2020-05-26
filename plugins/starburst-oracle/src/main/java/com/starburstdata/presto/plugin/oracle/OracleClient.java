@@ -137,8 +137,16 @@ public class OracleClient
         extends BaseJdbcClient
 {
     private static final int DEFAULT_ROW_FETCH_SIZE = 1000;
-    private static final int ORACLE_MAX_CHAR_SIZE = 2000;
-    private static final int ORACLE_MAX_VARCHAR2_SIZE = 4000;
+
+    // single UTF char may require at most 4 bytes of storage
+    private static final int MAX_BYTES_PER_CHAR = 4;
+
+    private static final int ORACLE_CHAR_MAX_BYTES = 2000;
+    private static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
+
+    private static final int ORACLE_NVARCHAR2_MAX_BYTES = 4000;
+    private static final int ORACLE_VARCHAR2_MAX_CHARS = ORACLE_NVARCHAR2_MAX_BYTES / MAX_BYTES_PER_CHAR;
+
     private static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
@@ -569,7 +577,7 @@ public class OracleClient
             String dataType;
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded() ||
-                    varcharType.getBoundedLength() > ORACLE_MAX_VARCHAR2_SIZE) {
+                    varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
                 dataType = "nclob";
             }
             else {
@@ -579,7 +587,7 @@ public class OracleClient
         }
         if (isCharType(type)) {
             String dataType;
-            if (((CharType) type).getLength() > ORACLE_MAX_CHAR_SIZE) {
+            if (((CharType) type).getLength() > ORACLE_CHAR_MAX_CHARS) {
                 dataType = "nclob";
             }
             else {

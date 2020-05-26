@@ -48,10 +48,12 @@ import java.util.function.ToIntFunction;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.CharacterSemantics.BYTE;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.CharacterSemantics.CHAR;
-import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_CHAR;
+import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_READ;
+import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_WRITE;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_NCHAR;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_NVARCHAR2;
-import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_VARCHAR2;
+import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_READ;
+import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.binaryDoubleDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.binaryFloatDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.blobDataType;
@@ -204,15 +206,15 @@ public class TestOracleTypeMapping
     public void testVarcharMapping()
     {
         testTypeMapping("varchar",
-                basicCharacterTests(DataType::varcharDataType, MAX_VARCHAR2));
+                basicCharacterTests(DataType::varcharDataType, MAX_VARCHAR2_ON_WRITE));
     }
 
     @Test
     public void testVarcharReadMapping()
     {
         testTypeReadMapping("read_varchar",
-                basicCharacterTests(varchar2DataType(CHAR), MAX_VARCHAR2),
-                basicCharacterTests(varchar2DataType(BYTE), MAX_VARCHAR2),
+                basicCharacterTests(varchar2DataType(CHAR), MAX_VARCHAR2_ON_READ),
+                basicCharacterTests(varchar2DataType(BYTE), MAX_VARCHAR2_ON_READ),
                 basicCharacterTests(nvarchar2DataType(), MAX_NVARCHAR2));
     }
 
@@ -225,15 +227,15 @@ public class TestOracleTypeMapping
     public void testVarcharUnicodeMapping()
     {
         testTypeMapping("varchar_unicode",
-                unicodeTests(DataType::varcharDataType, codePoints(), MAX_VARCHAR2));
+                unicodeTests(DataType::varcharDataType, codePoints(), MAX_VARCHAR2_ON_WRITE));
     }
 
     @Test
     public void testVarcharUnicodeReadMapping()
     {
         testTypeReadMapping("read_varchar_unicode",
-                unicodeTests(varchar2DataType(CHAR), codePoints(), MAX_VARCHAR2),
-                unicodeTests(varchar2DataType(BYTE), utf8Bytes(), MAX_VARCHAR2),
+                unicodeTests(varchar2DataType(CHAR), codePoints(), MAX_VARCHAR2_ON_READ),
+                unicodeTests(varchar2DataType(BYTE), utf8Bytes(), MAX_VARCHAR2_ON_READ),
                 unicodeTests(nvarchar2DataType(), String::length, MAX_NVARCHAR2));
     }
 
@@ -271,15 +273,15 @@ public class TestOracleTypeMapping
     public void testCharMapping()
     {
         testTypeMapping("char",
-                basicCharacterTests(DataType::charDataType, MAX_CHAR));
+                basicCharacterTests(DataType::charDataType, MAX_CHAR_ON_WRITE));
     }
 
     @Test
     public void testCharReadMapping()
     {
         testTypeReadMapping("read_char",
-                basicCharacterTests(charDataType(CHAR), MAX_CHAR),
-                basicCharacterTests(charDataType(BYTE), MAX_CHAR),
+                basicCharacterTests(charDataType(CHAR), MAX_CHAR_ON_READ),
+                basicCharacterTests(charDataType(BYTE), MAX_CHAR_ON_READ),
                 basicCharacterTests(ncharDataType(), MAX_NCHAR));
     }
 
@@ -297,15 +299,15 @@ public class TestOracleTypeMapping
     public void testCharUnicodeMapping()
     {
         testTypeMapping("char_unicode",
-                unicodeTests(DataType::charDataType, codePoints(), MAX_CHAR));
+                unicodeTests(DataType::charDataType, codePoints(), MAX_CHAR_ON_WRITE));
     }
 
     @Test
     public void testCharUnicodeReadMapping()
     {
         testTypeReadMapping("read_char_unicode",
-                unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR),
-                unicodeTests(charDataType(BYTE), utf8Bytes(), MAX_CHAR),
+                unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR_ON_READ),
+                unicodeTests(charDataType(BYTE), utf8Bytes(), MAX_CHAR_ON_READ),
                 unicodeTests(ncharDataType(), String::length, MAX_NCHAR));
     }
 

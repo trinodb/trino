@@ -42,8 +42,12 @@ public final class OracleDataTypes
     private OracleDataTypes() {}
 
     // Oracle data type limits
-    public static final int MAX_CHAR = 2000;
-    public static final int MAX_VARCHAR2 = 4000;
+    public static final int MAX_CHAR_ON_READ = 2000;
+    public static final int MAX_CHAR_ON_WRITE = 500;
+
+    public static final int MAX_VARCHAR2_ON_READ = 4000;
+    public static final int MAX_VARCHAR2_ON_WRITE = 1000;
+
     public static final int MAX_NCHAR = 1000;
     public static final int MAX_NVARCHAR2 = 2000;
 
@@ -86,13 +90,13 @@ public final class OracleDataTypes
 
     public static DataType<String> tooLargeVarcharDataType()
     {
-        return stringDataType(format("varchar(%d)", MAX_VARCHAR2 + 1),
+        return stringDataType(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1),
                 createUnboundedVarcharType());
     }
 
     public static DataType<String> tooLargeCharDataType()
     {
-        return stringDataType(format("char(%d)", MAX_CHAR + 1),
+        return stringDataType(format("char(%d)", MAX_CHAR_ON_WRITE + 1),
                 createUnboundedVarcharType());
         // Creating an NCLOB column with a too-large CHAR does not include
         // trailing spaces, so these values do not need to be padded.
