@@ -126,7 +126,9 @@ import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -163,7 +165,7 @@ public class TestHiveIntegrationSmokeTest
     {
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
-                .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
 

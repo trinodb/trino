@@ -25,7 +25,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
 
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -44,7 +47,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     {
         this.postgreSqlServer = new TestingPostgreSqlServer();
         execute("CREATE EXTENSION file_fdw");
-        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS);
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)

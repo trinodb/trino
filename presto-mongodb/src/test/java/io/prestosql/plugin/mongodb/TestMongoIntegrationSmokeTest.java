@@ -31,7 +31,10 @@ import java.util.Arrays;
 
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -51,7 +54,7 @@ public class TestMongoIntegrationSmokeTest
     {
         this.server = new MongoServer();
         this.client = createMongoClient(server);
-        return createMongoQueryRunner(server, ORDERS);
+        return createMongoQueryRunner(server, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
