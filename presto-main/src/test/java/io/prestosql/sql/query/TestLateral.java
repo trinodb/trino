@@ -17,6 +17,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 public class TestLateral
 {
     private QueryAssertions assertions;
@@ -37,36 +40,37 @@ public class TestLateral
     @Test
     public void testUncorrelatedLateral()
     {
-        assertions.assertQuery(
-                "SELECT * FROM LATERAL (VALUES 1, 2, 3)",
-                "VALUES 1, 2, 3");
+        assertThat(assertions.query(
+                "SELECT * FROM LATERAL (VALUES 1, 2, 3)"))
+                .matches("VALUES 1, 2, 3");
 
-        assertions.assertQuery(
-                "SELECT * FROM LATERAL (VALUES 1), (VALUES 'a')",
-                "VALUES (1, 'a')");
+        assertThat(assertions.query(
+                "SELECT * FROM LATERAL (VALUES 1), (VALUES 'a')"))
+                .matches("VALUES (1, 'a')");
 
-        assertions.assertQuery(
-                "SELECT * FROM LATERAL (VALUES 1) CROSS JOIN (VALUES 'a')",
-                "VALUES (1, 'a')");
+        assertThat(assertions.query(
+                "SELECT * FROM LATERAL (VALUES 1) CROSS JOIN (VALUES 'a')"))
+                .matches("VALUES (1, 'a')");
 
-        assertions.assertQuery(
-                "SELECT * FROM LATERAL (VALUES 1) t(a)",
-                "VALUES 1");
+        assertThat(assertions.query(
+                "SELECT * FROM LATERAL (VALUES 1) t(a)"))
+                .matches("VALUES 1");
 
         // The nested LATERAL is uncorrelated with respect to the subquery it belongs to. The column comes
         // from the outer query
-        assertions.assertQuery(
-                "SELECT * FROM (VALUES 1) t(a), LATERAL (SELECT * FROM LATERAL (SELECT a))",
-                "VALUES (1, 1)");
+        assertThat(assertions.query(
+                "SELECT * FROM (VALUES 1) t(a), LATERAL (SELECT * FROM LATERAL (SELECT a))"))
+                .matches("VALUES (1, 1)");
 
-        assertions.assertQuery(
-                "SELECT (SELECT * FROM LATERAL (SELECT a)) FROM (VALUES 1) t(a)",
-                "VALUES 1");
+        assertThat(assertions.query(
+                "SELECT (SELECT * FROM LATERAL (SELECT a)) FROM (VALUES 1) t(a)"))
+                .matches("VALUES 1");
     }
 
     @Test
     public void testNotInScope()
     {
-        assertions.assertFails("SELECT * FROM (VALUES 1) t(a), (SELECT * FROM LATERAL (SELECT a))", "line 1:63: Column 'a' cannot be resolved");
+        assertThatThrownBy(() -> assertions.query("SELECT * FROM (VALUES 1) t(a), (SELECT * FROM LATERAL (SELECT a))"))
+                .hasMessage("line 1:63: Column 'a' cannot be resolved");
     }
 }
