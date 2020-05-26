@@ -44,6 +44,9 @@ distributed between fragments:
 Examples
 --------
 
+EXPLAIN (TYPE LOGICAL)
+^^^^^^^^^^^^^^^^^^^^^^
+
 Logical plan:
 
 .. code-block:: none
@@ -79,6 +82,9 @@ Logical plan:
                               Layout: [regionkey:bigint]
                               Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
                               regionkey := tpch:regionkey
+
+EXPLAIN (TYPE DISTRIBUTED)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Distributed plan:
 
@@ -128,6 +134,9 @@ Distributed plan:
                    Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
                    regionkey := tpch:regionkey
 
+EXPLAIN (TYPE VALIDATE)
+^^^^^^^^^^^^^^^^^^^^^^^
+
 Validate:
 
 .. code-block:: none
@@ -136,6 +145,9 @@ Validate:
      Valid
     -------
      true
+
+EXPLAIN (TYPE IO)
+^^^^^^^^^^^^^^^^^
 
 IO:
 
