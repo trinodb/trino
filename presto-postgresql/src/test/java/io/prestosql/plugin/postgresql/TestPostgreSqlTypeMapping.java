@@ -20,6 +20,8 @@ import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
@@ -1259,6 +1261,47 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.presto_test_money"));
     }
 
+    @Test
+    public void testReal()
+    {
+        singlePrecisionFloatingPointTests(realDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
+
+        singlePrecisionFloatingPointTests(postgreSqlRealDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_real"));
+    }
+
+    @Test
+    public void testDouble()
+    {
+        doublePrecisionFloatinPointTests(doubleDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
+
+        doublePrecisionFloatinPointTests(postgreSqlDoubleDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_double"));
+    }
+
+    private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(floatType, 3.14f)
+                .addRoundTrip(floatType, 3.1415927f)
+                .addRoundTrip(floatType, Float.NaN)
+                .addRoundTrip(floatType, Float.NEGATIVE_INFINITY)
+                .addRoundTrip(floatType, Float.POSITIVE_INFINITY)
+                .addRoundTrip(floatType, null);
+    }
+
+    private static DataTypeTest doublePrecisionFloatinPointTests(DataType<Double> doubleType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(doubleType, 1.0e100d)
+                .addRoundTrip(doubleType, Double.NaN)
+                .addRoundTrip(doubleType, Double.POSITIVE_INFINITY)
+                .addRoundTrip(doubleType, Double.NEGATIVE_INFINITY)
+                .addRoundTrip(doubleType, null);
+    }
+
     private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
@@ -1490,5 +1533,33 @@ public class TestPostgreSqlTypeMapping
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
+    }
+
+    private static DataType<Float> postgreSqlRealDataType()
+    {
+        return dataType("real", RealType.REAL,
+                value -> {
+                    if (Float.isFinite(value)) {
+                        return value.toString();
+                    }
+                    if (Float.isNaN(value)) {
+                        return "'NaN'::real";
+                    }
+                    return format("'%sInfinity'::real", value > 0 ? "+" : "-");
+                });
+    }
+
+    private static DataType<Double> postgreSqlDoubleDataType()
+    {
+        return dataType("double precision", DoubleType.DOUBLE,
+                value -> {
+                    if (Double.isFinite(value)) {
+                        return value.toString();
+                    }
+                    if (Double.isNaN(value)) {
+                        return "'NaN'::double precision";
+                    }
+                    return format("'%sInfinity'::double precision", value > 0 ? "+" : "-");
+                });
     }
 }
