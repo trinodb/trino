@@ -229,6 +229,7 @@ class AggregationAnalyzer
             return process(node.getExpression(), context);
         }
 
+        @Override
         protected Boolean visitFormat(Format node, Void context)
         {
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
