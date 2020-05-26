@@ -78,6 +78,7 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -161,6 +162,19 @@ public class H2QueryRunner
                 "  comment VARCHAR(23) NOT NULL\n" +
                 ")");
         insertRows(tpchMetadata, PART);
+
+        handle.execute("CREATE TABLE customer (\n" +
+                "  custkey BIGINT NOT NULL,\n" +
+                "  name VARCHAR(25) NOT NULL,\n" +
+                "  address VARCHAR(40) NOT NULL,\n" +
+                "  nationkey BIGINT NOT NULL,\n" +
+                "  phone VARCHAR(15) NOT NULL,\n" +
+                "  acctbal DOUBLE NOT NULL,\n" +
+                "  mktsegment VARCHAR(10) NOT NULL,\n" +
+                "  comment VARCHAR(117) NOT NULL,\n" +
+                "  PRIMARY KEY (custkey)" +
+                ")");
+        insertRows(tpchMetadata, CUSTOMER);
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable<?> tpchTable)
