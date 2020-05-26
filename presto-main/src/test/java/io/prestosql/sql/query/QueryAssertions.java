@@ -13,8 +13,6 @@
  */
 package io.prestosql.sql.query;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.spi.PrestoException;
@@ -25,12 +23,21 @@ import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import org.assertj.core.api.AbstractAssert;
+import org.assertj.core.api.AssertProvider;
+import org.assertj.core.api.ListAssert;
+import org.assertj.core.api.ThrowableAssert;
+import org.assertj.core.presentation.Representation;
+import org.assertj.core.presentation.StandardRepresentation;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -61,6 +68,33 @@ class QueryAssertions
         this.runner = requireNonNull(runner, "runner is null");
     }
 
+    public Session.SessionBuilder sessionBuilder()
+    {
+        return Session.builder(runner.getDefaultSession());
+    }
+
+    public Session getDefaultSession()
+    {
+        return runner.getDefaultSession();
+    }
+
+    public AssertProvider<QueryAssert> query(@Language("SQL") String query)
+    {
+        return query(query, runner.getDefaultSession());
+    }
+
+    public AssertProvider<QueryAssert> query(@Language("SQL") String query, Session session)
+    {
+        return newQueryAssert(query, runner, session);
+    }
+
+    /**
+     * @deprecated use {@link org.assertj.core.api.Assertions#assertThatThrownBy(ThrowableAssert.ThrowingCallable)}:
+     * <pre>
+     * assertThatThrownBy(() -> assertions.execute(sql))<br>
+     *      .hasMessage(...)
+     * </pre>
+     */
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
@@ -86,22 +120,43 @@ class QueryAssertions
         PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
     }
 
+    /**
+     * @deprecated use {@link org.assertj.core.api.Assertions#assertThat} with {@link #query(String)}
+     */
+    @Deprecated
     public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertQuery(runner.getDefaultSession(), actual, expected, false);
     }
 
+    /**
+     * @deprecated <p>use {@link org.assertj.core.api.Assertions#assertThat} with {@link #query(String, Session)}:
+     * <pre>
+     * assertThat(assertions.query(actual, session))<br>
+     *     .matches(expected)
+     * </pre>
+     */
+    @Deprecated
     public void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertQuery(session, actual, expected, false);
     }
 
+    /**
+     * @deprecated use {@link org.assertj.core.api.Assertions#assertThat} with {@link #query(String)}:
+     * <pre>
+     * assertThat(assertions.query(actual))<br>
+     *     .ordered()<br>
+     *     .matches(expected)
+     * </pre>
+     */
+    @Deprecated
     public void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertQuery(runner.getDefaultSession(), actual, expected, true);
     }
 
-    public void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
+    private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
     {
         MaterializedResult actualResults = null;
         try {
@@ -147,20 +202,6 @@ class QueryAssertions
         assertEquals(actualRows.size(), 0);
     }
 
-    public static void assertContains(MaterializedResult all, MaterializedResult expectedSubset)
-    {
-        for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
-            if (!all.getMaterializedRows().contains(row)) {
-                fail(format("expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
-                        row,
-                        all.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(all, 100)),
-                        expectedSubset.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
-            }
-        }
-    }
-
     public MaterializedResult execute(@Language("SQL") String query)
     {
         return execute(runner.getDefaultSession(), query);
@@ -192,6 +233,85 @@ class QueryAssertions
         }
         finally {
             runner.getExclusiveLock().unlock();
+        }
+    }
+
+    public static class QueryAssert
+            extends AbstractAssert<QueryAssert, MaterializedResult>
+    {
+        private static final Representation ROWS_REPRESENTATION = new StandardRepresentation()
+        {
+            @Override
+            public String toStringOf(Object object)
+            {
+                if (object instanceof List) {
+                    List<?> list = (List<?>) object;
+                    return list.stream()
+                            .map(this::toStringOf)
+                            .collect(Collectors.joining(", "));
+                }
+                if (object instanceof MaterializedRow) {
+                    MaterializedRow row = (MaterializedRow) object;
+
+                    return row.getFields().stream()
+                            .map(Object::toString)
+                            .collect(Collectors.joining(", ", "(", ")"));
+                }
+                else {
+                    return super.toStringOf(object);
+                }
+            }
+        };
+
+        private final QueryRunner runner;
+        private final Session session;
+        private boolean ordered;
+
+        static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
+        {
+            MaterializedResult result = runner.execute(session, query);
+            return () -> new QueryAssert(runner, session, result);
+        }
+
+        public QueryAssert(QueryRunner runner, Session session, MaterializedResult actual)
+        {
+            super(actual, Object.class);
+            this.runner = runner;
+            this.session = session;
+        }
+
+        public QueryAssert matches(BiFunction<Session, QueryRunner, MaterializedResult> evaluator)
+        {
+            MaterializedResult expected = evaluator.apply(session, runner);
+            return isEqualTo(expected);
+        }
+
+        public QueryAssert ordered()
+        {
+            ordered = true;
+            return this;
+        }
+
+        public QueryAssert matches(@Language("SQL") String query)
+        {
+            MaterializedResult expected = runner.execute(session, query);
+
+            return satisfies(actual -> {
+                assertThat(actual.getTypes())
+                        .as("Output types")
+                        .isEqualTo(expected.getTypes());
+
+                ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
+                        .as("Rows")
+                        .withRepresentation(ROWS_REPRESENTATION);
+
+                if (ordered) {
+                    assertion.containsExactlyElementsOf(expected.getMaterializedRows());
+                }
+                else {
+                    assertion.containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+                }
+            });
         }
     }
 }

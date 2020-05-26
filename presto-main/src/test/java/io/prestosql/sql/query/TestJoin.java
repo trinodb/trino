@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestJoin
 {
     private QueryAssertions assertions;
@@ -37,7 +39,7 @@ public class TestJoin
     @Test
     public void testCrossJoinEliminationWithOuterJoin()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "WITH " +
                         "  a AS (SELECT id FROM (VALUES (1)) AS t(id))," +
                         "  b AS (SELECT id FROM (VALUES (1)) AS t(id))," +
@@ -47,7 +49,7 @@ public class TestJoin
                         "FROM a " +
                         "LEFT JOIN b ON a.id = b.id " +
                         "JOIN c ON a.id = CAST(c.id AS bigint) " +
-                        "JOIN d ON d.id = a.id",
-                "VALUES 1");
+                        "JOIN d ON d.id = a.id"))
+                .matches("VALUES 1");
     }
 }
