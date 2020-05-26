@@ -32,6 +32,7 @@ import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.Identifier;
@@ -306,6 +307,12 @@ class AggregationAnalyzer
         protected Boolean visitInPredicate(InPredicate node, Void context)
         {
             return process(node.getValue(), context) && process(node.getValueList(), context);
+        }
+
+        @Override
+        protected Boolean visitFormat(Format node, Void context)
+        {
+            return node.getArguments().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override

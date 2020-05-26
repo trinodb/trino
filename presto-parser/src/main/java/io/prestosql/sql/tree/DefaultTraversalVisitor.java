@@ -172,6 +172,16 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitFormat(Format node, C context)
+    {
+        for (Expression argument : node.getArguments()) {
+            process(argument, context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected Void visitFunctionCall(FunctionCall node, C context)
     {
         for (Expression argument : node.getArguments()) {
