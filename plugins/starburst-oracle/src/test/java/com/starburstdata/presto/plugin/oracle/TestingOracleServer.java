@@ -25,7 +25,7 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 public final class TestingOracleServer
 {
     private static final OracleContainer CONTAINER = new CustomOracleContainer(
-            "docker-proxy.aws.starburstdata.com:5001/oracledb:12.2.0.1-ee")
+            "harbor.starburstdata.net/testing/oracledb:12.2.0.1-ee")
             .withUsername(OracleTestUsers.USER)
             .withPassword(OracleTestUsers.PASSWORD)
             .withEnv("ORACLE_SID", "testdbsid")
