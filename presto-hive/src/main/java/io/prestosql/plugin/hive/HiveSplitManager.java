@@ -58,7 +58,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static io.prestosql.plugin.hive.AsyncHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -211,7 +211,7 @@ public class HiveSplitManager
 
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(session, metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
 
-        HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
+        AsyncHiveSplitLoader hiveSplitLoader = new AsyncHiveSplitLoader(
                 table,
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),

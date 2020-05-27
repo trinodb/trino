@@ -13,79 +13,51 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
-import io.prestosql.plugin.hive.util.AsyncQueue;
-import io.prestosql.plugin.hive.util.AsyncQueue.BorrowResult;
-import io.prestosql.plugin.hive.util.ThrottledAsyncQueue;
+import io.prestosql.plugin.base.splitloader.AbstractAsyncSplitSource;
+import io.prestosql.plugin.base.splitloader.AsyncSplitLoader;
+import io.prestosql.plugin.base.util.AsyncQueue;
+import io.prestosql.plugin.base.util.ThrottledAsyncQueue;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitSource;
 
-import java.io.FileNotFoundException;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.failedFuture;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxSplitSize;
-import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.CLOSED;
-import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.FAILED;
-import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.INITIAL;
-import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.NO_MORE_SPLITS;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class HiveSplitSource
-        implements ConnectorSplitSource
+public class HiveSplitSource
+        extends AbstractAsyncSplitSource<InternalHiveSplit>
 {
     private static final Logger log = Logger.get(HiveSplitSource.class);
 
-    private final String queryId;
-    private final String databaseName;
-    private final String tableName;
-    private final PerBucket queues;
-    private final AtomicInteger bufferedInternalSplitCount = new AtomicInteger();
     private final long maxOutstandingSplitsBytes;
-
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final AtomicInteger remainingInitialSplits;
 
-    private final HiveSplitLoader splitLoader;
-    private final AtomicReference<State> stateReference;
-
     private final AtomicLong estimatedSplitSizeInBytes = new AtomicLong();
-
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
 
@@ -93,26 +65,22 @@ class HiveSplitSource
             ConnectorSession session,
             String databaseName,
             String tableName,
-            PerBucket queues,
+            QueueManager<InternalHiveSplit> queues,
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
-            HiveSplitLoader splitLoader,
-            AtomicReference<State> stateReference,
+            AsyncSplitLoader<InternalHiveSplit> splitLoader,
             CounterStat highMemorySplitSourceCounter)
     {
-        requireNonNull(session, "session is null");
-        this.queryId = session.getQueryId();
-        this.databaseName = requireNonNull(databaseName, "databaseName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.queues = requireNonNull(queues, "queues is null");
-        this.maxOutstandingSplitsBytes = requireNonNull(maxOutstandingSplitsSize, "maxOutstandingSplitsSize is null").toBytes();
-        this.splitLoader = requireNonNull(splitLoader, "splitLoader is null");
-        this.stateReference = requireNonNull(stateReference, "stateReference is null");
-        this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
-
+        super(session.getQueryId(),
+                databaseName,
+                tableName,
+                queues,
+                splitLoader);
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
+        this.maxOutstandingSplitsBytes = requireNonNull(maxOutstandingSplitsSize, "maxOutstandingSplitsSize is null").toBytes();
+        this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
     }
 
     public static HiveSplitSource allAtOnce(
@@ -123,50 +91,18 @@ class HiveSplitSource
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
             int maxSplitsPerSecond,
-            HiveSplitLoader splitLoader,
+            AsyncSplitLoader<InternalHiveSplit> splitLoader,
             Executor executor,
             CounterStat highMemorySplitSourceCounter)
     {
-        AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
                 session,
                 databaseName,
                 tableName,
-                new PerBucket()
-                {
-                    private final AsyncQueue<InternalHiveSplit> queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
-
-                    @Override
-                    public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
-                    {
-                        // bucketNumber can be non-empty because BackgroundHiveSplitLoader does not have knowledge of execution plan
-                        return queue.offer(connectorSplit);
-                    }
-
-                    @Override
-                    public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
-                    {
-                        checkArgument(bucketNumber.isEmpty());
-                        return queue.borrowBatchAsync(maxSize, function);
-                    }
-
-                    @Override
-                    public void finish()
-                    {
-                        queue.finish();
-                    }
-
-                    @Override
-                    public boolean isFinished(OptionalInt bucketNumber)
-                    {
-                        checkArgument(bucketNumber.isEmpty());
-                        return queue.isFinished();
-                    }
-                },
+                new NonBucketedQueueManager<>(maxSplitsPerSecond, maxOutstandingSplits, executor),
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
-                stateReference,
                 highMemorySplitSourceCounter);
     }
 
@@ -178,23 +114,23 @@ class HiveSplitSource
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
             int maxSplitsPerSecond,
-            HiveSplitLoader splitLoader,
+            AsyncSplitLoader<InternalHiveSplit> splitLoader,
             Executor executor,
             CounterStat highMemorySplitSourceCounter)
     {
-        AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
                 session,
                 databaseName,
                 tableName,
-                new PerBucket()
+                new QueueManager<InternalHiveSplit>()
                 {
                     private final Map<Integer, AsyncQueue<InternalHiveSplit>> queues = new ConcurrentHashMap<>();
                     private final AtomicBoolean finished = new AtomicBoolean();
 
                     @Override
-                    public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
+                    public ListenableFuture<?> offer(InternalHiveSplit connectorSplit)
                     {
+                        OptionalInt bucketNumber = connectorSplit.getBucketNumber();
                         AsyncQueue<InternalHiveSplit> queue = queueFor(bucketNumber);
                         queue.offer(connectorSplit);
                         // Do not block "offer" when running split discovery in bucketed mode.
@@ -203,9 +139,10 @@ class HiveSplitSource
                     }
 
                     @Override
-                    public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
+                    public AsyncQueue<InternalHiveSplit> queueForPartition(ConnectorPartitionHandle partitionHandle)
                     {
-                        return queueFor(bucketNumber).borrowBatchAsync(maxSize, function);
+                        OptionalInt bucketNumber = toBucketNumber(partitionHandle);
+                        return queueFor(bucketNumber);
                     }
 
                     @Override
@@ -217,9 +154,9 @@ class HiveSplitSource
                     }
 
                     @Override
-                    public boolean isFinished(OptionalInt bucketNumber)
+                    public boolean isFinished(ConnectorPartitionHandle partitionHandle)
                     {
-                        return queueFor(bucketNumber).isFinished();
+                        return queueFor(toBucketNumber(partitionHandle)).isFinished();
                     }
 
                     public AsyncQueue<InternalHiveSplit> queueFor(OptionalInt bucketNumber)
@@ -241,34 +178,12 @@ class HiveSplitSource
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
-                stateReference,
                 highMemorySplitSourceCounter);
     }
 
-    /**
-     * The upper bound of outstanding split count.
-     * It might be larger than the actual number when called concurrently with other methods.
-     */
-    @VisibleForTesting
-    int getBufferedInternalSplitCount()
+    @Override
+    protected void validateSplit(InternalHiveSplit split)
     {
-        return bufferedInternalSplitCount.get();
-    }
-
-    ListenableFuture<?> addToQueue(List<? extends InternalHiveSplit> splits)
-    {
-        ListenableFuture<?> lastResult = immediateFuture(null);
-        for (InternalHiveSplit split : splits) {
-            lastResult = addToQueue(split);
-        }
-        return lastResult;
-    }
-
-    ListenableFuture<?> addToQueue(InternalHiveSplit split)
-    {
-        if (stateReference.get().getKind() != INITIAL) {
-            return immediateFuture(null);
-        }
         if (estimatedSplitSizeInBytes.addAndGet(split.getEstimatedSizeInBytes()) > maxOutstandingSplitsBytes) {
             // TODO: investigate alternative split discovery strategies when this error is hit.
             // This limit should never be hit given there is a limit of maxOutstandingSplits.
@@ -282,166 +197,64 @@ class HiveSplitSource
                     "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
                     databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount()));
         }
-        bufferedInternalSplitCount.incrementAndGet();
-        OptionalInt bucketNumber = split.getBucketNumber();
-        return queues.offer(bucketNumber, split);
-    }
-
-    void noMoreSplits()
-    {
-        if (setIf(stateReference, State.noMoreSplits(), state -> state.getKind() == INITIAL)) {
-            // Stop the split loader before finishing the queue.
-            // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
-            // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
-            splitLoader.stop();
-            queues.finish();
-        }
-    }
-
-    void fail(Throwable e)
-    {
-        // The error must be recorded before setting the finish marker to make sure
-        // isFinished will observe failure instead of successful completion.
-        // Only record the first error message.
-        if (setIf(stateReference, State.failed(e), state -> state.getKind() == INITIAL)) {
-            // Stop the split loader before finishing the queue.
-            // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
-            // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
-            splitLoader.stop();
-            queues.finish();
-        }
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    protected SplitProcessingResult processSplits(List<InternalHiveSplit> splits)
     {
-        boolean noMoreSplits;
-        State state = stateReference.get();
-        switch (state.getKind()) {
-            case INITIAL:
-                noMoreSplits = false;
-                break;
-            case NO_MORE_SPLITS:
-                noMoreSplits = true;
-                break;
-            case FAILED:
-                return failedFuture(state.getThrowable());
-            case CLOSED:
-                throw new IllegalStateException("HiveSplitSource is already closed");
-            default:
-                throw new UnsupportedOperationException();
-        }
-
-        OptionalInt bucketNumber = toBucketNumber(partitionHandle);
-        ListenableFuture<List<ConnectorSplit>> future = queues.borrowBatchAsync(bucketNumber, maxSize, internalSplits -> {
-            ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
-            ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
-            int removedEstimatedSizeInBytes = 0;
-            for (InternalHiveSplit internalSplit : internalSplits) {
-                long maxSplitBytes = maxSplitSize.toBytes();
-                if (remainingInitialSplits.get() > 0) {
-                    if (remainingInitialSplits.getAndDecrement() > 0) {
-                        maxSplitBytes = maxInitialSplitSize.toBytes();
-                    }
-                }
-                InternalHiveBlock block = internalSplit.currentBlock();
-                long splitBytes;
-                if (internalSplit.isSplittable()) {
-                    splitBytes = min(maxSplitBytes, block.getEnd() - internalSplit.getStart());
-                }
-                else {
-                    splitBytes = internalSplit.getEnd() - internalSplit.getStart();
-                }
-
-                resultBuilder.add(new HiveSplit(
-                        databaseName,
-                        tableName,
-                        internalSplit.getPartitionName(),
-                        internalSplit.getPath(),
-                        internalSplit.getStart(),
-                        splitBytes,
-                        internalSplit.getFileSize(),
-                        internalSplit.getFileModifiedTime(),
-                        internalSplit.getSchema(),
-                        internalSplit.getPartitionKeys(),
-                        block.getAddresses(),
-                        internalSplit.getBucketNumber(),
-                        internalSplit.isForceLocalScheduling(),
-                        internalSplit.getTableToPartitionMapping(),
-                        internalSplit.getBucketConversion(),
-                        internalSplit.isS3SelectPushdownEnabled(),
-                        internalSplit.getDeleteDeltaLocations()));
-
-                internalSplit.increaseStart(splitBytes);
-
-                if (internalSplit.isDone()) {
-                    removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
-                }
-                else {
-                    splitsToInsertBuilder.add(internalSplit);
+        ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
+        int removedEstimatedSizeInBytes = 0;
+        for (InternalHiveSplit internalSplit : splits) {
+            long maxSplitBytes = maxSplitSize.toBytes();
+            if (remainingInitialSplits.get() > 0) {
+                if (remainingInitialSplits.getAndDecrement() > 0) {
+                    maxSplitBytes = maxInitialSplitSize.toBytes();
                 }
             }
-            estimatedSplitSizeInBytes.addAndGet(-removedEstimatedSizeInBytes);
-
-            List<InternalHiveSplit> splitsToInsert = splitsToInsertBuilder.build();
-            List<ConnectorSplit> result = resultBuilder.build();
-            bufferedInternalSplitCount.addAndGet(splitsToInsert.size() - result.size());
-
-            return new AsyncQueue.BorrowResult<>(splitsToInsert, result);
-        });
-
-        ListenableFuture<ConnectorSplitBatch> transform = Futures.transform(future, splits -> {
-            requireNonNull(splits, "splits is null");
-            if (noMoreSplits) {
-                // Checking splits.isEmpty() here is required for thread safety.
-                // Let's say there are 10 splits left, and max number of splits per batch is 5.
-                // The futures constructed in two getNextBatch calls could each fetch 5, resulting in zero splits left.
-                // After fetching the splits, both futures reach this line at the same time.
-                // Without the isEmpty check, both will claim they are the last.
-                // Side note 1: In such a case, it doesn't actually matter which one gets to claim it's the last.
-                //              But having both claim they are the last would be a surprising behavior.
-                // Side note 2: One could argue that the isEmpty check is overly conservative.
-                //              The caller of getNextBatch will likely need to make an extra invocation.
-                //              But an extra invocation likely doesn't matter.
-                return new ConnectorSplitBatch(splits, splits.isEmpty() && queues.isFinished(bucketNumber));
+            InternalHiveSplit.InternalHiveBlock block = internalSplit.currentBlock();
+            long splitBytes;
+            if (internalSplit.isSplittable()) {
+                splitBytes = min(maxSplitBytes, block.getEnd() - internalSplit.getStart());
             }
             else {
-                return new ConnectorSplitBatch(splits, false);
+                splitBytes = internalSplit.getEnd() - internalSplit.getStart();
             }
-        }, directExecutor());
 
-        return toCompletableFuture(transform);
-    }
+            resultBuilder.add(new HiveSplit(
+                    databaseName,
+                    tableName,
+                    internalSplit.getPartitionName(),
+                    internalSplit.getPath(),
+                    internalSplit.getStart(),
+                    splitBytes,
+                    internalSplit.getFileSize(),
+                    internalSplit.getFileModifiedTime(),
+                    internalSplit.getSchema(),
+                    internalSplit.getPartitionKeys(),
+                    block.getAddresses(),
+                    internalSplit.getBucketNumber(),
+                    internalSplit.isForceLocalScheduling(),
+                    internalSplit.getTableToPartitionMapping(),
+                    internalSplit.getBucketConversion(),
+                    internalSplit.isS3SelectPushdownEnabled(),
+                    internalSplit.getDeleteDeltaLocations()));
 
-    @Override
-    public boolean isFinished()
-    {
-        State state = stateReference.get();
+            internalSplit.increaseStart(splitBytes);
 
-        switch (state.getKind()) {
-            case INITIAL:
-                return false;
-            case NO_MORE_SPLITS:
-                return bufferedInternalSplitCount.get() == 0;
-            case FAILED:
-                throw propagatePrestoException(state.getThrowable());
-            case CLOSED:
-                throw new IllegalStateException("HiveSplitSource is already closed");
-            default:
-                throw new UnsupportedOperationException();
+            if (internalSplit.isDone()) {
+                removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+            }
+            else {
+                splitsToInsertBuilder.add(internalSplit);
+            }
         }
-    }
+        estimatedSplitSizeInBytes.addAndGet(-removedEstimatedSizeInBytes);
 
-    @Override
-    public void close()
-    {
-        if (setIf(stateReference, State.closed(), state -> state.getKind() == INITIAL || state.getKind() == NO_MORE_SPLITS)) {
-            // Stop the split loader before finishing the queue.
-            // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
-            // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
-            splitLoader.stop();
-            queues.finish();
-        }
+        List<InternalHiveSplit> splitsToInsert = splitsToInsertBuilder.build();
+        List<ConnectorSplit> result = resultBuilder.build();
+
+        return new SplitProcessingResult(splitsToInsert, result);
     }
 
     private static OptionalInt toBucketNumber(ConnectorPartitionHandle partitionHandle)
@@ -450,91 +263,5 @@ class HiveSplitSource
             return OptionalInt.empty();
         }
         return OptionalInt.of(((HivePartitionHandle) partitionHandle).getBucket());
-    }
-
-    private static <T> boolean setIf(AtomicReference<T> atomicReference, T newValue, Predicate<T> predicate)
-    {
-        while (true) {
-            T current = atomicReference.get();
-            if (!predicate.test(current)) {
-                return false;
-            }
-            if (atomicReference.compareAndSet(current, newValue)) {
-                return true;
-            }
-        }
-    }
-
-    private static RuntimeException propagatePrestoException(Throwable throwable)
-    {
-        if (throwable instanceof PrestoException) {
-            throw (PrestoException) throwable;
-        }
-        if (throwable instanceof FileNotFoundException) {
-            throw new PrestoException(HIVE_FILE_NOT_FOUND, throwable);
-        }
-        throw new PrestoException(HIVE_UNKNOWN_ERROR, throwable);
-    }
-
-    interface PerBucket
-    {
-        ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit split);
-
-        <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function);
-
-        void finish();
-
-        boolean isFinished(OptionalInt bucketNumber);
-    }
-
-    static class State
-    {
-        private final StateKind kind;
-        private final Throwable throwable;
-
-        private State(StateKind kind, Throwable throwable)
-        {
-            this.kind = kind;
-            this.throwable = throwable;
-        }
-
-        public StateKind getKind()
-        {
-            return kind;
-        }
-
-        public Throwable getThrowable()
-        {
-            checkState(throwable != null);
-            return throwable;
-        }
-
-        public static State initial()
-        {
-            return new State(INITIAL, null);
-        }
-
-        public static State noMoreSplits()
-        {
-            return new State(NO_MORE_SPLITS, null);
-        }
-
-        public static State failed(Throwable throwable)
-        {
-            return new State(FAILED, throwable);
-        }
-
-        public static State closed()
-        {
-            return new State(CLOSED, null);
-        }
-    }
-
-    enum StateKind
-    {
-        INITIAL,
-        NO_MORE_SPLITS,
-        FAILED,
-        CLOSED,
     }
 }

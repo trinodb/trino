@@ -21,6 +21,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.plugin.base.splitloader.AbstractAsyncSplitLoader;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.metastore.Column;
@@ -31,8 +32,6 @@ import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.plugin.hive.util.HiveFileIterator;
 import io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryNotAllowedException;
 import io.prestosql.plugin.hive.util.InternalHiveSplitFactory;
-import io.prestosql.plugin.hive.util.ResumableTask;
-import io.prestosql.plugin.hive.util.ResumableTasks;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -69,22 +68,16 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
@@ -104,8 +97,8 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
-public class BackgroundHiveSplitLoader
-        implements HiveSplitLoader
+public class AsyncHiveSplitLoader
+        extends AbstractAsyncSplitLoader<InternalHiveSplit>
 {
     private static final Iterable<Pattern> BUCKET_PATTERNS = ImmutableList.of(
             // legacy Presto naming pattern (current version matches Hive)
@@ -115,8 +108,6 @@ public class BackgroundHiveSplitLoader
             // Hive ACID
             Pattern.compile("bucket_(\\d+)"));
 
-    private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
-
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final Optional<BucketSplitInfo> tableBucketInfo;
@@ -124,36 +115,14 @@ public class BackgroundHiveSplitLoader
     private final HdfsContext hdfsContext;
     private final NamenodeStats namenodeStats;
     private final DirectoryLister directoryLister;
-    private final int loaderConcurrency;
     private final boolean recursiveDirWalkerEnabled;
     private final boolean ignoreAbsentPartitions;
-    private final Executor executor;
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
 
-    // Purpose of this lock:
-    // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
-    // * Read lock: when you need to modify any of the above.
-    //   Make sure the lock is held throughout the period during which they may not be consistent with each other.
-    // Details:
-    // * When write lock is acquired, except the holder, no one can do any of the following:
-    // ** poll from (or check empty) partitions
-    // ** poll from (or check empty) or push to fileIterators
-    // ** push to hiveSplitSource
-    // * When any of the above three operations is carried out, either a read lock or a write lock must be held.
-    // * When a series of operations involving two or more of the above three operations are carried out, the lock
-    //   must be continuously held throughout the series of operations.
-    // Implications:
-    // * if you hold a read lock but not a write lock, you can do any of the above three operations, but you may
-    //   see a series of operations involving two or more of the operations carried out half way.
-    private final ReadWriteLock taskExecutionLock = new ReentrantReadWriteLock();
-
-    private HiveSplitSource hiveSplitSource;
-    private volatile boolean stopped;
-
-    public BackgroundHiveSplitLoader(
+    public AsyncHiveSplitLoader(
             Table table,
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
@@ -168,114 +137,23 @@ public class BackgroundHiveSplitLoader
             boolean ignoreAbsentPartitions,
             Optional<ValidWriteIdList> validWriteIds)
     {
+        super(loaderConcurrency, executor);
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.tableBucketInfo = tableBucketInfo;
-        this.loaderConcurrency = loaderConcurrency;
         this.session = session;
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
         this.directoryLister = directoryLister;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
-        this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
     }
 
     @Override
-    public void start(HiveSplitSource splitSource)
-    {
-        this.hiveSplitSource = splitSource;
-        for (int i = 0; i < loaderConcurrency; i++) {
-            ListenableFuture<?> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
-            addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
-        }
-    }
-
-    @Override
-    public void stop()
-    {
-        stopped = true;
-    }
-
-    private class HiveSplitLoaderTask
-            implements ResumableTask
-    {
-        @Override
-        public TaskStatus process()
-        {
-            while (true) {
-                if (stopped) {
-                    return TaskStatus.finished();
-                }
-                ListenableFuture<?> future;
-                taskExecutionLock.readLock().lock();
-                try {
-                    future = loadSplits();
-                }
-                catch (Throwable e) {
-                    if (e instanceof IOException) {
-                        e = new PrestoException(HIVE_FILESYSTEM_ERROR, e);
-                    }
-                    else if (!(e instanceof PrestoException)) {
-                        e = new PrestoException(HIVE_UNKNOWN_ERROR, e);
-                    }
-                    // Fail the split source before releasing the execution lock
-                    // Otherwise, a race could occur where the split source is completed before we fail it.
-                    hiveSplitSource.fail(e);
-                    checkState(stopped);
-                    return TaskStatus.finished();
-                }
-                finally {
-                    taskExecutionLock.readLock().unlock();
-                }
-                invokeNoMoreSplitsIfNecessary();
-                if (!future.isDone()) {
-                    return TaskStatus.continueOn(future);
-                }
-            }
-        }
-    }
-
-    private void invokeNoMoreSplitsIfNecessary()
-    {
-        taskExecutionLock.readLock().lock();
-        try {
-            // This is an opportunistic check to avoid getting the write lock unnecessarily
-            if (!partitions.isEmpty() || !fileIterators.isEmpty()) {
-                return;
-            }
-        }
-        catch (Exception e) {
-            hiveSplitSource.fail(e);
-            checkState(stopped, "Task is not marked as stopped even though it failed");
-            return;
-        }
-        finally {
-            taskExecutionLock.readLock().unlock();
-        }
-
-        taskExecutionLock.writeLock().lock();
-        try {
-            // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
-            if (partitions.isEmpty() && fileIterators.isEmpty()) {
-                // It is legal to call `noMoreSplits` multiple times or after `stop` was called.
-                // Nothing bad will happen if `noMoreSplits` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
-                hiveSplitSource.noMoreSplits();
-            }
-        }
-        catch (Exception e) {
-            hiveSplitSource.fail(e);
-            checkState(stopped, "Task is not marked as stopped even though it failed");
-        }
-        finally {
-            taskExecutionLock.writeLock().unlock();
-        }
-    }
-
-    private ListenableFuture<?> loadSplits()
+    protected ListenableFuture<?> loadSplits()
             throws IOException
     {
         Iterator<InternalHiveSplit> splits = fileIterators.poll();
@@ -287,8 +165,8 @@ public class BackgroundHiveSplitLoader
             return loadPartition(partition);
         }
 
-        while (splits.hasNext() && !stopped) {
-            ListenableFuture<?> future = hiveSplitSource.addToQueue(splits.next());
+        while (splits.hasNext() && !isStopped()) {
+            ListenableFuture<?> future = addToQueue(splits.next());
             if (!future.isDone()) {
                 fileIterators.addFirst(splits);
                 return future;
@@ -297,6 +175,12 @@ public class BackgroundHiveSplitLoader
 
         // No need to put the iterator back, since it's either empty or we've stopped
         return COMPLETED_FUTURE;
+    }
+
+    @Override
+    protected boolean isFinished()
+    {
+        return partitions.isEmpty() && fileIterators.isEmpty();
     }
 
     private ListenableFuture<?> loadPartition(HivePartitionMetadata partition)
@@ -354,7 +238,7 @@ public class BackgroundHiveSplitLoader
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
-                if (stopped) {
+                if (isStopped()) {
                     return COMPLETED_FUTURE;
                 }
             }
@@ -471,7 +355,7 @@ public class BackgroundHiveSplitLoader
         if (tableBucketInfo.isPresent()) {
             ListenableFuture<?> lastResult = immediateFuture(null); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
             for (Path readPath : readPaths) {
-                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(readPath, fs, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, deleteDeltaLocations));
+                lastResult = addToQueue(getBucketedSplits(readPath, fs, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, deleteDeltaLocations));
             }
             return lastResult;
         }
@@ -490,9 +374,9 @@ public class BackgroundHiveSplitLoader
         for (InputSplit inputSplit : targetSplits) {
             Optional<InternalHiveSplit> internalHiveSplit = splitFactory.createInternalHiveSplit((FileSplit) inputSplit);
             if (internalHiveSplit.isPresent()) {
-                lastResult = hiveSplitSource.addToQueue(internalHiveSplit.get());
+                lastResult = addToQueue(internalHiveSplit.get());
             }
-            if (stopped) {
+            if (isStopped()) {
                 return COMPLETED_FUTURE;
             }
         }

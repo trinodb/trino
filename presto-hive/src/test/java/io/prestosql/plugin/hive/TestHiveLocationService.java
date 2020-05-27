@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
-import io.prestosql.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
+import io.prestosql.plugin.hive.TestAsyncHiveSplitLoader.TestingHdfsEnvironment;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;

@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.base.splitloader.AbstractAsyncSplitSource;
+import io.prestosql.plugin.base.splitloader.AsyncSplitLoader;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -54,7 +56,7 @@ public class TestHiveSplitSource
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
+                new TestingAsyncSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
 
@@ -88,7 +90,7 @@ public class TestHiveSplitSource
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
+                new TestingAsyncSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
 
@@ -146,7 +148,7 @@ public class TestHiveSplitSource
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
+                new TestingAsyncSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
 
@@ -205,7 +207,7 @@ public class TestHiveSplitSource
                 10000,
                 maxOutstandingSplitsSize,
                 Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
+                new TestingAsyncSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
         int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
@@ -242,7 +244,7 @@ public class TestHiveSplitSource
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
+                new TestingAsyncSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
         hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
@@ -268,11 +270,11 @@ public class TestHiveSplitSource
         }
     }
 
-    private static class TestingHiveSplitLoader
-            implements HiveSplitLoader
+    private static class TestingAsyncSplitLoader
+            implements AsyncSplitLoader<InternalHiveSplit>
     {
         @Override
-        public void start(HiveSplitSource splitSource)
+        public void start(AbstractAsyncSplitSource<InternalHiveSplit> splitSource)
         {
         }
 

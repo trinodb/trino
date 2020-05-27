@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.base.splitloader.AsyncSplitLoader;
 import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Column;
@@ -74,8 +75,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
-import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
+import static io.prestosql.plugin.hive.AsyncHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static io.prestosql.plugin.hive.AsyncHiveSplitLoader.getBucketNumber;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveStorageFormat.CSV;
@@ -101,7 +102,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-public class TestBackgroundHiveSplitLoader
+public class TestAsyncHiveSplitLoader
 {
     private static final int BUCKET_COUNT = 2;
 
@@ -137,7 +138,7 @@ public class TestBackgroundHiveSplitLoader
     public void testNoPathFilter()
             throws Exception
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
                 TupleDomain.none());
 
@@ -166,7 +167,7 @@ public class TestBackgroundHiveSplitLoader
                 ImmutableMap.copyOf(tableProperties),
                 StorageFormat.fromHiveStorageFormat(storageFormat));
 
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), DataSize.of(2, GIGABYTE).toBytes())),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -183,7 +184,7 @@ public class TestBackgroundHiveSplitLoader
     public void testPathFilter()
             throws Exception
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
                 RETURNED_PATH_DOMAIN);
 
@@ -198,7 +199,7 @@ public class TestBackgroundHiveSplitLoader
     public void testPathFilterOneBucketMatchPartitionedTable()
             throws Exception
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
                 RETURNED_PATH_DOMAIN,
                 Optional.of(new HiveBucketFilter(ImmutableSet.of(0, 1))),
@@ -216,7 +217,7 @@ public class TestBackgroundHiveSplitLoader
     public void testPathFilterBucketedPartitionedTable()
             throws Exception
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
                 RETURNED_PATH_DOMAIN,
                 Optional.empty(),
@@ -239,7 +240,7 @@ public class TestBackgroundHiveSplitLoader
     public void testEmptyFileWithNoBlocks()
             throws Exception
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 ImmutableList.of(locatedFileStatusWithNoBlocks(RETURNED_PATH)),
                 TupleDomain.none());
 
@@ -255,7 +256,7 @@ public class TestBackgroundHiveSplitLoader
     @Test
     public void testNoHangIfPartitionIsOffline()
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoaderOfflinePartitions();
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoaderOfflinePartitions();
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
@@ -275,7 +276,7 @@ public class TestBackgroundHiveSplitLoader
         List<Future<List<HiveSplit>>> futures = new ArrayList<>();
 
         futures.add(EXECUTOR.submit(() -> {
-            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
+            AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
             HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
             backgroundHiveSplitLoader.start(hiveSplitSource);
             try {
@@ -289,7 +290,7 @@ public class TestBackgroundHiveSplitLoader
         for (int i = 0; i < totalCount - 1; i++) {
             futures.add(EXECUTOR.submit(() -> {
                 firstVisit.await();
-                BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
+                AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
                 HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
                 backgroundHiveSplitLoader.start(hiveSplitSource);
                 return drainSplits(hiveSplitSource);
@@ -336,7 +337,7 @@ public class TestBackgroundHiveSplitLoader
     {
         AtomicBoolean iteratorUsedAfterException = new AtomicBoolean();
 
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = new AsyncHiveSplitLoader(
                 SIMPLE_TABLE,
                 () -> new Iterator<HivePartitionMetadata>()
                 {
@@ -403,7 +404,7 @@ public class TestBackgroundHiveSplitLoader
     public void testMultipleSplitsPerBucket()
             throws Exception
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), DataSize.of(1, GIGABYTE).toBytes())),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -447,7 +448,7 @@ public class TestBackgroundHiveSplitLoader
         // This writeId list has high watermark transaction=3 and aborted transaction=2
         String validWriteIdsList = format("4$%s.%s:3:9223372036854775807::2", table.getDatabaseName(), table.getTableName());
 
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 HDFS_ENVIRONMENT,
                 TupleDomain.none(),
                 Optional.empty(),
@@ -491,7 +492,7 @@ public class TestBackgroundHiveSplitLoader
         // This writeId list has high watermark transaction=3
         ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
 
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 HDFS_ENVIRONMENT,
                 TupleDomain.all(),
                 Optional.empty(),
@@ -533,7 +534,7 @@ public class TestBackgroundHiveSplitLoader
         // This writeId list has high watermark transaction=3
         ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
 
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+        AsyncHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 HDFS_ENVIRONMENT,
                 TupleDomain.all(),
                 Optional.empty(),
@@ -581,7 +582,7 @@ public class TestBackgroundHiveSplitLoader
         return splits.build();
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+    private static AsyncHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
             TupleDomain<HiveColumnHandle> tupleDomain)
     {
@@ -593,7 +594,7 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty());
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+    private static AsyncHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Optional<HiveBucketFilter> hiveBucketFilter,
@@ -609,7 +610,7 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty());
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+    private static AsyncHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Optional<HiveBucketFilter> hiveBucketFilter,
@@ -626,7 +627,7 @@ public class TestBackgroundHiveSplitLoader
                 validWriteIds);
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+    private static AsyncHiveSplitLoader backgroundHiveSplitLoader(
             HdfsEnvironment hdfsEnvironment,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Optional<HiveBucketFilter> hiveBucketFilter,
@@ -641,7 +642,7 @@ public class TestBackgroundHiveSplitLoader
                                 Optional.empty(),
                                 TableToPartitionMapping.empty()));
 
-        return new BackgroundHiveSplitLoader(
+        return new AsyncHiveSplitLoader(
                 table,
                 hivePartitionMetadatas,
                 compactEffectivePredicate,
@@ -657,7 +658,7 @@ public class TestBackgroundHiveSplitLoader
                 validWriteIds);
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister)
+    private static AsyncHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister)
     {
         List<HivePartitionMetadata> hivePartitionMetadatas = ImmutableList.of(
                 new HivePartitionMetadata(
@@ -668,7 +669,7 @@ public class TestBackgroundHiveSplitLoader
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
-        return new BackgroundHiveSplitLoader(
+        return new AsyncHiveSplitLoader(
                 SIMPLE_TABLE,
                 hivePartitionMetadatas,
                 TupleDomain.none(),
@@ -684,12 +685,12 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty());
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
+    private static AsyncHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
-        return new BackgroundHiveSplitLoader(
+        return new AsyncHiveSplitLoader(
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
                 TupleDomain.all(),
@@ -733,7 +734,7 @@ public class TestBackgroundHiveSplitLoader
         };
     }
 
-    private static HiveSplitSource hiveSplitSource(HiveSplitLoader hiveSplitLoader)
+    private static HiveSplitSource hiveSplitSource(AsyncSplitLoader asyncSplitLoader)
     {
         return HiveSplitSource.allAtOnce(
                 SESSION,
@@ -743,7 +744,7 @@ public class TestBackgroundHiveSplitLoader
                 1,
                 DataSize.of(32, MEGABYTE),
                 Integer.MAX_VALUE,
-                hiveSplitLoader,
+                asyncSplitLoader,
                 EXECUTOR,
                 new CounterStat());
     }
