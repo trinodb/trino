@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -511,6 +512,10 @@ public final class HiveWriteUtils
     {
         if (fileSystem instanceof FilterFileSystem) {
             return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
+        }
+        // TODO: remove when https://github.com/qubole/rubix/pull/393 is merged to Rubix
+        if (fileSystem instanceof CachingFileSystem) {
+            return getRawFileSystem(((CachingFileSystem<?>) fileSystem).getRemoteFileSystem());
         }
         return fileSystem;
     }
