@@ -291,6 +291,13 @@ public class TestRubixCaching
 
         assertEquals(readFile(cachingFileSystem.open(file)), randomData);
 
+        if (readMode == ASYNC) {
+            // wait for async Rubix requests to complete
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 1));
+        }
+
         // stats are propagated asynchronously
         assertEventually(
                 new Duration(10, SECONDS),
@@ -300,13 +307,6 @@ public class TestRubixCaching
                     assertEquals(getCachedReadsCount(), beforeCachedReadsCount);
                 });
         long firstRemoteReadsCount = getRemoteReadsCount();
-
-        if (readMode == ASYNC) {
-            // wait for async Rubix requests to complete
-            assertEventually(
-                    new Duration(10, SECONDS),
-                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 1));
-        }
 
         assertEquals(readFile(cachingFileSystem.open(file)), randomData);
 
@@ -384,6 +384,13 @@ public class TestRubixCaching
 
         assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
 
+        if (readMode == ASYNC) {
+            // wait for async Rubix requests to complete
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 100));
+        }
+
         // stats are propagated asynchronously
         assertEventually(
                 new Duration(10, SECONDS),
@@ -392,13 +399,6 @@ public class TestRubixCaching
                     assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
                 });
         long firstRemoteReadsCount = getRemoteReadsCount();
-
-        if (readMode == ASYNC) {
-            // wait for async Rubix requests to complete
-            assertEventually(
-                    new Duration(10, SECONDS),
-                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 100));
-        }
 
         assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
 
