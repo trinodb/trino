@@ -31,7 +31,7 @@ import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveCreateExternalTable
         extends AbstractTestQueryFramework
@@ -50,9 +50,8 @@ public class TestHiveCreateExternalTable
     public void testCreateExternalTableWithData()
             throws IOException
     {
-        String tableName = "test_create_external";
         File tempDir = createTempDir();
-        File tableLocation = new File(tempDir, tableName);
+        File tableLocation = new File(tempDir, "data");
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external " +
@@ -63,11 +62,12 @@ public class TestHiveCreateExternalTable
         assertUpdate(createTableSql, 25);
 
         MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.nation");
-        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
+        MaterializedResult actual = computeActual("SELECT * FROM test_create_external");
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
-        String tablePath = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '/') FROM " + tableName).getOnlyValue();
-        assertTrue(tablePath.startsWith(tableLocation.toURI().toString()));
+        MaterializedResult result = computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '/') FROM test_create_external");
+        String tablePath = (String) result.getOnlyValue();
+        assertThat(tablePath).startsWith(tableLocation.toURI().toString());
 
         assertUpdate("DROP TABLE test_create_external");
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -79,7 +79,7 @@ public class TestHiveCreateExternalTable
         File tempDir = createTempDir();
 
         @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE test_create_external " +
+                        "CREATE TABLE test_create_external_exists " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
