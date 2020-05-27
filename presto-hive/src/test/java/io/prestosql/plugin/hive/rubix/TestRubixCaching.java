@@ -289,7 +289,7 @@ public class TestRubixCaching
         long beforeCachedReadsCount = getCachedReadsCount();
         long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
 
-        assertEquals(readFile(cachingFileSystem.open(file)), randomData);
+        assertEquals(readFile(cachingFileSystem, file), randomData);
 
         if (readMode == ASYNC) {
             // wait for async Rubix requests to complete
@@ -306,17 +306,15 @@ public class TestRubixCaching
                     assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
                     assertEquals(getCachedReadsCount(), beforeCachedReadsCount);
                 });
-        long firstRemoteReadsCount = getRemoteReadsCount();
 
-        assertEquals(readFile(cachingFileSystem.open(file)), randomData);
-
-        // stats are propagated asynchronously
+        // ensure that subsequent read uses cache exclusively
         assertEventually(
                 new Duration(10, SECONDS),
                 () -> {
-                    // data should be read from cache only
+                    long remoteReadsCount = getRemoteReadsCount();
+                    assertEquals(readFile(cachingFileSystem, file), randomData);
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), firstRemoteReadsCount);
+                    assertEquals(getRemoteReadsCount(), remoteReadsCount);
                 });
 
         long secondRemoteReadsCount = getRemoteReadsCount();
@@ -330,7 +328,7 @@ public class TestRubixCaching
                         .build(),
                 "test");
         try (FileSystem cachingFileSystemWithCacheDisabled = getCachingFileSystem(nonCachingContext)) {
-            assertEquals(readFile(cachingFileSystemWithCacheDisabled.open(file)), randomData);
+            assertEquals(readFile(cachingFileSystemWithCacheDisabled, file), randomData);
 
             // non-caching (native) file system should be used
             sleep(1000);
@@ -344,7 +342,7 @@ public class TestRubixCaching
         cachingFileSystem = getCachingFileSystem();
 
         // read data with re-enabled cache
-        assertEquals(readFile(cachingFileSystem.open(file)), randomData);
+        assertEquals(readFile(cachingFileSystem, file), randomData);
 
         assertEventually(
                 new Duration(10, SECONDS),
@@ -364,7 +362,7 @@ public class TestRubixCaching
 
         byte[] data = "Hello world".getBytes(UTF_8);
         writeFile(cachingFileSystem.create(file), data);
-        assertEquals(readFile(nonCachingFileSystem.open(file)), data);
+        assertEquals(readFile(nonCachingFileSystem, file), data);
     }
 
     @Test(dataProvider = "readMode")
@@ -382,7 +380,7 @@ public class TestRubixCaching
         long beforeCachedReadsCount = getCachedReadsCount();
         long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
 
-        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
+        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
 
         if (readMode == ASYNC) {
             // wait for async Rubix requests to complete
@@ -398,17 +396,15 @@ public class TestRubixCaching
                     // data should be fetched from remote source
                     assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
                 });
-        long firstRemoteReadsCount = getRemoteReadsCount();
 
-        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
-
-        // stats are propagated asynchronously
+        // ensure that subsequent read uses cache exclusively
         assertEventually(
                 new Duration(10, SECONDS),
                 () -> {
-                    // data should be read from cache only
+                    long remoteReadsCount = getRemoteReadsCount();
+                    assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), firstRemoteReadsCount);
+                    assertEquals(getRemoteReadsCount(), remoteReadsCount);
                 });
         long secondCachedReadsCount = getCachedReadsCount();
         long secondRemoteReadsCount = getRemoteReadsCount();
@@ -419,7 +415,7 @@ public class TestRubixCaching
             List<Callable<?>> reads = nCopies(
                     3,
                     () -> {
-                        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
+                        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
                         return null;
                     });
             List<Future<?>> futures = reads.stream()
@@ -443,14 +439,13 @@ public class TestRubixCaching
                 });
     }
 
-    private byte[] readFile(FSDataInputStream inputStream)
-            throws IOException
+    private byte[] readFile(FileSystem fileSystem, Path path)
     {
-        try {
+        try (FSDataInputStream inputStream = fileSystem.open(path)) {
             return ByteStreams.toByteArray(inputStream);
         }
-        finally {
-            inputStream.close();
+        catch (IOException exception) {
+            throw new RuntimeException(exception);
         }
     }
 
