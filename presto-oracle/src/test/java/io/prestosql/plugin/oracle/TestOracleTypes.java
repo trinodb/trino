@@ -52,12 +52,17 @@ import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.prestosql.plugin.oracle.OracleDataTypes.binaryDoubleDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.binaryFloatDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.booleanDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.dateDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.doubleDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.integerDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.numberDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.oracleFloatDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.realDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.prestosql.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
@@ -153,6 +158,62 @@ public class TestOracleTypes
                 .addRoundTrip(stringDataType("varchar(5000)", createUnboundedVarcharType()), "test")
                 .addRoundTrip(varcharDataType(3), String.valueOf('\u2603'))
                 .execute(getQueryRunner(), prestoCreateAsSelect("varchar_types"));
+    }
+
+    /* Floating point types tests */
+
+    @Test
+    public void testFloatingPointMappings()
+    {
+        testTypeMapping("floats",
+                floatTests(realDataType()),
+                doubleTests(doubleDataType()));
+    }
+
+    @Test
+    public void testOracleFloatingPointMappings()
+    {
+        testTypeReadMapping("oracle_float",
+                DataTypeTest.create()
+                        .addRoundTrip(oracleFloatDataType(), 1e100d)
+                        .addRoundTrip(oracleFloatDataType(), 1.0)
+                        .addRoundTrip(oracleFloatDataType(), 123456.123456)
+                        .addRoundTrip(oracleFloatDataType(), null)
+                        .addRoundTrip(oracleFloatDataType(126), 1e100d)
+                        .addRoundTrip(oracleFloatDataType(126), 1.0)
+                        // to test the bounds of this type we would need to go via BigDecimal or String
+                        .addRoundTrip(oracleFloatDataType(126), 1234567890123456789.0123456789)
+                        .addRoundTrip(oracleFloatDataType(126), null)
+                        .addRoundTrip(oracleFloatDataType(1), 100000.0)
+                        .addRoundTrip(oracleFloatDataType(7), 123000.0));
+    }
+
+    @Test
+    public void testFloatingPointReadMappings()
+    {
+        testTypeReadMapping("read_floats",
+                floatTests(binaryFloatDataType()),
+                doubleTests(binaryDoubleDataType()));
+    }
+
+    private static DataTypeTest floatTests(DataType<Float> floatType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(floatType, 123.45f)
+                .addRoundTrip(floatType, Float.NaN)
+                .addRoundTrip(floatType, Float.NEGATIVE_INFINITY)
+                .addRoundTrip(floatType, Float.POSITIVE_INFINITY)
+                .addRoundTrip(floatType, null);
+    }
+
+    private static DataTypeTest doubleTests(DataType<Double> doubleType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(doubleType, 1.0e100d)
+                .addRoundTrip(doubleType, Double.NaN)
+                .addRoundTrip(doubleType, Double.POSITIVE_INFINITY)
+                .addRoundTrip(doubleType, Double.NEGATIVE_INFINITY)
+                .addRoundTrip(doubleType, null);
     }
 
     /* Decimal tests */

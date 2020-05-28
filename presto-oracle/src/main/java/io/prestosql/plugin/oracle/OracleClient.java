@@ -18,6 +18,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DoubleWriteFunction;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
@@ -30,6 +31,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleTypes;
 
 import javax.inject.Inject;
@@ -54,10 +56,8 @@ import java.util.TimeZone;
 
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
@@ -78,7 +78,9 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -86,8 +88,11 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -108,6 +113,8 @@ public class OracleClient
             .put(INTEGER, WriteMapping.longMapping("number(10)", integerWriteFunction()))
             .put(SMALLINT, WriteMapping.longMapping("number(5)", smallintWriteFunction()))
             .put(TINYINT, WriteMapping.longMapping("number(3)", tinyintWriteFunction()))
+            .put(DOUBLE, WriteMapping.doubleMapping("binary_double", oracleDoubleWriteFunction()))
+            .put(REAL, WriteMapping.longMapping("binary_float", oracleRealWriteFunction()))
             .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
             .put(TIMESTAMP_WITH_TIME_ZONE, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimezoneWriteFunction()))
             .build();
@@ -199,11 +206,18 @@ public class OracleClient
                 return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
-            case Types.FLOAT:
-                if (columnSize == 63) {
-                    return Optional.of(realColumnMapping());
-                }
-                return Optional.of(doubleColumnMapping());
+            case OracleTypes.BINARY_FLOAT:
+                return Optional.of(ColumnMapping.longMapping(
+                        REAL,
+                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                        oracleRealWriteFunction()));
+
+            case OracleTypes.BINARY_DOUBLE:
+            case OracleTypes.FLOAT:
+                return Optional.of(ColumnMapping.doubleMapping(
+                        DOUBLE,
+                        ResultSet::getDouble,
+                        oracleDoubleWriteFunction()));
             case OracleTypes.NUMBER:
                 int decimalDigits = typeHandle.getDecimalDigits();
                 // Map negative scale to decimal(p+s, 0).
@@ -324,6 +338,16 @@ public class OracleClient
         return WriteMapping.booleanMapping("number(1)", (statement, index, value) -> {
             statement.setInt(index, value ? 1 : 0);
         });
+    }
+
+    public static LongWriteFunction oracleRealWriteFunction()
+    {
+        return (statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryFloat(index, intBitsToFloat(toIntExact(value)));
+    }
+
+    public static DoubleWriteFunction oracleDoubleWriteFunction()
+    {
+        return ((statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
     }
 
     @Override

@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.oracle;
 
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.datatype.DataType;
@@ -23,8 +25,10 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.Math.max;
@@ -95,6 +99,86 @@ public final class OracleDataTypes
         return dataType("boolean", createDecimalType(1), Object::toString, value -> value ? BigDecimal.ONE : BigDecimal.ZERO);
     }
 
+    /* Floating point numeric types */
+
+    public static DataType<Double> binaryDoubleDataType()
+    {
+        return dataType("binary_double", DoubleType.DOUBLE,
+                value -> {
+                    if (Double.isFinite(value)) {
+                        return value.toString();
+                    }
+                    if (Double.isNaN(value)) {
+                        return "binary_double_nan";
+                    }
+                    return format("%sbinary_double_infinity", value > 0 ? "+" : "-");
+                });
+    }
+
+    public static DataType<Float> binaryFloatDataType()
+    {
+        return dataType("binary_float", RealType.REAL,
+                value -> {
+                    if (Float.isFinite(value)) {
+                        return value.toString();
+                    }
+                    if (Float.isNaN(value)) {
+                        return "binary_float_nan";
+                    }
+                    return format("%sbinary_float_infinity", value > 0 ? "+" : "-");
+                });
+    }
+
+    public static DataType<Double> doubleDataType()
+    {
+        return dataType("double", DoubleType.DOUBLE,
+                value -> {
+                    if (Double.isFinite(value)) {
+                        return value.toString();
+                    }
+                    if (Double.isNaN(value)) {
+                        return "nan()";
+                    }
+                    return format("%sinfinity()", value > 0 ? "+" : "-");
+                });
+    }
+
+    public static DataType<Float> realDataType()
+    {
+        return dataType("real", RealType.REAL,
+                value -> {
+                    if (Float.isFinite(value)) {
+                        return value.toString();
+                    }
+                    if (Float.isNaN(value)) {
+                        return "nan()";
+                    }
+                    return format("%sinfinity()", value > 0 ? "+" : "-");
+                });
+    }
+
+    public static DataType<Double> oracleFloatDataType()
+    {
+        return oracleFloatDataType(Optional.empty());
+    }
+
+    public static DataType<Double> oracleFloatDataType(int precision)
+    {
+        return oracleFloatDataType(Optional.of(precision));
+    }
+
+    public static DataType<Double> oracleFloatDataType(Optional<Integer> precision)
+    {
+        String insertType = "float" + (precision.map(value -> format("(%s)", value)).orElse(""));
+
+        return dataType(insertType, DoubleType.DOUBLE,
+                value -> {
+                    // we don't support infinity since is has no representation in Oracle's FLOAT type
+                    checkArgument(Double.isFinite(value), "Invalid value: %s", value);
+                    return value.toString();
+                });
+    }
+
     /* Datetime types */
 
     public static DataType<LocalDate> dateDataType()
@@ -143,6 +227,14 @@ public final class OracleDataTypes
     }
 
     /* Utility */
+
+    private static <T> DataType<T> dataType(
+            String insertType,
+            Type prestoResultType,
+            Function<T, String> toLiteral)
+    {
+        return dataType(insertType, prestoResultType, toLiteral, Function.identity());
+    }
 
     private static <T> DataType<T> dataType(
             String insertType,
