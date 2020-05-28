@@ -54,6 +54,7 @@ import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -173,7 +174,8 @@ public class TestRubixCaching
                 rubixConfig,
                 nodeManager,
                 new CatalogName("catalog"),
-                configurationInitializer);
+                configurationInitializer,
+                Optional.empty());
         rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
     }
@@ -265,7 +267,8 @@ public class TestRubixCaching
                 rubixConfig.setStartServerOnCoordinator(true),
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
-                configurationInitializer);
+                configurationInitializer,
+                Optional.empty());
         RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
