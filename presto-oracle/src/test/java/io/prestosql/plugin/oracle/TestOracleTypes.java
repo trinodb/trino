@@ -141,9 +141,9 @@ public class TestOracleTypes
     @Test
     public void testSpecialNumberFormats()
     {
-        oracleServer.execute("CREATE TABLE test (num1 number, num2 number(*,-2))");
-        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678, 1234567890.123)");
-        assertQuery("SELECT * FROM test", "VALUES (12345678901234567890.1234567890, 1234567900.0000000000)");
+        oracleServer.execute("CREATE TABLE test (num1 number)");
+        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        assertQuery("SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
     }
 
     @Test
