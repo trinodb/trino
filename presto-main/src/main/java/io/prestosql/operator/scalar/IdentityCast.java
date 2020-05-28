@@ -24,7 +24,6 @@ import io.prestosql.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -47,7 +46,6 @@ public class IdentityCast
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected only one type");
         Type type = boundVariables.getTypeVariable("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
         return new ScalarFunctionImplementation(

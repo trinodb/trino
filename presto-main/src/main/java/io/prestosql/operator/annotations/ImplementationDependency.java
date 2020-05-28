@@ -80,7 +80,7 @@ public interface ImplementationDependency
     {
         // Check recursively if `typeSignature` contains something like `T(bigint)`
         if (typeParameterNames.contains(typeSignature.getBase())) {
-            checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got %s on method [%s]", typeSignature.getBase(), element);
+            checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got '%s' on method [%s]", typeSignature.getBase(), element);
             return;
         }
 
