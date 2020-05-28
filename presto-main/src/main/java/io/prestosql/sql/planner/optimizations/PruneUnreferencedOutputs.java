@@ -258,6 +258,10 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Set<Symbol>> context)
         {
+            if (!context.get().contains(node.getSemiJoinOutput())) {
+                return context.rewrite(node.getSource(), context.get());
+            }
+
             ImmutableSet.Builder<Symbol> sourceInputsBuilder = ImmutableSet.builder();
             sourceInputsBuilder.addAll(context.get()).add(node.getSourceJoinSymbol());
             if (node.getSourceHashSymbol().isPresent()) {
