@@ -14,18 +14,20 @@
 package io.prestosql.plugin.oracle;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.math.RoundingMode;
+import java.util.Optional;
 
 public class OracleConfig
 {
     private boolean synonymsEnabled;
     private int varcharMaxSize = 4000;
-    private int numberDefaultScale = 10;
+    private Integer defaultNumberScale;
     private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
 
     @NotNull
@@ -41,17 +43,16 @@ public class OracleConfig
         return this;
     }
 
-    @Min(0)
-    @Max(38)
-    public int getNumberDefaultScale()
+    public Optional<@Min(0) @Max(38) Integer> getDefaultNumberScale()
     {
-        return numberDefaultScale;
+        return Optional.ofNullable(defaultNumberScale);
     }
 
     @Config("oracle.number.default-scale")
-    public OracleConfig setNumberDefaultScale(Integer numberDefaultScale)
+    @ConfigDescription("Default Presto DECIMAL scale for Oracle NUMBER data type")
+    public OracleConfig setDefaultNumberScale(Integer defaultNumberScale)
     {
-        this.numberDefaultScale = numberDefaultScale;
+        this.defaultNumberScale = defaultNumberScale;
         return this;
     }
 
