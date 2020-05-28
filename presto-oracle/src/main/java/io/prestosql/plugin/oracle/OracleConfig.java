@@ -25,7 +25,6 @@ public class OracleConfig
 {
     private boolean synonymsEnabled;
     private int varcharMaxSize = 4000;
-    private int timestampDefaultPrecision = 6;
     private int numberDefaultScale = 10;
     private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
 
@@ -79,20 +78,6 @@ public class OracleConfig
     public OracleConfig setVarcharMaxSize(int varcharMaxSize)
     {
         this.varcharMaxSize = varcharMaxSize;
-        return this;
-    }
-
-    @Min(0)
-    @Max(9)
-    public int getTimestampDefaultPrecision()
-    {
-        return timestampDefaultPrecision;
-    }
-
-    @Config("oracle.timestamp.precision")
-    public OracleConfig setTimestampDefaultPrecision(int timestampDefaultPrecision)
-    {
-        this.timestampDefaultPrecision = timestampDefaultPrecision;
         return this;
     }
 }
