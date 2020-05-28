@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.rubix;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
@@ -65,7 +64,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static com.qubole.rubix.spi.CacheConfig.setRemoteFetchProcessInterval;
-import static com.qubole.rubix.spi.CacheUtil.skipCache;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.NodeVersion.UNKNOWN;
@@ -75,7 +73,6 @@ import static io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode.READ_THROUGH;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
-import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempDirectory;
@@ -316,41 +313,6 @@ public class TestRubixCaching
                     assertEquals(readFile(cachingFileSystem, file), randomData);
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
                     assertEquals(getRemoteReadsCount(), remoteReadsCount);
-                });
-
-        long secondRemoteReadsCount = getRemoteReadsCount();
-        long secondCachedReadsCount = getCachedReadsCount();
-
-        // read data with cache disabled via session property
-        HdfsContext nonCachingContext = new HdfsContext(
-                TestingConnectorSession.builder()
-                        .setPropertyMetadata(hiveSessionProperties)
-                        .setPropertyValues(ImmutableMap.of("cache_enabled", false))
-                        .build(),
-                "test");
-        try (FileSystem cachingFileSystemWithCacheDisabled = getCachingFileSystem(nonCachingContext)) {
-            assertEquals(readFile(cachingFileSystemWithCacheDisabled, file), randomData);
-
-            // non-caching (native) file system should be used
-            sleep(1000);
-            assertTrue(skipCache(file.toString(), cachingFileSystemWithCacheDisabled.getConf()));
-            assertEquals(secondCachedReadsCount, getCachedReadsCount());
-            assertEquals(secondRemoteReadsCount, getRemoteReadsCount());
-        }
-
-        // re-initialize caching file system to flush file system cache
-        cachingFileSystem.close();
-        cachingFileSystem = getCachingFileSystem();
-
-        // read data with re-enabled cache
-        assertEquals(readFile(cachingFileSystem, file), randomData);
-
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    // data should be read from cache only
-                    assertGreaterThan(getCachedReadsCount(), secondCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), secondRemoteReadsCount);
                 });
     }
 

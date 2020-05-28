@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.rubix;
 
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.HiveSessionProperties;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
@@ -38,16 +37,6 @@ public class RubixConfigurationInitializer
     @Override
     public void updateConfiguration(Configuration config, HdfsContext context, URI uri)
     {
-        // Assume cache is disabled if session property is not available.
-        // HdfsContext won't have session only when it's created by HiveMetastore objects.
-        boolean cacheEnabled = context.getSession()
-                .map(HiveSessionProperties::isCacheEnabled)
-                .orElse(false);
-        if (!cacheEnabled) {
-            rubixInitializer.disableRubix(config);
-            return;
-        }
-
         rubixInitializer.enableRubix(config);
     }
 }
