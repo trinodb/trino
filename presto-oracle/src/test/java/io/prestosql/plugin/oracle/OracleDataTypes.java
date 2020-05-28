@@ -17,18 +17,83 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.datatype.DataType;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Function;
 
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 
 public final class OracleDataTypes
 {
     private OracleDataTypes() {}
+
+    /* Fixed-point numeric types */
+
+    public static DataType<BigDecimal> unspecifiedNumberDataType(int expectedScaleInPresto)
+    {
+        return numberDataType(38, expectedScaleInPresto, "number");
+    }
+
+    public static DataType<BigDecimal> numberDataType(int precision)
+    {
+        return numberDataType(precision, 0, format("number(%d)", precision));
+    }
+
+    /**
+     * Create a number type using the same transformation as
+     * OracleClient.toPrestoType to handle negative scale.
+     */
+    public static DataType<BigDecimal> numberDataType(int precision, int scale)
+    {
+        return numberDataType(precision, scale, format("number(%d, %d)", precision, scale));
+    }
+
+    private static DataType<BigDecimal> numberDataType(int precision, int scale, String oracleInsertType)
+    {
+        int prestoPrecision = precision + max(-scale, 0);
+        int prestoScale = max(scale, 0);
+        return dataType(
+                oracleInsertType,
+                createDecimalType(prestoPrecision, prestoScale),
+                BigDecimal::toString,
+                // Round to Oracle's scale if necessary, then return to the scale Presto will use.
+                i -> i.setScale(scale, RoundingMode.HALF_UP).setScale(prestoScale));
+    }
+
+    public static DataType<BigDecimal> oracleDecimalDataType(int precision, int scale)
+    {
+        String databaseType = format("decimal(%s, %s)", precision, scale);
+        return dataType(
+                databaseType,
+                createDecimalType(precision, scale),
+                bigDecimal -> format("CAST(TO_NUMBER('%s', '%s') AS %s)", bigDecimal.toPlainString(), toNumberFormatMask(bigDecimal), databaseType),
+                bigDecimal -> bigDecimal.setScale(scale, UNNECESSARY));
+    }
+
+    private static String toNumberFormatMask(BigDecimal bigDecimal)
+    {
+        return bigDecimal.toPlainString()
+                .replace("-", "")
+                .replaceAll("[0-9]", "9");
+    }
+
+    public static DataType<Long> integerDataType(String name, int precision)
+    {
+        return dataType(name, createDecimalType(precision), Object::toString, BigDecimal::valueOf);
+    }
+
+    public static DataType<Boolean> booleanDataType()
+    {
+        return dataType("boolean", createDecimalType(1), Object::toString, value -> value ? BigDecimal.ONE : BigDecimal.ZERO);
+    }
 
     /* Datetime types */
 
