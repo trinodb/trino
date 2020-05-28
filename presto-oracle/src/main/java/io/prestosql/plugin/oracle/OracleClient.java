@@ -71,6 +71,8 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMappi
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.prestosql.plugin.oracle.OracleSessionProperties.getNumberDefaultScale;
+import static io.prestosql.plugin.oracle.OracleSessionProperties.getNumberRoundingMode;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -94,8 +96,6 @@ public class OracleClient
     private final boolean synonymsEnabled;
     private final int fetchSize = 1000;
     private final int varcharMaxSize;
-    private final Optional<Integer> numberDefaultScale;
-    private final RoundingMode numberRoundingMode;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
@@ -113,8 +113,6 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.varcharMaxSize = oracleConfig.getVarcharMaxSize();
-        this.numberDefaultScale = oracleConfig.getDefaultNumberScale();
-        this.numberRoundingMode = oracleConfig.getNumberRoundingMode();
     }
 
     private String[] getTableTypes()
@@ -203,6 +201,8 @@ public class OracleClient
                 if (scale == 0) {
                     return Optional.of(bigintColumnMapping());
                 }
+                RoundingMode numberRoundingMode = getNumberRoundingMode(session);
+                Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
                 if (columnSize + max(-typeHandle.getDecimalDigits(), 0) == 127) {
                     return numberDefaultScale
                             .map(defaultScale -> createDecimalType(precision, defaultScale))
