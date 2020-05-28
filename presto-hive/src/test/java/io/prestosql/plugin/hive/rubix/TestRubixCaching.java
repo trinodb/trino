@@ -156,7 +156,6 @@ public class TestRubixCaching
                 cacheDirectories.stream()
                         .map(java.nio.file.Path::toString)
                         .collect(toImmutableList())));
-        rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(
                 config,
                 ImmutableSet.of(
@@ -174,8 +173,8 @@ public class TestRubixCaching
                 rubixConfig,
                 nodeManager,
                 new CatalogName("catalog"),
-                rubixConfigInitializer,
                 configurationInitializer);
+        rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
     }
 
@@ -255,7 +254,6 @@ public class TestRubixCaching
     public void testCoordinatorNotJoining()
     {
         RubixConfig rubixConfig = new RubixConfig();
-        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
         InternalNode workerNode = new InternalNode(
                 "master",
@@ -264,11 +262,11 @@ public class TestRubixCaching
                 false);
         RubixInitializer rubixInitializer = new RubixInitializer(
                 retry().maxAttempts(1),
-                true,
+                rubixConfig.setStartServerOnCoordinator(true),
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
-                rubixConfigInitializer,
                 configurationInitializer);
+        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }
