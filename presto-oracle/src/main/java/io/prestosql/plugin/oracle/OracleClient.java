@@ -375,6 +375,6 @@ public class OracleClient
         if (writeMapping != null) {
             return writeMapping;
         }
-        return super.toWriteMapping(session, type);
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 }
