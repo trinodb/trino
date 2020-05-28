@@ -35,7 +35,7 @@ public class TestOracleConfig
         assertRecordedDefaults(recordDefaults(OracleConfig.class)
                 .setSynonymsEnabled(false)
                 .setDefaultNumberScale(null)
-                .setNumberRoundingMode(RoundingMode.HALF_UP));
+                .setNumberRoundingMode(RoundingMode.UNNECESSARY));
     }
 
     @Test
