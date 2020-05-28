@@ -49,14 +49,14 @@ public class TestOracleIntegrationSmokeTest
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
+                .row("orderkey", "decimal(19,0)", "", "")
+                .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "timestamp", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "bigint", "", "")
+                .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
@@ -70,14 +70,14 @@ public class TestOracleIntegrationSmokeTest
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
+                        "   orderkey decimal(19, 0),\n" +
+                        "   custkey decimal(19, 0),\n" +
                         "   orderstatus varchar(1),\n" +
                         "   totalprice double,\n" +
                         "   orderdate timestamp,\n" +
                         "   orderpriority varchar(15),\n" +
                         "   clerk varchar(15),\n" +
-                        "   shippriority bigint,\n" +
+                        "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
     }
