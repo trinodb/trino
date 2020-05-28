@@ -17,6 +17,7 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.testing.datatype.DataType;
 
 import java.math.BigDecimal;
@@ -30,6 +31,7 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -57,6 +59,23 @@ public final class OracleDataTypes
     {
         BYTE,
         CHAR,
+    }
+
+    /* Binary types */
+
+    public static DataType<byte[]> blobDataType()
+    {
+        return dataType("blob", VarbinaryType.VARBINARY,
+                // hextoraw('') is NULL, but you can create an empty BLOB directly
+                bytes -> bytes.length == 0
+                        ? "empty_blob()"
+                        : format("hextoraw('%s')", base16().encode(bytes)));
+    }
+
+    public static DataType<byte[]> rawDataType(int size)
+    {
+        return dataType(format("raw(%d)", size), VarbinaryType.VARBINARY,
+                bytes -> format("hextoraw('%s')", base16().encode(bytes)));
     }
 
     /* Fixed-point numeric types */

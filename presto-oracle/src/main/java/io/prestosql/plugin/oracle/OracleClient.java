@@ -58,6 +58,7 @@ import java.util.Optional;
 import java.util.TimeZone;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -69,6 +70,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteF
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -93,6 +95,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -131,6 +134,7 @@ public class OracleClient
             .put(TINYINT, WriteMapping.longMapping("number(3)", tinyintWriteFunction()))
             .put(DOUBLE, WriteMapping.doubleMapping("binary_double", oracleDoubleWriteFunction()))
             .put(REAL, WriteMapping.longMapping("binary_float", oracleRealWriteFunction()))
+            .put(VARBINARY, WriteMapping.sliceMapping("blob", varbinaryWriteFunction()))
             .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
             .put(TIMESTAMP_WITH_TIME_ZONE, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimezoneWriteFunction()))
             .build();
@@ -287,6 +291,14 @@ public class OracleClient
                         createUnboundedVarcharType(),
                         (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
                         varcharWriteFunction(),
+                        DISABLE_PUSHDOWN));
+
+            case OracleTypes.VARBINARY: // Oracle's RAW(n)
+            case OracleTypes.BLOB:
+                return Optional.of(ColumnMapping.sliceMapping(
+                        VARBINARY,
+                        (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
+                        varbinaryWriteFunction(),
                         DISABLE_PUSHDOWN));
 
             // This mapping covers both DATE and TIMESTAMP, as Oracle's DATE has second precision.
