@@ -26,7 +26,6 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -63,7 +62,6 @@ public class ArraySubscriptOperator
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected one type, got %s", boundVariables.getTypeVariables());
         Type elementType = boundVariables.getTypeVariable("E");
 
         MethodHandle methodHandle;
