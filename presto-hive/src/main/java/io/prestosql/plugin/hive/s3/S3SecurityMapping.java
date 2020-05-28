@@ -39,6 +39,7 @@ public class S3SecurityMapping
     private final List<String> allowedIamRoles;
     private final Optional<String> iamRole;
     private final Optional<BasicAWSCredentials> credentials;
+    private final Optional<String> endpoint;
 
     @JsonCreator
     public S3SecurityMapping(
@@ -48,7 +49,8 @@ public class S3SecurityMapping
             @JsonProperty("iamRole") Optional<String> iamRole,
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
             @JsonProperty("accessKey") Optional<String> accessKey,
-            @JsonProperty("secretKey") Optional<String> secretKey)
+            @JsonProperty("secretKey") Optional<String> secretKey,
+            @JsonProperty("endpoint") Optional<String> endpoint)
     {
         this.user = requireNonNull(user, "user is null")
                 .map(S3SecurityMapping::toPredicate)
@@ -72,6 +74,8 @@ public class S3SecurityMapping
         this.credentials = accessKey.map(access -> new BasicAWSCredentials(access, secretKey.get()));
 
         checkArgument(!this.allowedIamRoles.isEmpty() || iamRole.isPresent() || credentials.isPresent(), "must provide role and/or credentials");
+
+        this.endpoint = requireNonNull(endpoint, "endpoint is null");
     }
 
     public boolean matches(ConnectorIdentity identity, URI uri)
@@ -96,6 +100,11 @@ public class S3SecurityMapping
         return credentials;
     }
 
+    public Optional<String> getEndpoint()
+    {
+        return endpoint;
+    }
+
     @Override
     public String toString()
     {
@@ -106,6 +115,7 @@ public class S3SecurityMapping
                 .add("iamRole", iamRole)
                 .add("allowedIamRoles", allowedIamRoles)
                 .add("credentials", credentials)
+                .add("endpoint", endpoint.orElse(null))
                 .toString();
     }
 
