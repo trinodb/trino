@@ -62,11 +62,6 @@ public class BoundVariables
         return containsValue(longVariables, variableName);
     }
 
-    public Map<String, Long> getLongVariables()
-    {
-        return longVariables;
-    }
-
     private static <T> T getValue(Map<String, T> map, String variableName)
     {
         checkState(variableName != null, "variableName is null");
@@ -141,11 +136,6 @@ public class BoundVariables
         public boolean containsTypeVariable(String variableName)
         {
             return containsValue(typeVariables, variableName);
-        }
-
-        public Map<String, Type> getTypeVariables()
-        {
-            return typeVariables;
         }
 
         public Long getLongVariable(String variableName)
