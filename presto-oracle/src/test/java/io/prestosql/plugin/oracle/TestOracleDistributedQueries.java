@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
@@ -115,7 +116,7 @@ public class TestOracleDistributedQueries
     {
         return new TestTable(
                 oracleServer::execute,
-                "tpch.table",
+                format("%s.table", TEST_SCHEMA),
                 "(col_required decimal(20,0) NOT NULL," +
                         "col_nullable decimal(20,0)," +
                         "col_default decimal(20,0) DEFAULT 43," +
