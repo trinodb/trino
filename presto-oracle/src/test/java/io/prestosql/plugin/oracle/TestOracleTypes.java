@@ -16,6 +16,7 @@ package io.prestosql.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
+import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -36,20 +37,26 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
 import static io.prestosql.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
+import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
+import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -143,7 +150,21 @@ public class TestOracleTypes
     {
         oracleServer.execute("CREATE TABLE test (num1 number)");
         oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
-        assertQuery("SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
+        assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
+    }
+
+    private Session number(RoundingMode roundingMode, int scale)
+    {
+        return number(IGNORE, roundingMode, Optional.of(scale));
+    }
+
+    private Session number(UnsupportedTypeHandling unsupportedTypeHandlingStrategy, RoundingMode roundingMode, Optional<Integer> scale)
+    {
+        Session.SessionBuilder builder = Session.builder(getSession())
+                .setCatalogSessionProperty("oracle", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandlingStrategy.name())
+                .setCatalogSessionProperty("oracle", NUMBER_ROUNDING_MODE, roundingMode.name());
+        scale.ifPresent(value -> builder.setCatalogSessionProperty("oracle", NUMBER_DEFAULT_SCALE, value.toString()));
+        return builder.build();
     }
 
     @Test
