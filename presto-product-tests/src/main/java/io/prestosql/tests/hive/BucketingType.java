@@ -20,7 +20,7 @@ import java.util.List;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-enum BucketingType
+public enum BucketingType
 {
     NONE {
         @Override
