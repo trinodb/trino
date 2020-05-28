@@ -31,6 +31,7 @@ import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
+import io.prestosql.plugin.hive.ConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.util.RetryDriver;
 import io.prestosql.spi.HostAddress;
@@ -44,6 +45,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -109,6 +111,7 @@ public class RubixInitializer
     private final NodeManager nodeManager;
     private final CatalogName catalogName;
     private final HdfsConfigurationInitializer hdfsConfigurationInitializer;
+    private final Optional<ConfigurationInitializer> extraConfigInitializer;
 
     private volatile boolean cacheReady;
     private boolean isMaster;
@@ -124,9 +127,10 @@ public class RubixInitializer
             RubixConfig rubixConfig,
             NodeManager nodeManager,
             CatalogName catalogName,
-            HdfsConfigurationInitializer hdfsConfigurationInitializer)
+            HdfsConfigurationInitializer hdfsConfigurationInitializer,
+            @ForRubix Optional<ConfigurationInitializer> extraConfigInitializer)
     {
-        this(DEFAULT_COORDINATOR_RETRY_DRIVER, rubixConfig, nodeManager, catalogName, hdfsConfigurationInitializer);
+        this(DEFAULT_COORDINATOR_RETRY_DRIVER, rubixConfig, nodeManager, catalogName, hdfsConfigurationInitializer, extraConfigInitializer);
     }
 
     @VisibleForTesting
@@ -135,7 +139,8 @@ public class RubixInitializer
             RubixConfig rubixConfig,
             NodeManager nodeManager,
             CatalogName catalogName,
-            HdfsConfigurationInitializer hdfsConfigurationInitializer)
+            HdfsConfigurationInitializer hdfsConfigurationInitializer,
+            Optional<ConfigurationInitializer> extraConfigInitializer)
     {
         this.coordinatorRetryDriver = coordinatorRetryDriver;
         this.startServerOnCoordinator = rubixConfig.isStartServerOnCoordinator();
@@ -146,6 +151,7 @@ public class RubixInitializer
         this.nodeManager = nodeManager;
         this.catalogName = catalogName;
         this.hdfsConfigurationInitializer = hdfsConfigurationInitializer;
+        this.extraConfigInitializer = extraConfigInitializer;
     }
 
     void initializeRubix()
@@ -286,5 +292,7 @@ public class RubixInitializer
 
         // TODO: remove after https://github.com/qubole/rubix/pull/385 is merged
         setPrestoClusterManager(config, "com.qubole.rubix.prestosql.PrestoClusterManager");
+
+        extraConfigInitializer.ifPresent(initializer -> initializer.initializeConfiguration(config));
     }
 }
