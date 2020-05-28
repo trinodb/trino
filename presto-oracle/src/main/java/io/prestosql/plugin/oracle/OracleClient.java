@@ -82,6 +82,7 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -202,7 +203,7 @@ public class OracleClient
                 if (scale == 0) {
                     return Optional.of(bigintColumnMapping());
                 }
-                if (scale < 0 || scale > precision) {
+                if (columnSize + max(-typeHandle.getDecimalDigits(), 0) == 127) {
                     return Optional.of(decimalColumnMapping(createDecimalType(precision, numberDefaultScale), numberRoundingMode));
                 }
 
