@@ -28,9 +28,11 @@ public class TestingOracleServer
         extends OracleContainer
         implements Closeable
 {
-    public static final String TEST_SCHEMA = "tpch";
-    public static final String TEST_USER = "tpch";
-    public static final String TEST_PASS = "oracle";
+    private static final String TEST_TABLESPACE = "presto_test";
+
+    public static final String TEST_USER = "presto_test";
+    public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
+    public static final String TEST_PASS = "presto_test_password";
 
     public TestingOracleServer()
     {
@@ -61,8 +63,8 @@ public class TestingOracleServer
         waitUntilContainerStarted();
         try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
                 Statement statement = connection.createStatement()) {
-            statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_SCHEMA));
-            statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_SCHEMA));
+            statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_TABLESPACE));
+            statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_TABLESPACE));
             statement.execute(format("GRANT UNLIMITED TABLESPACE TO %s", TEST_USER));
             statement.execute(format("GRANT ALL PRIVILEGES TO %s", TEST_USER));
         }
