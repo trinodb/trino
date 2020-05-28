@@ -37,7 +37,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -115,7 +114,7 @@ public final class ArrayJoin
         @Override
         public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
         {
-            return specializeArrayJoin(boundVariables.getTypeVariables(), metadata, ImmutableList.of(false, false, false), METHOD_HANDLE);
+            return specializeArrayJoin(boundVariables, metadata, ImmutableList.of(false, false, false), METHOD_HANDLE);
         }
     }
 
@@ -148,12 +147,12 @@ public final class ArrayJoin
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        return specializeArrayJoin(boundVariables.getTypeVariables(), metadata, ImmutableList.of(false, false), METHOD_HANDLE);
+        return specializeArrayJoin(boundVariables, metadata, ImmutableList.of(false, false), METHOD_HANDLE);
     }
 
-    private static ScalarFunctionImplementation specializeArrayJoin(Map<String, Type> types, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
+    private static ScalarFunctionImplementation specializeArrayJoin(BoundVariables types, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
     {
-        Type type = types.get("T");
+        Type type = types.getTypeVariable("T");
         List<ArgumentProperty> argumentProperties = nullableArguments.stream()
                 .map(nullable -> nullable
                         ? valueTypeArgumentProperty(USE_BOXED_TYPE)

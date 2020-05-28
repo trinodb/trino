@@ -16,12 +16,14 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.Type;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.util.Objects.requireNonNull;
 
 public class BoundVariables
@@ -33,8 +35,12 @@ public class BoundVariables
     {
         requireNonNull(typeVariables, "typeVariableBindings is null");
         requireNonNull(longVariables, "longVariableBindings is null");
-        this.typeVariables = ImmutableMap.copyOf(typeVariables);
-        this.longVariables = ImmutableMap.copyOf(longVariables);
+
+        this.typeVariables = typeVariables.entrySet().stream()
+            .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));
+
+        this.longVariables = longVariables.entrySet().stream()
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));
     }
 
     public Type getTypeVariable(String variableName)
@@ -45,11 +51,6 @@ public class BoundVariables
     public boolean containsTypeVariable(String variableName)
     {
         return containsValue(typeVariables, variableName);
-    }
-
-    public Map<String, Type> getTypeVariables()
-    {
-        return typeVariables;
     }
 
     public Long getLongVariable(String variableName)
@@ -112,6 +113,14 @@ public class BoundVariables
                 .toString();
     }
 
+    public Map<String, Object> getBindings()
+    {
+        return ImmutableMap.<String, Object>builder()
+                .putAll(typeVariables)
+                .putAll(longVariables)
+                .build();
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -119,8 +128,8 @@ public class BoundVariables
 
     public static class Builder
     {
-        private final Map<String, Type> typeVariables = new HashMap<>();
-        private final Map<String, Long> longVariables = new HashMap<>();
+        private final Map<String, Type> typeVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
+        private final Map<String, Long> longVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
 
         public Type getTypeVariable(String variableName)
         {

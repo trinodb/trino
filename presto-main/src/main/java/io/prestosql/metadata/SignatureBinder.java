@@ -16,6 +16,7 @@ package io.prestosql.metadata;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.ParameterKind;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,11 +52,10 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.TypeCalculation.calculateLiteralValue;
 import static io.prestosql.type.TypeCoercion.isCovariantTypeBase;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 /**
  * Determines whether, and how, a callsite matches a generic function signature.
@@ -92,8 +93,9 @@ public class SignatureBinder
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.declaredSignature = requireNonNull(declaredSignature, "parametrizedSignature is null");
         this.allowCoercion = allowCoercion;
+
         this.typeVariableConstraints = declaredSignature.getTypeVariableConstraints().stream()
-                .collect(toMap(TypeVariableConstraint::getName, identity()));
+                .collect(ImmutableSortedMap.toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, Function.identity()));
     }
 
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
@@ -281,7 +283,7 @@ public class SignatureBinder
         // * type with type parameter of literal/variable kind
         // * type with type parameter of type/named_type kind (except function type)
 
-        if (FunctionType.NAME.equals(formalTypeSignature.getBase())) {
+        if (FunctionType.NAME.equalsIgnoreCase(formalTypeSignature.getBase())) {
             List<TypeSignature> formalTypeParameterTypeSignatures = formalTypeSignature.getTypeParametersAsTypeSignatures();
             resultBuilder.add(new FunctionSolver(
                     getLambdaArgumentTypeSignatures(formalTypeSignature),
@@ -460,7 +462,8 @@ public class SignatureBinder
 
     private boolean allTypeVariablesBound(BoundVariables boundVariables)
     {
-        return boundVariables.getTypeVariables().keySet().equals(typeVariableConstraints.keySet());
+        return typeVariableConstraints.keySet().stream()
+                .allMatch(boundVariables::containsTypeVariable);
     }
 
     private static TypeSignatureParameter applyBoundVariables(TypeSignatureParameter parameter, BoundVariables boundVariables)
@@ -678,7 +681,7 @@ public class SignatureBinder
             if (orderableRequired && !type.isOrderable()) {
                 return false;
             }
-            if (requiredBaseName.isPresent() && !UNKNOWN.equals(type) && !requiredBaseName.get().equals(type.getBaseName())) {
+            if (requiredBaseName.isPresent() && !UNKNOWN.equals(type) && !requiredBaseName.get().equalsIgnoreCase(type.getBaseName())) {
                 // TODO: the case below should be properly handled:
                 // * `type` does not have the `requiredBaseName` but can be coerced to some type that has the `requiredBaseName`.
                 return false;
