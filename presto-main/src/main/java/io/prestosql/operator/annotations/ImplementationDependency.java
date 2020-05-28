@@ -40,8 +40,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public interface ImplementationDependency
 {

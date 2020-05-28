@@ -50,7 +50,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
@@ -62,6 +61,7 @@ import static io.prestosql.operator.annotations.ImplementationDependency.Factory
 import static io.prestosql.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.prestosql.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.prestosql.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
