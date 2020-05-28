@@ -27,7 +27,6 @@ import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
-import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
@@ -55,7 +54,6 @@ import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setClusterNodeRefreshTime;
 import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
-import static com.qubole.rubix.spi.CacheConfig.setCurrentNodeHostName;
 import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
 import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
@@ -114,11 +112,8 @@ public class RubixInitializer
     private final Optional<ConfigurationInitializer> extraConfigInitializer;
 
     private volatile boolean cacheReady;
-    private boolean isMaster;
     @Nullable
     private HostAddress masterAddress;
-    @Nullable
-    private String nodeAddress;
     @Nullable
     private BookKeeperServer bookKeeperServer;
 
@@ -245,9 +240,7 @@ public class RubixInitializer
     private Configuration getRubixServerConfiguration()
     {
         Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
-        isMaster = nodeManager.getCurrentNode().isCoordinator();
         masterAddress = master.getHostAndPort();
-        nodeAddress = nodeManager.getCurrentNode().getHost();
 
         Configuration configuration = getInitialConfiguration();
         // Perform standard HDFS configuration initialization.
@@ -261,12 +254,9 @@ public class RubixInitializer
     void updateRubixConfiguration(Configuration config)
     {
         checkState(masterAddress != null, "masterAddress is not set");
-        checkState(nodeAddress != null, "nodeAddress is not set");
         setCacheDataEnabled(config, true);
-        setOnMaster(config, isMaster);
+        setOnMaster(config, nodeManager.getCurrentNode().isCoordinator());
         setCoordinatorHostName(config, masterAddress.getHostText());
-        PrestoClusterManager.setPrestoServerPort(config, masterAddress.getPort());
-        setCurrentNodeHostName(config, nodeAddress);
 
         setIsParallelWarmupEnabled(config, parallelWarmupEnabled);
         setCacheDataDirPrefix(config, cacheLocation);
@@ -290,8 +280,9 @@ public class RubixInitializer
 
         config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
 
-        // TODO: remove after https://github.com/qubole/rubix/pull/385 is merged
-        setPrestoClusterManager(config, "com.qubole.rubix.prestosql.PrestoClusterManager");
+        // TODO: fix PrestoClusterManager in Rubix itself
+        PrestoClusterManager.setNodeManager(nodeManager);
+        setPrestoClusterManager(config, PrestoClusterManager.class.getName());
 
         extraConfigInitializer.ifPresent(initializer -> initializer.initializeConfiguration(config));
     }
