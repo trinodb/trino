@@ -27,10 +27,14 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -38,6 +42,22 @@ import static java.math.RoundingMode.UNNECESSARY;
 public final class OracleDataTypes
 {
     private OracleDataTypes() {}
+
+    // Oracle data type limits
+    public static final int MAX_CHAR_ON_READ = 2000;
+    public static final int MAX_CHAR_ON_WRITE = 500;
+
+    public static final int MAX_VARCHAR2_ON_READ = 4000;
+    public static final int MAX_VARCHAR2_ON_WRITE = 1000;
+
+    public static final int MAX_NCHAR = 1000;
+    public static final int MAX_NVARCHAR2 = 2000;
+
+    public enum CharacterSemantics
+    {
+        BYTE,
+        CHAR,
+    }
 
     /* Fixed-point numeric types */
 
@@ -224,6 +244,78 @@ public final class OracleDataTypes
             return zonedDateTime.withZoneSameInstant(ZoneId.of("UTC"));
         }
         return zonedDateTime;
+    }
+
+    /* Character LOBs */
+
+    public static DataType<String> clobDataType()
+    {
+        return dataType("clob", createUnboundedVarcharType(),
+                s -> s.isEmpty() ? "empty_clob()" : format("'%s'", s.replace("'", "''")));
+    }
+
+    public static DataType<String> nclobDataType()
+    {
+        return dataType("nclob", createUnboundedVarcharType(),
+                s -> s.isEmpty() ? "empty_clob()" : format("'%s'", s.replace("'", "''")));
+    }
+
+    public static DataType<String> tooLargeVarcharDataType()
+    {
+        return stringDataType(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1),
+                createUnboundedVarcharType());
+    }
+
+    public static DataType<String> tooLargeCharDataType()
+    {
+        return stringDataType(format("char(%d)", MAX_CHAR_ON_WRITE + 1),
+                createUnboundedVarcharType());
+        // Creating an NCLOB column with a too-large CHAR does not include
+        // trailing spaces, so these values do not need to be padded.
+    }
+
+    /* Character types */
+
+    public static DataType<String> varchar2DataType(int length, CharacterSemantics semantics)
+    {
+        return stringDataType(format("varchar2(%d %s)", length, semantics), createVarcharType(length));
+    }
+
+    public static DataType<String> nvarchar2DataType(int length)
+    {
+        return stringDataType(format("nvarchar2(%d)", length), createVarcharType(length));
+    }
+
+    public static DataType<String> charDataType(int length, CharacterSemantics semantics)
+    {
+        return DataType.charDataType(format("char(%d %s)", length, semantics), length);
+    }
+
+    public static DataType<String> ncharDataType(int length)
+    {
+        return DataType.charDataType(format("nchar(%d)", length), length);
+    }
+
+    // Easier access to character types without specified length
+
+    public static IntFunction<DataType<String>> varchar2DataType(CharacterSemantics semantics)
+    {
+        return length -> varchar2DataType(length, semantics);
+    }
+
+    public static IntFunction<DataType<String>> nvarchar2DataType()
+    {
+        return OracleDataTypes::nvarchar2DataType;
+    }
+
+    public static IntFunction<DataType<String>> charDataType(CharacterSemantics semantics)
+    {
+        return length -> charDataType(length, semantics);
+    }
+
+    public static IntFunction<DataType<String>> ncharDataType()
+    {
+        return OracleDataTypes::ncharDataType;
     }
 
     /* Utility */
