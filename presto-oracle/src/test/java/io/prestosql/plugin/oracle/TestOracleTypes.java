@@ -89,9 +89,6 @@ import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
@@ -166,17 +163,6 @@ public class TestOracleTypes
     private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
-    }
-
-    @Test
-    public void testVarcharType()
-    {
-        DataTypeTest.create()
-                .addRoundTrip(varcharDataType(10), "test")
-                .addRoundTrip(stringDataType("varchar", createVarcharType(4000)), "test")
-                .addRoundTrip(stringDataType("varchar(5000)", createUnboundedVarcharType()), "test")
-                .addRoundTrip(varcharDataType(3), String.valueOf('\u2603'))
-                .execute(getQueryRunner(), prestoCreateAsSelect("varchar_types"));
     }
 
     /* Floating point types tests */
