@@ -40,6 +40,7 @@ public class S3SecurityMapping
     private final Optional<String> iamRole;
     private final Optional<BasicAWSCredentials> credentials;
     private final boolean useClusterDefault;
+    private final Optional<String> endpoint;
 
     @JsonCreator
     public S3SecurityMapping(
@@ -50,7 +51,8 @@ public class S3SecurityMapping
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
-            @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault)
+            @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
+            @JsonProperty("endpoint") Optional<String> endpoint)
     {
         this.user = requireNonNull(user, "user is null")
                 .map(S3SecurityMapping::toPredicate)
@@ -77,6 +79,8 @@ public class S3SecurityMapping
                 .orElse(false);
         boolean roleOrCredentialsArePresent = !this.allowedIamRoles.isEmpty() || iamRole.isPresent() || credentials.isPresent();
         checkArgument(this.useClusterDefault ^ roleOrCredentialsArePresent, "must either allow useClusterDefault role or provide role and/or credentials");
+
+        this.endpoint = requireNonNull(endpoint, "endpoint is null");
     }
 
     public boolean matches(ConnectorIdentity identity, URI uri)
@@ -106,6 +110,11 @@ public class S3SecurityMapping
         return useClusterDefault;
     }
 
+    public Optional<String> getEndpoint()
+    {
+        return endpoint;
+    }
+
     @Override
     public String toString()
     {
@@ -117,6 +126,7 @@ public class S3SecurityMapping
                 .add("allowedIamRoles", allowedIamRoles)
                 .add("credentials", credentials)
                 .add("useClusterDefault", useClusterDefault)
+                .add("endpoint", endpoint.orElse(null))
                 .toString();
     }
 

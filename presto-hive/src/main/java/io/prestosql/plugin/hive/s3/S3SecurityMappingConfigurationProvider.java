@@ -35,6 +35,7 @@ import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_IAM_ROLE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -106,6 +107,11 @@ public class S3SecurityMappingConfigurationProvider
         selectRole(mapping, context).ifPresent(role -> {
             configuration.set(S3_IAM_ROLE, role);
             hasher.putString(role, UTF_8);
+        });
+
+        mapping.getEndpoint().ifPresent(endpoint -> {
+            configuration.set(S3_ENDPOINT, endpoint);
+            hasher.putString(endpoint, UTF_8);
         });
 
         setCacheKey(configuration, hasher.hash().toString());
