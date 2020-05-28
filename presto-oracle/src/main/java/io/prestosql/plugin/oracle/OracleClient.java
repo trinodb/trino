@@ -13,12 +13,14 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -29,10 +31,10 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import oracle.jdbc.OracleTypes;
 
 import javax.inject.Inject;
 
@@ -42,8 +44,17 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.Calendar;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -55,18 +66,24 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFuncti
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 
 public class OracleClient
         extends BaseJdbcClient
@@ -76,6 +93,11 @@ public class OracleClient
     private final int varcharMaxSize;
     private final int numberDefaultScale;
     private final RoundingMode numberRoundingMode;
+
+    private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
+            .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
+            .put(TIMESTAMP_WITH_TIME_ZONE, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimezoneWriteFunction()))
+            .build();
 
     @Inject
     public OracleClient(
@@ -190,8 +212,75 @@ public class OracleClient
                 return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
             case Types.VARCHAR:
                 return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
+            // This mapping covers both DATE and TIMESTAMP, as Oracle's DATE has second precision.
+            case OracleTypes.TIMESTAMP:
+                return Optional.of(oracleTimestampColumnMapping(session));
+            case OracleTypes.TIMESTAMPTZ:
+                return Optional.of(oracleTimestampWithTimeZoneColumnMapping());
         }
         return super.toPrestoType(session, connection, typeHandle);
+    }
+
+    public static LongWriteFunction oracleDateWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long utcMillis = DAYS.toMillis(value);
+            ZonedDateTime date = Instant.ofEpochMilli(utcMillis).atZone(ZoneOffset.UTC);
+            // because of how JDBC works with dates we need to use the ZonedDataTime object and not a LocalDateTime
+            statement.setObject(index, date);
+        };
+    }
+
+    public static LongWriteFunction oracleTimestampWriteFunction(ConnectorSession session)
+    {
+        if (session.isLegacyTimestamp()) {
+            return (statement, index, utcMillis) -> {
+                long dateTimeAsUtcMillis = Instant.ofEpochMilli(utcMillis)
+                        .atZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                        .withZoneSameLocal(ZoneOffset.UTC)
+                        .toInstant().toEpochMilli();
+                statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(dateTimeAsUtcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+            };
+        }
+        return (statement, index, utcMillis) -> {
+            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(utcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+        };
+    }
+
+    public static ColumnMapping oracleTimestampColumnMapping(ConnectorSession session)
+    {
+        return ColumnMapping.longMapping(
+                TIMESTAMP,
+                (resultSet, columnIndex) -> {
+                    LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
+                    if (session.isLegacyTimestamp()) {
+                        return timestamp.atZone(ZoneId.of(session.getTimeZoneKey().getId())).toInstant().toEpochMilli();
+                    }
+                    return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();
+                },
+                oracleTimestampWriteFunction(session));
+    }
+
+    public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
+    {
+        return ColumnMapping.longMapping(
+                TIMESTAMP_WITH_TIME_ZONE,
+                (resultSet, columnIndex) -> {
+                    ZonedDateTime timestamp = resultSet.getObject(columnIndex, ZonedDateTime.class);
+                    return packDateTimeWithZone(
+                            timestamp.toInstant().toEpochMilli(),
+                            timestamp.getZone().getId());
+                },
+                oracleTimestampWithTimezoneWriteFunction());
+    }
+
+    public static LongWriteFunction oracleTimestampWithTimezoneWriteFunction()
+    {
+        return (statement, index, encodedTimeWithZone) -> {
+            Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
+            ZoneId zone = ZoneId.of(unpackZoneKey(encodedTimeWithZone).getId());
+            statement.setObject(index, time.atZone(zone));
+        };
     }
 
     @Override
@@ -212,12 +301,6 @@ public class OracleClient
         if (type instanceof BigintType) {
             return WriteMapping.longMapping("number(19,0)", bigintWriteFunction());
         }
-        if (type instanceof TimestampType) {
-            return WriteMapping.longMapping("timestamp(3)", timestampWriteFunction(session));
-        }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return WriteMapping.longMapping("timestamp(3) with time zone", timestampWriteFunction(session));
-        }
         if (isVarcharType(type)) {
             if (((VarcharType) type).isUnbounded()) {
                 return super.toWriteMapping(session, createVarcharType(varcharMaxSize));
@@ -225,6 +308,13 @@ public class OracleClient
             if (((VarcharType) type).getBoundedLength() > varcharMaxSize) {
                 return WriteMapping.sliceMapping("clob", varcharWriteFunction());
             }
+        }
+        if (type instanceof TimestampType) {
+            return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction(session));
+        }
+        WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
+        if (writeMapping != null) {
+            return writeMapping;
         }
         return super.toWriteMapping(session, type);
     }
