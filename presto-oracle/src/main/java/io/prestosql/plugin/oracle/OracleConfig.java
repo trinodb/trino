@@ -27,7 +27,7 @@ public class OracleConfig
 {
     private boolean synonymsEnabled;
     private Integer defaultNumberScale;
-    private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
+    private RoundingMode numberRoundingMode = RoundingMode.UNNECESSARY;
 
     @NotNull
     public boolean isSynonymsEnabled()
