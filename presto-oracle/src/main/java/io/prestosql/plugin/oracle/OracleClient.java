@@ -74,7 +74,6 @@ public class OracleClient
     private final boolean synonymsEnabled;
     private final int fetchSize = 1000;
     private final int varcharMaxSize;
-    private final int timestampDefaultPrecision;
     private final int numberDefaultScale;
     private final RoundingMode numberRoundingMode;
 
@@ -89,7 +88,6 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.varcharMaxSize = oracleConfig.getVarcharMaxSize();
-        this.timestampDefaultPrecision = oracleConfig.getTimestampDefaultPrecision();
         this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
         this.numberRoundingMode = oracleConfig.getNumberRoundingMode();
     }
@@ -215,10 +213,10 @@ public class OracleClient
             return WriteMapping.longMapping("number(19,0)", bigintWriteFunction());
         }
         if (type instanceof TimestampType) {
-            return WriteMapping.longMapping(format("timestamp(%s)", timestampDefaultPrecision), timestampWriteFunction(session));
+            return WriteMapping.longMapping("timestamp(3)", timestampWriteFunction(session));
         }
         if (type instanceof TimestampWithTimeZoneType) {
-            return WriteMapping.longMapping(format("timestamp(%s) with time zone", timestampDefaultPrecision), timestampWriteFunction(session));
+            return WriteMapping.longMapping("timestamp(3) with time zone", timestampWriteFunction(session));
         }
         if (isVarcharType(type)) {
             if (((VarcharType) type).isUnbounded()) {

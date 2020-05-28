@@ -31,7 +31,6 @@ public class TestOracleConfig
         assertRecordedDefaults(recordDefaults(OracleConfig.class)
                 .setSynonymsEnabled(false)
                 .setVarcharMaxSize(4000)
-                .setTimestampDefaultPrecision(6)
                 .setNumberDefaultScale(10)
                 .setNumberRoundingMode(RoundingMode.HALF_UP));
     }
@@ -42,7 +41,6 @@ public class TestOracleConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.synonyms.enabled", "true")
                 .put("oracle.varchar.max-size", "10000")
-                .put("oracle.timestamp.precision", "3")
                 .put("oracle.number.default-scale", "2")
                 .put("oracle.number.rounding-mode", "CEILING")
                 .build();
@@ -50,7 +48,6 @@ public class TestOracleConfig
         OracleConfig expected = new OracleConfig()
                 .setSynonymsEnabled(true)
                 .setVarcharMaxSize(10000)
-                .setTimestampDefaultPrecision(3)
                 .setNumberDefaultScale(2)
                 .setNumberRoundingMode(RoundingMode.CEILING);
 
