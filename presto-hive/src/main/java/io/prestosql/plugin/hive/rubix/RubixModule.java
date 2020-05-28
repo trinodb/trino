@@ -15,14 +15,17 @@ package io.prestosql.plugin.hive.rubix;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.plugin.hive.ConfigurationInitializer;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class RubixModule
@@ -40,6 +43,7 @@ public class RubixModule
         // dependency for many objects) whenever initialization error happens
         // (Guice doesn't fail-fast)
         binder.bind(RubixStarter.class).asEagerSingleton();
+        newOptionalBinder(binder, Key.get(ConfigurationInitializer.class, ForRubix.class));
         newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
     }
 
