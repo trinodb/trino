@@ -34,7 +34,6 @@ public class TestOracleConfig
     {
         assertRecordedDefaults(recordDefaults(OracleConfig.class)
                 .setSynonymsEnabled(false)
-                .setVarcharMaxSize(4000)
                 .setDefaultNumberScale(null)
                 .setNumberRoundingMode(RoundingMode.HALF_UP));
     }
@@ -44,14 +43,12 @@ public class TestOracleConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.synonyms.enabled", "true")
-                .put("oracle.varchar.max-size", "10000")
                 .put("oracle.number.default-scale", "2")
                 .put("oracle.number.rounding-mode", "CEILING")
                 .build();
 
         OracleConfig expected = new OracleConfig()
                 .setSynonymsEnabled(true)
-                .setVarcharMaxSize(10000)
                 .setDefaultNumberScale(2)
                 .setNumberRoundingMode(RoundingMode.CEILING);
 

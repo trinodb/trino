@@ -26,7 +26,6 @@ import java.util.Optional;
 public class OracleConfig
 {
     private boolean synonymsEnabled;
-    private int varcharMaxSize = 4000;
     private Integer defaultNumberScale;
     private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
 
@@ -66,19 +65,6 @@ public class OracleConfig
     public OracleConfig setNumberRoundingMode(RoundingMode numberRoundingMode)
     {
         this.numberRoundingMode = numberRoundingMode;
-        return this;
-    }
-
-    @Min(4000)
-    public int getVarcharMaxSize()
-    {
-        return varcharMaxSize;
-    }
-
-    @Config("oracle.varchar.max-size")
-    public OracleConfig setVarcharMaxSize(int varcharMaxSize)
-    {
-        this.varcharMaxSize = varcharMaxSize;
         return this;
     }
 }
