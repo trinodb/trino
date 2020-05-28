@@ -39,7 +39,6 @@ import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -92,7 +91,6 @@ public final class HiveSessionProperties
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
-    private static final String CACHE_ENABLED = "cache_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -367,22 +365,7 @@ public final class HiveSessionProperties
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Projection push down enabled for hive",
                         hiveConfig.isProjectionPushdownEnabled(),
-                        false),
-                new PropertyMetadata<>(
-                        CACHE_ENABLED,
-                        "Enable Hive caching",
-                        BOOLEAN,
-                        Boolean.class,
-                        rubixEnabledConfig.isCacheEnabled(),
-                        false,
-                        value -> {
-                            boolean booleanValue = (boolean) value;
-                            if (booleanValue && !rubixEnabledConfig.isCacheEnabled()) {
-                                throw new PrestoException(INVALID_SESSION_PROPERTY, "Cache can only be disabled via session property");
-                            }
-                            return booleanValue;
-                        },
-                        value -> value));
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -642,10 +625,5 @@ public final class HiveSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
-    }
-
-    public static boolean isCacheEnabled(ConnectorSession session)
-    {
-        return session.getProperty(CACHE_ENABLED, Boolean.class);
     }
 }
