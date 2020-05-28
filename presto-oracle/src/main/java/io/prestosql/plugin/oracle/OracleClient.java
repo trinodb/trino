@@ -94,7 +94,7 @@ public class OracleClient
     private final boolean synonymsEnabled;
     private final int fetchSize = 1000;
     private final int varcharMaxSize;
-    private final int numberDefaultScale;
+    private final Optional<Integer> numberDefaultScale;
     private final RoundingMode numberRoundingMode;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
@@ -113,7 +113,7 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.varcharMaxSize = oracleConfig.getVarcharMaxSize();
-        this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
+        this.numberDefaultScale = oracleConfig.getDefaultNumberScale();
         this.numberRoundingMode = oracleConfig.getNumberRoundingMode();
     }
 
@@ -204,7 +204,9 @@ public class OracleClient
                     return Optional.of(bigintColumnMapping());
                 }
                 if (columnSize + max(-typeHandle.getDecimalDigits(), 0) == 127) {
-                    return Optional.of(decimalColumnMapping(createDecimalType(precision, numberDefaultScale), numberRoundingMode));
+                    return numberDefaultScale
+                            .map(defaultScale -> createDecimalType(precision, defaultScale))
+                            .map(type -> decimalColumnMapping(type, numberRoundingMode));
                 }
 
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, scale), numberRoundingMode));
