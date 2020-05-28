@@ -22,10 +22,13 @@ import io.prestosql.plugin.jdbc.DoubleWriteFunction;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
+import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.Chars;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TimestampType;
@@ -54,15 +57,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
 
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charReadFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -71,6 +77,8 @@ import static io.prestosql.plugin.oracle.OracleSessionProperties.getNumberRoundi
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -101,11 +109,19 @@ import static java.util.concurrent.TimeUnit.DAYS;
 public class OracleClient
         extends BaseJdbcClient
 {
+    // single UTF char may require up to 4 bytes of storage
+    private static final int MAX_BYTES_PER_CHAR = 4;
+
+    private static final int ORACLE_VARCHAR2_MAX_BYTES = 4000;
+    private static final int ORACLE_VARCHAR2_MAX_CHARS = ORACLE_VARCHAR2_MAX_BYTES / MAX_BYTES_PER_CHAR;
+
+    private static final int ORACLE_CHAR_MAX_BYTES = 2000;
+    private static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
+
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
     private final boolean synonymsEnabled;
     private final int fetchSize = 1000;
-    private final int varcharMaxSize;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BOOLEAN, oracleBooleanWriteMapping())
@@ -129,7 +145,6 @@ public class OracleClient
 
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
-        this.varcharMaxSize = oracleConfig.getVarcharMaxSize();
     }
 
     private String[] getTableTypes()
@@ -202,8 +217,6 @@ public class OracleClient
         int columnSize = typeHandle.getColumnSize();
 
         switch (typeHandle.getJdbcType()) {
-            case Types.CLOB:
-                return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
             case OracleTypes.BINARY_FLOAT:
@@ -252,13 +265,30 @@ public class OracleClient
                         decimalType,
                         (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), finalScale, roundingMode),
                         longDecimalWriteFunction(decimalType)));
-            case Types.LONGVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH || columnSize == 0) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
-                }
-                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
-            case Types.VARCHAR:
-                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
+
+            case OracleTypes.CHAR:
+            case OracleTypes.NCHAR:
+                CharType charType = createCharType(columnSize);
+                return Optional.of(ColumnMapping.sliceMapping(
+                        charType,
+                        charReadFunction(),
+                        oracleCharWriteFunction(charType)));
+
+            case OracleTypes.VARCHAR:
+            case OracleTypes.NVARCHAR:
+                return Optional.of(ColumnMapping.sliceMapping(
+                        createVarcharType(columnSize),
+                        (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
+                        varcharWriteFunction()));
+
+            case OracleTypes.CLOB:
+            case OracleTypes.NCLOB:
+                return Optional.of(ColumnMapping.sliceMapping(
+                        createUnboundedVarcharType(),
+                        (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
+                        varcharWriteFunction(),
+                        DISABLE_PUSHDOWN));
+
             // This mapping covers both DATE and TIMESTAMP, as Oracle's DATE has second precision.
             case OracleTypes.TIMESTAMP:
                 return Optional.of(oracleTimestampColumnMapping(session));
@@ -350,16 +380,36 @@ public class OracleClient
         return ((statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
     }
 
+    private SliceWriteFunction oracleCharWriteFunction(CharType charType)
+    {
+        return (statement, index, value) -> {
+            statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
+        };
+    }
+
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (isVarcharType(type)) {
-            if (((VarcharType) type).isUnbounded()) {
-                return super.toWriteMapping(session, createVarcharType(varcharMaxSize));
+            String dataType;
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
+                dataType = "nclob";
             }
-            if (((VarcharType) type).getBoundedLength() > varcharMaxSize) {
-                return WriteMapping.sliceMapping("clob", varcharWriteFunction());
+            else {
+                dataType = "varchar2(" + varcharType.getBoundedLength() + " CHAR)";
             }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+        if (isCharType(type)) {
+            String dataType;
+            if (((CharType) type).getLength() > ORACLE_CHAR_MAX_CHARS) {
+                dataType = "nclob";
+            }
+            else {
+                dataType = "char(" + ((CharType) type).getLength() + " CHAR)";
+            }
+            return WriteMapping.sliceMapping(dataType, charWriteFunction());
         }
         if (type instanceof DecimalType) {
             String dataType = format("number(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());

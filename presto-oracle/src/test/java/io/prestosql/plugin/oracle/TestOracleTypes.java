@@ -47,23 +47,41 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.prestosql.plugin.oracle.OracleDataTypes.CharacterSemantics.BYTE;
+import static io.prestosql.plugin.oracle.OracleDataTypes.CharacterSemantics.CHAR;
+import static io.prestosql.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_READ;
+import static io.prestosql.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_WRITE;
+import static io.prestosql.plugin.oracle.OracleDataTypes.MAX_NCHAR;
+import static io.prestosql.plugin.oracle.OracleDataTypes.MAX_NVARCHAR2;
+import static io.prestosql.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_READ;
+import static io.prestosql.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
 import static io.prestosql.plugin.oracle.OracleDataTypes.binaryDoubleDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.binaryFloatDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.booleanDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.charDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.clobDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.doubleDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.integerDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.ncharDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.nclobDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.numberDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.nvarchar2DataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.oracleFloatDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.realDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static io.prestosql.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
@@ -80,6 +98,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 
 public class TestOracleTypes
@@ -214,6 +233,132 @@ public class TestOracleTypes
                 .addRoundTrip(doubleType, Double.POSITIVE_INFINITY)
                 .addRoundTrip(doubleType, Double.NEGATIVE_INFINITY)
                 .addRoundTrip(doubleType, null);
+    }
+
+    /* varchar tests */
+
+    @Test
+    public void testVarcharMapping()
+    {
+        testTypeMapping("varchar",
+                basicCharacterTests(DataType::varcharDataType, MAX_VARCHAR2_ON_WRITE));
+    }
+
+    @Test
+    public void testVarcharReadMapping()
+    {
+        testTypeReadMapping("read_varchar",
+                basicCharacterTests(varchar2DataType(CHAR), MAX_VARCHAR2_ON_READ),
+                basicCharacterTests(varchar2DataType(BYTE), MAX_VARCHAR2_ON_READ),
+                basicCharacterTests(nvarchar2DataType(), MAX_NVARCHAR2));
+    }
+
+    /*
+    The unicode tests assume the following Oracle database parameters:
+     - NLS_NCHAR_CHARACTERSET = AL16UTF16
+     - NLS_CHARACTERSET = AL32UTF8
+     */
+    @Test
+    public void testVarcharUnicodeMapping()
+    {
+        testTypeMapping("varchar_unicode",
+                unicodeTests(DataType::varcharDataType, codePoints(), MAX_VARCHAR2_ON_WRITE));
+    }
+
+    @Test
+    public void testVarcharUnicodeReadMapping()
+    {
+        testTypeReadMapping("read_varchar_unicode",
+                unicodeTests(varchar2DataType(CHAR), codePoints(), MAX_VARCHAR2_ON_READ),
+                unicodeTests(varchar2DataType(BYTE), utf8Bytes(), MAX_VARCHAR2_ON_READ),
+                unicodeTests(nvarchar2DataType(), String::length, MAX_NVARCHAR2));
+    }
+
+    @Test
+    public void testUnboundedVarcharMapping()
+    {
+        testTypeMapping("unbounded",
+                unboundedVarcharTests(varcharDataType()),
+                unboundedVarcharTests(tooLargeVarcharDataType()),
+                unboundedVarcharTests(tooLargeCharDataType()));
+    }
+
+    @Test
+    public void testUnboundedVarcharReadMapping()
+    {
+        testTypeReadMapping("read_unbounded",
+                unboundedVarcharTests(clobDataType()).addRoundTrip(clobDataType(), ""),
+                unboundedVarcharTests(nclobDataType()).addRoundTrip(nclobDataType(), ""));
+        // The tests on empty strings are read-only because Oracle treats empty
+        // strings as NULL. The empty clob is generated by an Oracle function.
+    }
+
+    private static DataTypeTest unboundedVarcharTests(DataType<String> dataType)
+    {
+        // The string length function and max size are placeholders;
+        // the data type isn't parameterized.
+        return unicodeTests(ignored -> dataType, ignored -> 0, 0)
+                .addRoundTrip(dataType, "clob")
+                .addRoundTrip(dataType, null);
+    }
+
+    /* char tests */
+
+    @Test
+    public void testCharMapping()
+    {
+        testTypeMapping("char",
+                basicCharacterTests(DataType::charDataType, MAX_CHAR_ON_WRITE));
+    }
+
+    @Test
+    public void testCharReadMapping()
+    {
+        testTypeReadMapping("read_char",
+                basicCharacterTests(charDataType(CHAR), MAX_CHAR_ON_READ),
+                basicCharacterTests(charDataType(BYTE), MAX_CHAR_ON_READ),
+                basicCharacterTests(ncharDataType(), MAX_NCHAR));
+    }
+
+    // TODO: Replace this to not take maxSize
+    private static DataTypeTest basicCharacterTests(IntFunction<DataType<String>> typeConstructor, int maxSize)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(typeConstructor.apply(10), "string 010")
+                .addRoundTrip(typeConstructor.apply(20), "string 20")
+                .addRoundTrip(typeConstructor.apply(maxSize), "string max size")
+                .addRoundTrip(typeConstructor.apply(5), null);
+    }
+
+    @Test
+    public void testCharUnicodeMapping()
+    {
+        testTypeMapping("char_unicode",
+                unicodeTests(DataType::charDataType, codePoints(), MAX_CHAR_ON_WRITE));
+    }
+
+    @Test
+    public void testCharUnicodeReadMapping()
+    {
+        testTypeReadMapping("read_char_unicode",
+                unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR_ON_READ),
+                unicodeTests(charDataType(BYTE), utf8Bytes(), MAX_CHAR_ON_READ),
+                unicodeTests(ncharDataType(), String::length, MAX_NCHAR));
+    }
+
+    private static DataTypeTest unicodeTests(IntFunction<DataType<String>> typeConstructor, ToIntFunction<String> stringLength, int maxSize)
+    {
+        String unicodeText = "攻殻機動隊";
+        String nonBmpCharacter = "\ud83d\ude02";
+        int unicodeLength = stringLength.applyAsInt(unicodeText);
+        int nonBmpLength = stringLength.applyAsInt(nonBmpCharacter);
+
+        return DataTypeTest.create()
+                .addRoundTrip(typeConstructor.apply(unicodeLength), unicodeText)
+                .addRoundTrip(typeConstructor.apply(unicodeLength + 8), unicodeText)
+                .addRoundTrip(typeConstructor.apply(maxSize), unicodeText)
+                .addRoundTrip(typeConstructor.apply(nonBmpLength), nonBmpCharacter)
+                .addRoundTrip(typeConstructor.apply(nonBmpLength + 5), nonBmpCharacter);
     }
 
     /* Decimal tests */
@@ -729,6 +874,16 @@ public class TestOracleTypes
         properties.setProperty("user", TEST_USER);
         properties.setProperty("password", TEST_PASS);
         return new JdbcSqlExecutor(oracleServer.getJdbcUrl(), properties);
+    }
+
+    private static ToIntFunction<String> codePoints()
+    {
+        return s -> s.codePointCount(0, s.length());
+    }
+
+    private static ToIntFunction<String> utf8Bytes()
+    {
+        return s -> s.getBytes(UTF_8).length;
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
