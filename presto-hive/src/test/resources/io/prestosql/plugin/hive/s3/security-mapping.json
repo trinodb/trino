@@ -47,6 +47,12 @@
       "iamRole": "danny_hq_role"
     },
     {
+      "prefix": "s3://endpointbucket",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "endpoint": "http://localhost:7753"
+    },
+    {
       "useClusterDefault": "false",
       "iamRole": "arn:aws:iam::123456789101:role/default"
     }
