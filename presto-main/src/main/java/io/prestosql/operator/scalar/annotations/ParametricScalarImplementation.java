@@ -63,7 +63,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.prestosql.operator.ParametricFunctionHelpers.bindDependencies;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsLegacyNullable;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
@@ -82,6 +81,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Reflection.constructorMethodHandle;
 import static io.prestosql.util.Reflection.methodHandle;
