@@ -13,14 +13,12 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingSession;
@@ -31,6 +29,7 @@ import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -46,20 +45,25 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.prestosql.plugin.oracle.OracleDataTypes.booleanDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.dateDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.integerDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.numberDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
+import static io.prestosql.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.prestosql.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -68,12 +72,16 @@ import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 
 public class TestOracleTypes
         extends AbstractTestQueryFramework
 {
+    private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
+
     private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
     private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
     private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
@@ -137,25 +145,190 @@ public class TestOracleTypes
     }
 
     @Test
-    public void testBooleanType()
+    public void testVarcharType()
     {
         DataTypeTest.create()
-                .addRoundTrip(booleanOracleType(), true)
-                .addRoundTrip(booleanOracleType(), false)
-                .execute(getQueryRunner(), prestoCreateAsSelect("boolean_types"));
+                .addRoundTrip(varcharDataType(10), "test")
+                .addRoundTrip(stringDataType("varchar", createVarcharType(4000)), "test")
+                .addRoundTrip(stringDataType("varchar(5000)", createUnboundedVarcharType()), "test")
+                .addRoundTrip(varcharDataType(3), String.valueOf('\u2603'))
+                .execute(getQueryRunner(), prestoCreateAsSelect("varchar_types"));
+    }
+
+    /* Decimal tests */
+
+    @Test
+    public void testDecimalMapping()
+    {
+        testTypeMapping("decimals", numericTests(DataType::decimalDataType));
     }
 
     @Test
-    public void testSpecialNumberFormats()
+    public void testIntegerMappings()
     {
-        oracleServer.execute("CREATE TABLE test (num1 number)");
-        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
-        assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
+        testTypeMapping("integers",
+                DataTypeTest.create()
+                        .addRoundTrip(integerDataType("tinyint", 3), 0L)
+                        .addRoundTrip(integerDataType("smallint", 5), 0L)
+                        .addRoundTrip(integerDataType("integer", 10), 0L)
+                        .addRoundTrip(integerDataType("bigint", 19), 0L));
+    }
+
+    @Test
+    public void testNumberReadMapping()
+    {
+        testTypeReadMapping("read_decimals", numericTests(OracleDataTypes::oracleDecimalDataType));
+    }
+
+    private static DataTypeTest numericTests(BiFunction<Integer, Integer, DataType<BigDecimal>> decimalType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("193")) // full p
+                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("19")) // partial p
+                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("-193")) // negative full p
+                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("10.0")) // 0 decimal
+                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("10.1")) // full ps
+                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("-10.1")) // negative ps
+                .addRoundTrip(decimalType.apply(4, 2), new BigDecimal("2")) //
+                .addRoundTrip(decimalType.apply(4, 2), new BigDecimal("2.3"))
+                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("2"))
+                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("2.3"))
+                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("123456789.3"))
+                .addRoundTrip(decimalType.apply(24, 4), new BigDecimal("12345678901234567890.31"))
+                .addRoundTrip(decimalType.apply(30, 5), new BigDecimal("3141592653589793238462643.38327"))
+                .addRoundTrip(decimalType.apply(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
+                .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
+                .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("-27182818284590452353602874713526624977"))
+                .addRoundTrip(decimalType.apply(38, 38), new BigDecimal(".10000200003000040000500006000070000888"))
+                .addRoundTrip(decimalType.apply(38, 38), new BigDecimal("-.27182818284590452353602874713526624977"))
+                .addRoundTrip(decimalType.apply(10, 3), null);
+    }
+
+    @Test
+    public void testNumberWithoutScaleReadMapping()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(numberDataType(1), BigDecimal.valueOf(1))
+                .addRoundTrip(numberDataType(2), BigDecimal.valueOf(99))
+                .addRoundTrip(numberDataType(38),
+                        new BigDecimal("99999999999999999999999999999999999999")) // max
+                .addRoundTrip(numberDataType(38),
+                        new BigDecimal("-99999999999999999999999999999999999999")) // min
+                .execute(getQueryRunner(), oracleCreateAndInsert("number_without_scale"));
+    }
+
+    @Test
+    public void testNumberWithoutPrecisionAndScaleReadMapping()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(unspecifiedNumberDataType(9), BigDecimal.valueOf(1))
+                .addRoundTrip(unspecifiedNumberDataType(9), BigDecimal.valueOf(99))
+                .addRoundTrip(unspecifiedNumberDataType(9), new BigDecimal("9999999999999999999999999999.999999999")) // max
+                .addRoundTrip(unspecifiedNumberDataType(9), new BigDecimal("-999999999999999999999999999.999999999")) // min
+                .execute(getQueryRunner(), number(9), oracleCreateAndInsert("number_wo_prec_and_scale"));
+    }
+
+    @Test
+    public void testRoundingOfUnspecifiedNumber()
+    {
+        try (TestTable table = oracleTable("rounding", "col NUMBER", "(0.123456789)")) {
+            assertQuery(number(9), "SELECT * FROM " + table.getName(), "VALUES 0.123456789");
+            assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table.getName(), "VALUES 0.123457");
+            assertQuery(number(HALF_EVEN, 3), "SELECT * FROM " + table.getName(), "VALUES 0.123");
+            assertQueryFails(number(UNNECESSARY, 3), "SELECT * FROM " + table.getName(), "Rounding necessary");
+        }
+
+        try (TestTable table = oracleTable("rounding", "col NUMBER", "(123456789012345678901234567890.123456789)")) {
+            assertQueryFails(number(9), "SELECT * FROM " + table.getName(), "Decimal overflow");
+            assertQuery(number(HALF_EVEN, 8), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.12345679");
+            assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.123457");
+            assertQuery(number(HALF_EVEN, 3), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.123");
+            assertQueryFails(number(UNNECESSARY, 3), "SELECT * FROM " + table.getName(), "Rounding necessary");
+        }
+
+        try (TestTable table = oracleTable("rounding", "col NUMBER", "(123456789012345678901234567890123456789)")) {
+            assertQueryFails(number(0), "SELECT * FROM " + table.getName(), "Decimal overflow");
+            assertQueryFails(number(HALF_EVEN, 8), "SELECT * FROM " + table.getName(), "Decimal overflow");
+            assertQueryFails(number(HALF_EVEN, 0), "SELECT * FROM " + table.getName(), "Decimal overflow");
+        }
+    }
+
+    @Test
+    public void testNumberNegativeScaleReadMapping()
+    {
+        // TODO: Add similar tests for write mappings.
+        // Those tests would require the table to be created in Oracle, but values inserted
+        // by Presto, which is outside the capabilities of the current DataSetup classes.
+        DataTypeTest.create()
+                .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(2_0))
+                .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(3_5)) // More useful as a test for write mappings.
+                .addRoundTrip(numberDataType(2, -4), BigDecimal.valueOf(47_0000))
+                .addRoundTrip(numberDataType(2, -4), BigDecimal.valueOf(-8_0000))
+                .addRoundTrip(numberDataType(8, -3), BigDecimal.valueOf(-88888888, -3))
+                .addRoundTrip(numberDataType(8, -3), BigDecimal.valueOf(4050_000))
+                .addRoundTrip(numberDataType(14, -14), BigDecimal.valueOf(14000014000014L, -14))
+                .addRoundTrip(numberDataType(14, -14), BigDecimal.valueOf(1, -21))
+                .addRoundTrip(numberDataType(5, -33), BigDecimal.valueOf(12345, -33))
+                .addRoundTrip(numberDataType(5, -33), BigDecimal.valueOf(-12345, -33))
+                .addRoundTrip(numberDataType(1, -37), BigDecimal.valueOf(1, -37))
+                .addRoundTrip(numberDataType(1, -37), BigDecimal.valueOf(-1, -37))
+                .addRoundTrip(numberDataType(37, -1),
+                        new BigDecimal("99999999999999999999999999999999999990")) // max
+                .addRoundTrip(numberDataType(37, -1),
+                        new BigDecimal("-99999999999999999999999999999999999990")) // min
+                .execute(getQueryRunner(), oracleCreateAndInsert("number_negative_s"));
+    }
+
+    @Test
+    public void testHighNumberScale()
+    {
+        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(38, 40)", "(0.0012345678901234567890123456789012345678)")) {
+            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
+            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0.00123456789012345678901234567890123457");
+            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012345678E-03'");
+        }
+
+        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(18, 40)", "(0.0000000000000000000000123456789012345678)")) {
+            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
+            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0.00000000000000000000001234567890123457");
+        }
+
+        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(38, 80)", "(0.00000000000000000000000000000000000000000000012345678901234567890123456789012345678)")) {
+            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0");
+            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012346E-46'");
+        }
+    }
+
+    @Test
+    public void testNumberWithHiveNegativeScaleReadMapping()
+    {
+        try (TestTable table = oracleTable("highNegativeNumberScale", "col NUMBER(38, -60)", "(1234567890123456789012345678901234567000000000000000000000000000000000000000000000000000000000000)")) {
+            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.234567890123456789012345678901234567E96'");
+        }
+
+        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(18, 60)", "(0.000000000000000000000000000000000000000000000123456789012345678)")) {
+            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0");
+        }
+    }
+
+    private Session number(int scale)
+    {
+        return number(IGNORE, UNNECESSARY, Optional.of(scale));
+    }
+
+    private Session number(RoundingMode roundingMode)
+    {
+        return number(IGNORE, roundingMode, Optional.empty());
     }
 
     private Session number(RoundingMode roundingMode, int scale)
     {
         return number(IGNORE, roundingMode, Optional.of(scale));
+    }
+
+    private Session numberConvertToVarchar()
+    {
+        return number(CONVERT_TO_VARCHAR, UNNECESSARY, Optional.empty());
     }
 
     private Session number(UnsupportedTypeHandling unsupportedTypeHandlingStrategy, RoundingMode roundingMode, Optional<Integer> scale)
@@ -168,61 +341,20 @@ public class TestOracleTypes
     }
 
     @Test
-    public void testVarcharType()
+    public void testSpecialNumberFormats()
     {
-        DataTypeTest.create()
-                .addRoundTrip(varcharDataType(10), "test")
-                .addRoundTrip(stringDataType("varchar", createVarcharType(4000)), "test")
-                .addRoundTrip(stringDataType("varchar(5000)", createUnboundedVarcharType()), "test")
-                .addRoundTrip(varcharDataType(3), String.valueOf('\u2603'))
-                .execute(getQueryRunner(), prestoCreateAsSelect("varchar_types"));
+        oracleServer.execute("CREATE TABLE test (num1 number)");
+        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
     }
 
     @Test
-    public void testNumericTypes()
+    public void testBooleanType()
     {
         DataTypeTest.create()
-                .addRoundTrip(numberOracleType("tinyint", BigintType.BIGINT), 123L)
-                .addRoundTrip(numberOracleType("tinyint", BigintType.BIGINT), null)
-                .addRoundTrip(numberOracleType("smallint", BigintType.BIGINT), 123L)
-                .addRoundTrip(numberOracleType("integer", BigintType.BIGINT), 123L)
-                .addRoundTrip(numberOracleType("bigint", BigintType.BIGINT), 123L)
-                .addRoundTrip(numberOracleType("decimal", BigintType.BIGINT), 123L)
-                .addRoundTrip(numberOracleType("decimal(20)", BigintType.BIGINT), 123L)
-                .addRoundTrip(numberOracleType("decimal(20,0)", BigintType.BIGINT), 123L)
-                .addRoundTrip(numberOracleType(createDecimalType(5, 1)), BigDecimal.valueOf(123))
-                .addRoundTrip(numberOracleType(createDecimalType(5, 2)), BigDecimal.valueOf(123))
-                .addRoundTrip(numberOracleType(createDecimalType(5, 2)), BigDecimal.valueOf(123.046))
-                .execute(getQueryRunner(), prestoCreateAsSelect("numeric_types"));
-    }
-
-    private static DataType<Boolean> booleanOracleType()
-    {
-        return DataType.dataType(
-                "boolean",
-                BigintType.BIGINT,
-                val -> val ? "1" : "0",
-                val -> val ? 1L : 0L);
-    }
-
-    private static DataType<BigDecimal> numberOracleType(DecimalType type)
-    {
-        String databaseType = format("decimal(%s, %s)", type.getPrecision(), type.getScale());
-        return numberOracleType(databaseType, type);
-    }
-
-    private static <T> DataType<T> numberOracleType(String inputType, Type resultType)
-    {
-        Function<T, ?> queryResult = (Function<T, Object>) value ->
-                (value instanceof BigDecimal && resultType instanceof DecimalType)
-                    ? ((BigDecimal) value).setScale(((DecimalType) resultType).getScale(), HALF_UP)
-                    : value;
-
-        return DataType.dataType(
-                inputType,
-                resultType,
-                value -> format("CAST('%s' AS %s)", value, resultType),
-                queryResult);
+                .addRoundTrip(booleanDataType(), true)
+                .addRoundTrip(booleanDataType(), false)
+                .execute(getQueryRunner(), prestoCreateAsSelect("boolean_types"));
     }
 
     /* Datetime tests */
@@ -479,6 +611,29 @@ public class TestOracleTypes
     }
 
     /**
+     * Run {@link DataTypeTest}s, creating tables from Presto.
+     */
+    private void testTypeMapping(String tableNamePrefix, DataTypeTest... tests)
+    {
+        runTestsWithSetup(prestoCreateAsSelect(tableNamePrefix), tests);
+    }
+
+    /**
+     * Run {@link DataTypeTest}s, creating tables with the JDBC.
+     */
+    private void testTypeReadMapping(String tableNamePrefix, DataTypeTest... tests)
+    {
+        runTestsWithSetup(oracleCreateAndInsert(tableNamePrefix), tests);
+    }
+
+    private void runTestsWithSetup(DataSetup dataSetup, DataTypeTest... tests)
+    {
+        for (DataTypeTest test : tests) {
+            test.execute(getQueryRunner(), dataSetup);
+        }
+    }
+
+    /**
      * Run a {@link DataTypeTest} in the given time zone, using legacy timestamps.
      * <p>
      * If the given time zone is {@code null}, use the default session time zone.
@@ -528,5 +683,10 @@ public class TestOracleTypes
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
+    }
+
+    private TestTable oracleTable(String tableName, String schema, String data)
+    {
+        return new TestTable(getSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
     }
 }
