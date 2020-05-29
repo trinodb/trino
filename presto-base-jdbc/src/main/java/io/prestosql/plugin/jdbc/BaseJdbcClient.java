@@ -107,7 +107,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
-public class BaseJdbcClient
+public abstract class BaseJdbcClient
         implements JdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);

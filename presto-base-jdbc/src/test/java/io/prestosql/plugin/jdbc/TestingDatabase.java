@@ -42,9 +42,8 @@ final class TestingDatabase
             throws SQLException
     {
         String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong();
-        jdbcClient = new BaseJdbcClient(
+        jdbcClient = new TestingH2JdbcClient(
                 new BaseJdbcConfig(),
-                "\"",
                 new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider()));
 
         connection = DriverManager.getConnection(connectionUrl);
