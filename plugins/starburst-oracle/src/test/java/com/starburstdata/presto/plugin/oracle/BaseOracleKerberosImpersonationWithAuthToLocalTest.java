@@ -18,16 +18,24 @@ import java.util.Map;
 
 import static com.google.common.io.Resources.getResource;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
+import static java.util.Objects.requireNonNull;
 
 @Test
 public abstract class BaseOracleKerberosImpersonationWithAuthToLocalTest
         extends BaseOracleImpersonationWithAuthToLocal
 {
-    private final Map<String, String> properties;
+    private final Map<String, String> additionalProperties;
 
     protected BaseOracleKerberosImpersonationWithAuthToLocalTest(Map<String, String> additionalProperties)
     {
-        properties = ImmutableMap.<String, String>builder()
+        this.additionalProperties = ImmutableMap.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", TestingOracleServer.getJdbcUrl())
                 .put("oracle.impersonation.enabled", "true")
                 .put("auth-to-local.config-file", getResource("auth-to-local.json").getPath())
@@ -39,12 +47,7 @@ public abstract class BaseOracleKerberosImpersonationWithAuthToLocalTest
                 .put("kerberos.config", getResource("krb/krb5.conf").getPath())
                 .putAll(additionalProperties)
                 .build();
-    }
 
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
         return OracleQueryRunner
                 .builder()
                 .withConnectorProperties(properties)

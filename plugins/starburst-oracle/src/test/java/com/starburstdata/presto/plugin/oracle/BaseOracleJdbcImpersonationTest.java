@@ -16,27 +16,31 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 @Test
 public abstract class BaseOracleJdbcImpersonationTest
         extends BaseOracleImpersonationTest
 {
-    private final ImmutableMap<String, String> properties;
+    private final Map<String, String> additionalProperties;
 
     protected BaseOracleJdbcImpersonationTest(Map<String, String> additionalProperties)
     {
-        properties = ImmutableMap.<String, String>builder()
-                .putAll(TestingOracleServer.connectionProperties())
-                .put("allow-drop-table", "true")
-                .put("oracle.impersonation.enabled", "true")
-                .put("oracle.synonyms.enabled", "true")
-                .putAll(additionalProperties)
-                .build();
+        this.additionalProperties = ImmutableMap.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .putAll(TestingOracleServer.connectionProperties())
+                .put("allow-drop-table", "true")
+                .put("oracle.impersonation.enabled", "true")
+                .put("oracle.synonyms.enabled", "true")
+                .putAll(additionalProperties)
+                .build();
+
         return OracleQueryRunner.builder()
                 .withConnectorProperties(properties)
                 .withTables(ImmutableList.of())

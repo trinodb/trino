@@ -17,16 +17,24 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.google.common.io.Resources.getResource;
+import static java.util.Objects.requireNonNull;
 
 @Test
 public abstract class BaseOracleKerberosImpersonationTest
         extends BaseOracleImpersonationTest
 {
-    private final Map<String, String> properties;
+    private final Map<String, String> additionalProperties;
 
     protected BaseOracleKerberosImpersonationTest(Map<String, String> additionalProperties)
     {
-        properties = ImmutableMap.<String, String>builder()
+        this.additionalProperties = ImmutableMap.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", TestingOracleServer.getJdbcUrl())
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.synonyms.enabled", "true")
@@ -36,12 +44,7 @@ public abstract class BaseOracleKerberosImpersonationTest
                 .put("kerberos.config", getResource("krb/krb5.conf").getPath())
                 .putAll(additionalProperties)
                 .build();
-    }
 
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
         return OracleQueryRunner
                 .builder()
                 .withConnectorProperties(properties)

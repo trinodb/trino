@@ -18,16 +18,24 @@ import java.util.Map;
 
 import static com.google.common.io.Resources.getResource;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
+import static java.util.Objects.requireNonNull;
 
 @Test
 public abstract class BaseOracleImpersonationWithAuthToLocalTest
         extends BaseOracleImpersonationWithAuthToLocal
 {
-    private final Map<String, String> properties;
+    private final Map<String, String> additionalProperties;
 
     protected BaseOracleImpersonationWithAuthToLocalTest(Map<String, String> additionalProperties)
     {
-        properties = ImmutableMap.<String, String>builder()
+        this.additionalProperties = ImmutableMap.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .putAll(TestingOracleServer.connectionProperties())
                 .put("allow-drop-table", "true")
                 .put("oracle.impersonation.enabled", "true")
@@ -36,12 +44,7 @@ public abstract class BaseOracleImpersonationWithAuthToLocalTest
                 .put("auth-to-local.refresh-period", "1s")
                 .putAll(additionalProperties)
                 .build();
-    }
 
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(properties)
                 .withSessionModifier(session -> createSession(session.getIdentity().getUser() + "/admin@company.com"))
