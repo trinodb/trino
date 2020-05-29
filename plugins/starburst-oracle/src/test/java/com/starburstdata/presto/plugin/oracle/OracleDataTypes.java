@@ -249,6 +249,11 @@ public final class OracleDataTypes
         return dataType(name, createDecimalType(precision), Object::toString, BigDecimal::valueOf);
     }
 
+    public static DataType<Boolean> booleanDataType()
+    {
+        return dataType("boolean", createDecimalType(1), Object::toString, value -> value ? BigDecimal.ONE : BigDecimal.ZERO);
+    }
+
     /* Floating point types */
 
     public static DataType<Double> binaryDoubleDataType()

@@ -117,7 +117,6 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -138,7 +137,7 @@ public class OracleClient
 {
     private static final int DEFAULT_ROW_FETCH_SIZE = 1000;
 
-    // single UTF char may require at most 4 bytes of storage
+    // single UTF char may require up to 4 bytes of storage
     private static final int MAX_BYTES_PER_CHAR = 4;
 
     private static final int ORACLE_CHAR_MAX_BYTES = 2000;
@@ -468,16 +467,7 @@ public class OracleClient
                 return Optional.of(oracleTimestampWithTimeZoneColumnMapping());
         }
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return Optional.of(ColumnMapping.sliceMapping(
-                    VARCHAR,
-                    (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
-                    (statement, index, value) -> {
-                        // TODO this should be handled during planning phase
-                        throw new PrestoException(
-                                NOT_SUPPORTED,
-                                "Underlying unsupported type that is mapped to VARCHAR is not supported for INSERT: " + type);
-                    },
-                    DISABLE_PUSHDOWN));
+            return mapToUnboundedVarchar(type);
         }
         return Optional.empty();
     }
@@ -576,8 +566,7 @@ public class OracleClient
         if (isVarcharType(type)) {
             String dataType;
             VarcharType varcharType = (VarcharType) type;
-            if (varcharType.isUnbounded() ||
-                    varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
+            if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
                 dataType = "nclob";
             }
             else {
@@ -596,8 +585,7 @@ public class OracleClient
             return WriteMapping.sliceMapping(dataType, charWriteFunction());
         }
         if (type instanceof DecimalType) {
-            String dataType = format("number(%s, %s)",
-                    ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
+            String dataType = format("number(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
             if (((DecimalType) type).isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction((DecimalType) type));
             }
@@ -610,8 +598,7 @@ public class OracleClient
         if (writeMapping != null) {
             return writeMapping;
         }
-        throw new PrestoException(NOT_SUPPORTED,
-                "Unsupported column type: " + type.getDisplayName());
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override
