@@ -144,6 +144,9 @@ public class OracleClient
     private static final int ORACLE_CHAR_MAX_BYTES = 2000;
     private static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
 
+    private static final int ORACLE_VARCHAR2_MAX_BYTES = 4000;
+    private static final int ORACLE_VARCHAR2_MAX_CHARS = ORACLE_VARCHAR2_MAX_BYTES / MAX_BYTES_PER_CHAR;
+
     private static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
@@ -168,7 +171,6 @@ public class OracleClient
             .build();
 
     private final boolean synonymsEnabled;
-    private final int oracleVarchar2MaxChars;
     private final OracleSplitManager splitManager;
     private final TableStatisticsClient tableStatisticsClient;
 
@@ -182,7 +184,6 @@ public class OracleClient
     {
         super(config, "\"", connectionFactory);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
-        oracleVarchar2MaxChars = oracleConfig.getVarchar2MaxBytes() / MAX_BYTES_PER_CHAR;
         splitManager = oracleSplitManager;
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
     }
@@ -576,7 +577,7 @@ public class OracleClient
             String dataType;
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded() ||
-                    varcharType.getBoundedLength() > oracleVarchar2MaxChars) {
+                    varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
                 dataType = "nclob";
             }
             else {

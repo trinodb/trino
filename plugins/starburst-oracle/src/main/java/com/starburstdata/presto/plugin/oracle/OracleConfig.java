@@ -29,7 +29,6 @@ public class OracleConfig
     private boolean synonymsEnabled;
     private RoundingMode numberRoundingMode = RoundingMode.UNNECESSARY;
     private Integer defaultNumberScale;
-    private int varchar2MaxBytes = 4000;
     private boolean connectionPoolingEnabled = true;
     private OracleAuthenticationType authenticationType = PASSWORD;
     private OracleParallelismType parallelismType = NO_PARALLELISM;
@@ -83,19 +82,6 @@ public class OracleConfig
     public OracleConfig setDefaultNumberScale(Integer defaultNumberScale)
     {
         this.defaultNumberScale = defaultNumberScale;
-        return this;
-    }
-
-    public int getVarchar2MaxBytes()
-    {
-        return varchar2MaxBytes;
-    }
-
-    @Config("oracle.varchar2.max-bytes")
-    @ConfigDescription("Limit on number of bytes in varchar2 columns in Oracle database")
-    public OracleConfig setVarchar2MaxBytes(int varchar2MaxBytes)
-    {
-        this.varchar2MaxBytes = varchar2MaxBytes;
         return this;
     }
 
