@@ -925,13 +925,27 @@ public class LocalExecutionPlanner
                 ResolvedFunction resolvedFunction = entry.getValue().getResolvedFunction();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (Expression argument : function.getArguments()) {
-                    Symbol argumentSymbol = Symbol.from(argument);
-                    arguments.add(source.getLayout().get(argumentSymbol));
+                    if (!(argument instanceof LambdaExpression)) {
+                        Symbol argumentSymbol = Symbol.from(argument);
+                        arguments.add(source.getLayout().get(argumentSymbol));
+                    }
                 }
                 Symbol symbol = entry.getKey();
                 WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
                 Type type = metadata.getType(resolvedFunction.getSignature().getReturnType());
-                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), arguments.build()));
+
+                List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
+                        .filter(LambdaExpression.class::isInstance)
+                        .map(LambdaExpression.class::cast)
+                        .collect(toImmutableList());
+                List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                        .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
+                        .map(metadata::getType)
+                        .map(FunctionType.class::cast)
+                        .collect(toImmutableList());
+
+                List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
 
@@ -2625,18 +2639,46 @@ public class LocalExecutionPlanner
                 }
             }
 
-            List<LambdaProvider> lambdaProviders = new ArrayList<>();
             List<LambdaExpression> lambdaExpressions = aggregation.getArguments().stream()
                     .filter(LambdaExpression.class::isInstance)
                     .map(LambdaExpression.class::cast)
                     .collect(toImmutableList());
-            if (!lambdaExpressions.isEmpty()) {
-                List<FunctionType> functionTypes = aggregation.getResolvedFunction().getSignature().getArgumentTypes().stream()
-                        .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
-                        .map(metadata::getType)
-                        .map(FunctionType.class::cast)
+            List<FunctionType> functionTypes = aggregation.getResolvedFunction().getSignature().getArgumentTypes().stream()
+                    .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
+                    .map(metadata::getType)
+                    .map(FunctionType.class::cast)
+                    .collect(toImmutableList());
+
+            List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, internalAggregationFunction.getLambdaInterfaces(), functionTypes);
+
+            Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
+            List<SortOrder> sortOrders = ImmutableList.of();
+            List<Symbol> sortKeys = ImmutableList.of();
+            if (aggregation.getOrderingScheme().isPresent()) {
+                OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
+                sortKeys = orderingScheme.getOrderBy();
+                sortOrders = sortKeys.stream()
+                        .map(orderingScheme::getOrdering)
                         .collect(toImmutableList());
-                List<Class<?>> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
+            }
+
+            return internalAggregationFunction.bind(
+                    valueChannels,
+                    maskChannel,
+                    source.getTypes(),
+                    getChannelsForSymbols(sortKeys, source.getLayout()),
+                    sortOrders,
+                    pagesIndexFactory,
+                    aggregation.isDistinct(),
+                    joinCompiler,
+                    lambdaProviders,
+                    session);
+        }
+
+        private List<LambdaProvider> makeLambdaProviders(List<LambdaExpression> lambdaExpressions, List<Class<?>> lambdaInterfaces, List<FunctionType> functionTypes)
+        {
+            List<LambdaProvider> lambdaProviders = new ArrayList<>();
+            if (!lambdaExpressions.isEmpty()) {
                 verify(lambdaExpressions.size() == functionTypes.size());
                 verify(lambdaExpressions.size() == lambdaInterfaces.size());
 
@@ -2684,29 +2726,7 @@ public class LocalExecutionPlanner
                     }
                 }
             }
-
-            Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
-            List<SortOrder> sortOrders = ImmutableList.of();
-            List<Symbol> sortKeys = ImmutableList.of();
-            if (aggregation.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
-                sortKeys = orderingScheme.getOrderBy();
-                sortOrders = sortKeys.stream()
-                        .map(orderingScheme::getOrdering)
-                        .collect(toImmutableList());
-            }
-
-            return internalAggregationFunction.bind(
-                    valueChannels,
-                    maskChannel,
-                    source.getTypes(),
-                    getChannelsForSymbols(sortKeys, source.getLayout()),
-                    sortOrders,
-                    pagesIndexFactory,
-                    aggregation.isDistinct(),
-                    joinCompiler,
-                    lambdaProviders,
-                    session);
+            return lambdaProviders;
         }
 
         private PhysicalOperation planGlobalAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)
