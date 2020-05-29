@@ -1030,16 +1030,16 @@ public class TestStringFunctions
     @Test
     public void testCharConcat()
     {
-        assertFunction("concat('ab ', cast(' ' as char(1)))", createCharType(4), "ab  ");
-        assertFunction("concat('ab ', cast(' ' as char(1))) = 'ab'", BOOLEAN, true);
+        assertFunction("concat(char 'ab ', cast(' ' as char(1)))", createCharType(4), "ab  ");
+        assertFunction("concat(char 'ab ', cast(' ' as char(1))) = char 'ab'", BOOLEAN, true);
 
-        assertFunction("concat('ab ', cast('a' as char(2)))", createCharType(5), "ab a ");
-        assertFunction("concat('ab ', cast('a' as char(2))) = 'ab a'", BOOLEAN, true);
+        assertFunction("concat(char 'ab ', cast('a' as char(2)))", createCharType(5), "ab a ");
+        assertFunction("concat(char 'ab ', cast('a' as char(2))) = char 'ab a'", BOOLEAN, true);
 
-        assertFunction("concat('ab ', cast('' as char(0)))", createCharType(3), "ab ");
-        assertFunction("concat('ab ', cast('' as char(0))) = 'ab'", BOOLEAN, true);
+        assertFunction("concat(char 'ab ', cast('' as char(0)))", createCharType(3), "ab ");
+        assertFunction("concat(char 'ab ', cast('' as char(0))) = char 'ab'", BOOLEAN, true);
 
-        assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
+        assertFunction("concat(char 'hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
 
         assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "line 1:1: CHAR length must be in range [0, 65536], got 80000");
 

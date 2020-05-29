@@ -29,8 +29,8 @@ public class TestCharOperators
         assertFunction("cast('foo' as char(3)) = cast('foo' as char(3))", BOOLEAN, true);
         assertFunction("cast('foo' as char(3)) = cast('bar' as char(3))", BOOLEAN, false);
         assertFunction("cast('bar' as char(3)) = cast('foo' as char(3))", BOOLEAN, false);
-        assertFunction("cast('bar' as char(5)) = 'bar'", BOOLEAN, true);
-        assertFunction("cast('bar' as char(5)) = 'bar   '", BOOLEAN, true);
+        assertFunction("cast('bar' as char(5)) = char 'bar'", BOOLEAN, true);
+        assertFunction("cast('bar' as char(5)) = char 'bar   '", BOOLEAN, true);
 
         assertFunction("cast('a' as char(2)) = cast('a ' as char(2))", BOOLEAN, true);
         assertFunction("cast('a ' as char(2)) = cast('a' as char(2))", BOOLEAN, true);
@@ -47,8 +47,8 @@ public class TestCharOperators
         assertFunction("cast('foo' as char(3)) <> cast('foo' as char(3))", BOOLEAN, false);
         assertFunction("cast('foo' as char(3)) <> cast('bar' as char(3))", BOOLEAN, true);
         assertFunction("cast('bar' as char(3)) <> cast('foo' as char(3))", BOOLEAN, true);
-        assertFunction("cast('bar' as char(5)) <> 'bar'", BOOLEAN, false);
-        assertFunction("cast('bar' as char(5)) <> 'bar   '", BOOLEAN, false);
+        assertFunction("cast('bar' as char(5)) <> char 'bar'", BOOLEAN, false);
+        assertFunction("cast('bar' as char(5)) <> char 'bar   '", BOOLEAN, false);
 
         assertFunction("cast('a' as char(2)) <> cast('a ' as char(2))", BOOLEAN, false);
         assertFunction("cast('a ' as char(2)) <> cast('a' as char(2))", BOOLEAN, false);
@@ -182,8 +182,8 @@ public class TestCharOperators
         assertFunction("cast('foo' as char(3)) IS DISTINCT FROM cast('bar' as char(3))", BOOLEAN, true);
         assertFunction("cast('bar' as char(3)) IS DISTINCT FROM cast('foo' as char(3))", BOOLEAN, true);
         assertFunction("cast('foo' as char(3)) IS DISTINCT FROM NULL", BOOLEAN, true);
-        assertFunction("cast('bar' as char(5)) IS DISTINCT FROM 'bar'", BOOLEAN, false);
-        assertFunction("cast('bar' as char(5)) IS DISTINCT FROM 'bar   '", BOOLEAN, false);
+        assertFunction("cast('bar' as char(5)) IS DISTINCT FROM char 'bar'", BOOLEAN, false);
+        assertFunction("cast('bar' as char(5)) IS DISTINCT FROM char 'bar   '", BOOLEAN, false);
         assertFunction("NULL IS DISTINCT FROM cast('foo' as char(3))", BOOLEAN, true);
     }
 

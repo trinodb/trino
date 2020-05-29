@@ -71,16 +71,16 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
 
         // shorter varchar and char
-        testNoUnwrap("varchar(1)", "= CAST('abc' AS char(3))", "char(3)");
+        testUnwrap("varchar(1)", "a = CAST('abc' AS char(3))", "a IS NULL AND NULL");
         // varchar and char, same length
         testUnwrap("varchar(3)", "a = CAST('abc' AS char(3))", "a = 'abc'");
-        testNoUnwrap("varchar(3)", "= CAST('ab' AS char(3))", "char(3)");
+        testUnwrap("varchar(3)", "a = CAST('ab' AS char(3))", "a = 'ab '");
         // longer varchar and char
-        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", "CAST(a AS char(10)) = CAST('abc' AS char(10))"); // actually unwrapping didn't happen
+        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", "a = CAST('abc' AS varchar(10))"); // actually unwrapping didn't happen
         // unbounded varchar and char
-        testUnwrap("varchar", "a = CAST('abc' AS char(3))", "CAST(a AS char(65536)) = CAST('abc' AS char(65536))"); // actually unwrapping didn't happen
+        testUnwrap("varchar", "a = CAST('abc' AS char(3))", "a = VARCHAR 'abc'"); // actually unwrapping didn't happen
         // unbounded varchar and char of maximum length (could be unwrapped, but currently it is not)
-        testNoUnwrap("varchar", format("= CAST('abc' AS char(%s))", CharType.MAX_LENGTH), "char(65536)");
+        testUnwrap("varchar", format("a = CAST('abc' AS char(%s))", CharType.MAX_LENGTH), format("a = VARCHAR 'abc%s'", " ".repeat(CharType.MAX_LENGTH - "abc".length())));
     }
 
     @Test
@@ -552,11 +552,6 @@ public class TestUnwrapCastInComparison
 
         // no implicit cast between DOUBLE->INTEGER
         testUnwrap("double", "CAST(a AS INTEGER) = INTEGER '1'", "CAST(a AS INTEGER) = 1");
-    }
-
-    private void testNoUnwrap(String inputType, String inputPredicate, String expectedCastType)
-    {
-        testNoUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedCastType);
     }
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)

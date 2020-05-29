@@ -244,14 +244,12 @@ public abstract class BaseConnectorTest
                         "   (6, CAST('x  ' AS varchar(3)))")) {
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (0, ''), (1, ' '), (2, '  '), (3, '   ')");
+                    "VALUES (2, '  ')");
 
             // value that's not all-spaces
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+                    "VALUES (5, 'x ')");
         }
     }
 

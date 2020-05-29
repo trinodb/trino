@@ -477,12 +477,7 @@ public final class TypeCoercion
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.CHAR:
-                        VarcharType varcharType = (VarcharType) sourceType;
-                        if (varcharType.isUnbounded()) {
-                            return Optional.of(createCharType(CharType.MAX_LENGTH));
-                        }
-
-                        return Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getBoundedLength())));
+                        return Optional.empty();
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
@@ -501,7 +496,7 @@ public final class TypeCoercion
                         // CHAR could be coercible to VARCHAR, but they cannot be both coercible to each other.
                         // VARCHAR to CHAR coercion provides natural semantics when comparing VARCHAR literals to CHAR columns.
                         // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
-                        return Optional.empty();
+                        return Optional.of(createVarcharType(((CharType) sourceType).getLength()));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
