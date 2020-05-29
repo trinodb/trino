@@ -12,25 +12,22 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.H2QueryRunner;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.QueryAssertions;
 import io.prestosql.testing.TestingSession;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.List;
 
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -236,35 +233,25 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                                 "(DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T03:45:14.753Z')))," +
                                 "(DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T17:45:14.753 +14:00')))",
                         tableName));
-        QueryAssertions.assertQuery(
-                getQueryRunner(),
-                session,
-                format("SELECT a FROM %s", tableName),
-                new H2QueryRunner()
-                {
-                    @Override
-                    public MaterializedResult execute(Session session, String sql, List<? extends Type> resultTypes)
-                    {
-                        return new MaterializedResult(
-                                ImmutableList.of(
-                                        new MaterializedRow(1, ZonedDateTime.parse("1970-01-01T00:00:00.000Z[+14:00]")),
-                                        new MaterializedRow(1, ZonedDateTime.parse("1970-01-01T00:00:00.000Z[-13:00]")),
-                                        new MaterializedRow(1, ZonedDateTime.parse("9999-12-31T23:59:59.999Z[UTC]").plusYears(2)),
-                                        new MaterializedRow(1, ZonedDateTime.parse("0001-01-01T00:00:00.000Z[UTC]").minusYears(2)),
-                                        // 73326-09-11T20:14:45.247Z[UTC] is the timestamp with tz farthest in the future Presto can represent (for UTC)
-                                        new MaterializedRow(1, ZonedDateTime.parse("3326-09-11T20:14:45.247Z[UTC]").plusYears(70000)),
-                                        // same instant as above for the negative offset with highest absolute value Snowflake allows
-                                        new MaterializedRow(1, ZonedDateTime.parse("3326-09-11T07:14:45.247Z[-13:00]").plusYears(70000)),
-                                        // -69387-04-22T03:45:14.753Z[UTC] is the timestamp with tz farthest in the past Presto can represent
-                                        new MaterializedRow(1, ZonedDateTime.parse("0613-04-22T03:45:14.753Z[UTC]").minusYears(70000)),
-                                        // same instant as above for the max offset Snowflake allows
-                                        new MaterializedRow(1, ZonedDateTime.parse("0613-04-22T17:45:14.753Z[+14:00]").minusYears(70000))),
-                                resultTypes);
-                    }
-                },
-                "",
-                false,
-                false);
+
+        MaterializedResult actual = computeActual(session, "SELECT a FROM " + tableName).toTestTypes();
+        MaterializedResult expected = MaterializedResult.resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE)
+                .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(14, 0)))
+                .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(-13, 0)))
+                .row(LocalDateTime.of(9999 + 2, 12, 31, 23, 59, 59, 999_000_000).atZone(ZoneId.of("UTC")))
+                .row(LocalDateTime.of(-1, 1, 1, 0, 0, 0, 0).atZone(ZoneId.of("UTC")))
+                // 73326-09-11T20:14:45.247Z[UTC] is the timestamp with tz farthest in the future Presto can represent (for UTC)
+                .row(LocalDateTime.of(3326 + 70000, 9, 11, 20, 14, 45, 247_000_000).atZone(ZoneId.of("UTC")))
+                // same instant as above for the negative offset with highest absolute value Snowflake allows
+                .row(LocalDateTime.of(3326 + 70000, 9, 11, 7, 14, 45, 247_000_000).atZone(ZoneOffset.ofHoursMinutes(-13, 0)))
+                // -69387-04-22T03:45:14.753Z[UTC] is the timestamp with tz farthest in the past Presto can represent
+                .row(LocalDateTime.of(613 - 70000, 4, 22, 3, 45, 14, 753_000_000).atZone(ZoneId.of("UTC")))
+                // same instant as above for the max offset Snowflake allows
+                .row(LocalDateTime.of(613 - 70000, 4, 22, 17, 45, 14, 753_000_000).atZone(ZoneOffset.ofHoursMinutes(14, 0)))
+                .build();
+
+        assertEqualsIgnoreOrder(actual, expected);
+
         server.execute(format("DROP TABLE test_schema.%s", tableName));
     }
 
