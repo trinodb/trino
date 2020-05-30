@@ -77,6 +77,11 @@ public class TestTypeParser
 
         assertThat(type("double precision"))
                 .isEqualTo(simpleType(location(1, 0), "double"));
+
+        assertThat(type("ROW(DOUBLE PRECISION)"))
+                .isEqualTo(rowType(
+                        location(1, 0),
+                        field(location(1, 4), simpleType(location(1, 4), "DOUBLE"))));
     }
 
     @Test
