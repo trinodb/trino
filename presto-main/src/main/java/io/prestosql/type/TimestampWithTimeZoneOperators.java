@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -111,16 +110,6 @@ public final class TimestampWithTimeZoneOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long right)
     {
         return unpackMillisUtc(left) >= unpackMillisUtc(right);
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(
-            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value,
-            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long min,
-            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long max)
-    {
-        return unpackMillisUtc(min) <= unpackMillisUtc(value) && unpackMillisUtc(value) <= unpackMillisUtc(max);
     }
 
     @ScalarFunction("date")

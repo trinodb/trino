@@ -22,7 +22,6 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -78,13 +77,6 @@ public final class UnknownOperators
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
-    {
-        throw new AssertionError("value of unknown type should always be NULL");
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType("unknown") boolean value, @SqlType("unknown") boolean min, @SqlType("unknown") boolean max)
     {
         throw new AssertionError("value of unknown type should always be NULL");
     }
