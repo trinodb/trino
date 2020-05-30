@@ -1122,7 +1122,35 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitBetweenPredicate(BetweenPredicate node, StackableAstVisitorContext<Context> context)
         {
-            return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
+            Type valueType = process(node.getValue(), context);
+            Type minType = process(node.getMin(), context);
+            Type maxType = process(node.getMax(), context);
+
+            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueType, minType)
+                    .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
+
+            if (commonType.isEmpty()) {
+                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            try {
+                metadata.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, List.of(commonType.get(), commonType.get()));
+            }
+            catch (OperatorNotFoundException e) {
+                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            if (!valueType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(node.getValue(), valueType, commonType.get());
+            }
+            if (!minType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(node.getMin(), minType, commonType.get());
+            }
+            if (!maxType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(node.getMax(), maxType, commonType.get());
+            }
+
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override

@@ -36,7 +36,6 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -67,7 +66,6 @@ public final class DecimalInequalityOperators
     public static final SqlScalarFunction DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR = comparisonOperator(LESS_THAN_OR_EQUAL, IS_RESULT_LESS_THAN_OR_EQUAL);
     public static final SqlScalarFunction DECIMAL_GREATER_THAN_OPERATOR = comparisonOperator(GREATER_THAN, IS_RESULT_GREATER_THAN);
     public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = comparisonOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
-    public static final SqlScalarFunction DECIMAL_BETWEEN_OPERATOR = betweenOperator();
     public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = distinctOperator();
 
     private DecimalInequalityOperators() {}
@@ -259,23 +257,6 @@ public final class DecimalInequalityOperators
             throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
-    }
-
-    private static SqlScalarFunction betweenOperator()
-    {
-        Signature signature = Signature.builder()
-                .kind(SCALAR)
-                .operatorType(BETWEEN)
-                .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
-                .returnType(BOOLEAN.getTypeSignature())
-                .build();
-        return SqlScalarFunction.builder(DecimalInequalityOperators.class)
-                .signature(signature)
-                .deterministic(true)
-                .choice(choice -> choice
-                        .implementation(methodsGroup -> methodsGroup
-                                .methods("betweenShortShortShort", "betweenLongLongLong")))
-                .build();
     }
 
     @UsedByGeneratedCode

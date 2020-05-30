@@ -33,7 +33,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -103,13 +102,6 @@ public final class UuidOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.UUID) Slice left, @SqlType(StandardTypes.UUID) Slice right)
     {
         return left.compareTo(right) >= 0;
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.UUID) Slice value, @SqlType(StandardTypes.UUID) Slice min, @SqlType(StandardTypes.UUID) Slice max)
-    {
-        return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
     }
 
     @ScalarOperator(HASH_CODE)

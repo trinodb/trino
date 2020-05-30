@@ -24,7 +24,6 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -82,13 +81,6 @@ public final class VarbinaryOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.VARBINARY) Slice left, @SqlType(StandardTypes.VARBINARY) Slice right)
     {
         return left.compareTo(right) >= 0;
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.VARBINARY) Slice min, @SqlType(StandardTypes.VARBINARY) Slice max)
-    {
-        return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
     }
 
     @ScalarOperator(HASH_CODE)

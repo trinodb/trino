@@ -27,7 +27,6 @@ public enum OperatorType
     LESS_THAN_OR_EQUAL("<=", 2),
     GREATER_THAN(">", 2),
     GREATER_THAN_OR_EQUAL(">=", 2),
-    BETWEEN("BETWEEN", 3),
     CAST("CAST", 1),
     SUBSCRIPT("[]", 2),
     HASH_CODE("HASH CODE", 1),

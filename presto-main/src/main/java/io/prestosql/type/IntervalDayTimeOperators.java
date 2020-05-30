@@ -31,7 +31,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.client.IntervalDayTime.formatMillis;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -161,16 +160,6 @@ public final class IntervalDayTimeOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left >= right;
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long min,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long max)
-    {
-        return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)

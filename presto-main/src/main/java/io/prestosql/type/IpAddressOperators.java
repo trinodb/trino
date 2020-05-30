@@ -34,7 +34,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -95,13 +94,6 @@ public final class IpAddressOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.IPADDRESS) Slice left, @SqlType(StandardTypes.IPADDRESS) Slice right)
     {
         return left.compareTo(right) >= 0;
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.IPADDRESS) Slice value, @SqlType(StandardTypes.IPADDRESS) Slice min, @SqlType(StandardTypes.IPADDRESS) Slice max)
-    {
-        return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
     }
 
     @ScalarOperator(HASH_CODE)

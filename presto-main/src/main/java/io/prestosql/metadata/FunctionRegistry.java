@@ -298,7 +298,6 @@ import static io.prestosql.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_BETWEEN_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_DISTINCT_FROM_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_EQUAL_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OPERATOR;
@@ -568,7 +567,6 @@ public class FunctionRegistry
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(DECIMAL_DISTINCT_FROM_OPERATOR)
                 .function(new Histogram(featuresConfig.getHistogramGroupImplementation()))
                 .function(CHECKSUM_AGGREGATION)

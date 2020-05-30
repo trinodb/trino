@@ -775,7 +775,7 @@ public class ExpressionInterpreter
 
             Boolean greaterOrEqualToMin = null;
             if (min != null) {
-                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.GREATER_THAN_OR_EQUAL, types(node.getValue(), node.getMin()), ImmutableList.of(value, min));
+                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.getMin(), node.getValue()), ImmutableList.of(min, value));
             }
             Boolean lessThanOrEqualToMax = null;
             if (max != null) {
