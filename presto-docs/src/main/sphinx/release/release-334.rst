@@ -40,7 +40,7 @@ CLI Changes
 Web UI Changes
 --------------
 
-* Add ``fixed`, ``certificate``, ``JWT``, and ``Kerberos`` to UI authentication. (:issue:`3433`)
+* Add ``fixed``, ``certificate``, ``JWT``, and ``Kerberos`` to UI authentication. (:issue:`3433`)
 * Show join distribution type in Live Plan. (:issue:`1323`)
 
 JDBC Driver Changes
