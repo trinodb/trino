@@ -64,7 +64,7 @@ class TreeNodes
         return new DateTimeDataType(location, kind, withTimeZone, Optional.empty());
     }
 
-    public static DateTimeDataType dateTimeType(NodeLocation location, DateTimeDataType.Type kind, boolean withTimeZone, String precision)
+    public static DateTimeDataType dateTimeType(NodeLocation location, DateTimeDataType.Type kind, boolean withTimeZone, DataTypeParameter precision)
     {
         return new DateTimeDataType(location, kind, withTimeZone, Optional.of(precision));
     }

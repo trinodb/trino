@@ -2004,7 +2004,7 @@ class AstBuilder
                 getLocation(context),
                 type,
                 context.WITH() != null,
-                getTextIfPresent(context.precision));
+                visitIfPresent(context.precision, DataTypeParameter.class));
     }
 
     @Override
