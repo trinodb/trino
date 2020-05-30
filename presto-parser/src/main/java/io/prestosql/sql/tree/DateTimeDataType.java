@@ -31,14 +31,14 @@ public class DateTimeDataType
 
     private final Type type;
     private final boolean withTimeZone;
-    private final Optional<String> precision;
+    private final Optional<DataTypeParameter> precision;
 
-    public DateTimeDataType(NodeLocation location, Type type, boolean withTimeZone, Optional<String> precision)
+    public DateTimeDataType(NodeLocation location, Type type, boolean withTimeZone, Optional<DataTypeParameter> precision)
     {
         this(Optional.of(location), type, withTimeZone, precision);
     }
 
-    public DateTimeDataType(Optional<NodeLocation> location, Type type, boolean withTimeZone, Optional<String> precision)
+    public DateTimeDataType(Optional<NodeLocation> location, Type type, boolean withTimeZone, Optional<DataTypeParameter> precision)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
@@ -56,7 +56,7 @@ public class DateTimeDataType
         return withTimeZone;
     }
 
-    public Optional<String> getPrecision()
+    public Optional<DataTypeParameter> getPrecision()
     {
         return precision;
     }
