@@ -399,7 +399,8 @@ type
     ;
 
 rowField
-    : identifier? type;
+    : type
+    | identifier type;
 
 typeParameter
     : INTEGER_VALUE | type

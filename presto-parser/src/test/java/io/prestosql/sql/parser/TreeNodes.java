@@ -79,6 +79,11 @@ class TreeNodes
         return field(location, name, false, type);
     }
 
+    public static RowDataType.Field field(NodeLocation location, DataType type)
+    {
+        return new RowDataType.Field(location, Optional.empty(), type);
+    }
+
     public static RowDataType.Field field(NodeLocation location, String name, boolean delimited, DataType type)
     {
         return new RowDataType.Field(
