@@ -624,12 +624,7 @@ public class HiveMetadata
 
     private static Optional<String> getCsvSerdeProperty(Table table, String key)
     {
-        return getSerdeProperty(table, key).map(csvSerdeProperty -> {
-            if (csvSerdeProperty.length() > 1) {
-                throw new PrestoException(HIVE_INVALID_METADATA, "Only single character can be set for property: " + key);
-            }
-            return csvSerdeProperty;
-        });
+        return getSerdeProperty(table, key).map(csvSerdeProperty -> csvSerdeProperty.substring(0, 1));
     }
 
     private static Optional<String> getSerdeProperty(Table table, String key)

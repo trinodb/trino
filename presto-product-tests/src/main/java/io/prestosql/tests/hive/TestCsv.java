@@ -25,6 +25,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestCsv
@@ -173,5 +174,68 @@ public class TestCsv
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
                 .containsOnly(expectedRows);
+    }
+
+    @Test(groups = STORAGE_FORMATS)
+    public void testReadCsvTableWithMultiCharProperties()
+    {
+        String tableName = "storage_formats_test_read_csv_table_with_multi_char_properties";
+        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onHive().executeQuery(format(
+                "CREATE TABLE %s(" +
+                        "   a  string," +
+                        "   b  string," +
+                        "   c  string" +
+                        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
+                        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
+                        "STORED AS " +
+                        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'",
+                tableName));
+
+        onHive().executeQuery(format(
+                "INSERT INTO %s(a, b, c) VALUES " +
+                        "('1', 'a', 'A'), " +
+                        "('2', 'b', 'B'), " +
+                        "('3', 'c', 'C')",
+                tableName));
+
+        assertThat(query(format("SELECT * FROM %s", tableName)))
+                .containsOnly(
+                        row("1", "a", "A"),
+                        row("2", "b", "B"),
+                        row("3", "c", "C"));
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(groups = STORAGE_FORMATS)
+    public void testWriteCsvTableWithMultiCharProperties()
+    {
+        String tableName = "storage_formats_test_write_csv_table_with_multi_char_properties";
+        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onHive().executeQuery(format(
+                "CREATE TABLE %s(" +
+                        "   a  string," +
+                        "   b  string," +
+                        "   c  string" +
+                        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
+                        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
+                        "STORED AS " +
+                        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'",
+                tableName));
+
+        query(format(
+                "INSERT INTO %s(a, b, c) VALUES " +
+                        "('1', 'a', 'A'), " +
+                        "('2', 'b', 'B'), " +
+                        "('3', 'c', 'C')",
+                tableName));
+        assertThat(query(format("SELECT * FROM %s", tableName)))
+                .containsOnly(
+                        row("1", "a", "A"),
+                        row("2", "b", "B"),
+                        row("3", "c", "C"));
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 }
