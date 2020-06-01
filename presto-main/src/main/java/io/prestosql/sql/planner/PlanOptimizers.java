@@ -177,7 +177,6 @@ import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
 import io.prestosql.sql.planner.optimizations.BeginTableWrite;
 import io.prestosql.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
-import io.prestosql.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.optimizations.LimitPushDown;
 import io.prestosql.sql.planner.optimizations.MetadataQueryOptimizer;
@@ -445,7 +444,6 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableList.of(new ImplementIntersectAndExceptAsUnion(metadata)),
                         ImmutableSet.of(
                                 new ImplementIntersectAsUnion(metadata),
                                 new ImplementExceptAsUnion(metadata))),
