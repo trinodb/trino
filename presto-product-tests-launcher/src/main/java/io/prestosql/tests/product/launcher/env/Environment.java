@@ -44,10 +44,12 @@ public final class Environment
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
     public static final String PRODUCT_TEST_LAUNCHER_NETWORK = "ptl-network";
 
+    private final String name;
     private final Map<String, DockerContainer> containers;
 
-    public Environment(Map<String, DockerContainer> containers)
+    public Environment(String name, Map<String, DockerContainer> containers)
     {
+        this.name = requireNonNull(name, "name is null");
         this.containers = requireNonNull(containers, "containers is null");
     }
 
@@ -71,13 +73,21 @@ public final class Environment
                 .orElseThrow(() -> new IllegalArgumentException("No container with name " + name));
     }
 
-    public static Builder builder()
+    @Override
+    public String toString()
     {
-        return new Builder();
+        return name;
+    }
+
+    public static Builder builder(String name)
+    {
+        return new Builder(name);
     }
 
     public static class Builder
     {
+        private final String name;
+
         @SuppressWarnings("resource")
         private Network network = Network.builder()
                 .createNetworkCmdModifier(createNetworkCmd ->
@@ -85,7 +95,13 @@ public final class Environment
                                 .withName(PRODUCT_TEST_LAUNCHER_NETWORK)
                                 .withLabels(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)))
                 .build();
+
         private Map<String, DockerContainer> containers = new HashMap<>();
+
+        public Builder(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+        }
 
         public Builder addContainer(String name, DockerContainer container)
         {
@@ -147,7 +163,7 @@ public final class Environment
                         });
             });
 
-            return new Environment(containers);
+            return new Environment(name, containers);
         }
     }
 }
