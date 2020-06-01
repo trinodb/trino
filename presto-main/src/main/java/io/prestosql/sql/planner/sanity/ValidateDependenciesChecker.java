@@ -564,7 +564,7 @@ public final class ValidateDependenciesChecker
                     .addAll(descriptor.getTableStatistics().values())
                     .build();
             List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
-            checkDependencies(dependencies, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
+            checkDependencies(outputSymbols, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
             return null;
         }
 
