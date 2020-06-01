@@ -28,11 +28,14 @@ import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.Container;
+import org.testcontainers.containers.ContainerState;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collection;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
@@ -124,7 +127,7 @@ public final class EnvironmentUp
                 return;
             }
 
-            sleepUntilInterrupted();
+            wait(environment.getContainers());
             log.info("Exiting, the containers will exit too");
         }
 
@@ -139,13 +142,13 @@ public final class EnvironmentUp
             }
         }
 
-        private void sleepUntilInterrupted()
+        private void wait(Collection<Container<?>> containers)
         {
             try {
-                //noinspection InfiniteLoopStatement
-                while (true) {
-                    Thread.sleep(Long.MAX_VALUE);
+                while (containers.stream().anyMatch(ContainerState::isRunning)) {
+                    Thread.sleep(1_000);
                 }
+                throw new RuntimeException("All containers have been stopped");
             }
             catch (InterruptedException e) {
                 log.info("Interrupted");
