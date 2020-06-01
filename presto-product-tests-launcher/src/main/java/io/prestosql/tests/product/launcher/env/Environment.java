@@ -27,6 +27,7 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +72,11 @@ public final class Environment
     {
         return Optional.ofNullable(containers.get(requireNonNull(name, "name is null")))
                 .orElseThrow(() -> new IllegalArgumentException("No container with name " + name));
+    }
+
+    public Collection<DockerContainer> getContainers()
+    {
+        return containers.values();
     }
 
     @Override

@@ -22,17 +22,20 @@ import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
+import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.ContainerState;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collection;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
@@ -124,7 +127,7 @@ public final class EnvironmentUp
                 return;
             }
 
-            sleepUntilInterrupted();
+            sleepUntilInterruptedOrContainersStopped(environment.getContainers());
             log.info("Exiting, the containers will exit too");
         }
 
@@ -139,12 +142,15 @@ public final class EnvironmentUp
             }
         }
 
-        private void sleepUntilInterrupted()
+        private void sleepUntilInterruptedOrContainersStopped(Collection<DockerContainer> containers)
         {
             try {
-                //noinspection InfiniteLoopStatement
                 while (true) {
-                    Thread.sleep(Long.MAX_VALUE);
+                    Thread.sleep(10_000);
+                    if (containers.stream().noneMatch(ContainerState::isRunning)) {
+                        log.info("All containers have been stopped");
+                        return;
+                    }
                 }
             }
             catch (InterruptedException e) {
