@@ -15,5 +15,5 @@ package io.prestosql.tests.product.launcher.env;
 
 public interface EnvironmentProvider
 {
-    Environment.Builder createEnvironment();
+    Environment.Builder createEnvironment(String name);
 }
