@@ -20,6 +20,10 @@ import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
+import io.prestosql.sql.planner.iterative.rule.MergeExcept;
+import io.prestosql.sql.planner.iterative.rule.MergeIntersect;
+import io.prestosql.sql.planner.iterative.rule.MergeUnion;
+import io.prestosql.sql.planner.iterative.rule.PruneDistinctAggregation;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import org.testng.annotations.Test;
 
@@ -134,8 +138,12 @@ public class TestSetFlatteningOptimizer
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new SetFlatteningOptimizer());
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new MergeUnion(),
+                                new MergeIntersect(),
+                                new MergeExcept(),
+                                new PruneDistinctAggregation())));
         assertPlan(sql, pattern, optimizers);
     }
 }
