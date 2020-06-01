@@ -50,7 +50,6 @@ public class TestIterativeOptimizer
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1")
-                .setSystemProperty("iterative_optimizer_enabled", "true")
                 .setSystemProperty("iterative_optimizer_timeout", "1ms");
 
         queryRunner = LocalQueryRunner.create(sessionBuilder.build());

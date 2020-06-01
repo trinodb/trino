@@ -108,7 +108,6 @@ public class FeaturesConfig
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
-    private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
@@ -569,19 +568,6 @@ public class FeaturesConfig
     public FeaturesConfig setSpillWindowOperator(boolean spillWindowOperator)
     {
         this.spillWindowOperator = spillWindowOperator;
-        return this;
-    }
-
-    public boolean isIterativeOptimizerEnabled()
-    {
-        return iterativeOptimizerEnabled;
-    }
-
-    @Config("iterative-optimizer-enabled")
-    @LegacyConfig("experimental.iterative-optimizer-enabled")
-    public FeaturesConfig setIterativeOptimizerEnabled(boolean value)
-    {
-        this.iterativeOptimizerEnabled = value;
         return this;
     }
 
