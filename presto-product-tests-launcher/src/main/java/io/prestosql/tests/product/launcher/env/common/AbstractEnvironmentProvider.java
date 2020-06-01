@@ -32,9 +32,9 @@ public abstract class AbstractEnvironmentProvider
     }
 
     @Override
-    public final Environment.Builder createEnvironment()
+    public final Environment.Builder createEnvironment(String name)
     {
-        Environment.Builder builder = Environment.builder();
+        Environment.Builder builder = Environment.builder(name);
         bases.forEach(base -> base.extendEnvironment(builder));
         extendEnvironment(builder);
         return builder;
