@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.configuration.ConfigurationAwareModules.combine;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcConnectorFactory
@@ -39,7 +40,7 @@ public class JdbcConnectorFactory
 
     public JdbcConnectorFactory(String name, Module module)
     {
-        this(name, JdbcModuleProvider.of(module));
+        this(name, JdbcModuleProvider.withCredentialProvider(module));
     }
 
     public JdbcConnectorFactory(String name, JdbcModuleProvider moduleProvider)
@@ -71,7 +72,6 @@ public class JdbcConnectorFactory
                 binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
                 binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
                 new JdbcModule(catalogName),
-                new CredentialProviderModule(),
                 moduleProvider.getModule(catalogName));
 
         Injector injector = app
@@ -87,10 +87,10 @@ public class JdbcConnectorFactory
     {
         Module getModule(String catalogName);
 
-        static JdbcModuleProvider of(Module module)
+        static JdbcModuleProvider withCredentialProvider(Module module)
         {
             requireNonNull(module, "module is null");
-            return catalogName -> module;
+            return catalogName -> combine(new CredentialProviderModule(), module);
         }
     }
 }
