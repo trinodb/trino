@@ -328,6 +328,31 @@ public class TestDynamicFilter
                                                 tableScan("part", ImmutableMap.of("K2", "partkey", "V2", "size")))))));
     }
 
+    @Test
+    public void testDynamicFilterInference()
+    {
+        assertPlan(
+                "SELECT part.partkey from lineitem JOIN (SELECT * from orders JOIN part ON orders.orderkey = part.partkey) ON lineitem.orderkey = orders.orderkey",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                                project(
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))
+                                                .with(numberOfDynamicFilters(2))),
+                                exchange(
+                                        join(
+                                                INNER,
+                                                ImmutableList.of(equiJoinClause("ORDERS_OK", "PART_PK")),
+                                                anyTree(node(FilterNode.class,
+                                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                                        .with(numberOfDynamicFilters(1))),
+                                                exchange(
+                                                        project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))))));
+    }
+
     private Matcher numberOfDynamicFilters(int numberOfDynamicFilters)
     {
         return new Matcher()

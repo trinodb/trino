@@ -60,6 +60,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
@@ -287,6 +288,13 @@ public class EffectivePredicateExtractor
                             .add(rightPredicate)
                             .add(combineConjuncts(metadata, joinConjuncts))
                             .add(node.getFilter().orElse(TRUE_LITERAL))
+                            .addAll(node.getDynamicFilters().entrySet().stream()
+                                    .map(entry -> createDynamicFilterExpression(
+                                            metadata,
+                                            entry.getKey(),
+                                            types.get(entry.getValue()),
+                                            entry.getValue().toSymbolReference()))
+                                    .collect(toImmutableList()))
                             .build()), node.getOutputSymbols());
                 case LEFT:
                     return combineConjuncts(metadata, ImmutableList.<Expression>builder()

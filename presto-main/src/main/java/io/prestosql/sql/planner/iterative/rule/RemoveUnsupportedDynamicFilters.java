@@ -28,6 +28,7 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
@@ -35,7 +36,6 @@ import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,7 +50,9 @@ import static io.prestosql.sql.DynamicFilters.isDynamicFilter;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.combinePredicates;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
+import static io.prestosql.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -72,18 +74,31 @@ public class RemoveUnsupportedDynamicFilters
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(), ImmutableSet.of());
-        return result.getNode();
+        Set<String> producedDynamicFilterIds = searchFrom(plan)
+                .where(JoinNode.class::isInstance)
+                .<JoinNode>findAll()
+                .stream()
+                .flatMap(joinNode -> joinNode.getDynamicFilters().keySet().stream())
+                .collect(toImmutableSet());
+        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(producedDynamicFilterIds), ImmutableSet.of());
+        return rewriteWith(new RemoveUnconsumedDynamicFilters(result.getConsumedDynamicFilterIds()), result.getNode());
     }
 
     private class Rewriter
             extends PlanVisitor<PlanWithConsumedDynamicFilters, Set<String>>
     {
+        private final Set<String> producedDynamicFilterIds;
+
+        private Rewriter(Set<String> producedDynamicFilterIds)
+        {
+            this.producedDynamicFilterIds = producedDynamicFilterIds;
+        }
+
         @Override
-        protected PlanWithConsumedDynamicFilters visitPlan(PlanNode node, Set<String> allowedDynamicFilterIds)
+        protected PlanWithConsumedDynamicFilters visitPlan(PlanNode node, Set<String> disallowedDynamicFilterIds)
         {
             List<PlanWithConsumedDynamicFilters> children = node.getSources().stream()
-                    .map(source -> source.accept(this, allowedDynamicFilterIds))
+                    .map(source -> source.accept(this, disallowedDynamicFilterIds))
                     .collect(toImmutableList());
 
             PlanNode result = replaceChildren(
@@ -101,23 +116,20 @@ public class RemoveUnsupportedDynamicFilters
         }
 
         @Override
-        public PlanWithConsumedDynamicFilters visitJoin(JoinNode node, Set<String> allowedDynamicFilterIds)
+        public PlanWithConsumedDynamicFilters visitJoin(JoinNode node, Set<String> disallowedDynamicFilterIds)
         {
-            ImmutableSet<String> allowedDynamicFilterIdsProbeSide = ImmutableSet.<String>builder()
+            ImmutableSet<String> disallowedDynamicFilterIdsBuildSide = ImmutableSet.<String>builder()
                     .addAll(node.getDynamicFilters().keySet())
-                    .addAll(allowedDynamicFilterIds)
+                    .addAll(disallowedDynamicFilterIds)
                     .build();
 
-            PlanWithConsumedDynamicFilters leftResult = node.getLeft().accept(this, allowedDynamicFilterIdsProbeSide);
-            Set<String> consumedProbeSide = leftResult.getConsumedDynamicFilterIds();
-            Map<String, Symbol> dynamicFilters = node.getDynamicFilters().entrySet().stream()
-                    .filter(entry -> consumedProbeSide.contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            PlanWithConsumedDynamicFilters leftResult = node.getLeft().accept(this, disallowedDynamicFilterIds);
+            PlanWithConsumedDynamicFilters rightResult = node.getRight().accept(this, disallowedDynamicFilterIdsBuildSide);
 
-            PlanWithConsumedDynamicFilters rightResult = node.getRight().accept(this, allowedDynamicFilterIds);
-            Set<String> consumed = new HashSet<>(rightResult.getConsumedDynamicFilterIds());
-            consumed.addAll(consumedProbeSide);
-            consumed.removeAll(dynamicFilters.keySet());
+            Set<String> consumed = ImmutableSet.<String>builder()
+                    .addAll(leftResult.consumedDynamicFilterIds)
+                    .addAll(rightResult.consumedDynamicFilterIds)
+                    .build();
 
             Optional<Expression> filter = node
                     .getFilter().map(this::removeAllDynamicFilters)  // no DF support at Join operators.
@@ -127,7 +139,6 @@ public class RemoveUnsupportedDynamicFilters
             PlanNode right = rightResult.getNode();
             if (!left.equals(node.getLeft())
                     || !right.equals(node.getRight())
-                    || !dynamicFilters.equals(node.getDynamicFilters())
                     || !filter.equals(node.getFilter())) {
                 return new PlanWithConsumedDynamicFilters(new JoinNode(
                         node.getId(),
@@ -142,7 +153,7 @@ public class RemoveUnsupportedDynamicFilters
                         node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
-                        dynamicFilters,
+                        node.getDynamicFilters(),
                         node.getReorderJoinStatsAndCost()),
                         ImmutableSet.copyOf(consumed));
             }
@@ -150,10 +161,10 @@ public class RemoveUnsupportedDynamicFilters
         }
 
         @Override
-        public PlanWithConsumedDynamicFilters visitSpatialJoin(SpatialJoinNode node, Set<String> allowedDynamicFilterIds)
+        public PlanWithConsumedDynamicFilters visitSpatialJoin(SpatialJoinNode node, Set<String> disallowedDynamicFilterIds)
         {
-            PlanWithConsumedDynamicFilters leftResult = node.getLeft().accept(this, allowedDynamicFilterIds);
-            PlanWithConsumedDynamicFilters rightResult = node.getRight().accept(this, allowedDynamicFilterIds);
+            PlanWithConsumedDynamicFilters leftResult = node.getLeft().accept(this, disallowedDynamicFilterIds);
+            PlanWithConsumedDynamicFilters rightResult = node.getRight().accept(this, disallowedDynamicFilterIds);
 
             Set<String> consumed = ImmutableSet.<String>builder()
                     .addAll(leftResult.consumedDynamicFilterIds)
@@ -183,9 +194,9 @@ public class RemoveUnsupportedDynamicFilters
         }
 
         @Override
-        public PlanWithConsumedDynamicFilters visitFilter(FilterNode node, Set<String> allowedDynamicFilterIds)
+        public PlanWithConsumedDynamicFilters visitFilter(FilterNode node, Set<String> disallowedDynamicFilterIds)
         {
-            PlanWithConsumedDynamicFilters result = node.getSource().accept(this, allowedDynamicFilterIds);
+            PlanWithConsumedDynamicFilters result = node.getSource().accept(this, disallowedDynamicFilterIds);
 
             Expression original = node.getPredicate();
             ImmutableSet.Builder<String> consumedDynamicFilterIds = ImmutableSet.<String>builder()
@@ -194,8 +205,8 @@ public class RemoveUnsupportedDynamicFilters
             PlanNode source = result.getNode();
             Expression modified;
             if (source instanceof TableScanNode) {
-                // Keep only allowed dynamic filters
-                modified = removeDynamicFilters(original, allowedDynamicFilterIds, consumedDynamicFilterIds);
+                // Remove disallowed dynamic filters
+                modified = removeDynamicFilters(original, disallowedDynamicFilterIds, consumedDynamicFilterIds);
             }
             else {
                 modified = removeAllDynamicFilters(original);
@@ -214,7 +225,7 @@ public class RemoveUnsupportedDynamicFilters
             return new PlanWithConsumedDynamicFilters(node, consumedDynamicFilterIds.build());
         }
 
-        private Expression removeDynamicFilters(Expression expression, Set<String> allowedDynamicFilterIds, ImmutableSet.Builder<String> consumedDynamicFilterIds)
+        private Expression removeDynamicFilters(Expression expression, Set<String> disallowedDynamicFilterIds, ImmutableSet.Builder<String> consumedDynamicFilterIds)
         {
             return combineConjuncts(metadata, extractConjuncts(expression)
                     .stream()
@@ -222,11 +233,13 @@ public class RemoveUnsupportedDynamicFilters
                     .filter(conjunct ->
                             getDescriptor(conjunct)
                                     .map(descriptor -> {
-                                        if (allowedDynamicFilterIds.contains(descriptor.getId())) {
-                                            consumedDynamicFilterIds.add(descriptor.getId());
-                                            return true;
+                                        if (disallowedDynamicFilterIds.contains(descriptor.getId())
+                                                || !producedDynamicFilterIds.contains(descriptor.getId())) {
+                                            return false;
                                         }
-                                        return false;
+
+                                        consumedDynamicFilterIds.add(descriptor.getId());
+                                        return true;
                                     }).orElse(true))
                     .collect(toImmutableList()));
         }
@@ -296,6 +309,44 @@ public class RemoveUnsupportedDynamicFilters
         Set<String> getConsumedDynamicFilterIds()
         {
             return consumedDynamicFilterIds;
+        }
+    }
+
+    private static class RemoveUnconsumedDynamicFilters
+            extends SimplePlanRewriter<Void>
+    {
+        private final Set<String> consumedDynamicFilterIds;
+
+        private RemoveUnconsumedDynamicFilters(Set<String> consumedDynamicFilterIds)
+        {
+            this.consumedDynamicFilterIds = consumedDynamicFilterIds;
+        }
+
+        @Override
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
+        {
+            JoinNode joinNode = (JoinNode) context.defaultRewrite(node);
+            Map<String, Symbol> dynamicFilters = joinNode.getDynamicFilters().entrySet().stream()
+                    .filter(entry -> consumedDynamicFilterIds.contains(entry.getKey()))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            if (!dynamicFilters.equals(joinNode.getDynamicFilters())) {
+                return new JoinNode(
+                        joinNode.getId(),
+                        joinNode.getType(),
+                        joinNode.getLeft(),
+                        joinNode.getRight(),
+                        joinNode.getCriteria(),
+                        joinNode.getLeftOutputSymbols(),
+                        joinNode.getRightOutputSymbols(),
+                        joinNode.getFilter(),
+                        joinNode.getLeftHashSymbol(),
+                        joinNode.getRightHashSymbol(),
+                        joinNode.getDistributionType(),
+                        joinNode.isSpillable(),
+                        dynamicFilters,
+                        joinNode.getReorderJoinStatsAndCost());
+            }
+            return joinNode;
         }
     }
 }

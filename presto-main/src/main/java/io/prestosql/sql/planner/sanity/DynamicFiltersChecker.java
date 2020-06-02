@@ -24,7 +24,6 @@ import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.tree.Expression;
@@ -36,8 +35,9 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Sets.difference;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
@@ -48,7 +48,14 @@ public class DynamicFiltersChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(), null);
+        Set<String> producedDynamicFilterIds = searchFrom(plan)
+                .where(JoinNode.class::isInstance)
+                .<JoinNode>findAll()
+                .stream()
+                .flatMap(joinNode -> joinNode.getDynamicFilters().keySet().stream())
+                .collect(toImmutableSet());
+        Set<String> consumedDynamicFilters = plan.accept(new Visitor(), null);
+        verify(consumedDynamicFilters.equals(producedDynamicFilterIds), "All consumed dynamic filters could not be matched with a join.");
     }
 
     private static class Visitor
@@ -65,23 +72,12 @@ public class DynamicFiltersChecker
         }
 
         @Override
-        public Set<String> visitOutput(OutputNode node, Void context)
-        {
-            Set<String> unmatched = visitPlan(node, context);
-            verify(unmatched.isEmpty(), "All consumed dynamic filters could not be matched with a join.");
-            return unmatched;
-        }
-
-        @Override
         public Set<String> visitJoin(JoinNode node, Void context)
         {
-            Set<String> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
             Set<String> consumedProbeSide = node.getLeft().accept(this, context);
-            Set<String> unconsumedByProbeSide = difference(currentJoinDynamicFilters, consumedProbeSide);
-            verify(unconsumedByProbeSide.isEmpty(),
-                    "Dynamic filters %s present in join were not fully consumed by it's probe side.", unconsumedByProbeSide);
-
             Set<String> consumedBuildSide = node.getRight().accept(this, context);
+
+            Set<String> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
             Set<String> unconsumedByBuildSide = intersection(currentJoinDynamicFilters, consumedBuildSide);
             verify(unconsumedByBuildSide.isEmpty(),
                     "Dynamic filters %s present in join were consumed by it's build side.", unconsumedByBuildSide);
@@ -93,10 +89,10 @@ public class DynamicFiltersChecker
                     .orElse(ImmutableList.of());
             verify(nonPushedDownFilters.isEmpty(), "Dynamic filters %s present in join filter predicate were not pushed down.", nonPushedDownFilters);
 
-            Set<String> unmatched = new HashSet<>(consumedBuildSide);
-            unmatched.addAll(consumedProbeSide);
-            unmatched.removeAll(currentJoinDynamicFilters);
-            return ImmutableSet.copyOf(unmatched);
+            return ImmutableSet.<String>builder()
+                    .addAll(consumedBuildSide)
+                    .addAll(consumedProbeSide)
+                    .build();
         }
 
         @Override

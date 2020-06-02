@@ -52,7 +52,9 @@ public class TestDynamicFiltersChecker
     private Symbol lineitemOrderKeySymbol;
     private TableScanNode lineitemTableScanNode;
     private Symbol ordersOrderKeySymbol;
+    private Symbol ordersOrderKeySymbol2;
     private TableScanNode ordersTableScanNode;
+    private TableScanNode ordersTableScanNode2;
 
     @BeforeClass
     public void setup()
@@ -74,24 +76,9 @@ public class TestDynamicFiltersChecker
                 TestingTransactionHandle.create(),
                 Optional.empty());
         ordersOrderKeySymbol = builder.symbol("ORDERS_OK", BIGINT);
+        ordersOrderKeySymbol2 = builder.symbol("ORDERS_OK2", BIGINT);
         ordersTableScanNode = builder.tableScan(ordersTableHandle, ImmutableList.of(ordersOrderKeySymbol), ImmutableMap.of(ordersOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
-    }
-
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[DF\\] present in join were not fully consumed by it's probe side.")
-    public void testUnconsumedDynamicFilterInJoin()
-    {
-        PlanNode root = builder.join(
-                INNER,
-                builder.filter(PlanBuilder.expression("ORDERS_OK > 0"), ordersTableScanNode),
-                lineitemTableScanNode,
-                ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
-                ImmutableList.of(ordersOrderKeySymbol),
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of("DF", lineitemOrderKeySymbol));
-        validatePlan(root);
+        ordersTableScanNode2 = builder.tableScan(ordersTableHandle, ImmutableList.of(ordersOrderKeySymbol2), ImmutableMap.of(ordersOrderKeySymbol2, new TpchColumnHandle("orderkey", BIGINT)));
     }
 
     @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[DF\\] present in join were consumed by it's build side.")
@@ -168,6 +155,29 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of()));
+        validatePlan(root);
+    }
+
+    @Test
+    public void testDynamicFilterAnotherBranch()
+    {
+        PlanNode root = builder.join(
+                INNER,
+                builder.filter(
+                        createDynamicFilterExpression(metadata, "DF", BIGINT, ordersOrderKeySymbol2.toSymbolReference()),
+                        ordersTableScanNode2),
+                builder.join(
+                        INNER,
+                        ordersTableScanNode,
+                        lineitemTableScanNode,
+                        ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
+                        ImmutableList.of(ordersOrderKeySymbol),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("DF", lineitemOrderKeySymbol)),
+                new JoinNode.EquiJoinClause(ordersOrderKeySymbol2, ordersOrderKeySymbol));
         validatePlan(root);
     }
 

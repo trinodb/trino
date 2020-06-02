@@ -93,6 +93,7 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class PredicatePushDown
         implements PlanOptimizer
@@ -309,7 +310,7 @@ public class PredicatePushDown
         {
             Map<Symbol, SymbolReference> commonGroupingSymbolMapping = node.getGroupingColumns().entrySet().stream()
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+                    .collect(toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
             Predicate<Expression> pushdownEligiblePredicate = conjunct -> commonGroupingSymbolMapping.keySet().containsAll(SymbolsExtractor.extractUnique(conjunct));
 
@@ -460,12 +461,12 @@ public class PredicatePushDown
             Assignments.Builder leftProjections = Assignments.builder();
             leftProjections.putAll(node.getLeft()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(toMap(key -> key, Symbol::toSymbolReference)));
 
             Assignments.Builder rightProjections = Assignments.builder();
             rightProjections.putAll(node.getRight()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(toMap(key -> key, Symbol::toSymbolReference)));
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
@@ -577,10 +578,19 @@ public class PredicatePushDown
                 // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
                 ImmutableMap.Builder<String, Symbol> dynamicFiltersBuilder = ImmutableMap.builder();
                 ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
+                Map<Symbol, String> buildSymbolToDynamicFilter = node.getDynamicFilters().entrySet().stream()
+                        .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
                 for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
                     Symbol probeSymbol = clause.getLeft();
                     Symbol buildSymbol = clause.getRight();
-                    String id = "df_" + idAllocator.getNextId().toString();
+                    String id;
+                    if (buildSymbolToDynamicFilter.containsKey(buildSymbol)) {
+                        id = buildSymbolToDynamicFilter.get(buildSymbol);
+                    }
+                    else {
+                        id = "df_" + idAllocator.getNextId().toString();
+                        buildSymbolToDynamicFilter.put(buildSymbol, id);
+                    }
                     predicatesBuilder.add(createDynamicFilterExpression(metadata, id, symbolAllocator.getTypes().get(probeSymbol), probeSymbol.toSymbolReference()));
                     dynamicFiltersBuilder.put(id, buildSymbol);
                 }
@@ -676,12 +686,12 @@ public class PredicatePushDown
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(toMap(key -> key, Symbol::toSymbolReference)));
 
                 Assignments.Builder rightProjections = Assignments.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(toMap(key -> key, Symbol::toSymbolReference)));
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());

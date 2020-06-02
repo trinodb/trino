@@ -96,6 +96,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.or;
@@ -707,10 +708,13 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
+                ImmutableMap.of("DF", D),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        TypeProvider types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+                .put(D, BIGINT)
+                .build());
+        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, types, typeAnalyzer);
 
         // All predicates having output symbol should be carried through
         assertEquals(
@@ -722,7 +726,8 @@ public class TestEffectivePredicateExtractor
                         lessThan(FE, bigintLiteral(100)),
                         equals(AE, DE),
                         equals(BE, EE),
-                        lessThanOrEqual(BE, EE)));
+                        lessThanOrEqual(BE, EE),
+                        createDynamicFilterExpression(metadata, "DF", BIGINT, D.toSymbolReference())));
     }
 
     @Test
