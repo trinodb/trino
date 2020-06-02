@@ -46,6 +46,7 @@ import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Output;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.iterative.QueryRuleStats;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
@@ -69,11 +70,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.SystemSessionProperties.getQueryRuleStatsTopN;
 import static io.prestosql.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.prestosql.execution.QueryState.DISPATCHING;
 import static io.prestosql.execution.QueryState.FAILED;
@@ -155,6 +158,8 @@ public class QueryStateMachine
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final WarningCollector warningCollector;
+
+    private final AtomicReference<Map<Class<?>, QueryRuleStats>> queryRuleStats = new AtomicReference<>(ImmutableMap.of());
 
     private QueryStateMachine(
             String query,
@@ -547,6 +552,7 @@ public class QueryStateMachine
                 queryStateTimer.getExecutionTime(),
                 queryStateTimer.getAnalysisTime(),
                 queryStateTimer.getPlanningTime(),
+                queryRuleStats.get(),
                 queryStateTimer.getFinishingTime(),
 
                 totalTasks,
@@ -735,6 +741,20 @@ public class QueryStateMachine
     public void setUpdateType(String updateType)
     {
         this.updateType.set(updateType);
+    }
+
+    public void setQueryRuleStats(Map<Class<?>, QueryRuleStats> queryRuleStats)
+    {
+        checkArgument(queryRuleStats != null, "ruleStats is null");
+        int queryRuleStatsTopN = getQueryRuleStatsTopN(session);
+        if (queryRuleStatsTopN > 0) {
+            Map<Class<?>, QueryRuleStats> ruleStatsTopN = queryRuleStats.entrySet()
+                    .stream()
+                    .sorted(Map.Entry.comparingByValue((r1, r2) -> (int) (r2.getTime() - r1.getTime())))
+                    .limit(queryRuleStatsTopN)
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            this.queryRuleStats.set(ImmutableMap.copyOf(ruleStatsTopN));
+        }
     }
 
     public QueryState getQueryState()
@@ -1071,6 +1091,7 @@ public class QueryStateMachine
                 queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),
                 queryStats.getPlanningTime(),
+                queryStats.getPlanningRuleStats(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
                 queryStats.getRunningTasks(),

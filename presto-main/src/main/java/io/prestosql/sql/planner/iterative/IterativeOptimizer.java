@@ -166,10 +166,10 @@ public class IterativeOptimizer
                 duration = System.nanoTime() - start;
             }
             catch (RuntimeException e) {
-                stats.recordFailure(rule);
+                stats.recordFailure(rule, ruleContext(context).getSession().getQueryId());
                 throw e;
             }
-            stats.record(rule, duration, !result.isEmpty());
+            stats.record(rule, duration, !result.isEmpty(), ruleContext(context).getSession().getQueryId());
 
             if (result.getTransformedPlan().isPresent()) {
                 return result;

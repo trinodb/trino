@@ -32,6 +32,7 @@ import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
@@ -249,6 +250,7 @@ public class FailedDispatchQuery
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new HashMap<>(),
                 new Duration(0, MILLISECONDS),
                 0,
                 0,

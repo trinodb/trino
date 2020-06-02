@@ -13,8 +13,12 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.QueryId;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
+import io.prestosql.sql.planner.iterative.QueryRuleStats;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.RuleStats;
 import org.weakref.jmx.MBeanExport;
@@ -27,6 +31,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -36,6 +41,7 @@ import static java.lang.String.format;
 public class RuleStatsRecorder
 {
     private final Map<Class<?>, RuleStats> stats = new HashMap<>();
+    private final Cache<QueryId, Map<Class<?>, QueryRuleStats>> queryRuleStats = CacheBuilder.newBuilder().build();
 
     @GuardedBy("this")
     private final List<MBeanExport> mbeanExports = new ArrayList<>();
@@ -48,14 +54,26 @@ public class RuleStatsRecorder
         }
     }
 
-    public void record(Rule<?> rule, long nanos, boolean match)
+    public void record(Rule<?> rule, long nanos, boolean match, QueryId queryId)
     {
         stats.get(rule.getClass()).record(nanos, match);
+        try {
+            queryRuleStats.get(queryId, HashMap::new).putIfAbsent(rule.getClass(), QueryRuleStats.createQueryRuleStats(match, nanos));
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(format("Failed to get query %s RuleStats from queryStats", queryId), e);
+        }
     }
 
-    public void recordFailure(Rule<?> rule)
+    public void recordFailure(Rule<?> rule, QueryId queryId)
     {
         stats.get(rule.getClass()).recordFailure();
+        try {
+            queryRuleStats.get(queryId, HashMap::new).putIfAbsent(rule.getClass(), QueryRuleStats.createFailureQueryRuleStats());
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(format("Failed to get query %s RuleStats from queryStats", queryId), e);
+        }
     }
 
     synchronized void export(MBeanExporter exporter)
@@ -81,5 +99,10 @@ public class RuleStatsRecorder
             mbeanExport.unexport();
         }
         mbeanExports.clear();
+    }
+
+    public Cache<QueryId, Map<Class<?>, QueryRuleStats>> getQueryRuleStats()
+    {
+        return queryRuleStats;
     }
 }

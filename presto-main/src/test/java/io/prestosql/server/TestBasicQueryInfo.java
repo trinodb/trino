@@ -64,6 +64,7 @@ public class TestBasicQueryInfo
                                 Duration.valueOf("44m"),
                                 Duration.valueOf("9m"),
                                 Duration.valueOf("99s"),
+                                ImmutableMap.of(),
                                 Duration.valueOf("12m"),
                                 13,
                                 14,
