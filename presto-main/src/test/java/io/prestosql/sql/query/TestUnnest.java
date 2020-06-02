@@ -199,4 +199,17 @@ public class TestUnnest
                 "SELECT * FROM (VALUES 1) t, UNNEST(ARRAY['a', 'b'], ARRAY['a', 'b']) u (x, y)"))
                 .matches("VALUES (1, 'a', 'a'), (1, 'b', 'b')");
     }
+
+    @Test
+    public void testDereferencesWithUnnest()
+    {
+        assertThat(assertions.query(
+                "SELECT x, z.f1 FROM (" +
+                        "VALUES (" +
+                        "   ARRAY[CAST(ROW(1, 2, ROW(3, 4)) AS ROW(a INTEGER, b INTEGER, c ROW(f1 INTEGER, f2 INTEGER)))], " +
+                        "   ARRAY[CAST(ROW(1,2) AS ROW(x INTEGER, y INTEGER))])) " +
+                        "AS t(a, b) " +
+                        "CROSS JOIN UNNEST(a, b) t(x, y, z, w, u)"))
+                .matches("VALUES (1, 3)");
+    }
 }
