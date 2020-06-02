@@ -665,8 +665,7 @@ public class PlanOptimizers
         // and to pushdown dynamic filters
         builder.add(new StatsRecordingPlanOptimizer(
                 optimizerStats,
-                new PredicatePushDown(metadata, typeAnalyzer, true, true)));
-        builder.add(new RemoveUnsupportedDynamicFilters(metadata));
+                new PredicatePushDown(metadata, typeAnalyzer, true, false)));
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(new IterativeOptimizer(
                 ruleStats,
