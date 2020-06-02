@@ -611,7 +611,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
     {
-        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
+        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.empty()));
+    }
+
+    public static PlanMatchPattern filter(Expression expectedPredicate, Expression dynamicFilter, PlanMatchPattern source)
+    {
+        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.of(dynamicFilter)));
     }
 
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, ExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
