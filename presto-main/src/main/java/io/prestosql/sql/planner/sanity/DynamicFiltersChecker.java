@@ -48,64 +48,67 @@ public class DynamicFiltersChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
-        plan.accept(new PlanVisitor<Set<String>, Void>()
+        plan.accept(new Visitor(), null);
+    }
+
+    private static class Visitor
+            extends PlanVisitor<Set<String>, Void>
+    {
+        @Override
+        protected Set<String> visitPlan(PlanNode node, Void context)
         {
-            @Override
-            protected Set<String> visitPlan(PlanNode node, Void context)
-            {
-                Set<String> consumed = new HashSet<>();
-                for (PlanNode source : node.getSources()) {
-                    consumed.addAll(source.accept(this, context));
-                }
-                return consumed;
+            Set<String> consumed = new HashSet<>();
+            for (PlanNode source : node.getSources()) {
+                consumed.addAll(source.accept(this, context));
             }
+            return consumed;
+        }
 
-            @Override
-            public Set<String> visitOutput(OutputNode node, Void context)
-            {
-                Set<String> unmatched = visitPlan(node, context);
-                verify(unmatched.isEmpty(), "All consumed dynamic filters could not be matched with a join.");
-                return unmatched;
-            }
+        @Override
+        public Set<String> visitOutput(OutputNode node, Void context)
+        {
+            Set<String> unmatched = visitPlan(node, context);
+            verify(unmatched.isEmpty(), "All consumed dynamic filters could not be matched with a join.");
+            return unmatched;
+        }
 
-            @Override
-            public Set<String> visitJoin(JoinNode node, Void context)
-            {
-                Set<String> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
-                Set<String> consumedProbeSide = node.getLeft().accept(this, context);
-                Set<String> unconsumedByProbeSide = difference(currentJoinDynamicFilters, consumedProbeSide);
-                verify(unconsumedByProbeSide.isEmpty(),
-                        "Dynamic filters %s present in join were not fully consumed by it's probe side.", unconsumedByProbeSide);
+        @Override
+        public Set<String> visitJoin(JoinNode node, Void context)
+        {
+            Set<String> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
+            Set<String> consumedProbeSide = node.getLeft().accept(this, context);
+            Set<String> unconsumedByProbeSide = difference(currentJoinDynamicFilters, consumedProbeSide);
+            verify(unconsumedByProbeSide.isEmpty(),
+                    "Dynamic filters %s present in join were not fully consumed by it's probe side.", unconsumedByProbeSide);
 
-                Set<String> consumedBuildSide = node.getRight().accept(this, context);
-                Set<String> unconsumedByBuildSide = intersection(currentJoinDynamicFilters, consumedBuildSide);
-                verify(unconsumedByBuildSide.isEmpty(),
-                        "Dynamic filters %s present in join were consumed by it's build side.", unconsumedByBuildSide);
+            Set<String> consumedBuildSide = node.getRight().accept(this, context);
+            Set<String> unconsumedByBuildSide = intersection(currentJoinDynamicFilters, consumedBuildSide);
+            verify(unconsumedByBuildSide.isEmpty(),
+                    "Dynamic filters %s present in join were consumed by it's build side.", unconsumedByBuildSide);
 
-                List<DynamicFilters.Descriptor> nonPushedDownFilters = node
-                        .getFilter()
-                        .map(DynamicFilters::extractDynamicFilters)
-                        .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
-                        .orElse(ImmutableList.of());
-                verify(nonPushedDownFilters.isEmpty(), "Dynamic filters %s present in join filter predicate were not pushed down.", nonPushedDownFilters);
+            List<DynamicFilters.Descriptor> nonPushedDownFilters = node
+                    .getFilter()
+                    .map(DynamicFilters::extractDynamicFilters)
+                    .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                    .orElse(ImmutableList.of());
+            verify(nonPushedDownFilters.isEmpty(), "Dynamic filters %s present in join filter predicate were not pushed down.", nonPushedDownFilters);
 
-                Set<String> unmatched = new HashSet<>(consumedBuildSide);
-                unmatched.addAll(consumedProbeSide);
-                unmatched.removeAll(currentJoinDynamicFilters);
-                return ImmutableSet.copyOf(unmatched);
-            }
+            Set<String> unmatched = new HashSet<>(consumedBuildSide);
+            unmatched.addAll(consumedProbeSide);
+            unmatched.removeAll(currentJoinDynamicFilters);
+            return ImmutableSet.copyOf(unmatched);
+        }
 
-            @Override
-            public Set<String> visitFilter(FilterNode node, Void context)
-            {
-                ImmutableSet.Builder<String> consumed = ImmutableSet.builder();
-                extractDynamicPredicates(node.getPredicate()).stream()
-                        .map(DynamicFilters.Descriptor::getId)
-                        .forEach(consumed::add);
-                consumed.addAll(node.getSource().accept(this, context));
-                return consumed.build();
-            }
-        }, null);
+        @Override
+        public Set<String> visitFilter(FilterNode node, Void context)
+        {
+            ImmutableSet.Builder<String> consumed = ImmutableSet.builder();
+            extractDynamicPredicates(node.getPredicate()).stream()
+                    .map(DynamicFilters.Descriptor::getId)
+                    .forEach(consumed::add);
+            consumed.addAll(node.getSource().accept(this, context));
+            return consumed.build();
+        }
     }
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)
