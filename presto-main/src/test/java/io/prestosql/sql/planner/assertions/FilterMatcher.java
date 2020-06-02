@@ -21,6 +21,8 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.Expression;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
@@ -31,10 +33,12 @@ final class FilterMatcher
         implements Matcher
 {
     private final Expression predicate;
+    private final Optional<Expression> dynamicFilter;
 
-    FilterMatcher(Expression predicate)
+    FilterMatcher(Expression predicate, Optional<Expression> dynamicFilter)
     {
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
     @Override
@@ -49,9 +53,13 @@ final class FilterMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         FilterNode filterNode = (FilterNode) node;
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-        // match non-dynamic filters only
         Expression filterPredicate = filterNode.getPredicate();
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+
+        if (dynamicFilter.isPresent()) {
+            return new MatchResult(verifier.process(filterPredicate, combineConjuncts(metadata, predicate, dynamicFilter.get())));
+        }
+
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
         return new MatchResult(verifier.process(combineConjuncts(metadata, extractResult.getStaticConjuncts()), predicate));
     }

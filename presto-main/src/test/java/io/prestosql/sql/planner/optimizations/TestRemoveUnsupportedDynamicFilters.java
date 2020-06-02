@@ -34,12 +34,13 @@ import io.prestosql.sql.planner.assertions.PlanAssert;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.sanity.DynamicFiltersChecker;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -53,13 +54,13 @@ import static io.prestosql.sql.ExpressionUtils.combineDisjuncts;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 @Test(singleThreaded = true) // e.g. PlanBuilder is mutable
 public class TestRemoveUnsupportedDynamicFilters
@@ -122,13 +123,14 @@ public class TestRemoveUnsupportedDynamicFilters
     @Test
     public void testDynamicFilterConsumedOnBuildSide()
     {
+        Expression dynamicFilter = createDynamicFilterExpression(metadata, "DF", BIGINT, ordersOrderKeySymbol.toSymbolReference());
         PlanNode root = builder.join(
                 INNER,
                 builder.filter(
-                        createDynamicFilterExpression(metadata, "DF", BIGINT, ordersOrderKeySymbol.toSymbolReference()),
+                        dynamicFilter,
                         ordersTableScanNode),
                 builder.filter(
-                        createDynamicFilterExpression(metadata, "DF", BIGINT, ordersOrderKeySymbol.toSymbolReference()),
+                        dynamicFilter,
                         lineitemTableScanNode),
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
@@ -141,8 +143,9 @@ public class TestRemoveUnsupportedDynamicFilters
                 removeUnsupportedDynamicFilters(root),
                 join(INNER,
                         ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                        node(
-                                FilterNode.class,
+                        filter(
+                                TRUE_LITERAL,
+                                createDynamicFilterExpression(metadata, "DF", BIGINT, new SymbolReference("ORDERS_OK")),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
