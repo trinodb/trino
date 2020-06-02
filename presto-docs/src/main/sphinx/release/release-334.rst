@@ -30,7 +30,7 @@ General Changes
 JDBC Driver
 -----------
 
-* Implement ``toString()`` for ``java.sqlArray`` results. (:issue:`3803`)
+* Implement ``toString()`` for ``java.sql.Array`` results. (:issue:`3803`)
 
 CLI Changes
 -----------
