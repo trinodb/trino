@@ -11,10 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.authentication;
+package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.ForHiveMetastore;
+import io.prestosql.plugin.hive.authentication.HadoopAuthentication;
+import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
+import io.prestosql.plugin.hive.authentication.MetastoreKerberosConfig;
 import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;

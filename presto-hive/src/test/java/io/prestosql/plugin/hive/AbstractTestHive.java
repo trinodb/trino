@@ -27,7 +27,6 @@ import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.azure.HiveAzureConfig;
@@ -51,6 +50,7 @@ import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.TestingMetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
@@ -728,7 +728,7 @@ public abstract class AbstractTestHive
 
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new ThriftMetastoreAuthenticationConfig(), hdfsEnvironment)),
                 executor,
                 Duration.valueOf("1m"),
                 Optional.of(Duration.valueOf("15s")),
