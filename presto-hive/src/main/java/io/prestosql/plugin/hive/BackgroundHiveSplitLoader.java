@@ -44,6 +44,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
+import org.apache.hadoop.hive.ql.io.OurAcidUtils;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -412,7 +413,7 @@ public class BackgroundHiveSplitLoader
         List<Path> readPaths;
         Optional<DeleteDeltaLocations> deleteDeltaLocations;
         if (AcidUtils.isTransactionalTable(table.getParameters())) {
-            AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
+            OurAcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> OurAcidUtils.getAcidState(
                     path,
                     configuration,
                     validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present")),
@@ -442,7 +443,7 @@ public class BackgroundHiveSplitLoader
             }
 
             // delta directories
-            for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
+            for (OurAcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (!delta.isDeleteDelta()) {
                     readPaths.add(delta.getPath());
                 }
@@ -450,7 +451,7 @@ public class BackgroundHiveSplitLoader
 
             // Create a registry of delete_delta directories for the partition
             DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder = DeleteDeltaLocations.builder(path);
-            for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
+            for (OurAcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (delta.isDeleteDelta()) {
                     deleteDeltaLocationsBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId());
                 }
