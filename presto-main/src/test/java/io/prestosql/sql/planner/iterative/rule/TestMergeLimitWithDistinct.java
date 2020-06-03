@@ -35,8 +35,8 @@ public class TestMergeLimitWithDistinct
                         p.limit(
                                 1,
                                 p.aggregation(builder -> builder
-                                                .singleGroupingSet(p.symbol("foo"))
-                                                .source(p.values(p.symbol("foo"))))))
+                                        .singleGroupingSet(p.symbol("foo"))
+                                        .source(p.values(p.symbol("foo"))))))
                 .matches(
                         node(DistinctLimitNode.class,
                                 node(ValuesNode.class)));
@@ -50,9 +50,9 @@ public class TestMergeLimitWithDistinct
                         p.limit(
                                 1,
                                 p.aggregation(builder -> builder
-                                                .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
-                                                .globalGrouping()
-                                                .source(p.values(p.symbol("foo"))))))
+                                        .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
+                                        .globalGrouping()
+                                        .source(p.values(p.symbol("foo"))))))
                 .doesNotFire();
 
         tester().assertThat(new MergeLimitWithDistinct())
@@ -60,8 +60,8 @@ public class TestMergeLimitWithDistinct
                         p.limit(
                                 1,
                                 p.aggregation(builder -> builder
-                                                .globalGrouping()
-                                                .source(p.values(p.symbol("foo"))))))
+                                        .globalGrouping()
+                                        .source(p.values(p.symbol("foo"))))))
                 .doesNotFire();
     }
 

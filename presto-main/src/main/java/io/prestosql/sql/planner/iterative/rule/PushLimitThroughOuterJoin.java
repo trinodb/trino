@@ -56,11 +56,11 @@ public class PushLimitThroughOuterJoin
     private static final Capture<JoinNode> CHILD = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
-                    .matching(limit -> !limit.isWithTies())
-                    .with(source().matching(
-                            join()
-                                    .with(type().matching(type -> type == LEFT || type == RIGHT))
-                                    .capturedAs(CHILD)));
+            .matching(limit -> !limit.isWithTies())
+            .with(source().matching(
+                    join()
+                            .with(type().matching(type -> type == LEFT || type == RIGHT))
+                            .capturedAs(CHILD)));
 
     @Override
     public Pattern<LimitNode> getPattern()

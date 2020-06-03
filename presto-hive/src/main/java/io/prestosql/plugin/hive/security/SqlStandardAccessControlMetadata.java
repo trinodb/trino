@@ -106,7 +106,7 @@ public class SqlStandardAccessControlMetadata
         ImmutableSet.Builder<RoleGrant> roleGrants = ImmutableSet.builder();
         int count = 0;
         for (String grantee : grantees) {
-            for (PrincipalType type : new PrincipalType[]{USER, ROLE}) {
+            for (PrincipalType type : new PrincipalType[] {USER, ROLE}) {
                 if (limit.isPresent() && count >= limit.getAsLong()) {
                     return roleGrants.build();
                 }

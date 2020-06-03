@@ -55,7 +55,7 @@ import static java.util.Objects.requireNonNull;
  *          Project(A, B, C, symbol := A.x)
  *              Source(A, B, C)
  * </pre>
- *
+ * <p>
  * Pushes down dereference projections through TopN. Excludes dereferences on symbols in ordering scheme to avoid data
  * replication, since these symbols cannot be pruned.
  */

@@ -110,7 +110,7 @@ public class TestArrayOfRowsUnnester
     /**
      * Test operations of ArrayOfRowUnnester incrementally on the input.
      * Output final blocks after the whole input has been processed.
-     *
+     * <p>
      * Input 3d array {@code elements} stores values from a column with type <array<row<varchar, varchar, ... {@code fieldCount} times> >.
      * elements[i] corresponds to a position in this column, represents one array of row(....).
      * elements[i][j] represents one row(....) object in the array.

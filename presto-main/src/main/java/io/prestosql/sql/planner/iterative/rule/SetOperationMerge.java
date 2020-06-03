@@ -45,6 +45,7 @@ class SetOperationMerge
 
     /**
      * Only merge first source node, which is assumed to be used for non-associative set operation.
+     *
      * @return Merged plan node if applied.
      */
     public Optional<SetOperationNode> mergeFirstSource()
@@ -76,6 +77,7 @@ class SetOperationMerge
 
     /**
      * Constructs the new mapping and source nodes
+     *
      * @return Merged plan node if applied.
      */
     public Optional<SetOperationNode> merge()

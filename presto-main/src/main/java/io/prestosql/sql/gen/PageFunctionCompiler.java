@@ -199,7 +199,7 @@ public class PageFunctionCompiler
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
                 throw new PrestoException(COMPILER_ERROR,
-                    "Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.", e);
+                        "Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.", e);
             }
             throw new PrestoException(COMPILER_ERROR, e);
         }
@@ -388,7 +388,7 @@ public class PageFunctionCompiler
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
                 throw new PrestoException(COMPILER_ERROR,
-                    "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
+                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
             }
             throw new PrestoException(COMPILER_ERROR, filter.toString(), e.getCause());
         }

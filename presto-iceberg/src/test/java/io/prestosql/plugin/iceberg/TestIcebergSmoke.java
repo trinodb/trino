@@ -49,10 +49,10 @@ public class TestIcebergSmoke
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
                 .matches("CREATE SCHEMA iceberg.tpch\n" +
-                         "AUTHORIZATION USER user\n" +
-                         "WITH \\(\n" +
-                         "   location = '.*/iceberg_data/tpch'\n" +
-                         "\\)");
+                        "AUTHORIZATION USER user\n" +
+                        "WITH \\(\n" +
+                        "   location = '.*/iceberg_data/tpch'\n" +
+                        "\\)");
     }
 
     @Test

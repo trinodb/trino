@@ -28,8 +28,8 @@ public class TestHiveDeltaLakeTable
         onHive().executeQuery("DROP TABLE IF EXISTS test_delta_lake_table");
 
         onHive().executeQuery("" +
-                        "CREATE TABLE test_delta_lake_table (ignored int) " +
-                        "TBLPROPERTIES ('spark.sql.sources.provider'='DELTA')");
+                "CREATE TABLE test_delta_lake_table (ignored int) " +
+                "TBLPROPERTIES ('spark.sql.sources.provider'='DELTA')");
 
         assertThat(() -> onPresto().executeQuery("SELECT * FROM test_delta_lake_table")).failsWithMessage("Cannot query Delta Lake table");
 

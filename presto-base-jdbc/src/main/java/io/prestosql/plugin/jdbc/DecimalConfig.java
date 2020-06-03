@@ -31,7 +31,8 @@ public class DecimalConfig
     private int decimalDefaultScale;
     private RoundingMode decimalRoundingMode = UNNECESSARY;
 
-    public enum DecimalMapping {
+    public enum DecimalMapping
+    {
         STRICT,
         ALLOW_OVERFLOW,
         /**/;

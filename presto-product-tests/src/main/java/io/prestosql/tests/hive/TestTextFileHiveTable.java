@@ -57,38 +57,38 @@ public class TestTextFileHiveTable
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header");
         onPresto().executeQuery("" +
-                                "CREATE TABLE test_create_textfile_skip_header" +
-                                " (name varchar) " +
-                                "WITH ( " +
-                                "   format = 'TEXTFILE', " +
-                                "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
-                                "   skip_header_line_count = 1 " +
-                                ")");
+                "CREATE TABLE test_create_textfile_skip_header" +
+                " (name varchar) " +
+                "WITH ( " +
+                "   format = 'TEXTFILE', " +
+                "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
+                "   skip_header_line_count = 1 " +
+                ")");
         assertThat(query("SELECT * FROM test_create_textfile_skip_header")).containsOnly(row("value"), row("footer"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header");
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_footer");
         onPresto().executeQuery("" +
-                                "CREATE TABLE test_create_textfile_skip_footer" +
-                                " (name varchar) " +
-                                "WITH ( " +
-                                "   format = 'TEXTFILE', " +
-                                "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
-                                "   skip_footer_line_count = 1 " +
-                                ")");
+                "CREATE TABLE test_create_textfile_skip_footer" +
+                " (name varchar) " +
+                "WITH ( " +
+                "   format = 'TEXTFILE', " +
+                "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
+                "   skip_footer_line_count = 1 " +
+                ")");
         assertThat(query("SELECT * FROM test_create_textfile_skip_footer")).containsOnly(row("header"), row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_footer");
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header_footer");
         onPresto().executeQuery("" +
-                                "CREATE TABLE test_create_textfile_skip_header_footer" +
-                                " (name varchar) " +
-                                "WITH ( " +
-                                "   format = 'TEXTFILE', " +
-                                "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
-                                "   skip_header_line_count = 1, " +
-                                "   skip_footer_line_count = 1 " +
-                                ")");
+                "CREATE TABLE test_create_textfile_skip_header_footer" +
+                " (name varchar) " +
+                "WITH ( " +
+                "   format = 'TEXTFILE', " +
+                "   external_location = 'hdfs://hadoop-master:9000/user/hive/warehouse/TestTextFileHiveTable/single_column', " +
+                "   skip_header_line_count = 1, " +
+                "   skip_footer_line_count = 1 " +
+                ")");
         assertThat(query("SELECT * FROM test_create_textfile_skip_header_footer")).containsExactly(row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header_footer");
     }
@@ -98,10 +98,10 @@ public class TestTextFileHiveTable
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_textfile_skip_header");
         onHive().executeQuery("" +
-                        "CREATE TABLE test_textfile_skip_header " +
-                        " (col1 int) " +
-                        "STORED AS TEXTFILE " +
-                        "TBLPROPERTIES ('skip.header.line.count'='1')");
+                "CREATE TABLE test_textfile_skip_header " +
+                " (col1 int) " +
+                "STORED AS TEXTFILE " +
+                "TBLPROPERTIES ('skip.header.line.count'='1')");
         assertThatThrownBy(() -> onPresto().executeQuery("INSERT INTO test_textfile_skip_header VALUES (1)"))
                 .hasMessageMatching(".* Inserting into Hive table with skip.header.line.count property not supported");
         onHive().executeQuery("DROP TABLE test_textfile_skip_header");

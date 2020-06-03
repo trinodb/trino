@@ -131,7 +131,8 @@ public class PinotModule
             extends JsonDeserializer<DataSchema>
     {
         @Override
-        public DataSchema deserialize(JsonParser p, DeserializationContext ctxt) throws IOException
+        public DataSchema deserialize(JsonParser p, DeserializationContext ctxt)
+                throws IOException
         {
             JsonNode jsonNode = ctxt.readTree(p);
             ArrayNode columnDataTypes = (ArrayNode) jsonNode.get("columnDataTypes");

@@ -42,110 +42,110 @@ public final class TestingAlluxioMetastoreObjects
     public static Database.Builder getTestingDatabase()
     {
         return alluxio.grpc.table.Database.newBuilder()
-            .setDbName(DATABASE_NAME)
-            .setDescription("test")
-            .setLocation(LOCATION);
+                .setDbName(DATABASE_NAME)
+                .setDescription("test")
+                .setLocation(LOCATION);
     }
 
     public static FieldSchema.Builder getTestingFieldSchema()
     {
         return FieldSchema.newBuilder()
-            .setId(0)
-            .setName(COLUMN_NAME)
-            .setType("int")
-            .setComment("");
+                .setId(0)
+                .setName(COLUMN_NAME)
+                .setType("int")
+                .setComment("");
     }
 
     public static PartitionInfo.Builder getTestingPartitionInfo()
     {
         return PartitionInfo.newBuilder()
-            .setDbName(DATABASE_NAME)
-            .setTableName(TABLE_NAME)
-            .addValues("1")
-            .setPartitionName(String.format("%s=1", COLUMN_NAME))
-            .setStorage(getTestingStorage())
-            .addDataCols(getTestingFieldSchema());
+                .setDbName(DATABASE_NAME)
+                .setTableName(TABLE_NAME)
+                .addValues("1")
+                .setPartitionName(String.format("%s=1", COLUMN_NAME))
+                .setStorage(getTestingStorage())
+                .addDataCols(getTestingFieldSchema());
     }
 
     public static Layout.Builder getTestingHiveLayout()
     {
         return Layout.newBuilder()
-            .setLayoutSpec(LayoutSpec.newBuilder().setSpec(SPEC_NAME).build())
-            .setLayoutData(getTestingPartitionInfo().build().toByteString())
-            .setLayoutType("hive");
+                .setLayoutSpec(LayoutSpec.newBuilder().setSpec(SPEC_NAME).build())
+                .setLayoutData(getTestingPartitionInfo().build().toByteString())
+                .setLayoutType("hive");
     }
 
     public static Layout.Builder getTestingNonHiveLayout()
     {
         return Layout.newBuilder()
-            .setLayoutData(ByteString.EMPTY)
-            .setLayoutSpec(LayoutSpec.newBuilder().setSpec(SPEC_NAME).build())
-            .setLayoutType("not-hive");
+                .setLayoutData(ByteString.EMPTY)
+                .setLayoutSpec(LayoutSpec.newBuilder().setSpec(SPEC_NAME).build())
+                .setLayoutType("not-hive");
     }
 
     public static TableInfo.Builder getTestingTableInfo()
     {
         return TableInfo.newBuilder()
-            .setLayout(getTestingHiveLayout())
-            .setTableName(TABLE_NAME)
-            .setOwner(OWNER_NAME)
-            .setType(TableInfo.TableType.IMPORTED)
-            // Single column partition, no data columns
-            .addPartitionCols(getTestingFieldSchema())
-            .setSchema(getTestingSchema())
-            .putParameters("table", "parameter");
+                .setLayout(getTestingHiveLayout())
+                .setTableName(TABLE_NAME)
+                .setOwner(OWNER_NAME)
+                .setType(TableInfo.TableType.IMPORTED)
+                // Single column partition, no data columns
+                .addPartitionCols(getTestingFieldSchema())
+                .setSchema(getTestingSchema())
+                .putParameters("table", "parameter");
     }
 
     public static Schema.Builder getTestingSchema()
     {
         return Schema.newBuilder()
-            .addCols(getTestingFieldSchema());
+                .addCols(getTestingFieldSchema());
     }
 
     public static Storage.Builder getTestingStorage()
     {
         return Storage.newBuilder()
-            .setStorageFormat(getTestingStorageFormat())
-            .setLocation(LOCATION)
-            .setBucketProperty(getTestingHiveBucketProperty())
-            .setSkewed(false)
-            .putSerdeParameters("serde_param_key", "serde_param_value");
+                .setStorageFormat(getTestingStorageFormat())
+                .setLocation(LOCATION)
+                .setBucketProperty(getTestingHiveBucketProperty())
+                .setSkewed(false)
+                .putSerdeParameters("serde_param_key", "serde_param_value");
     }
 
     public static StorageFormat.Builder getTestingStorageFormat()
     {
         return StorageFormat.newBuilder()
-            .setSerde("serde")
-            .setInputFormat("TextFile")
-            .setOutputFormat("TextFile")
-            .putSerdelibParameters("serdelib_key", "serdelib_value");
+                .setSerde("serde")
+                .setInputFormat("TextFile")
+                .setOutputFormat("TextFile")
+                .putSerdelibParameters("serdelib_key", "serdelib_value");
     }
 
     public static HiveBucketProperty.Builder getTestingHiveBucketProperty()
     {
         return HiveBucketProperty.newBuilder()
-            .addBucketedBy(COLUMN_NAME)
-            .setBucketCount(1)
-            .addSortedBy(getTestingSortingColumn());
+                .addBucketedBy(COLUMN_NAME)
+                .setBucketCount(1)
+                .addSortedBy(getTestingSortingColumn());
     }
 
     public static SortingColumn.Builder getTestingSortingColumn()
     {
         return SortingColumn.newBuilder()
-            .setColumnName(COLUMN_NAME)
-            .setOrder(SortingColumn.SortingOrder.ASCENDING);
+                .setColumnName(COLUMN_NAME)
+                .setOrder(SortingColumn.SortingOrder.ASCENDING);
     }
 
     public static Partition.Builder getTestingPartition()
     {
         return Partition.newBuilder()
-            .setBaseLayout(getTestingHiveLayout())
-            .setPartitionSpec(getTestingPartitionSpec());
+                .setBaseLayout(getTestingHiveLayout())
+                .setPartitionSpec(getTestingPartitionSpec());
     }
 
     public static PartitionSpec.Builder getTestingPartitionSpec()
     {
         return PartitionSpec.newBuilder()
-            .setSpec(SPEC_NAME);
+                .setSpec(SPEC_NAME);
     }
 }

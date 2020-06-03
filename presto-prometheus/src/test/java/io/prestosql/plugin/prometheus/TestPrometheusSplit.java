@@ -447,7 +447,7 @@ public class TestPrometheusSplit
     /**
      * mock Prometheus chunked query responses (time values only)
      *
-     * @param splitTimes         the end times that would be used for each Prometheus instant query
+     * @param splitTimes the end times that would be used for each Prometheus instant query
      * @param queryChunkDuration the duration value that would be used for each query, `30s` for instance
      * @return the values from the Prometheus data that would be return by all the chunked queries
      */

@@ -64,8 +64,8 @@ public class NodeScheduler
     public static List<InternalNode> getAllNodes(NodeMap nodeMap, boolean includeCoordinator)
     {
         return nodeMap.getNodesByHostAndPort().values().stream()
-            .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
-            .collect(toImmutableList());
+                .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
+                .collect(toImmutableList());
     }
 
     public static List<InternalNode> selectNodes(int limit, Iterator<InternalNode> candidates)

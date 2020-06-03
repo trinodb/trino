@@ -56,7 +56,7 @@ final class HiveApplyProjectionUtil
     static boolean isPushDownSupported(ConnectorExpression expression)
     {
         return expression instanceof Variable ||
-            (expression instanceof FieldDereference && isPushDownSupported(((FieldDereference) expression).getTarget()));
+                (expression instanceof FieldDereference && isPushDownSupported(((FieldDereference) expression).getTarget()));
     }
 
     public static ProjectedColumnRepresentation createProjectedColumnRepresentation(ConnectorExpression expression)
@@ -130,9 +130,9 @@ final class HiveApplyProjectionUtil
             HiveColumnHandle column = (HiveColumnHandle) entry.getValue();
             if (column.getBaseColumnName().equals(baseColumnName) &&
                     column.getHiveColumnProjectionInfo()
-                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                        .orElse(ImmutableList.of())
-                        .equals(projectionIndices)) {
+                            .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                            .orElse(ImmutableList.of())
+                            .equals(projectionIndices)) {
                 return Optional.of(entry.getKey());
             }
         }

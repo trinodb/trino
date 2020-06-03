@@ -120,11 +120,11 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("x"), expression("msg.x")),
-                        p.project(
-                                Assignments.of(
-                                        p.symbol("y"), expression("y"),
-                                        p.symbol("msg", ROW_TYPE), expression("msg")),
-                                p.values(p.symbol("msg", ROW_TYPE), p.symbol("y")))))
+                                p.project(
+                                        Assignments.of(
+                                                p.symbol("y"), expression("y"),
+                                                p.symbol("msg", ROW_TYPE), expression("msg")),
+                                        p.values(p.symbol("msg", ROW_TYPE), p.symbol("y")))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("x", PlanMatchPattern.expression("msg_x")),
@@ -250,15 +250,15 @@ public class TestPushDownDereferencesRules
                                         Optional.empty(),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("arr", arrayType)))))
                 .matches(
-                    strictProject(
-                            ImmutableMap.of("x", PlanMatchPattern.expression("msg_x")),
-                            unnest(
-                                    strictProject(
-                                            ImmutableMap.of(
-                                                    "msg_x", PlanMatchPattern.expression("msg.x"),
-                                                    "msg", PlanMatchPattern.expression("msg"),
-                                                    "arr", PlanMatchPattern.expression("arr")),
-                                            values("msg", "arr")))));
+                        strictProject(
+                                ImmutableMap.of("x", PlanMatchPattern.expression("msg_x")),
+                                unnest(
+                                        strictProject(
+                                                ImmutableMap.of(
+                                                        "msg_x", PlanMatchPattern.expression("msg.x"),
+                                                        "msg", PlanMatchPattern.expression("msg"),
+                                                        "arr", PlanMatchPattern.expression("arr")),
+                                                values("msg", "arr")))));
 
         // Test with dereferences on unnested column
         RowType rowType = rowType(field("f1", BIGINT), field("f2", BIGINT));
@@ -560,13 +560,13 @@ public class TestPushDownDereferencesRules
                                                         createTestMetadataManager().resolveFunction(QualifiedName.of("min"), fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         new WindowNode.Frame(
-                                                            WindowFrame.Type.RANGE,
-                                                            FrameBound.Type.UNBOUNDED_PRECEDING,
-                                                            Optional.empty(),
-                                                            FrameBound.Type.UNBOUNDED_FOLLOWING,
-                                                            Optional.empty(),
-                                                            Optional.empty(),
-                                                            Optional.empty()),
+                                                                WindowFrame.Type.RANGE,
+                                                                FrameBound.Type.UNBOUNDED_PRECEDING,
+                                                                Optional.empty(),
+                                                                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                                                                Optional.empty(),
+                                                                Optional.empty(),
+                                                                Optional.empty()),
                                                         true)),
                                         p.values(
                                                 p.symbol("msg1", ROW_TYPE),
@@ -663,24 +663,24 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
-                            Assignments.of(
-                                    p.symbol("expr_1"), expression("a.f1"),
-                                    p.symbol("expr_2"), expression("a.f1.f1 + 2 + b.f1.f1 + b.f1.f2")),
-                            p.project(
-                                    Assignments.identity(ImmutableList.of(p.symbol("a", complexType), p.symbol("b", complexType))),
-                                    p.values(p.symbol("a", complexType), p.symbol("b", complexType)))))
+                                Assignments.of(
+                                        p.symbol("expr_1"), expression("a.f1"),
+                                        p.symbol("expr_2"), expression("a.f1.f1 + 2 + b.f1.f1 + b.f1.f2")),
+                                p.project(
+                                        Assignments.identity(ImmutableList.of(p.symbol("a", complexType), p.symbol("b", complexType))),
+                                        p.values(p.symbol("a", complexType), p.symbol("b", complexType)))))
                 .matches(
-                strictProject(
-                        ImmutableMap.of(
-                                "expr_1", PlanMatchPattern.expression("a_f1"),
-                                "expr_2", PlanMatchPattern.expression("a_f1.f1 + 2 + b_f1_f1 + b_f1_f2")),
                         strictProject(
                                 ImmutableMap.of(
-                                        "a", PlanMatchPattern.expression("a"),
-                                        "b", PlanMatchPattern.expression("b"),
-                                        "a_f1", PlanMatchPattern.expression("a.f1"),
-                                        "b_f1_f1", PlanMatchPattern.expression("b.f1.f1"),
-                                        "b_f1_f2", PlanMatchPattern.expression("b.f1.f2")),
-                                values("a", "b"))));
+                                        "expr_1", PlanMatchPattern.expression("a_f1"),
+                                        "expr_2", PlanMatchPattern.expression("a_f1.f1 + 2 + b_f1_f1 + b_f1_f2")),
+                                strictProject(
+                                        ImmutableMap.of(
+                                                "a", PlanMatchPattern.expression("a"),
+                                                "b", PlanMatchPattern.expression("b"),
+                                                "a_f1", PlanMatchPattern.expression("a.f1"),
+                                                "b_f1_f1", PlanMatchPattern.expression("b.f1.f1"),
+                                                "b_f1_f2", PlanMatchPattern.expression("b.f1.f2")),
+                                        values("a", "b"))));
     }
 }

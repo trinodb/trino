@@ -33,7 +33,7 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
  * Module for an Alluxio metastore implementation of the {@link HiveMetastore} interface.
  */
 public class AlluxioMetastoreModule
-         extends AbstractConfigurationAwareModule
+        extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)

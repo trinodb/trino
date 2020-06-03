@@ -684,10 +684,10 @@ public class JoinCompiler
             // At that point, we'll be able to fully deprecate Type.equalTo (and friends) and remove this hack.
             if (type.getJavaType().equals(Slice.class) && (
                     type instanceof CharType ||
-                    type instanceof JsonType ||
-                    type instanceof DecimalType ||
-                    type instanceof VarbinaryType ||
-                    type instanceof VarcharType)) {
+                            type instanceof JsonType ||
+                            type instanceof DecimalType ||
+                            type instanceof VarbinaryType ||
+                            type instanceof VarcharType)) {
                 body.append(new IfStatement()
                         .condition(typeEquals(constantType(callSiteBinder, type), leftBlock, leftBlockPosition, rightBlock, rightPosition))
                         .ifFalse(constantFalse().ret()));

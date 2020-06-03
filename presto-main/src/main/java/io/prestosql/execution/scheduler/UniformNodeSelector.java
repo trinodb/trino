@@ -224,6 +224,7 @@ public class UniformNodeSelector
      * The method tries to make the distribution of splits more uniform. All nodes are arranged into a maxHeap and a minHeap
      * based on the number of splits that are assigned to them. Splits are redistributed, one at a time, from a maxNode to a
      * minNode until we have as uniform a distribution as possible.
+     *
      * @param assignment the node-splits multimap after the first and the second stage
      * @param assignmentStats required to obtain info regarding splits assigned to a node outside the current batch of assignment
      * @param nodeMap to get a list of all nodes to which splits can be assigned

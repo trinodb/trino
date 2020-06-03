@@ -54,13 +54,13 @@ import static java.util.Objects.requireNonNull;
  *          Project(A, B, C, D := A.x.y, E := B.m, G := A.x)
  *              Source(A, B, C)
  * </pre>
- *
+ * <p>
  * This optimizer extracts all dereference expressions from a filter node located above a table scan into a ProjectNode.
- *
+ * <p>
  * Extracting dereferences from a filter (eg. FilterNode(a.x = 5)) can be suboptimal if full columns are being accessed up the
  * plan tree (eg. a), because it can result in replicated shuffling of fields (eg. a.x). So it is safer to pushdown dereferences from
  * Filter only when there's an explicit projection on top of the filter node (Ref PushDereferencesThroughFilter).
- *
+ * <p>
  * In case of a FilterNode on top of TableScanNode, we want to push all dereferences into a new ProjectNode below, so that
  * PushProjectionIntoTableScan optimizer can push those columns in the connector, and provide new column handles for the
  * projected subcolumns. PushPredicateIntoTableScan optimizer can then push predicates on these subcolumns into the connector.

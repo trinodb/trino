@@ -214,11 +214,11 @@ public class OrcMetadataWriter
     private static List<OrcProto.StringPair> toStringPairList(Map<String, String> attributes)
     {
         return attributes.entrySet().stream()
-            .map(entry -> OrcProto.StringPair.newBuilder()
-                .setKey(entry.getKey())
-                .setValue(entry.getValue())
-                .build())
-            .collect(toImmutableList());
+                .map(entry -> OrcProto.StringPair.newBuilder()
+                        .setKey(entry.getKey())
+                        .setValue(entry.getValue())
+                        .build())
+                .collect(toImmutableList());
     }
 
     private static OrcProto.ColumnStatistics toColumnStatistics(ColumnStatistics columnStatistics)

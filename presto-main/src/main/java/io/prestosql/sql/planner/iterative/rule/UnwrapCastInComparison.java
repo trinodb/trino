@@ -63,32 +63,32 @@ import static java.util.Objects.requireNonNull;
  * <pre>
  * CAST(s as T) = t
  * </pre>
- *
+ * <p>
  * into
  *
  * <pre>
  * s = CAST(t as S)
  * </pre>
- *
+ * <p>
  * For example:
  *
  * <pre>
  * CAST(x AS bigint) = bigint '1'
- *</pre>
- *
+ * </pre>
+ * <p>
  * turns into
  *
  * <pre>
  * x = smallint '1'
  * </pre>
- *
+ * <p>
  * It can simplify expressions that are known to be true or false, and
  * remove the comparisons altogether. For example, give x::smallint,
  * for an expression like:
  *
  * <pre>
  * CAST(x AS bigint) > bigint '10000000'
- *</pre>
+ * </pre>
  */
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet

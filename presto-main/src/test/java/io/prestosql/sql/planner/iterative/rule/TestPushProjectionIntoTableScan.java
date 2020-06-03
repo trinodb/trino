@@ -166,17 +166,17 @@ public class TestPushProjectionIntoTableScan
                     })
                     .withSession(MOCK_SESSION)
                     .matches(project(
-                        newNames.entrySet().stream()
-                            .collect(toImmutableMap(
-                                e -> e.getKey().getName(),
-                                e -> expression(symbolReference(e.getValue())))),
-                            tableScan(
-                                equalTo(createTableHandle(TEST_SCHEMA, "projected_" + TEST_TABLE).getConnectorHandle()),
-                                TupleDomain.all(),
-                                newNames.entrySet().stream()
+                            newNames.entrySet().stream()
                                     .collect(toImmutableMap(
-                                            e -> e.getValue(),
-                                            e -> equalTo(column(e.getValue(), types.get(e.getKey()))))))));
+                                            e -> e.getKey().getName(),
+                                            e -> expression(symbolReference(e.getValue())))),
+                            tableScan(
+                                    equalTo(createTableHandle(TEST_SCHEMA, "projected_" + TEST_TABLE).getConnectorHandle()),
+                                    TupleDomain.all(),
+                                    newNames.entrySet().stream()
+                                            .collect(toImmutableMap(
+                                                    e -> e.getValue(),
+                                                    e -> equalTo(column(e.getValue(), types.get(e.getKey()))))))));
         }
     }
 

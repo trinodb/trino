@@ -361,7 +361,8 @@ public class TestScalarFunctionAdapter
                 // roll over and increment next
                 indexes[i] = 0;
             }
-        } while (!IntStream.of(indexes).allMatch(i -> i == 0));
+        }
+        while (!IntStream.of(indexes).allMatch(i -> i == 0));
         return combinations.build();
     }
 

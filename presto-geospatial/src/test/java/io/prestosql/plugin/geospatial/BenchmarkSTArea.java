@@ -107,7 +107,8 @@ public class BenchmarkSTArea
     }
 
     @Test
-    public static void verify() throws IOException
+    public static void verify()
+            throws IOException
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();

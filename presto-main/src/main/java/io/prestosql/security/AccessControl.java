@@ -164,6 +164,7 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to comment the specified table.
+     *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName);
@@ -342,24 +343,28 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
+     *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName);
 
     /**
      * Check if identity is allowed to show roles on the specified catalog.
+     *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoles(SecurityContext context, String catalogName);
 
     /**
      * Check if identity is allowed to show current roles on the specified catalog.
+     *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowCurrentRoles(SecurityContext context, String catalogName);
 
     /**
      * Check if identity is allowed to show its own role grants on the specified catalog.
+     *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(SecurityContext context, String catalogName);

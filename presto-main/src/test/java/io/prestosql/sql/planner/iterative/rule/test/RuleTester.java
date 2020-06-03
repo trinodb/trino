@@ -71,8 +71,8 @@ public class RuleTester
 
         LocalQueryRunner queryRunner = nodeCountForStats
                 .map(nodeCount -> LocalQueryRunner.builder(session)
-                    .withNodeCountForStats(nodeCount)
-                    .build())
+                        .withNodeCountForStats(nodeCount)
+                        .build())
                 .orElseGet(() -> LocalQueryRunner.create(session));
 
         queryRunner.createCatalog(session.getCatalog().get(),
