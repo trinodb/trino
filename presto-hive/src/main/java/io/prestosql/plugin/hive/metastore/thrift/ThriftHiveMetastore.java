@@ -167,9 +167,9 @@ public class ThriftHiveMetastore
     private final Duration maxWaitForLock;
     private final int maxRetries;
     private final boolean impersonationEnabled;
+    private final boolean authenticationEnabled;
     private final LoadingCache<String, String> delegationTokenCache;
     private final boolean deleteFilesOnDrop;
-    private final ThriftMetastoreAuthenticationType authenticationType;
     private final boolean translateHiveViews;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -185,6 +185,16 @@ public class ThriftHiveMetastore
     @Inject
     public ThriftHiveMetastore(MetastoreLocator metastoreLocator, HiveConfig hiveConfig, ThriftMetastoreConfig thriftConfig, ThriftMetastoreAuthenticationConfig authenticationConfig, HdfsEnvironment hdfsEnvironment)
     {
+        this(
+                metastoreLocator,
+                hiveConfig,
+                thriftConfig,
+                hdfsEnvironment,
+                authenticationConfig.getAuthenticationType() != ThriftMetastoreAuthenticationType.NONE);
+    }
+
+    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, HiveConfig hiveConfig, ThriftMetastoreConfig thriftConfig, HdfsEnvironment hdfsEnvironment, boolean authenticationEnabled)
+    {
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -195,9 +205,9 @@ public class ThriftHiveMetastore
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
-        this.authenticationType = authenticationConfig.getAuthenticationType();
         this.translateHiveViews = hiveConfig.isTranslateHiveViews();
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
+        this.authenticationEnabled = authenticationEnabled;
 
         this.delegationTokenCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
@@ -1820,26 +1830,21 @@ public class ThriftHiveMetastore
         }
 
         String username = identity.getUsername().orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
-        switch (authenticationType) {
-            case KERBEROS:
-                String delegationToken;
-                try {
-                    delegationToken = delegationTokenCache.getUnchecked(username);
-                }
-                catch (UncheckedExecutionException e) {
-                    throwIfInstanceOf(e.getCause(), PrestoException.class);
-                    throw e;
-                }
-                return clientProvider.createMetastoreClient(Optional.of(delegationToken));
-
-            case NONE:
-                ThriftMetastoreClient client = createMetastoreClient();
-                setMetastoreUserOrClose(client, username);
-                return client;
-
-            default:
-                throw new IllegalStateException("Unsupported authentication type: " + authenticationType);
+        if (authenticationEnabled) {
+            String delegationToken;
+            try {
+                delegationToken = delegationTokenCache.getUnchecked(username);
+            }
+            catch (UncheckedExecutionException e) {
+                throwIfInstanceOf(e.getCause(), PrestoException.class);
+                throw e;
+            }
+            return clientProvider.createMetastoreClient(Optional.of(delegationToken));
         }
+
+        ThriftMetastoreClient client = createMetastoreClient();
+        setMetastoreUserOrClose(client, username);
+        return client;
     }
 
     private String loadDelegationToken(String username)
