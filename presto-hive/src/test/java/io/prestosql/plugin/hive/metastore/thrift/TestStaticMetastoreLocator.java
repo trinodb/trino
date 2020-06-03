@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 import org.testng.annotations.Test;
@@ -161,7 +160,7 @@ public class TestStaticMetastoreLocator
 
     private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients)
     {
-        return new StaticMetastoreLocator(config, new HiveAuthenticationConfig(), new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
+        return new StaticMetastoreLocator(config, new ThriftMetastoreAuthenticationConfig(), new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
     }
 
     private static ThriftMetastoreClient createFakeMetastoreClient()

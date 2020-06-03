@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.authentication;
+package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -23,27 +23,24 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestHiveAuthenticationConfig
+public class TestThriftMetastoreAuthenticationConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(HiveAuthenticationConfig.class)
-                .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
-                .setHdfsImpersonationEnabled(false));
+        assertRecordedDefaults(recordDefaults(ThriftMetastoreAuthenticationConfig.class)
+                .setAuthenticationType(ThriftMetastoreAuthenticationType.NONE));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.hdfs.authentication.type", "KERBEROS")
-                .put("hive.hdfs.impersonation.enabled", "true")
+                .put("hive.metastore.authentication.type", "KERBEROS")
                 .build();
 
-        HiveAuthenticationConfig expected = new HiveAuthenticationConfig()
-                .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
-                .setHdfsImpersonationEnabled(true);
+        ThriftMetastoreAuthenticationConfig expected = new ThriftMetastoreAuthenticationConfig()
+                .setAuthenticationType(ThriftMetastoreAuthenticationType.KERBEROS);
 
         assertFullMapping(properties, expected);
     }
