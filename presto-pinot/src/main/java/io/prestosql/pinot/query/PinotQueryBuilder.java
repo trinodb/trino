@@ -61,8 +61,8 @@ public final class PinotQueryBuilder
         }
         else {
             columnNames = columnHandles.stream()
-                .map(PinotColumnHandle::getColumnName)
-                .collect(toImmutableList());
+                    .map(PinotColumnHandle::getColumnName)
+                    .collect(toImmutableList());
         }
 
         pqlBuilder.append("SELECT ");

@@ -65,9 +65,9 @@ public final class SinglenodeKerberosHdfsImpersonationWithWireEncryption
                             CONTAINER_PRESTO_HIVE_PROPERTIES,
                             READ_ONLY)
                     .withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/iceberg.properties"),
-                    CONTAINER_PRESTO_ICEBERG_PROPERTIES,
-                    READ_ONLY);
+                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/iceberg.properties"),
+                            CONTAINER_PRESTO_ICEBERG_PROPERTIES,
+                            READ_ONLY);
         });
     }
 }

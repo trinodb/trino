@@ -87,7 +87,7 @@ public class TestAvroSymlinkInputFormat
         hdfsClient.saveFile("/user/hive/warehouse/test_avro_symlink/symlink.txt", "hdfs:///user/hive/warehouse/TestAvroSymlinkInputFormat/data/original_data.avro");
 
         assertThat(onPresto().executeQuery("SELECT * FROM test_avro_symlink"))
-            .containsExactly(row("someValue", 1));
+                .containsExactly(row("someValue", 1));
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_symlink");
     }
 }

@@ -44,7 +44,7 @@ public enum KinesisInternalFieldDescription
     PARTITION_KEY_FIELD("_partition_key", VarcharType.VARCHAR, "Key text");
 
     private static final Map<String, KinesisInternalFieldDescription> BY_COLUMN_NAME = stream(KinesisInternalFieldDescription.values())
-                    .collect(toImmutableMap(KinesisInternalFieldDescription::getColumnName, identity()));
+            .collect(toImmutableMap(KinesisInternalFieldDescription::getColumnName, identity()));
 
     public static KinesisInternalFieldDescription forColumnName(String columnName)
     {

@@ -42,18 +42,18 @@ public class TestDereferencePushDown
     public void testDereferencePushdownMultiLevel()
     {
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE)))) " +
-                "SELECT a.msg.x, a.msg, b.msg.y FROM t a CROSS JOIN t b",
+                        "SELECT a.msg.x, a.msg, b.msg.y FROM t a CROSS JOIN t b",
                 output(ImmutableList.of("a_msg_x", "a_msg", "b_msg_y"),
-                    strictProject(
-                        ImmutableMap.of(
-                            "a_msg_x", PlanMatchPattern.expression("a_msg.x"),
-                            "a_msg", PlanMatchPattern.expression("a_msg"),
-                            "b_msg_y", PlanMatchPattern.expression("b_msg_y")),
-                        join(INNER, ImmutableList.of(),
-                            values("a_msg"),
-                            strictProject(
-                                ImmutableMap.of("b_msg_y", PlanMatchPattern.expression("b_msg.y")),
-                                values("b_msg"))))));
+                        strictProject(
+                                ImmutableMap.of(
+                                        "a_msg_x", PlanMatchPattern.expression("a_msg.x"),
+                                        "a_msg", PlanMatchPattern.expression("a_msg"),
+                                        "b_msg_y", PlanMatchPattern.expression("b_msg_y")),
+                                join(INNER, ImmutableList.of(),
+                                        values("a_msg"),
+                                        strictProject(
+                                                ImmutableMap.of("b_msg_y", PlanMatchPattern.expression("b_msg.y")),
+                                                values("b_msg"))))));
     }
 
     @Test
@@ -182,7 +182,7 @@ public class TestDereferencePushDown
     public void testDereferencePushdownLimit()
     {
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE))))" +
-                "SELECT msg.x * 3  FROM t limit 1",
+                        "SELECT msg.x * 3  FROM t limit 1",
                 anyTree(
                         strictProject(ImmutableMap.of("x_into_3", expression("msg_x * BIGINT '3'")),
                                 limit(1,

@@ -56,6 +56,7 @@ public final class MapHashTables
 
     /**
      * Returns the raw hash tables, which must not be modified.
+     *
      * @throws IllegalStateException if the hash tables have not been built
      */
     int[] get()

@@ -87,12 +87,12 @@ public class CountingMockConnector
             runnable.run();
 
             return new MetadataCallsCount(listSchemasCallsCounter.get(),
-                                          listTablesCallsCounter.get(),
-                                          getColumnsCallsCounter.get(),
-                                          listRoleGranstCounter.listRowGrantsCallsCounter.get(),
-                                          listRoleGranstCounter.rolesPushedCounter.get(),
-                                          listRoleGranstCounter.granteesPushedCounter.get(),
-                                          listRoleGranstCounter.limitPushedCounter.get());
+                    listTablesCallsCounter.get(),
+                    getColumnsCallsCounter.get(),
+                    listRoleGranstCounter.listRowGrantsCallsCounter.get(),
+                    listRoleGranstCounter.rolesPushedCounter.get(),
+                    listRoleGranstCounter.granteesPushedCounter.get(),
+                    listRoleGranstCounter.limitPushedCounter.get());
         }
     }
 
@@ -142,12 +142,12 @@ public class CountingMockConnector
         }
 
         public MetadataCallsCount(long listSchemasCount,
-                                  long listTablesCount,
-                                  long getColumnsCount,
-                                  long listRoleGrantsCount,
-                                  long rolesPushedCount,
-                                  long granteesPushedCount,
-                                  long limitPushedCount)
+                long listTablesCount,
+                long getColumnsCount,
+                long listRoleGrantsCount,
+                long rolesPushedCount,
+                long granteesPushedCount,
+                long limitPushedCount)
         {
             this.listSchemasCount = listSchemasCount;
             this.listTablesCount = listTablesCount;

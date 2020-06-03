@@ -26,10 +26,10 @@ import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScal
 import static io.prestosql.sql.planner.plan.Patterns.topN;
 
 /**
- *  Replace TopN node
- *  1. With a Sort node when the subplan is guaranteed to produce fewer rows than N
- *  2. With its source when the subplan produces only one row
- *  3. With a empty ValuesNode when N is 0
+ * Replace TopN node
+ * 1. With a Sort node when the subplan is guaranteed to produce fewer rows than N
+ * 2. With its source when the subplan produces only one row
+ * 3. With a empty ValuesNode when N is 0
  */
 public class RemoveRedundantTopN
         implements Rule<TopNNode>

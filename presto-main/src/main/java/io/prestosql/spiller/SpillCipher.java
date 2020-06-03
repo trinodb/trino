@@ -24,6 +24,7 @@ public interface SpillCipher
     /**
      * Encrypts the contents of the input buffer into the destination buffer returning the number
      * of bytes written into the destination buffer
+     *
      * @return The length of the encrypted content in the destination buffer
      */
     int encrypt(byte[] data, int inputOffset, int length, byte[] destination, int destinationOffset);
@@ -36,6 +37,7 @@ public interface SpillCipher
     /**
      * Decrypts the contents of the input buffer into the destination buffer, returning the number of bytes
      * written into the destination buffer
+     *
      * @return The length of the decrypted content in destination buffer
      */
     int decrypt(byte[] encryptedData, int inputOffset, int length, byte[] destination, int destinationOffset);

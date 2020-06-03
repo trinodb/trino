@@ -44,7 +44,7 @@ import static java.lang.String.format;
  * A set of functions to convert between geometries and encoded polylines.
  *
  * @see <a href="https://developers.google.com/maps/documentation/utilities/polylinealgorithm">
- *     https://developers.google.com/maps/documentation/utilities/polylinealgorithm</a> for a description of encoded polylines.
+ * https://developers.google.com/maps/documentation/utilities/polylinealgorithm</a> for a description of encoded polylines.
  */
 public final class EncodedPolylineFunctions
 {
@@ -75,7 +75,8 @@ public final class EncodedPolylineFunctions
                 bytes = polyline.charAt(index++) - 63 - 1;
                 result += bytes << shift;
                 shift += 5;
-            } while (bytes >= 0x1f);
+            }
+            while (bytes >= 0x1f);
             latitude += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
 
             result = 1;
@@ -84,7 +85,8 @@ public final class EncodedPolylineFunctions
                 bytes = polyline.charAt(index++) - 63 - 1;
                 result += bytes << shift;
                 shift += 5;
-            } while (bytes >= 0x1f);
+            }
+            while (bytes >= 0x1f);
             longitude += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
 
             if (isFirstPoint) {

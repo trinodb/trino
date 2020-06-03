@@ -121,8 +121,8 @@ public class PrometheusSplitManager
      * ** NOTE: Prometheus instant query wants the duration and end time specified.
      * We use now() for the defaultUpperBound when none is specified, for instance, from predicate pushdown
      *
-     * @param defaultUpperBound         a LocalDateTime likely from PrometheusTimeMachine class for testability
-     * @param maxQueryRangeDurationStr  a String like `21d`
+     * @param defaultUpperBound a LocalDateTime likely from PrometheusTimeMachine class for testability
+     * @param maxQueryRangeDurationStr a String like `21d`
      * @param queryChunkSizeDurationStr a String like `1d`
      * @return list of end times as decimal epoch seconds, like ["1568053244.143", "1568926595.321"]
      */
@@ -223,9 +223,9 @@ public class PrometheusSplitManager
          * max duration          = config max duration
          * effective upper bound = defaultUpperBound
          *
-         * @param defaultUpperBound              If no upper bound is specified by the predicate, we use the time now() as the defaultUpperBound
+         * @param defaultUpperBound If no upper bound is specified by the predicate, we use the time now() as the defaultUpperBound
          * @param maxQueryRangeDurationRequested Likely from config properties
-         * @param maybePredicateRange            Optional of pushed down predicate values for high and low timestamp values
+         * @param maybePredicateRange Optional of pushed down predicate values for high and low timestamp values
          */
         public EffectiveLimits(LocalDateTime defaultUpperBound, Duration maxQueryRangeDurationRequested, Optional<PrometheusPredicateTimeInfo> maybePredicateRange)
         {

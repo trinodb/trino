@@ -65,12 +65,12 @@ public class TestHiveBasicTableStatistics
         try {
             String location = getTableLocation("nation", false);
             onPresto().executeQuery(format("" +
-                    "CREATE TABLE %s (" +
-                    "   n_nationkey bigint, " +
-                    "   n_regionkey bigint, " +
-                    "   n_name varchar(25), " +
-                    "   n_comment varchar(152)) " +
-                    "WITH (external_location = '%s', format = 'TEXTFILE', textfile_field_separator = '|')",
+                            "CREATE TABLE %s (" +
+                            "   n_nationkey bigint, " +
+                            "   n_regionkey bigint, " +
+                            "   n_name varchar(25), " +
+                            "   n_comment varchar(152)) " +
+                            "WITH (external_location = '%s', format = 'TEXTFILE', textfile_field_separator = '|')",
                     tableName,
                     location));
             BasicStatistics statistics = getBasicStatisticsForTable(onHive(), tableName);

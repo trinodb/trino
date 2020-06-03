@@ -55,7 +55,7 @@ import static java.util.Objects.requireNonNull;
  *          Project(A, B, C, expr := A.x)
  *              Source(A, B, C)
  * </pre>
- *
+ * <p>
  * Pushes down dereference projections in project node assignments and filter node predicate.
  */
 public class PushDownDereferenceThroughFilter

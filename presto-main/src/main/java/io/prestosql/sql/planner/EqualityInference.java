@@ -266,8 +266,8 @@ public class EqualityInference
     public static List<Expression> nonInferrableConjuncts(Metadata metadata, Expression expression)
     {
         return extractConjuncts(expression).stream()
-            .filter(e -> !isInferenceCandidate(metadata, e))
-            .collect(Collectors.toList());
+                .filter(e -> !isInferenceCandidate(metadata, e))
+                .collect(Collectors.toList());
     }
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)

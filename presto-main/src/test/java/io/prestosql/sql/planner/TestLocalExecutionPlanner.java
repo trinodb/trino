@@ -49,8 +49,8 @@ public class TestLocalExecutionPlanner
         String outer = Joiner.on(" + ").join(nCopies(100, inner));
 
         assertPrestoExceptionThrownBy(() -> runner.execute("SELECT " + outer))
-            .hasErrorCode(COMPILER_ERROR)
-            .hasMessageStartingWith("Query exceeded maximum columns");
+                .hasErrorCode(COMPILER_ERROR)
+                .hasMessageStartingWith("Query exceeded maximum columns");
     }
 
     @Test
@@ -63,7 +63,7 @@ public class TestLocalExecutionPlanner
                 + " OR " + Joiner.on(" AND ").join(nCopies(200, " c3 = rand()"));
 
         assertPrestoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
-            .hasErrorCode(COMPILER_ERROR)
-            .hasMessageStartingWith("Query exceeded maximum filters");
+                .hasErrorCode(COMPILER_ERROR)
+                .hasMessageStartingWith("Query exceeded maximum filters");
     }
 }
