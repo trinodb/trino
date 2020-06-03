@@ -290,7 +290,7 @@ public class OurAcidUtils
     public static long parseBase(Path path) {
         String filename = path.getName();
         if (filename.startsWith(BASE_PREFIX)) {
-            return Long.parseLong(filename.substring(BASE_PREFIX.length()));
+            return Long.parseLong(filename.split("_")[1]);
         }
         throw new IllegalArgumentException(filename + " does not start with " +
                 BASE_PREFIX);
