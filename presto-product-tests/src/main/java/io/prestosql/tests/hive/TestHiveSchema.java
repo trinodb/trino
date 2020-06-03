@@ -250,7 +250,9 @@ public class TestHiveSchema
                 .failsWithMessage("line 1:15: Table 'hive.information_schema.column_privileges' does not exist");
     }
 
-    /** Returns whether table privileges are supported in current setup. */
+    /**
+     * Returns whether table privileges are supported in current setup.
+     */
     private boolean tablePrivilegesSupported()
     {
         try {

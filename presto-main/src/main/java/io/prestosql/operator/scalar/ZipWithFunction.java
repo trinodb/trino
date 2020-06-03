@@ -67,9 +67,9 @@ public final class ZipWithFunction
                         false),
                 false,
                 ImmutableList.of(
-                                        new FunctionArgumentDefinition(false),
-                                        new FunctionArgumentDefinition(false),
-                                        new FunctionArgumentDefinition(false)),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 false,
                 "Merge two arrays, element-wise, into a single array using the lambda function",

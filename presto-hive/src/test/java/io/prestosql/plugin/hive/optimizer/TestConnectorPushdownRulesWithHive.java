@@ -134,10 +134,10 @@ public class TestConnectorPushdownRulesWithHive
                 toHiveType(new HiveTypeTranslator(), baseType),
                 baseType,
                 Optional.of(new HiveColumnProjectionInfo(
-                    ImmutableList.of(0),
-                    ImmutableList.of("a"),
-                    toHiveType(new HiveTypeTranslator(), BIGINT),
-                    BIGINT)),
+                        ImmutableList.of(0),
+                        ImmutableList.of("a"),
+                        toHiveType(new HiveTypeTranslator(), BIGINT),
+                        BIGINT)),
                 REGULAR,
                 Optional.empty());
 
@@ -152,9 +152,9 @@ public class TestConnectorPushdownRulesWithHive
                         p.project(
                                 Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
                                 p.tableScan(
-                                    table,
-                                    ImmutableList.of(p.symbol("struct_of_int", baseType)),
-                                    ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
+                                        table,
+                                        ImmutableList.of(p.symbol("struct_of_int", baseType)),
+                                        ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .doesNotFire();
 
         // Test Dereference pushdown
@@ -162,7 +162,7 @@ public class TestConnectorPushdownRulesWithHive
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                    p.symbol("expr_deref", BIGINT), new DereferenceExpression(p.symbol("struct_of_int", baseType).toSymbolReference(), new Identifier("a"))),
+                                        p.symbol("expr_deref", BIGINT), new DereferenceExpression(p.symbol("struct_of_int", baseType).toSymbolReference(), new Identifier("a"))),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),

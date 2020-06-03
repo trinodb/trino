@@ -227,8 +227,8 @@ public final class FilterToPqlConverter
         StringBuilder builder = new StringBuilder();
         builder.append("(")
                 .append(values.stream()
-                .map(value -> toSingleQuotedValue(value))
-                .collect(joining(", ")))
+                        .map(value -> toSingleQuotedValue(value))
+                        .collect(joining(", ")))
                 .append(")");
         return builder.toString();
     }

@@ -466,16 +466,15 @@ public class PinotClient
     /**
      * columnIndices: column name -> column index from column handles
      * indiceToGroupByFunction<Int,String> (groupByFunctions): aggregationIndex -> groupByFunctionName(columnName)
-     *   groupByFunctions is for values
+     * groupByFunctions is for values
      * groupByColumnNames: from aggregationResult.groupByResult.groupByColumnNames()
      * aggregationResults[GroupByColumns, GroupByResult]
      * GroupByColumns:  String[] // column names, i.e. group by foo, bar, baz
      * GroupByResult: Row[]
      * Row: {group: String[] // values of groupBy columns, value: aggregationResult}
-     *
+     * <p>
      * Results: aggregationResults.get(0..aggregationResults.size())
      * Result: function, value means columnName -> columnValue
-     *
      */
     public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQuery query, List<PinotColumnHandle> columnHandles)
     {

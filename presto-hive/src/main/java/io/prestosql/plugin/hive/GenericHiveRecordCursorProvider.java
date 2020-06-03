@@ -94,8 +94,8 @@ public class GenericHiveRecordCursorProvider
                     length,
                     schema,
                     projectedReaderColumns
-                        .map(ReaderProjections::getReaderColumns)
-                        .orElse(columns));
+                            .map(ReaderProjections::getReaderColumns)
+                            .orElse(columns));
 
             return new GenericHiveRecordCursor<>(
                     configuration,

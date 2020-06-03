@@ -21,7 +21,6 @@ public interface ConnectorPageSourceProvider
 {
     /**
      * @param columns columns that should show up in the output page, in this order
-     *
      * @deprecated Use {@link #createPageSource(ConnectorTransactionHandle, ConnectorSession, ConnectorSplit, ConnectorTableHandle, List, TupleDomain)}
      */
     @Deprecated

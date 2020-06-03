@@ -69,7 +69,7 @@ import static java.util.stream.Collectors.toList;
  *      Project(C_Y := C.y)
  *        Source(C, D)
  * </pre>
- *
+ * <p>
  * Pushes down dereference projections through JoinNode. Excludes dereferences on symbols being used in join criteria to avoid
  * data replication, since these symbols cannot be pruned.
  */

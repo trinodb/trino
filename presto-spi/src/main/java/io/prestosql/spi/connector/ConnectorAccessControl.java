@@ -431,7 +431,7 @@ public interface ConnectorAccessControl
 
     /**
      * Get a row filter associated with the given table and identity.
-     *
+     * <p>
      * The filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
      * @return the filter, or {@link Optional#empty()} if not applicable
@@ -443,7 +443,7 @@ public interface ConnectorAccessControl
 
     /**
      * Get a column mask associated with the given table, column and identity.
-     *
+     * <p>
      * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *

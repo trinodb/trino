@@ -413,8 +413,8 @@ public class QueuedStatementResource
             }
             // if dispatched, redirect to new uri
             return dispatchInfo.getCoordinatorLocation()
-                            .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, uriInfo))
-                            .orElseGet(() -> getQueuedUri(queryId, slug, token, uriInfo));
+                    .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, uriInfo))
+                    .orElseGet(() -> getQueuedUri(queryId, slug, token, uriInfo));
         }
 
         private URI getRedirectUri(CoordinatorLocation coordinatorLocation, UriInfo uriInfo)

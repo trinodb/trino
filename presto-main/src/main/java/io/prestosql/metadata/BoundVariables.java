@@ -37,7 +37,7 @@ public class BoundVariables
         requireNonNull(longVariables, "longVariableBindings is null");
 
         this.typeVariables = typeVariables.entrySet().stream()
-            .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));
 
         this.longVariables = longVariables.entrySet().stream()
                 .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));

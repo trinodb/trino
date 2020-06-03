@@ -17,7 +17,8 @@ import com.amazonaws.services.s3.model.StorageClass;
 
 import static java.util.Objects.requireNonNull;
 
-public enum PrestoS3StorageClass {
+public enum PrestoS3StorageClass
+{
     STANDARD(StorageClass.Standard),
     INTELLIGENT_TIERING(StorageClass.IntelligentTiering);
 

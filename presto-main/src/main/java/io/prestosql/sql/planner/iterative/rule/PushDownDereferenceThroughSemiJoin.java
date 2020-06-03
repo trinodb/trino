@@ -58,7 +58,7 @@ import static java.util.Objects.requireNonNull;
  *                  Source(A, B, C)
  *              FilteringSource(B_filtering)
  * </pre>
- *
+ * <p>
  * Pushes down dereference projections through SemiJoinNode. Excludes dereferences on sourceJoinSymbol to avoid
  * data replication, since this symbol cannot be pruned.
  */

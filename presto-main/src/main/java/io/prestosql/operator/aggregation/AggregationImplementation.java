@@ -323,9 +323,9 @@ public class AggregationImplementation
                             removeInputDependencies.stream(),
                             outputDependencies.stream(),
                             combineDependencies.stream())
-                    .reduce(Stream::concat)
-                    .orElseGet(Stream::empty)
-                    .collect(toImmutableList());
+                            .reduce(Stream::concat)
+                            .orElseGet(Stream::empty)
+                            .collect(toImmutableList());
             typeVariableConstraints = createTypeVariableConstraints(typeParameters, allDependencies);
 
             // parse native types of arguments

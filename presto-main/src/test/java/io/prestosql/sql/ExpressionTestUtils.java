@@ -177,9 +177,9 @@ public final class ExpressionTestUtils
     public static Map<NodeRef<Expression>, Type> getTypes(Session session, Metadata metadata, TypeProvider typeProvider, Expression expression)
     {
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
-                    .singleStatement()
-                    .execute(session, transactionSession -> {
-                        return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(transactionSession, typeProvider, expression);
-                    });
+                .singleStatement()
+                .execute(session, transactionSession -> {
+                    return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(transactionSession, typeProvider, expression);
+                });
     }
 }

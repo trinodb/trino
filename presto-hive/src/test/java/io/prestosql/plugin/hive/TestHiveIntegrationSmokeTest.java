@@ -753,11 +753,11 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "CREATE SCHEMA test_show_create_schema");
 
         String createSchemaSql = format("" +
-                "CREATE SCHEMA %s.test_show_create_schema\n" +
-                "AUTHORIZATION USER hive\n" +
-                "WITH \\(\n" +
-                "   location = '.*test_show_create_schema'\n" +
-                "\\)",
+                        "CREATE SCHEMA %s.test_show_create_schema\n" +
+                        "AUTHORIZATION USER hive\n" +
+                        "WITH \\(\n" +
+                        "   location = '.*test_show_create_schema'\n" +
+                        "\\)",
                 getSession().getCatalog().get());
 
         String actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
@@ -768,11 +768,11 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "ALTER SCHEMA test_show_create_schema SET AUTHORIZATION ROLE test_show_create_schema_role");
 
         createSchemaSql = format("" +
-                "CREATE SCHEMA %s.test_show_create_schema\n" +
-                "AUTHORIZATION ROLE test_show_create_schema_role\n" +
-                "WITH \\(\n" +
-                "   location = '.*test_show_create_schema'\n" +
-                "\\)",
+                        "CREATE SCHEMA %s.test_show_create_schema\n" +
+                        "AUTHORIZATION ROLE test_show_create_schema_role\n" +
+                        "WITH \\(\n" +
+                        "   location = '.*test_show_create_schema'\n" +
+                        "\\)",
                 getSession().getCatalog().get());
 
         actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
@@ -3046,11 +3046,11 @@ public class TestHiveIntegrationSmokeTest
                 session,
                 format("SELECT col0, col1.f0, col2.f1.f1 FROM %s", tableName),
                 "SELECT * FROM \n" +
-                "    (SELECT 1, 2, 6) UNION\n" +
-                "    (SELECT 7, 8, NULL) UNION\n" +
-                "    (SELECT NULL, NULL, NULL) UNION\n" +
-                "    (SELECT 13, NULL, NULL) UNION\n" +
-                "    (SELECT 15, 16, 18)");
+                        "    (SELECT 1, 2, 6) UNION\n" +
+                        "    (SELECT 7, 8, NULL) UNION\n" +
+                        "    (SELECT NULL, NULL, NULL) UNION\n" +
+                        "    (SELECT 13, NULL, NULL) UNION\n" +
+                        "    (SELECT 15, 16, 18)");
 
         assertQuery(session, format("SELECT col0 FROM %s WHERE col2.f1.f1 IS NOT NULL", tableName), "SELECT * FROM UNNEST(array[1, 15])");
 

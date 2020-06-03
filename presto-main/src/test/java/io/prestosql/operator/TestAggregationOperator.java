@@ -95,12 +95,12 @@ public class TestAggregationOperator
                 metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BIGINT)));
 
         List<Page> input = ImmutableList.of(new Page(
+                4,
+                BlockAssertions.createLongsBlock(1, 2, 3, 4),
+                new ByteArrayBlock(
                         4,
-                        BlockAssertions.createLongsBlock(1, 2, 3, 4),
-                        new ByteArrayBlock(
-                                4,
-                                Optional.of(new boolean[] {true, true, false, false}),
-                                new byte[] {0, 27 /* dirty null */, 0, 75 /* non-zero value is true */})));
+                        Optional.of(new boolean[] {true, true, false, false}),
+                        new byte[] {0, 27 /* dirty null */, 0, 75 /* non-zero value is true */})));
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,

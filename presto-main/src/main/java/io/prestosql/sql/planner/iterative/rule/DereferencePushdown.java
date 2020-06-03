@@ -111,7 +111,7 @@ class DereferencePushdown
     private static boolean isDereferenceChain(DereferenceExpression expression)
     {
         return (expression.getBase() instanceof SymbolReference) ||
-            ((expression.getBase() instanceof DereferenceExpression) && isDereferenceChain((DereferenceExpression) (expression.getBase())));
+                ((expression.getBase() instanceof DereferenceExpression) && isDereferenceChain((DereferenceExpression) (expression.getBase())));
     }
 
     private static boolean prefixExists(Expression expression, Set<Expression> expressions)
