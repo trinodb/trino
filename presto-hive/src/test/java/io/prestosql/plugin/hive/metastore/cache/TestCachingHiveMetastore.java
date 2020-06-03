@@ -28,7 +28,6 @@ import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreStats;
@@ -94,7 +93,7 @@ public class TestCachingHiveMetastore
     private ThriftHiveMetastore createThriftHiveMetastore()
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
-        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new ThriftMetastoreAuthenticationConfig(), HDFS_ENVIRONMENT);
+        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
     }
 
     @Test
