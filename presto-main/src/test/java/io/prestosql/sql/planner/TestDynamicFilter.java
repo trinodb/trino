@@ -15,13 +15,20 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.assertions.MatchResult;
+import io.prestosql.sql.planner.assertions.Matcher;
+import io.prestosql.sql.planner.assertions.SymbolAliases;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -111,7 +118,8 @@ public class TestDynamicFilter
                                 anyTree(
                                         node(
                                                 FilterNode.class,
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                                .with(numberOfDynamicFilters(1))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
@@ -243,9 +251,11 @@ public class TestDynamicFilter
                                         INNER,
                                         ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                         anyTree(node(FilterNode.class,
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))),
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))
+                                                .with(numberOfDynamicFilters(2))),
                                         anyTree(node(FilterNode.class,
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                                .with(numberOfDynamicFilters(1)))),
                                 exchange(
                                         project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
     }
@@ -305,14 +315,35 @@ public class TestDynamicFilter
                                                         project(
                                                                 node(
                                                                         FilterNode.class,
-                                                                        tableScan("part", ImmutableMap.of("K0", "partkey", "V0", "size")))),
+                                                                        tableScan("part", ImmutableMap.of("K0", "partkey", "V0", "size")))
+                                                                        .with(numberOfDynamicFilters(2))),
                                                         exchange(
                                                                 project(
                                                                         node(
                                                                                 FilterNode.class,
-                                                                                tableScan("part", ImmutableMap.of("K1", "partkey", "V1", "size")))))))),
+                                                                                tableScan("part", ImmutableMap.of("K1", "partkey", "V1", "size")))
+                                                                                .with(numberOfDynamicFilters(1))))))),
                                 exchange(
                                         project(
                                                 tableScan("part", ImmutableMap.of("K2", "partkey", "V2", "size")))))));
+    }
+
+    private Matcher numberOfDynamicFilters(int numberOfDynamicFilters)
+    {
+        return new Matcher()
+        {
+            @Override
+            public boolean shapeMatches(PlanNode node)
+            {
+                return node instanceof FilterNode;
+            }
+
+            @Override
+            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            {
+                FilterNode filterNode = (FilterNode) node;
+                return new MatchResult(DynamicFilters.extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().size() == numberOfDynamicFilters);
+            }
+        };
     }
 }
