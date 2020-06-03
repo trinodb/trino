@@ -22,23 +22,19 @@ import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.function.CheckedSupplier;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.ContainerState;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.time.Duration;
 import java.util.Collection;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
@@ -131,9 +127,7 @@ public final class EnvironmentUp
                 return;
             }
 
-            Collection<DockerContainer> containers = environment.getContainers();
-            waitUntil(() -> containers.stream().noneMatch(ContainerState::isRunning));
-            log.info("Exiting, the containers will exit too");
+            wait(environment.getContainers());
         }
 
         private void killContainersReaperContainer()
@@ -147,14 +141,21 @@ public final class EnvironmentUp
             }
         }
 
-        private void waitUntil(CheckedSupplier<Boolean> completed)
+        private void wait(Collection<Container<?>> containers)
         {
-            Failsafe.with(
-                    new RetryPolicy<Boolean>()
-                            .withMaxAttempts(-1)
-                            .withDelay(Duration.ofSeconds(10))
-                            .handleResult(false))
-                    .get(completed);
+            try {
+                //noinspection InfiniteLoopStatement
+                while (true) {
+                    Thread.sleep(10_000);
+                    if (containers.stream().noneMatch(ContainerState::isRunning)) {
+                        throw new RuntimeException("All containers have been stopped");
+                    }
+                }
+            }
+            catch (InterruptedException e) {
+                log.info("Interrupted");
+                // It's OK not to restore interrupt flag here. When we return we're exiting the process.
+            }
         }
     }
 }

@@ -74,9 +74,9 @@ public final class Environment
                 .orElseThrow(() -> new IllegalArgumentException("No container with name " + name));
     }
 
-    public Collection<DockerContainer> getContainers()
+    public Collection<Container<?>> getContainers()
     {
-        return containers.values();
+        return ImmutableList.copyOf(containers.values());
     }
 
     @Override
