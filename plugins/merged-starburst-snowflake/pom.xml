@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>336-e-SNAPSHOT</version>
+        <version>337-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -154,7 +154,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.8.6</version>
+            <version>3.12.7</version>
         </dependency>
 
         <dependency>

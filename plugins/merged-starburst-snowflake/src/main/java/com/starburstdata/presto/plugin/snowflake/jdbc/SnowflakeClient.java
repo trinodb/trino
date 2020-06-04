@@ -46,10 +46,10 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
-import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -61,6 +61,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
@@ -119,6 +120,7 @@ public class SnowflakeClient
             .put(SMALLINT, WriteMapping.longMapping("number(5)", smallintWriteFunction()))
             .put(TINYINT, WriteMapping.longMapping("number(3)", tinyintWriteFunction()))
             .build();
+    private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
 
     private final TableStatisticsClient tableStatisticsClient;
     private final boolean distributedConnector;
@@ -390,12 +392,8 @@ public class SnowflakeClient
     private static LocalDateTime toLocalDateTime(ResultSet resultSet, int columnIndex)
             throws SQLException
     {
-        long millisSinceEpoch = resultSet.getBigDecimal(columnIndex)
-                .scaleByPowerOfTen(3)
-                // Presto doesn't support nanosecond precision
-                .setScale(0, RoundingMode.HALF_UP)
-                .longValueExact();
-        return LocalDateTime.ofInstant(Instant.ofEpochMilli(millisSinceEpoch), UTC);
+        Timestamp ts = resultSet.getTimestamp(columnIndex, UTC_TZ_PASSING_CALENDAR);
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts.getTime()), UTC);
     }
 
     /**
@@ -429,10 +427,7 @@ public class SnowflakeClient
     private static LocalTime toLocalTime(ResultSet resultSet, int columnIndex)
             throws SQLException
     {
-        long nanoOfDay = resultSet.getBigDecimal(columnIndex)
-                .scaleByPowerOfTen(9)
-                .longValueExact();
-        return LocalTime.ofNanoOfDay(nanoOfDay);
+        return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(resultSet.getTime(columnIndex).getTime()));
     }
 
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
