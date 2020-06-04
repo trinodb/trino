@@ -204,9 +204,7 @@ public class TestThriftProjectionPushdown
     @Test
     public void testPruneColumns()
     {
-        PruneTableScanColumns rule = new PruneTableScanColumns(
-                tester().getMetadata(),
-                new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
+        PruneTableScanColumns rule = new PruneTableScanColumns(tester().getMetadata());
 
         ThriftColumnHandle nationKeyColumn = new ThriftColumnHandle("nationKey", VARCHAR, "", false);
         ThriftColumnHandle nameColumn = new ThriftColumnHandle("name", VARCHAR, "", false);

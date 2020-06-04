@@ -429,7 +429,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<Symbol>> context)
         {
-            return PruneTableScanColumns.pruneColumns(metadata, typeAnalyzer, types, session, node, context.get())
+            return PruneTableScanColumns.pruneColumns(metadata, types, session, node, context.get())
                     .orElse(node);
         }
 
