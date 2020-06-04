@@ -4295,6 +4295,146 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testParquetColumnNameMappings()
+    {
+        Session sessionUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+        Session sessionUsingColumnName = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+
+        String tableName = "test_parquet_by_column_index";
+
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  a varchar, " +
+                        "  b varchar) " +
+                        "WITH (format='PARQUET')",
+                tableName));
+        assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a, b FROM " + tableName,
+                "VALUES ('a', 'b')");
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a FROM " + tableName + " WHERE b = 'b'",
+                "VALUES ('a')");
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+
+        // Reverse the table so that the Hive column ordering does not match the Parquet column ordering
+        String reversedTableName = "test_parquet_by_column_index_reversed";
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  b varchar, " +
+                        "  a varchar) " +
+                        "WITH (format='PARQUET', external_location='%s')",
+                reversedTableName,
+                tableLocation));
+
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a, b FROM " + reversedTableName,
+                "VALUES ('b', 'a')");
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a FROM " + reversedTableName + " WHERE b = 'a'",
+                "VALUES ('b')");
+
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a, b FROM " + reversedTableName,
+                "VALUES ('a', 'b')");
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a FROM " + reversedTableName + " WHERE b = 'b'",
+                "VALUES ('a')");
+
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + reversedTableName);
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testParquetWithMissingColumns()
+    {
+        Session sessionUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+        Session sessionUsingColumnName = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+
+        String singleColumnTableName = "test_parquet_with_missing_columns_one";
+
+        assertUpdate(format(
+                "CREATE TABLE %s(" +
+                        "  a varchar) " +
+                        "WITH (format='PARQUET')",
+                singleColumnTableName));
+        assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + singleColumnTableName + " VALUES ('a')", 1);
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + singleColumnTableName).getOnlyValue();
+        String multiColumnTableName = "test_parquet_missing_columns_two";
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  b varchar, " +
+                        "  a varchar) " +
+                        "WITH (format='PARQUET', external_location='%s')",
+                multiColumnTableName,
+                tableLocation));
+
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a FROM " + multiColumnTableName + " WHERE b IS NULL",
+                "VALUES ('a')");
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a FROM " + multiColumnTableName + " WHERE a = 'a'",
+                "VALUES ('a')");
+
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT b FROM " + multiColumnTableName + " WHERE b = 'a'",
+                "VALUES ('a')");
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT b FROM " + multiColumnTableName + " WHERE a IS NULL",
+                "VALUES ('a')");
+
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + singleColumnTableName);
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + multiColumnTableName);
+    }
+
+    @Test
+    public void testNestedColumnWithDuplicateName()
+    {
+        String tableName = "test_nested_column_with_duplicate_name";
+
+        assertUpdate(format(
+                "CREATE TABLE %s(" +
+                        "  foo varchar, " +
+                        "  root ROW (foo varchar)) " +
+                        "WITH (format='PARQUET')",
+                tableName));
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', ROW('b'))", 1);
+        assertQuery("SELECT root.foo FROM " + tableName + " WHERE foo = 'a'", "VALUES ('b')");
+        assertQuery("SELECT root.foo FROM " + tableName + " WHERE root.foo = 'b'", "VALUES ('b')");
+        assertQuery("SELECT root.foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'b'", "VALUES ('b')");
+
+        assertQuery("SELECT foo FROM " + tableName + " WHERE foo = 'a'", "VALUES ('a')");
+        assertQuery("SELECT foo FROM " + tableName + " WHERE root.foo = 'b'", "VALUES ('a')");
+        assertQuery("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'b'", "VALUES ('a')");
+
+        assertTrue(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'a'").getMaterializedRows().isEmpty());
+        assertTrue(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'b' AND root.foo = 'b'").getMaterializedRows().isEmpty());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testMismatchedBucketing()
     {
         try {
