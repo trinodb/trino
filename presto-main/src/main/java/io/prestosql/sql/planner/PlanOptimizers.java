@@ -299,7 +299,7 @@ public class PlanOptimizers
                 new PruneSemiJoinColumns(),
                 new PruneSemiJoinFilteringSourceColumns(),
                 new PruneSortColumns(),
-                new PruneTableScanColumns(metadata, typeAnalyzer),
+                new PruneTableScanColumns(metadata),
                 new PruneTopNColumns(),
                 new PruneTopNRowNumberColumns(),
                 new PruneUnionColumns(),
