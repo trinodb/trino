@@ -1,2 +1,3 @@
 io.prestosql.tests.ReportUnannotatedMethods
+io.prestosql.tests.ReportIllNamedTest
 io.prestosql.tests.LogTestDurationListener
