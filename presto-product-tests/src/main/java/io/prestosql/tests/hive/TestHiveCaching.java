@@ -15,9 +15,11 @@ package io.prestosql.tests.hive;
 
 import io.airlift.units.Duration;
 import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.assertions.QueryAssert.Row;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Random;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -35,6 +37,8 @@ import static org.testng.Assert.assertEquals;
 public class TestHiveCaching
         extends ProductTest
 {
+    private static final int NUMBER_OF_FILES = 5;
+
     @Test(groups = {HIVE_CACHING, PROFILE_SPECIFIC_TESTS})
     public void testReadFromCache()
     {
@@ -47,24 +51,26 @@ public class TestHiveCaching
         String cachedTableName = "hive.default.test_cache_read" + tableNameSuffix;
         String nonCachedTableName = "hivenoncached.default.test_cache_read" + tableNameSuffix;
 
-        String tableData = createTestTable(nonCachedTableName);
+        Row[] tableData = createTestTable(nonCachedTableName);
 
         QueryResult beforeCacheStats = getCacheStats();
         long initialRemoteReads = getRemoteReads(beforeCacheStats);
         long initialCachedReads = getCachedReads(beforeCacheStats);
+        long initialNonLocalReads = getNonLocalReads(beforeCacheStats);
         long initialAsyncDownloadedMb = getAsyncDownloadedMb();
 
         assertThat(query("SELECT * FROM " + cachedTableName))
-                .containsExactly(row(tableData));
+                .containsExactly(tableData);
 
         assertEventually(
                 new Duration(20, SECONDS),
                 () -> {
                     // first query via caching catalog should fetch remote data
                     QueryResult afterQueryCacheStats = getCacheStats();
-                    assertGreaterThanOrEqual(getAsyncDownloadedMb(), initialAsyncDownloadedMb + 1);
+                    assertGreaterThanOrEqual(getAsyncDownloadedMb(), initialAsyncDownloadedMb + 5);
                     assertGreaterThan(getRemoteReads(afterQueryCacheStats), initialRemoteReads);
                     assertEquals(getCachedReads(afterQueryCacheStats), initialCachedReads);
+                    assertEquals(getNonLocalReads(afterQueryCacheStats), initialNonLocalReads);
                 });
 
         assertEventually(
@@ -72,24 +78,30 @@ public class TestHiveCaching
                 () -> {
                     QueryResult beforeQueryCacheStats = getCacheStats();
                     long beforeQueryRemoteReads = getRemoteReads(beforeQueryCacheStats);
-                    long beforeQueryCachedReads = getCachedReads(beforeQueryCacheStats);
+                    long beforeQueryCachedReadsWorker0 = getCachedReads(0);
+                    long beforeQueryCachedReadsWorker1 = getCachedReads(1);
+                    long beforeQueryNonLocalReads = getNonLocalReads(beforeQueryCacheStats);
 
                     assertThat(query("SELECT * FROM " + cachedTableName))
-                            .containsExactly(row(tableData));
+                            .containsExactly(tableData);
 
                     // query via caching catalog should read exclusively from cache
                     QueryResult afterQueryCacheStats = getCacheStats();
                     assertEquals(getRemoteReads(afterQueryCacheStats), beforeQueryRemoteReads);
-                    assertGreaterThan(getCachedReads(afterQueryCacheStats), beforeQueryCachedReads);
+                    // make sure each worker read cached data
+                    assertGreaterThan(getCachedReads(0), beforeQueryCachedReadsWorker0);
+                    assertGreaterThan(getCachedReads(1), beforeQueryCachedReadsWorker1);
+                    // all reads should be local as Presto would schedule splits on nodes with cached data
+                    assertEquals(getNonLocalReads(afterQueryCacheStats), beforeQueryNonLocalReads);
                 });
 
         query("DROP TABLE " + nonCachedTableName);
     }
 
     /**
-     * Creates table with text files that are larger than 1MB
+     * Creates table with 5 text files that are larger than 1MB
      */
-    private String createTestTable(String tableName)
+    private Row[] createTestTable(String tableName)
     {
         StringBuilder randomDataBuilder = new StringBuilder();
         Random random = new Random();
@@ -99,16 +111,28 @@ public class TestHiveCaching
         String randomData = randomDataBuilder.toString();
 
         query("DROP TABLE IF EXISTS " + tableName);
-        // use `format` to overcome SQL query length limit
-        query("CREATE TABLE " + tableName + " WITH (format='TEXTFILE') AS SELECT format('%1$s%1$s%1$s%1$s%1$s', '" + randomData + "') as col");
+        query("CREATE TABLE " + tableName + " (col varchar) WITH (format='TEXTFILE')");
 
-        return randomData.repeat(5);
+        for (int i = 0; i < NUMBER_OF_FILES; ++i) {
+            // use `format` to overcome SQL query length limit
+            query("INSERT INTO " + tableName + " SELECT format('%1$s%1$s%1$s%1$s%1$s', '" + randomData + "')");
+        }
+
+        Row row = row(randomData.repeat(5));
+        return Collections.nCopies(NUMBER_OF_FILES, row).toArray(new Row[0]);
     }
 
     private QueryResult getCacheStats()
     {
-        return query("SELECT cachedreads, remotereads FROM " +
-                "jmx.current.\"rubix:catalog=hive,name=stats\" WHERE node = 'presto-worker'");
+        return query("SELECT sum(cachedreads) as cachedreads, sum(remotereads) as remotereads, sum(nonlocalreads) as nonlocalreads FROM " +
+                "jmx.current.\"rubix:catalog=hive,name=stats\"");
+    }
+
+    private long getCachedReads(int workerNumber)
+    {
+        QueryResult result = query("SELECT sum(cachedreads) as cachedreads, sum(remotereads) as remotereads, sum(nonlocalreads) as nonlocalreads FROM " +
+                "jmx.current.\"rubix:catalog=hive,name=stats\" WHERE node = 'presto-worker-" + workerNumber + "'");
+        return getCachedReads(result);
     }
 
     private long getCachedReads(QueryResult queryResult)
@@ -123,10 +147,16 @@ public class TestHiveCaching
                 .get(queryResult.tryFindColumnIndex("remotereads").get() - 1);
     }
 
+    private long getNonLocalReads(QueryResult queryResult)
+    {
+        return (Long) getOnlyElement(queryResult.rows())
+                .get(queryResult.tryFindColumnIndex("nonlocalreads").get() - 1);
+    }
+
     private long getAsyncDownloadedMb()
     {
-        return (Long) getOnlyElement(query("SELECT Count FROM " +
-                "jmx.current.\"metrics:name=rubix.bookkeeper.count.async_downloaded_mb\" WHERE node = 'presto-worker'").rows())
+        return (Long) getOnlyElement(query("SELECT sum(Count) FROM " +
+                "jmx.current.\"metrics:name=rubix.bookkeeper.count.async_downloaded_mb\"").rows())
                 .get(0);
     }
 }
