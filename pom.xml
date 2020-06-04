@@ -1353,7 +1353,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <includes>
+                        <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
                         <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
                         <include>**/Benchmark*.java</include>
                     </includes>
                     <excludes>
