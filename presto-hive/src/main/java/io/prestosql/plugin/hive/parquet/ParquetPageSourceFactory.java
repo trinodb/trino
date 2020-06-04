@@ -200,7 +200,8 @@ public class ParquetPageSourceFactory
             }
 
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
+
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
@@ -309,7 +310,11 @@ public class ParquetPageSourceFactory
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
 
-    public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<HiveColumnHandle> effectivePredicate)
+    public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(
+            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            MessageType fileSchema,
+            boolean useColumnNames)
     {
         if (effectivePredicate.isNone()) {
             return TupleDomain.none();
@@ -319,11 +324,23 @@ public class ParquetPageSourceFactory
         for (Entry<HiveColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
             HiveColumnHandle columnHandle = entry.getKey();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (columnHandle.getHiveType().getCategory() != PRIMITIVE) {
+            if (columnHandle.getHiveType().getCategory() != PRIMITIVE || columnHandle.getColumnType() != REGULAR) {
                 continue;
             }
 
-            RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            RichColumnDescriptor descriptor;
+            if (useColumnNames) {
+                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            }
+            else {
+                org.apache.parquet.schema.Type parquetField = getParquetType(columnHandle, fileSchema, false);
+                if (parquetField == null || !parquetField.isPrimitive()) {
+                    // Parquet file has fewer column than partition
+                    // Or the field is a complex type
+                    continue;
+                }
+                descriptor = descriptorsByPath.get(ImmutableList.of(parquetField.getName()));
+            }
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }
