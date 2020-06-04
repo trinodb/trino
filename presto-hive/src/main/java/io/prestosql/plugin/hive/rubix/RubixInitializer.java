@@ -161,6 +161,9 @@ public class RubixInitializer
             // setup JMX metrics on master (instead of starting server) so that JMX connector can be used
             // TODO: remove once https://github.com/prestosql/presto/issues/3821 is fixed
             setupRubixMetrics();
+
+            // enable caching on coordinator so that cached block locations can be obtained
+            cacheReady = true;
             return;
         }
 
@@ -241,7 +244,7 @@ public class RubixInitializer
     {
         Configuration configuration = getRubixServerConfiguration();
         new BookKeeperServer().setupServer(configuration, new MetricRegistry());
-        CachingFileSystem.setLocalBookKeeper(null, "catalog=" + catalogName);
+        CachingFileSystem.setLocalBookKeeper(new DummyBookKeeper(), "catalog=" + catalogName);
         PrestoClusterManager.setNodeManager(nodeManager);
     }
 

@@ -79,11 +79,12 @@ public final class MultinodeHiveCaching
                     .withTmpFs(ImmutableMap.of("/tmp/cache", "rw"));
         });
 
-        builder.addContainer("presto-worker", createPrestoWorker());
+        createPrestoWorker(builder, 0);
+        createPrestoWorker(builder, 1);
     }
 
     @SuppressWarnings("resource")
-    private DockerContainer createPrestoWorker()
+    private void createPrestoWorker(Environment.Builder builder, int workerNumber)
     {
         DockerContainer container = createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-jvm.config"), CONTAINER_PRESTO_JVM_CONFIG, READ_ONLY)
@@ -93,9 +94,9 @@ public final class MultinodeHiveCaching
                 .withTmpFs(ImmutableMap.of("/tmp/cache", "rw"));
 
         if (debug) {
-            enableJavaDebugger(container, CONTAINER_PRESTO_JVM_CONFIG, 5008); // debug port
+            enableJavaDebugger(container, CONTAINER_PRESTO_JVM_CONFIG, 5008 + workerNumber); // debug port
         }
 
-        return container;
+        builder.addContainer("presto-worker-" + workerNumber, container);
     }
 }
