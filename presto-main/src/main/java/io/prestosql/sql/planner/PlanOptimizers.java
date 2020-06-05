@@ -96,6 +96,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSortColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneTableWriterSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNRowNumberColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnionColumns;
@@ -300,6 +301,7 @@ public class PlanOptimizers
                 new PruneSemiJoinFilteringSourceColumns(),
                 new PruneSortColumns(),
                 new PruneTableScanColumns(metadata),
+                new PruneTableWriterSourceColumns(),
                 new PruneTopNColumns(),
                 new PruneTopNRowNumberColumns(),
                 new PruneUnionColumns(),
