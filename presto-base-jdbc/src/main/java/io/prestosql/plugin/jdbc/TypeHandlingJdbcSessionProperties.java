@@ -23,7 +23,7 @@ import java.util.List;
 
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 
-public class TypeHandlingJdbcPropertiesProvider
+public class TypeHandlingJdbcSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String UNSUPPORTED_TYPE_HANDLING = "unsupported_type_handling";
@@ -31,7 +31,7 @@ public class TypeHandlingJdbcPropertiesProvider
     private final List<PropertyMetadata<?>> properties;
 
     @Inject
-    public TypeHandlingJdbcPropertiesProvider(TypeHandlingJdbcConfig typeHandlingJdbcConfig)
+    public TypeHandlingJdbcSessionProperties(TypeHandlingJdbcConfig typeHandlingJdbcConfig)
     {
         properties = ImmutableList.of(
                 enumProperty(
