@@ -25,7 +25,9 @@ public class TestAccessControlConfig
 {
     @Test
     public void testDefaults()
+            throws InterruptedException
     {
+        Thread.sleep(Long.MAX_VALUE);
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(AccessControlConfig.class)
                 .setAccessControlFiles(""));
     }

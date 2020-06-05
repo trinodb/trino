@@ -52,10 +52,10 @@ public class LogTestDurationListener
     // (@Test(threadPoolSize=n)), so we need kill switch for local development purposes.
     private static final boolean enabled = Boolean.getBoolean("LogTestDurationListener.enabled");
 
-    private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("30s");
-    private static final Duration CLASS_LOGGING_THRESHOLD = Duration.valueOf("1m");
+    private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("3s");
+    private static final Duration CLASS_LOGGING_THRESHOLD = Duration.valueOf("10s");
     // Must be below Travis "no output" timeout (10m). E.g. TestElasticsearchIntegrationSmokeTest is known to take ~5-6m.
-    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("8m");
+    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("30s");
 
     private final ScheduledExecutorService scheduledExecutorService;
 
