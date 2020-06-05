@@ -29,7 +29,6 @@ import java.lang.management.ThreadInfo;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +40,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.stream.Collectors.joining;
 
 public class LogTestDurationListener
@@ -68,7 +68,7 @@ public class LogTestDurationListener
 
     public LogTestDurationListener()
     {
-        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(daemonThreadsNamed("TestHangMonitor"));
+        scheduledExecutorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("TestHangMonitor"));
     }
 
     @Override
