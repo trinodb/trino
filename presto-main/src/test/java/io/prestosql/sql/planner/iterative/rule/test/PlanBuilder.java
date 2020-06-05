@@ -72,6 +72,8 @@ import io.prestosql.sql.planner.plan.SampleNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
+import io.prestosql.sql.planner.plan.StatisticAggregations;
+import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -851,6 +853,17 @@ public class PlanBuilder
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)
     {
+        return tableWriter(columns, columnNames, Optional.empty(), Optional.empty(), Optional.empty(), source);
+    }
+
+    public TableWriterNode tableWriter(
+            List<Symbol> columns,
+            List<String> columnNames,
+            Optional<PartitioningScheme> partitioningScheme,
+            Optional<StatisticAggregations> statisticAggregations,
+            Optional<StatisticAggregationsDescriptor<Symbol>> statisticAggregationsDescriptor,
+            PlanNode source)
+    {
         return new TableWriterNode(
                 idAllocator.getNextId(),
                 source,
@@ -859,8 +872,36 @@ public class PlanBuilder
                 symbol("fragment", VARBINARY),
                 columns,
                 columnNames,
-                Optional.empty(),
-                Optional.empty(),
+                partitioningScheme,
+                statisticAggregations,
+                statisticAggregationsDescriptor);
+    }
+
+    public PartitioningScheme partitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
+    {
+        return new PartitioningScheme(Partitioning.create(
+                FIXED_HASH_DISTRIBUTION,
+                ImmutableList.copyOf(partitioningSymbols)),
+                ImmutableList.copyOf(outputSymbols),
+                Optional.of(hashSymbol));
+    }
+
+    public StatisticAggregations statisticAggregations(Map<Symbol, Aggregation> aggregations, List<Symbol> groupingSymbols)
+    {
+        return new StatisticAggregations(aggregations, groupingSymbols);
+    }
+
+    public Aggregation aggregation(Expression expression, List<Type> inputTypes)
+    {
+        checkArgument(expression instanceof FunctionCall);
+        FunctionCall aggregation = (FunctionCall) expression;
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
+        return new Aggregation(
+                resolvedFunction,
+                aggregation.getArguments(),
+                aggregation.isDistinct(),
+                aggregation.getFilter().map(Symbol::from),
+                aggregation.getOrderBy().map(OrderingScheme::fromOrderBy),
                 Optional.empty());
     }
 
