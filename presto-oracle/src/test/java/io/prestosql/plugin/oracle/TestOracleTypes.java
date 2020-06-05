@@ -51,7 +51,7 @@ import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.plugin.oracle.OracleDataTypes.CharacterSemantics.BYTE;

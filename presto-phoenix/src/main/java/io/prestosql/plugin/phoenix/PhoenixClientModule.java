@@ -27,7 +27,7 @@ import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
-import io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider;
+import io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
@@ -76,7 +76,7 @@ public class PhoenixClientModule
         binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
-        bindSessionPropertiesProvider(binder, TypeHandlingJdbcPropertiesProvider.class);
+        bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
 
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixMetadata.class).in(Scopes.SINGLETON);

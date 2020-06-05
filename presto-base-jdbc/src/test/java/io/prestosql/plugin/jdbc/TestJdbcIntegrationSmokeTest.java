@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
