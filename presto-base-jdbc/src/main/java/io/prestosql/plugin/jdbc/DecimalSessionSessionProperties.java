@@ -26,7 +26,7 @@ import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 
-public class DecimalSessionPropertiesProvider
+public class DecimalSessionSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String DECIMAL_MAPPING = "decimal_mapping";
@@ -36,7 +36,7 @@ public class DecimalSessionPropertiesProvider
     private final List<PropertyMetadata<?>> properties;
 
     @Inject
-    public DecimalSessionPropertiesProvider(DecimalConfig decimalConfig)
+    public DecimalSessionSessionProperties(DecimalConfig decimalConfig)
     {
         properties = ImmutableList.of(
                 enumProperty(
