@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
+import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.OracleContainer;
 
@@ -34,7 +35,11 @@ public final class TestingOracleServer
             .withCreateContainerCmdModifier(cmd -> cmd.withHostName("oracle-master"))
             .withClasspathResourceMapping("krb/server/sqlnet.ora", "/opt/oracle/oradata/dbconfig/testdbsid/sqlnet.ora", READ_ONLY)
             .withClasspathResourceMapping("krb/server/oracle_oracle-master.keytab", "/etc/server.keytab", READ_ONLY)
-            .withClasspathResourceMapping("krb/krb5.conf", "/etc/krb5.conf", READ_ONLY);
+            .withClasspathResourceMapping("krb/krb5.conf", "/etc/krb5.conf", READ_ONLY)
+            // Recommended ulimits for running Oracle on Linux
+            // https://docs.oracle.com/en/database/oracle/oracle-database/12.2/ladbi/checking-resource-limits-for-oracle-software-installation-users.html
+            .withCreateContainerCmdModifier(cmd ->
+                    cmd.withUlimits(new Ulimit("nofile", 1024, 65536)));
 
     static {
         CONTAINER.start();
