@@ -15,6 +15,7 @@ import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindProcedure;
@@ -45,6 +46,7 @@ public class OracleClientModule
         configBinder(binder).bindConfig(OracleConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
+        install(new CredentialProviderModule()); // TODO this should depend on the authentication configuration
         install(new OracleAuthenticationModule(catalogName));
     }
 }
