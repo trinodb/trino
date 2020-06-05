@@ -806,6 +806,19 @@ public class PlanBuilder
             List<Symbol> outputSymbols,
             Expression filter)
     {
+        return spatialJoin(type, left, right, outputSymbols, filter, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    public PlanNode spatialJoin(
+            SpatialJoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<Symbol> outputSymbols,
+            Expression filter,
+            Optional<Symbol> leftPartitionSymbol,
+            Optional<Symbol> rightPartitionSymbol,
+            Optional<String> kdbTree)
+    {
         return new SpatialJoinNode(
                 idAllocator.getNextId(),
                 type,
@@ -813,9 +826,9 @@ public class PlanBuilder
                 right,
                 outputSymbols,
                 filter,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+                leftPartitionSymbol,
+                rightPartitionSymbol,
+                kdbTree);
     }
 
     public UnionNode union(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
