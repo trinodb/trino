@@ -27,6 +27,7 @@ import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
+import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
@@ -60,7 +61,6 @@ import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
 import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
-import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static io.prestosql.plugin.hive.util.RetryDriver.DEFAULT_SCALE_FACTOR;
@@ -232,6 +232,7 @@ public class RubixInitializer
         LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
 
         CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
+        PrestoClusterManager.setNodeManager(nodeManager);
         log.info("Rubix initialized successfully");
         cacheReady = true;
     }
@@ -241,6 +242,7 @@ public class RubixInitializer
         Configuration configuration = getRubixServerConfiguration();
         new BookKeeperServer().setupServer(configuration, new MetricRegistry());
         CachingFileSystem.setLocalBookKeeper(null, "catalog=" + catalogName);
+        PrestoClusterManager.setNodeManager(nodeManager);
     }
 
     private Configuration getRubixServerConfiguration()
@@ -287,10 +289,6 @@ public class RubixInitializer
         config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
 
         config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
-
-        // TODO: fix PrestoClusterManager in Rubix itself
-        PrestoClusterManager.setNodeManager(nodeManager);
-        setPrestoClusterManager(config, PrestoClusterManager.class.getName());
 
         extraConfigInitializer.ifPresent(initializer -> initializer.initializeConfiguration(config));
     }
