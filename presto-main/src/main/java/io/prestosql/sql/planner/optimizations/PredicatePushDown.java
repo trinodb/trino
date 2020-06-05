@@ -77,6 +77,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.prestosql.SystemSessionProperties.isPredicatePushdownUseTableProperties;
 import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
@@ -309,7 +310,7 @@ public class PredicatePushDown
         {
             Map<Symbol, SymbolReference> commonGroupingSymbolMapping = node.getGroupingColumns().entrySet().stream()
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
             Predicate<Expression> pushdownEligiblePredicate = conjunct -> commonGroupingSymbolMapping.keySet().containsAll(SymbolsExtractor.extractUnique(conjunct));
 
@@ -460,12 +461,12 @@ public class PredicatePushDown
             Assignments.Builder leftProjections = Assignments.builder();
             leftProjections.putAll(node.getLeft()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
             Assignments.Builder rightProjections = Assignments.builder();
             rightProjections.putAll(node.getRight()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
@@ -676,12 +677,12 @@ public class PredicatePushDown
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
                 Assignments.Builder rightProjections = Assignments.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
