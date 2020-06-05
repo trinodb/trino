@@ -56,7 +56,7 @@ public class JdbcModule
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
-        bindSessionPropertiesProvider(binder, TypeHandlingJdbcPropertiesProvider.class);
+        bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
 
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
