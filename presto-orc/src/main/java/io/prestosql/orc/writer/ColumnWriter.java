@@ -52,6 +52,9 @@ public interface ColumnWriter
     List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException;
 
+    List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+            throws IOException;
+
     /**
      * Get the data streams to be written.
      */

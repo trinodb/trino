@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -76,7 +77,8 @@ public class TestOrcWriter
                             .withStripeMaxSize(DataSize.of(32, MEGABYTE))
                             .withStripeMaxRowCount(ORC_STRIPE_SIZE)
                             .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
-                            .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE)),
+                            .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE))
+                            .withBloomFilterColumns(ImmutableSet.copyOf(columnNames)),
                     false,
                     ImmutableMap.of(),
                     HIVE_STORAGE_TIME_ZONE,
