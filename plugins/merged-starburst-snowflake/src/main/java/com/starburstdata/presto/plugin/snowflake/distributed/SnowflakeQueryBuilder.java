@@ -34,8 +34,10 @@ import static java.util.stream.Collectors.joining;
 public class SnowflakeQueryBuilder
         extends QueryBuilder
 {
-    // from io.prestosql.spi.type.DateTimeEncoding
-    private static final int MILLIS_SHIFT = 12;
+    // Similar to io.prestosql.spi.type.DateTimeEncoding#MILLIS_SHIFT
+    public static final int TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT = 12;
+    public static final int TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK = 0xFFF;
+    public static final int ZONE_OFFSET_MINUTES_BIAS = 2048;
 
     public SnowflakeQueryBuilder()
     {
@@ -59,8 +61,8 @@ public class SnowflakeQueryBuilder
                                                 "TO_DECIMAL(BITSHIFTLEFT(EXTRACT('EPOCH_MILLISECOND', %1$s), %2$s), 38, 0), " +
                                                 "%3$s + EXTRACT('TZH', %1$s) * 60 + EXTRACT('TZM', %1$s)) %1$s",
                                         columnHandle.getColumnName(),
-                                        MILLIS_SHIFT,
-                                        2048) :
+                                        TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
+                                        ZONE_OFFSET_MINUTES_BIAS) :
                                 quote(columnHandle.getColumnName()))
                 .collect(joining(", "));
     }

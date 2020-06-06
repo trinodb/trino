@@ -31,6 +31,9 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkState;
 import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTime;
 import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTimestamp;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.ZONE_OFFSET_MINUTES_BIAS;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -232,9 +235,6 @@ public class TranslatingPageSource
     private static class TimestampWithTimeZoneTranslation
             implements TranslateToLong
     {
-        // from io.prestosql.spi.type.DateTimeEncoding
-        private static final int TIME_ZONE_MASK = 0xFFF;
-        private static final int MILLIS_SHIFT = 12;
         private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(19);
 
         @Override
@@ -247,8 +247,8 @@ public class TranslatingPageSource
         @Override
         public long mapLong(long value)
         {
-            int offsetMinutes = (int) (value & TIME_ZONE_MASK) - 2048;
-            return packDateTimeWithZone(value >> MILLIS_SHIFT, offsetMinutes);
+            int offsetMinutes = (int) (value & TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK) - ZONE_OFFSET_MINUTES_BIAS;
+            return packDateTimeWithZone(value >> TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT, offsetMinutes);
         }
     }
 }
