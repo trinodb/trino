@@ -24,7 +24,6 @@ import io.prestosql.cost.CostProvider;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.matching.Capture;
 import io.prestosql.matching.Match;
 import io.prestosql.matching.Pattern;
 import io.prestosql.spi.PrestoException;
@@ -43,7 +42,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -153,8 +151,7 @@ public class IterativeOptimizer
 
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Context context)
     {
-        Capture<T> nodeCapture = newCapture();
-        Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
+        Pattern<T> pattern = rule.getPattern();
         Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
         while (matches.hasNext()) {
             Match match = matches.next();
@@ -162,7 +159,8 @@ public class IterativeOptimizer
             Rule.Result result;
             try {
                 long start = System.nanoTime();
-                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
+                //noinspection unchecked
+                result = rule.apply((T) node, match.captures(), ruleContext(context));
                 duration = System.nanoTime() - start;
             }
             catch (RuntimeException e) {
