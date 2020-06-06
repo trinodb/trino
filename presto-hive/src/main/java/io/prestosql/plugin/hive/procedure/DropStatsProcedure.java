@@ -49,7 +49,7 @@ import static org.apache.hadoop.hive.metastore.utils.FileUtils.makePartName;
 /**
  * A procedure that drops statistics.  It can be invoked for a subset of partitions (e.g.
  * {@code CALL system.drop_stats('system', 'some_table', ARRAY[ARRAY['x', '7']])}) or
- * for the entire table ({@code CALL system.drop_stats('system', 'some_table', NULL)})).
+ * for the entire table ({@code CALL system.drop_stats('system', 'some_table')})).
  */
 public class DropStatsProcedure
         implements Provider<Procedure>
@@ -81,7 +81,7 @@ public class DropStatsProcedure
                 ImmutableList.of(
                         new Argument("schema_name", VARCHAR),
                         new Argument("table_name", VARCHAR),
-                        new Argument("partition_values", new ArrayType(new ArrayType(VARCHAR)))),
+                        new Argument("partition_values", new ArrayType(new ArrayType(VARCHAR)), false, null)),
                 DROP_STATS.bindTo(this));
     }
 
