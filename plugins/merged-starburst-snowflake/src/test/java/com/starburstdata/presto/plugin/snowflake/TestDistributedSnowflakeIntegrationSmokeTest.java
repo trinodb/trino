@@ -16,7 +16,6 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
@@ -24,7 +23,6 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.imp
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static java.lang.Boolean.TRUE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -45,11 +43,6 @@ public class TestDistributedSnowflakeIntegrationSmokeTest
     @Test
     public void testDynamicFilterIsApplied()
     {
-        if (TRUE) {
-            // TODO enable the test after https://github.com/prestosql/presto/pull/3581
-            throw new SkipException("TODO enable the test");
-        }
-
         String sql = "SELECT l.partkey FROM lineitem l JOIN nation n ON n.regionkey = l.orderkey AND n.name < 'B' ";
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
