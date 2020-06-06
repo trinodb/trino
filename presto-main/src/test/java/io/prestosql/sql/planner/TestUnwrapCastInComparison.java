@@ -626,6 +626,57 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testNaN()
+    {
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> nan()",
+                output(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM nan()",
+                output(
+                        values("A")));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a = nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a < nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a <> nan()",
+                output(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a IS DISTINCT FROM nan()",
+                output(
+                        filter("A IS DISTINCT FROM CAST(nan() AS REAL)",
+                                values("A"))));
+    }
+
+    @Test
     public void smokeTests()
     {
         // smoke tests for various type combinations

@@ -21,6 +21,8 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.planner.ExpressionInterpreter;
@@ -54,6 +56,8 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -182,6 +186,31 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
+            // Handle comparison against NaN.
+            // It must be done before source type range bounds are compared to target value.
+            if ((targetType instanceof DoubleType && Double.isNaN((double) right)) || (targetType instanceof RealType && Float.isNaN(intBitsToFloat(toIntExact((long) right))))) {
+                switch (operator) {
+                    case EQUAL:
+                    case GREATER_THAN:
+                    case GREATER_THAN_OR_EQUAL:
+                    case LESS_THAN:
+                    case LESS_THAN_OR_EQUAL:
+                        return falseIfNotNull(cast.getExpression());
+                    case NOT_EQUAL:
+                        return trueIfNotNull(cast.getExpression());
+                    case IS_DISTINCT_FROM:
+                        if (!typeHasNaN(sourceType)) {
+                            return TRUE_LITERAL;
+                        }
+                        else {
+                            // NaN on the right of comparison will be cast to source type later
+                            break;
+                        }
+                    default:
+                        throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                }
+            }
+
             ResolvedFunction sourceToTarget = metadata.getCoercion(sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
@@ -189,6 +218,8 @@ public class UnwrapCastInComparison
                 Object max = sourceRange.get().getMax();
                 Object maxInTargetType = coerce(max, sourceToTarget);
 
+                // NaN values of `right` are excluded at this point. Otherwise, NaN would be recognized as
+                // greater than source type upper bound, and incorrect expression might be derived.
                 int upperBoundComparison = compare(targetType, right, maxInTargetType);
                 if (upperBoundComparison > 0) {
                     // larger than maximum representable value
@@ -382,6 +413,11 @@ public class UnwrapCastInComparison
         private Object coerce(Object value, ResolvedFunction coercion)
         {
             return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
+        }
+
+        private boolean typeHasNaN(Type type)
+        {
+            return type instanceof DoubleType || type instanceof RealType;
         }
     }
 
