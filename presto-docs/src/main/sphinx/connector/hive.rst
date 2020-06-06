@@ -859,6 +859,10 @@ with keys ``p2_value1, p2_value2``.
 Note that if statistics were previously collected for all columns, they need to be dropped
 before re-analyzing just a subset::
 
+    CALL system.drop_stats(schema_name, table_name)
+
+You can also drop statistics for selected partitions only::
+
     CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
 Schema Evolution
@@ -962,8 +966,8 @@ Procedures
 
     Drops statistics for a subset of partitions or the entire table. The partitions are specified as an
     array whose elements are arrays of partition values (similar to the ``partition_values`` argument in
-    ``create_empty_partition``). A null value for the ``partition_values`` argument indicates that stats
-    should be dropped for the entire table.
+    ``create_empty_partition``). If ``partition_values`` argument is omitted, stats are dropped for the
+    entire table.
 
 .. _register_partition:
 
