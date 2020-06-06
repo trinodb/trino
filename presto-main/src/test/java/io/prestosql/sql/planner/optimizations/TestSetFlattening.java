@@ -35,7 +35,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.intersect;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.union;
 
-public class TestSetFlatteningOptimizer
+public class TestSetFlattening
         extends BasePlanTest
 {
     @Test
