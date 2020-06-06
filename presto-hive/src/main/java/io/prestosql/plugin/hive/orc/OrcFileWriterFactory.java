@@ -66,6 +66,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStringStatist
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.prestosql.plugin.hive.util.HiveUtil.getOrcWriterOptions;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -186,7 +187,7 @@ public class OrcFileWriterFactory
                     fileColumnTypes,
                     createRootOrcType(fileColumnNames, fileColumnTypes),
                     compression,
-                    orcWriterOptions
+                    getOrcWriterOptions(schema, orcWriterOptions)
                             .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))

@@ -26,6 +26,9 @@ import static io.prestosql.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestDoubleStatisticsBuilder
         extends AbstractStatisticsBuilderTest<DoubleStatisticsBuilder, Double>
@@ -34,7 +37,7 @@ public class TestDoubleStatisticsBuilder
 
     public TestDoubleStatisticsBuilder()
     {
-        super(DOUBLE, DoubleStatisticsBuilder::new, DoubleStatisticsBuilder::addValue);
+        super(DOUBLE, () -> new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder()), DoubleStatisticsBuilder::addValue);
     }
 
     @Test
@@ -66,7 +69,7 @@ public class TestDoubleStatisticsBuilder
     @Test
     public void testNanValue()
     {
-        DoubleStatisticsBuilder statisticsBuilder = new DoubleStatisticsBuilder();
+        DoubleStatisticsBuilder statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
         statisticsBuilder.addValue(NaN);
         assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 1);
         statisticsBuilder.addValue(NaN);
@@ -74,7 +77,7 @@ public class TestDoubleStatisticsBuilder
         statisticsBuilder.addValue(42.42);
         assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 3);
 
-        statisticsBuilder = new DoubleStatisticsBuilder();
+        statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
         statisticsBuilder.addValue(42.42);
         assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 1, 42.42, 42.42);
         statisticsBuilder.addValue(NaN);
@@ -90,5 +93,20 @@ public class TestDoubleStatisticsBuilder
         assertMinAverageValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(42D));
         assertMinAverageValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(0D));
         assertMinAverageValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(0D, 42D, 42D, 43D));
+    }
+
+    @Test
+    public void testBloomFilter()
+    {
+        DoubleStatisticsBuilder statisticsBuilder = new DoubleStatisticsBuilder(new Utf8BloomFilterBuilder(3, 0.01));
+        statisticsBuilder.addValue(3.14);
+        statisticsBuilder.addValue(10.11);
+        statisticsBuilder.addValue(42.42);
+        BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
+        assertNotNull(bloomFilter);
+        assertTrue(bloomFilter.testDouble(3.14));
+        assertTrue(bloomFilter.testDouble(10.11));
+        assertTrue(bloomFilter.testDouble(42.42));
+        assertFalse(bloomFilter.testDouble(100));
     }
 }

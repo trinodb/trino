@@ -155,6 +155,12 @@ public class BooleanColumnWriter
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
+    @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+    {
+        return ImmutableList.of();
+    }
+
     private static List<Integer> createBooleanColumnPositionList(
             boolean compressed,
             BooleanStreamCheckpoint dataCheckpoint,
