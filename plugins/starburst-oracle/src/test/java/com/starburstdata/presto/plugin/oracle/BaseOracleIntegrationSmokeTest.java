@@ -57,7 +57,7 @@ public abstract class BaseOracleIntegrationSmokeTest
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp", "", "")
+                .row("orderdate", "timestamp(3)", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
                 .row("shippriority", "decimal(10,0)", "", "")
@@ -223,7 +223,7 @@ public abstract class BaseOracleIntegrationSmokeTest
                         "   custkey decimal(19, 0),\n" +
                         "   orderstatus varchar(1),\n" +
                         "   totalprice double,\n" +
-                        "   orderdate timestamp,\n" +
+                        "   orderdate timestamp(3),\n" +
                         "   orderpriority varchar(15),\n" +
                         "   clerk varchar(15),\n" +
                         "   shippriority decimal(10, 0),\n" +

@@ -77,7 +77,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.unspecified
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
