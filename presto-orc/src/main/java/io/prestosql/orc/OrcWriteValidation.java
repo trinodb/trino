@@ -34,6 +34,7 @@ import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.NoOpBloomFilterBuilder;
 import io.prestosql.orc.metadata.statistics.ShortDecimalStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StatisticsHasher;
@@ -631,37 +632,37 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (SMALLINT.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (INTEGER.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (BIGINT.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (DOUBLE.equals(type)) {
-                statisticsBuilder = new DoubleStatisticsBuilder();
+                statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (REAL.equals(type)) {
-                statisticsBuilder = new DoubleStatisticsBuilder();
+                statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof VarcharType) {
-                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes, new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof CharType) {
-                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes, new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
@@ -671,7 +672,7 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (DATE.equals(type)) {
-                statisticsBuilder = new DateStatisticsBuilder();
+                statisticsBuilder = new DateStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }

@@ -132,6 +132,12 @@ public class BloomFilter
         addHash(hash64);
     }
 
+    public void add(Slice val)
+    {
+        long hash64 = (val == null) ? NULL_HASHCODE : OrcMurmur3.hash64(val);
+        addHash(hash64);
+    }
+
     private void addHash(long hash64)
     {
         int hash1 = (int) hash64;

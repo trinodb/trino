@@ -126,14 +126,14 @@ public class OrcWriterConfig
 
     public double getDefaultBloomFilterFpp()
     {
-        return defaultBloomFilterFpp;
+        return options.getBloomFilterFpp();
     }
 
     @Config("hive.orc.default-bloom-filter-fpp")
     @ConfigDescription("ORC Bloom filter false positive probability")
     public OrcWriterConfig setDefaultBloomFilterFpp(double defaultBloomFilterFpp)
     {
-        this.defaultBloomFilterFpp = defaultBloomFilterFpp;
+        options = options.withBloomFilterFpp(defaultBloomFilterFpp);
         return this;
     }
 

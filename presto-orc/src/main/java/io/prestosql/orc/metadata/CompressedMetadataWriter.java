@@ -16,6 +16,7 @@ package io.prestosql.orc.metadata;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.prestosql.orc.OrcOutputBuffer;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 
 import java.io.IOException;
 import java.util.List;
@@ -72,6 +73,13 @@ public class CompressedMetadataWriter
             throws IOException
     {
         metadataWriter.writeRowIndexes(buffer, rowGroupIndexes);
+        return getSliceOutput();
+    }
+
+    public Slice writeBloomFilters(List<BloomFilter> bloomFilters)
+            throws IOException
+    {
+        metadataWriter.writeBloomFilters(buffer, bloomFilters);
         return getSliceOutput();
     }
 

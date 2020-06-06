@@ -202,6 +202,12 @@ public class DecimalColumnWriter
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
+    @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+    {
+        return ImmutableList.of();
+    }
+
     private static List<Integer> createDecimalColumnPositionList(
             boolean compressed,
             DecimalStreamCheckpoint dataCheckpoint,
