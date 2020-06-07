@@ -110,6 +110,27 @@ public class TestUnwrapCastInComparison
                 for (Number to : Arrays.asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 0.1, 0.9, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
+
+                for (Number to : Arrays.asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+                    validate(operator, fromType, from, "REAL", to);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testBigint()
+    {
+        for (Number from : Arrays.asList(null, Long.MIN_VALUE, 0, 1, Long.MAX_VALUE)) {
+            String fromType = "BIGINT";
+            for (String operator : Arrays.asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+                for (Number to : Arrays.asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                    validate(operator, fromType, from, "DOUBLE", to);
+                }
+
+                for (Number to : Arrays.asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                    validate(operator, fromType, from, "REAL", to);
+                }
             }
         }
     }
