@@ -18,7 +18,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
@@ -146,11 +145,9 @@ public class QueryBuilder
             else if (javaType == Slice.class) {
                 ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
             }
-            else if (javaType == Block.class) {
-                ((BlockWriteFunction) writeFunction).set(statement, parameterIndex, (Block) value);
-            }
             else {
-                throw new VerifyException(format("Unexpected type %s with java type %s", type, javaType.getName()));
+                //noinspection unchecked,rawtypes
+                ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
             }
         }
 
