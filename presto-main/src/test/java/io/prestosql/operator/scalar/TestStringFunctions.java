@@ -410,12 +410,14 @@ public class TestStringFunctions
         assertFunction("SUBSTR(CAST('keep trailing' AS CHAR(14)), 1)", createVarcharType(14), "keep trailing ");
         assertFunction("SUBSTR(CAST('keep trailing' AS CHAR(14)), 1, 14)", createVarcharType(14), "keep trailing ");
 
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)), 5)", createVarcharType(13), "ratically");
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createVarcharType(13), "ratically");
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createVarcharType(13), "");
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createVarcharType(13), "cally");
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -50)", createVarcharType(13), "");
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createVarcharType(13), "");
 
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)), 5, 6)", createVarcharType(13), "ratica");
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 6)", createVarcharType(13), "ratica");
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 50)", createVarcharType(13), "ratically");
         //
