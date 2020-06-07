@@ -170,6 +170,126 @@ public abstract class BaseTestTimestamp
 
         assertThat(assertions.expression("TIMESTAMP '1500-05-01 12:34:56.123456789012'"))
                 .isEqualTo(timestamp(12, 1500, 5, 1, 12, 34, 56, 123_456_789_012L));
+
+        // 6-digit year
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56'"))
+                .isEqualTo(timestamp(0, 123001, 5, 1, 12, 34, 56, 0));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.1'"))
+                .isEqualTo(timestamp(1, 123001, 5, 1, 12, 34, 56, 100_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.12'"))
+                .isEqualTo(timestamp(2, 123001, 5, 1, 12, 34, 56, 120_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.123'"))
+                .isEqualTo(timestamp(3, 123001, 5, 1, 12, 34, 56, 123_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.1234'"))
+                .isEqualTo(timestamp(4, 123001, 5, 1, 12, 34, 56, 123_400_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.12345'"))
+                .isEqualTo(timestamp(5, 123001, 5, 1, 12, 34, 56, 123_450_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.123456'"))
+                .isEqualTo(timestamp(6, 123001, 5, 1, 12, 34, 56, 123_456_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.1234567'"))
+                .isEqualTo(timestamp(7, 123001, 5, 1, 12, 34, 56, 123_456_700_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.12345678'"))
+                .isEqualTo(timestamp(8, 123001, 5, 1, 12, 34, 56, 123_456_780_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.123456789'"))
+                .isEqualTo(timestamp(9, 123001, 5, 1, 12, 34, 56, 123_456_789_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.1234567890'"))
+                .isEqualTo(timestamp(10, 123001, 5, 1, 12, 34, 56, 123_456_789_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.12345678901'"))
+                .isEqualTo(timestamp(11, 123001, 5, 1, 12, 34, 56, 123_456_789_010L));
+
+        assertThat(assertions.expression("TIMESTAMP '123001-05-01 12:34:56.123456789012'"))
+                .isEqualTo(timestamp(12, 123001, 5, 1, 12, 34, 56, 123_456_789_012L));
+
+        // 6-digit year with + sign
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56'"))
+                .isEqualTo(timestamp(0, 123001, 5, 1, 12, 34, 56, 0));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.1'"))
+                .isEqualTo(timestamp(1, 123001, 5, 1, 12, 34, 56, 100_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.12'"))
+                .isEqualTo(timestamp(2, 123001, 5, 1, 12, 34, 56, 120_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.123'"))
+                .isEqualTo(timestamp(3, 123001, 5, 1, 12, 34, 56, 123_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.1234'"))
+                .isEqualTo(timestamp(4, 123001, 5, 1, 12, 34, 56, 123_400_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.12345'"))
+                .isEqualTo(timestamp(5, 123001, 5, 1, 12, 34, 56, 123_450_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.123456'"))
+                .isEqualTo(timestamp(6, 123001, 5, 1, 12, 34, 56, 123_456_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.1234567'"))
+                .isEqualTo(timestamp(7, 123001, 5, 1, 12, 34, 56, 123_456_700_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.12345678'"))
+                .isEqualTo(timestamp(8, 123001, 5, 1, 12, 34, 56, 123_456_780_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.123456789'"))
+                .isEqualTo(timestamp(9, 123001, 5, 1, 12, 34, 56, 123_456_789_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.1234567890'"))
+                .isEqualTo(timestamp(10, 123001, 5, 1, 12, 34, 56, 123_456_789_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.12345678901'"))
+                .isEqualTo(timestamp(11, 123001, 5, 1, 12, 34, 56, 123_456_789_010L));
+
+        assertThat(assertions.expression("TIMESTAMP '+123001-05-01 12:34:56.123456789012'"))
+                .isEqualTo(timestamp(12, 123001, 5, 1, 12, 34, 56, 123_456_789_012L));
+
+        // 6-digit year with - sign
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56'"))
+                .isEqualTo(timestamp(0, -123001, 5, 1, 12, 34, 56, 0));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.1'"))
+                .isEqualTo(timestamp(1, -123001, 5, 1, 12, 34, 56, 100_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.12'"))
+                .isEqualTo(timestamp(2, -123001, 5, 1, 12, 34, 56, 120_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.123'"))
+                .isEqualTo(timestamp(3, -123001, 5, 1, 12, 34, 56, 123_000_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.1234'"))
+                .isEqualTo(timestamp(4, -123001, 5, 1, 12, 34, 56, 123_400_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.12345'"))
+                .isEqualTo(timestamp(5, -123001, 5, 1, 12, 34, 56, 123_450_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.123456'"))
+                .isEqualTo(timestamp(6, -123001, 5, 1, 12, 34, 56, 123_456_000_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.1234567'"))
+                .isEqualTo(timestamp(7, -123001, 5, 1, 12, 34, 56, 123_456_700_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.12345678'"))
+                .isEqualTo(timestamp(8, -123001, 5, 1, 12, 34, 56, 123_456_780_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.123456789'"))
+                .isEqualTo(timestamp(9, -123001, 5, 1, 12, 34, 56, 123_456_789_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.1234567890'"))
+                .isEqualTo(timestamp(10, -123001, 5, 1, 12, 34, 56, 123_456_789_000L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.12345678901'"))
+                .isEqualTo(timestamp(11, -123001, 5, 1, 12, 34, 56, 123_456_789_010L));
+
+        assertThat(assertions.expression("TIMESTAMP '-123001-05-01 12:34:56.123456789012'"))
+                .isEqualTo(timestamp(12, -123001, 5, 1, 12, 34, 56, 123_456_789_012L));
     }
 
     @Test
@@ -441,6 +561,12 @@ public abstract class BaseTestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIMESTAMP WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.556 America/Los_Angeles'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIMESTAMP WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.556 America/Los_Angeles'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIMESTAMP WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.556 America/Los_Angeles'");
+
+        // 5-digit year in the future
+        assertThat(assertions.expression("CAST(TIMESTAMP '12001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)", session)).matches("TIMESTAMP '12001-05-01 12:34:56 America/Los_Angeles'");
+
+        // 5-digit year in the past
+        assertThat(assertions.expression("CAST(TIMESTAMP '-12001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)", session)).matches("TIMESTAMP '-12001-05-01 12:34:56 America/Los_Angeles'");
     }
 
     @Test
@@ -493,6 +619,12 @@ public abstract class BaseTestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567890' AS JSON)")).matches("JSON '\"2020-05-01 12:34:56.1234567890\"'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678901' AS JSON)")).matches("JSON '\"2020-05-01 12:34:56.12345678901\"'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789012' AS JSON)")).matches("JSON '\"2020-05-01 12:34:56.123456789012\"'");
+
+        // 6-digit year in the future
+        assertThat(assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56.123456789012' AS JSON)")).matches("JSON '\"+123001-05-01 12:34:56.123456789012\"'");
+
+        // 6-digit year in the past
+        assertThat(assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56.123456789012' AS JSON)")).matches("JSON '\"-123001-05-01 12:34:56.123456789012\"'");
     }
 
     @Test
@@ -526,6 +658,12 @@ public abstract class BaseTestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-01 12:34:56.1234567890' AS VARCHAR)")).isEqualTo("1500-05-01 12:34:56.1234567890");
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-01 12:34:56.12345678901' AS VARCHAR)")).isEqualTo("1500-05-01 12:34:56.12345678901");
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-01 12:34:56.123456789012' AS VARCHAR)")).isEqualTo("1500-05-01 12:34:56.123456789012");
+
+        // 6-digit year in the future
+        assertThat(assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS VARCHAR)")).isEqualTo("+123001-05-01 12:34:56");
+
+        // 6-digit year in the past
+        assertThat(assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS VARCHAR)")).isEqualTo("-123001-05-01 12:34:56");
     }
 
     @Test
@@ -590,6 +728,51 @@ public abstract class BaseTestTimestamp
         assertThat(assertions.expression("CAST('1500-05-01 12:34:56.555555555555' AS TIMESTAMP(10))")).matches("TIMESTAMP '1500-05-01 12:34:56.5555555556'");
         assertThat(assertions.expression("CAST('1500-05-01 12:34:56.555555555555' AS TIMESTAMP(11))")).matches("TIMESTAMP '1500-05-01 12:34:56.55555555556'");
         assertThat(assertions.expression("CAST('1500-05-01 12:34:56.555555555555' AS TIMESTAMP(12))")).matches("TIMESTAMP '1500-05-01 12:34:56.555555555555'");
+
+        // 6-digit year
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '123001-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '123001-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '123001-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '123001-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST('123001-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111111'");
+
+        // 6-digit year with + sign
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '123001-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '123001-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '123001-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '123001-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST('+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111111'");
+
+        // 6-digit year with - sign
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '-123001-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST('-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111111111111'");
     }
 
     @Test
@@ -1076,6 +1259,36 @@ public abstract class BaseTestTimestamp
         assertThat(assertions.expression("format('%s', TIMESTAMP '2020-05-10 12:34:56.5555555555')")).isEqualTo("2020-05-10T12:34:56.555555556");
         assertThat(assertions.expression("format('%s', TIMESTAMP '2020-05-10 12:34:56.55555555555')")).isEqualTo("2020-05-10T12:34:56.555555556");
         assertThat(assertions.expression("format('%s', TIMESTAMP '2020-05-10 12:34:56.555555555555')")).isEqualTo("2020-05-10T12:34:56.555555556");
+
+        // 6-digit year in the future
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56')")).isEqualTo("+123001-05-10T12:34:56");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.1')")).isEqualTo("+123001-05-10T12:34:56.100");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.11')")).isEqualTo("+123001-05-10T12:34:56.110");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.111')")).isEqualTo("+123001-05-10T12:34:56.111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.1111')")).isEqualTo("+123001-05-10T12:34:56.111100");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.11111')")).isEqualTo("+123001-05-10T12:34:56.111110");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.111111')")).isEqualTo("+123001-05-10T12:34:56.111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.1111111')")).isEqualTo("+123001-05-10T12:34:56.111111100");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.11111111')")).isEqualTo("+123001-05-10T12:34:56.111111110");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.111111111')")).isEqualTo("+123001-05-10T12:34:56.111111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.1111111111')")).isEqualTo("+123001-05-10T12:34:56.111111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.11111111111')")).isEqualTo("+123001-05-10T12:34:56.111111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '123001-05-10 12:34:56.111111111111')")).isEqualTo("+123001-05-10T12:34:56.111111111");
+
+        // 6-digit year in the past
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56')")).isEqualTo("-123001-05-10T12:34:56");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.1')")).isEqualTo("-123001-05-10T12:34:56.100");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.11')")).isEqualTo("-123001-05-10T12:34:56.110");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.111')")).isEqualTo("-123001-05-10T12:34:56.111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.1111')")).isEqualTo("-123001-05-10T12:34:56.111100");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.11111')")).isEqualTo("-123001-05-10T12:34:56.111110");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.111111')")).isEqualTo("-123001-05-10T12:34:56.111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.1111111')")).isEqualTo("-123001-05-10T12:34:56.111111100");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.11111111')")).isEqualTo("-123001-05-10T12:34:56.111111110");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.111111111')")).isEqualTo("-123001-05-10T12:34:56.111111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.1111111111')")).isEqualTo("-123001-05-10T12:34:56.111111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.11111111111')")).isEqualTo("-123001-05-10T12:34:56.111111111");
+        assertThat(assertions.expression("format('%s', TIMESTAMP '-123001-05-10 12:34:56.111111111111')")).isEqualTo("-123001-05-10T12:34:56.111111111");
     }
 
     @Test
