@@ -29,6 +29,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
@@ -1692,6 +1693,30 @@ public abstract class BaseTestTimestamp
         assertThat(assertions.expression("last_day_of_month(TIMESTAMP '2020-05-01 12:34:56.1234567891')")).matches("DATE '2020-05-31'");
         assertThat(assertions.expression("last_day_of_month(TIMESTAMP '2020-05-01 12:34:56.12345678912')")).matches("DATE '2020-05-31'");
         assertThat(assertions.expression("last_day_of_month(TIMESTAMP '2020-05-01 12:34:56.123456789123')")).matches("DATE '2020-05-31'");
+    }
+
+    @Test
+    public void testCastToTimeWithDaylightSavings()
+    {
+        // The number of seconds since the beginning of the day for the America/Los_Angeles in 2020 doesn't match
+        // that of 1970, the year of the epoch. Make sure the proper corrections are being performed.
+        Session session = assertions.sessionBuilder()
+                .setTimeZoneKey(getTimeZoneKey("America/Los_Angeles"))
+                .build();
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10' as TIME)", session)).matches("TIME '09:26:10'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.1' as TIME)", session)).matches("TIME '09:26:10.1'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.11' as TIME)", session)).matches("TIME '09:26:10.11'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.1111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.11111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.111111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.1111111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.11111111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.111111111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.1111111111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.11111111111' as TIME)", session)).matches("TIME '09:26:10.111'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.111111111111' as TIME)", session)).matches("TIME '09:26:10.111'");
     }
 
     private static BiFunction<Session, QueryRunner, Object> timestamp(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond)
