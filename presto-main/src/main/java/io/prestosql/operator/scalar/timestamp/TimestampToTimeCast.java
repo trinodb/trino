@@ -20,12 +20,15 @@ import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
+import org.joda.time.chrono.ISOChronology;
 
+import static io.prestosql.operator.scalar.DateTimeFunctions.valueToSessionTimeZoneOffsetDiff;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.type.DateTimeOperators.modulo24Hour;
 import static io.prestosql.type.Timestamps.round;
 import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimeCast
@@ -41,7 +44,10 @@ public final class TimestampToTimeCast
         }
 
         if (session.isLegacyTimestamp()) {
-            return modulo24Hour(getChronology(session.getTimeZoneKey()), value);
+            ISOChronology chronology = getChronology(session.getTimeZoneKey());
+            long result = chronology.millisOfDay().get(value) - chronology.getZone().getOffset(value);
+            result -= valueToSessionTimeZoneOffsetDiff(value, getDateTimeZone(session.getTimeZoneKey()));
+            return result;
         }
 
         return modulo24Hour(value);
