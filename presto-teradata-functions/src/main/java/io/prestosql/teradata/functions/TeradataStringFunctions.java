@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.FunctionDependency;
-import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
@@ -47,51 +46,6 @@ public final class TeradataStringFunctions
     {
         try {
             return (long) method.invokeExact(string, substring);
-        }
-        catch (Throwable t) {
-            throwIfInstanceOf(t, Error.class);
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    @Description("Suffix starting at given index")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice substring(
-            @FunctionDependency(
-                    name = "substr",
-                    argumentTypes = {"varchar(x)", StandardTypes.BIGINT})
-                    MethodHandle method,
-            @SqlType("varchar(x)") Slice utf8,
-            @SqlType(StandardTypes.BIGINT) long start)
-    {
-        try {
-            return (Slice) method.invokeExact(utf8, start);
-        }
-        catch (Throwable t) {
-            throwIfInstanceOf(t, Error.class);
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    @Description("Substring of given length starting at an index")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice substring(
-            @FunctionDependency(
-                    name = "substr",
-                    argumentTypes = {"varchar(x)", StandardTypes.BIGINT, StandardTypes.BIGINT})
-                    MethodHandle method,
-            @SqlType("varchar(x)") Slice utf8,
-            @SqlType(StandardTypes.BIGINT) long start,
-            @SqlType(StandardTypes.BIGINT) long length)
-    {
-        try {
-            return (Slice) method.invokeExact(utf8, start, length);
         }
         catch (Throwable t) {
             throwIfInstanceOf(t, Error.class);

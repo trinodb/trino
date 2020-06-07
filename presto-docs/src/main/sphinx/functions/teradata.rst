@@ -15,14 +15,6 @@ String Functions
 
     Alias for :func:`strpos` function.
 
-.. function:: substring(string, start) -> varchar
-
-    Alias for :func:`substr` function.
-
-.. function:: substring(string, start, length) -> varchar
-
-    Alias for :func:`substr` function.
-
 Date Functions
 --------------
 
