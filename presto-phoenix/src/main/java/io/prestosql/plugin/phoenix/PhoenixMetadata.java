@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcMetadata;
+import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
@@ -89,9 +90,9 @@ public class PhoenixMetadata
     private final PhoenixClient phoenixClient;
 
     @Inject
-    public PhoenixMetadata(PhoenixClient phoenixClient)
+    public PhoenixMetadata(PhoenixClient phoenixClient, JdbcMetadataConfig metadataConfig)
     {
-        super(phoenixClient, true);
+        super(phoenixClient, metadataConfig.isAllowDropTable());
         this.phoenixClient = requireNonNull(phoenixClient, "client is null");
     }
 
