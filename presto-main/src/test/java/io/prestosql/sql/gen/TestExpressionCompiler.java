@@ -1444,7 +1444,7 @@ public class TestExpressionCompiler
                         expected = null;
                     }
                     else {
-                        expected = StringFunctions.substr(utf8Slice(value), start, length).toStringUtf8();
+                        expected = StringFunctions.substring(utf8Slice(value), start, length).toStringUtf8();
                     }
                     VarcharType expectedType = value != null ? createVarcharType(value.length()) : VARCHAR;
 
