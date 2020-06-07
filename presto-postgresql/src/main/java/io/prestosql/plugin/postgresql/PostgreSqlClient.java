@@ -28,8 +28,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.BlockReadFunction;
-import io.prestosql.plugin.jdbc.BlockWriteFunction;
 import io.prestosql.plugin.jdbc.BooleanReadFunction;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
@@ -40,6 +38,8 @@ import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongReadFunction;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
+import io.prestosql.plugin.jdbc.ObjectReadFunction;
+import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.ReadFunction;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
@@ -422,7 +422,7 @@ public class PostgreSqlClient
         if (type instanceof ArrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = ((ArrayType) type).getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
-            return WriteMapping.blockMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
+            return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
         }
         return super.toWriteMapping(session, type);
     }
@@ -477,16 +477,16 @@ public class PostgreSqlClient
 
     private ColumnMapping hstoreColumnMapping(ConnectorSession session)
     {
-        return ColumnMapping.blockMapping(
+        return ColumnMapping.objectMapping(
                 varcharMapType,
                 varcharMapReadFunction(),
                 hstoreWriteFunction(session),
                 DISABLE_PUSHDOWN);
     }
 
-    private BlockReadFunction varcharMapReadFunction()
+    private ObjectReadFunction<Block> varcharMapReadFunction()
     {
-        return (resultSet, columnIndex) -> {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             @SuppressWarnings("unchecked")
             Map<String, String> map = (Map<String, String>) resultSet.getObject(columnIndex);
             BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(null, map.size());
@@ -505,32 +505,32 @@ public class PostgreSqlClient
             }
             return varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build())
                     .getObject(0, Block.class);
-        };
+        });
     }
 
-    private BlockWriteFunction hstoreWriteFunction(ConnectorSession session)
+    private ObjectWriteFunction<Block> hstoreWriteFunction(ConnectorSession session)
     {
-        return (statement, index, block) -> {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             checkArgument(block instanceof SingleMapBlock, "wrong block type: %s. expected SingleMapBlock", block.getClass().getSimpleName());
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < block.getPositionCount(); i += 2) {
                 map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));
             }
             statement.setObject(index, Collections.unmodifiableMap(map));
-        };
+        });
     }
 
     private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, ColumnMapping arrayElementMapping, String baseElementJdbcTypeName)
     {
-        return ColumnMapping.blockMapping(
+        return ColumnMapping.objectMapping(
                 arrayType,
                 arrayReadFunction(arrayType.getElementType(), arrayElementMapping.getReadFunction()),
                 arrayWriteFunction(session, arrayType.getElementType(), baseElementJdbcTypeName));
     }
 
-    private static BlockReadFunction arrayReadFunction(Type elementType, ReadFunction elementReadFunction)
+    private static ObjectReadFunction<Block> arrayReadFunction(Type elementType, ReadFunction elementReadFunction)
     {
-        return (resultSet, columnIndex) -> {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             Array array = resultSet.getArray(columnIndex);
             BlockBuilder builder = elementType.createBlockBuilder(null, 10);
             try (ResultSet arrayAsResultSet = array.getResultSet()) {
@@ -550,25 +550,22 @@ public class PostgreSqlClient
                     else if (elementType.getJavaType() == Slice.class) {
                         elementType.writeSlice(builder, ((SliceReadFunction) elementReadFunction).readSlice(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
                     }
-                    else if (elementType.getJavaType() == Block.class) {
-                        elementType.writeObject(builder, ((BlockReadFunction) elementReadFunction).readBlock(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
-                    }
                     else {
-                        throw new IllegalStateException("Unsupported Java type: " + elementType.getJavaType());
+                        elementType.writeObject(builder, ((ObjectReadFunction<?>) elementReadFunction).readObject(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
                     }
                 }
             }
 
             return builder.build();
-        };
+        });
     }
 
-    private static BlockWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
+    private static ObjectWriteFunction<Block> arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
     {
-        return (statement, index, block) -> {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
             statement.setArray(index, jdbcArray);
-        };
+        });
     }
 
     private ColumnMapping arrayAsJsonColumnMapping(ConnectorSession session, ColumnMapping baseElementMapping)
@@ -595,7 +592,7 @@ public class PostgreSqlClient
             }
 
             // read array into a block
-            Block block = ((BlockReadFunction) readFunction).readBlock(resultSet, columnIndex);
+            Block block = (Block) ((ObjectReadFunction<?>) readFunction).readObject(resultSet, columnIndex);
 
             // convert block to JSON slice
             BlockBuilder builder = type.createBlockBuilder(null, 1);
