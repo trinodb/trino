@@ -71,8 +71,6 @@ public class TestOrcBloomFilters
     private static final byte[] TEST_STRING = "ORC_STRING".getBytes(UTF_8);
     private static final byte[] TEST_STRING_NOT_WRITTEN = "ORC_STRING_not".getBytes(UTF_8);
     private static final int TEST_INTEGER = 12345;
-    private static final String COLUMN_0 = "bigint_0";
-    private static final String COLUMN_1 = "bigint_1";
 
     private static final Map<Object, Type> TEST_VALUES = ImmutableMap.<Object, Type>builder()
             .put(wrappedBuffer(TEST_STRING), VARCHAR)
