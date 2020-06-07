@@ -269,7 +269,7 @@ public final class StringFunctions
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction
+    @ScalarFunction(alias = "substring")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
@@ -316,7 +316,7 @@ public final class StringFunctions
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction
+    @ScalarFunction(alias = "substring")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
