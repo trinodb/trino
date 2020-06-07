@@ -86,6 +86,10 @@ public abstract class TestTimestampBase
         assertFunction("TIMESTAMP '2001-1-2 3:4'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 3, 4, 0, 0, session));
         assertFunction("TIMESTAMP '2001-1-2'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 0, 0, 0, 0, session));
 
+        assertFunction("TIMESTAMP '123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, 123001, 1, 22, 3, 4, 5, 321, session));
+        assertFunction("TIMESTAMP '+123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, 123001, 1, 22, 3, 4, 5, 321, session));
+        assertFunction("TIMESTAMP '-123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, -123001, 1, 22, 3, 4, 5, 321, session));
+
         assertInvalidFunction("TIMESTAMP 'text'", INVALID_LITERAL, "line 1:1: 'text' is not a valid timestamp literal");
     }
 

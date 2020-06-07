@@ -96,6 +96,16 @@ public abstract class TestTimestampWithTimeZoneBase
         assertFunction("TIMESTAMP '2001-01-02 Europe/Berlin'",
                 TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 0, 0, 0, 0, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+
+        assertFunction("TIMESTAMP '12001-01-02 03:04:05.321 Europe/Berlin'",
+                TIMESTAMP_WITH_TIME_ZONE,
+                new SqlTimestampWithTimeZone(new DateTime(12001, 1, 2, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '+12001-01-02 03:04:05.321 Europe/Berlin'",
+                TIMESTAMP_WITH_TIME_ZONE,
+                new SqlTimestampWithTimeZone(new DateTime(12001, 1, 2, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '-12001-01-02 03:04:05.321 Europe/Berlin'",
+                TIMESTAMP_WITH_TIME_ZONE,
+                new SqlTimestampWithTimeZone(new DateTime(-12001, 1, 2, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
     }
 
     @Test

@@ -74,28 +74,28 @@ public final class DateTimeUtils
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
-                DateTimeFormat.forPattern("yyyy-M-d").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser()};
+                DateTimeFormat.forPattern("yyyyyy-M-d").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS").getParser()};
 
         DateTimeParser[] timestampWithTimeZoneParser = {
-                DateTimeFormat.forPattern("yyyy-M-dZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d Z").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:mZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m Z").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:sZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s Z").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS Z").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-dZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d ZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:mZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m ZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:sZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s ZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS ZZZ").getParser()};
+                DateTimeFormat.forPattern("yyyyyy-M-dZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d Z").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:mZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m Z").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:sZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s Z").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSSZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS Z").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-dZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d ZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:mZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m ZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:sZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s ZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSSZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS ZZZ").getParser()};
 
         DateTimePrinter timestampWithTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter();
         TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
