@@ -51,6 +51,7 @@ import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_AUTHORIZATION_USER;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
@@ -65,6 +66,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static io.prestosql.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SCHEMA;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SET_AUTHORIZATION_USER;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_PATH;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_ROLE;
@@ -111,6 +113,7 @@ class StatementClientV1
     private final ZoneId timeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
+    private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
     private final String clientCapabilities;
     private final boolean compressionDisabled;
 
@@ -206,6 +209,9 @@ class StatementClientV1
         builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
 
         builder.addHeader(PRESTO_CLIENT_CAPABILITIES, clientCapabilities);
+
+        session.getAuthorizationUser()
+                .ifPresent(authorizationUser -> builder.addHeader(PRESTO_AUTHORIZATION_USER, authorizationUser));
 
         return builder.build();
     }
@@ -333,6 +339,12 @@ class StatementClientV1
         return clearTransactionId.get();
     }
 
+    @Override
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return Optional.ofNullable(setAuthorizationUser.get());
+    }
+
     private Request.Builder prepareRequest(HttpUrl url)
     {
         Request.Builder builder = new Request.Builder()
@@ -454,6 +466,11 @@ class StatementClientV1
         }
         if (headers.get(PRESTO_CLEAR_TRANSACTION_ID) != null) {
             clearTransactionId.set(true);
+        }
+
+        String setAuthorizationUser = headers.get(PRESTO_SET_AUTHORIZATION_USER);
+        if (setAuthorizationUser != null) {
+            this.setAuthorizationUser.set(setAuthorizationUser);
         }
 
         currentResults.set(results);

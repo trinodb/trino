@@ -742,6 +742,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitSetSessionAuthorization(SetSessionAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitAtTimeZone(AtTimeZone node, C context)
     {
         return visitExpression(node, context);

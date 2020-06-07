@@ -27,6 +27,8 @@ public interface SessionContext
 {
     Optional<Identity> getAuthenticatedIdentity();
 
+    Identity getOriginalIdentity();
+
     Identity getIdentity();
 
     @Nullable

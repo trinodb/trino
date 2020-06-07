@@ -68,6 +68,7 @@ public class QueryInfo
     private final Set<String> deallocatedPreparedStatements;
     private final Optional<TransactionId> startedTransactionId;
     private final boolean clearTransactionId;
+    private final Optional<String> setAuthorizationUser;
     private final String updateType;
     private final Optional<StageInfo> outputStage;
     private final List<TableInfo> referencedTables;
@@ -104,6 +105,7 @@ public class QueryInfo
             @JsonProperty("deallocatedPreparedStatements") Set<String> deallocatedPreparedStatements,
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
+            @JsonProperty("setAuthorizationUser") Optional<String> setAuthorizationUser,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
@@ -131,6 +133,7 @@ public class QueryInfo
         requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
         requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
+        requireNonNull(setAuthorizationUser, "setAuthorizationUser is null");
         requireNonNull(query, "query is null");
         requireNonNull(preparedQuery, "preparedQuery is null");
         requireNonNull(outputStage, "outputStage is null");
@@ -162,6 +165,7 @@ public class QueryInfo
         this.deallocatedPreparedStatements = ImmutableSet.copyOf(deallocatedPreparedStatements);
         this.startedTransactionId = startedTransactionId;
         this.clearTransactionId = clearTransactionId;
+        this.setAuthorizationUser = setAuthorizationUser;
         this.updateType = updateType;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
@@ -335,6 +339,12 @@ public class QueryInfo
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
+    }
+
+    @JsonProperty
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return setAuthorizationUser;
     }
 
     @JsonProperty

@@ -1,0 +1,34 @@
+{
+    "principals": [
+        {
+          "principal": "(.*)",
+          "principal_to_user": "$1",
+          "allow": true
+        },
+        {
+          "principal": "user",
+          "principal_to_user": "alice",
+          "allow": true
+        },
+         {
+          "principal": "user",
+          "principal_to_user": "charlie",
+          "allow": true
+        },
+        {
+          "principal": "user2",
+          "principal_to_user": "bob",
+          "allow": true
+        }
+    ],
+    "impersonation": [
+        {
+            "originalUser": "user",
+            "newUser": "alice"
+        },
+        {
+            "originalUser": "user2",
+            "newUser": "bob"
+        }
+    ]
+}

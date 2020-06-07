@@ -739,6 +739,20 @@ public class TestPrestoDriver
         }
     }
 
+    @Test
+    public void testSetSessionAuthorization()
+            throws Exception
+    {
+        try (PrestoConnection connection = createConnection().unwrap(PrestoConnection.class)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SET SESSION AUTHORIZATION john");
+                assertEquals(connection.getAuthorizationUser(), "john");
+                statement.execute("SET SESSION AUTHORIZATION bob");
+                assertEquals(connection.getAuthorizationUser(), "bob");
+            }
+        }
+    }
+
     @Test(timeOut = 10000)
     public void testQueryCancelByInterrupt()
             throws Exception

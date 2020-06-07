@@ -45,6 +45,7 @@ Presto also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/rollback
     sql/select
     sql/set-role
+    sql/set-session-authorization
     sql/set-session
     sql/show-catalogs
     sql/show-columns

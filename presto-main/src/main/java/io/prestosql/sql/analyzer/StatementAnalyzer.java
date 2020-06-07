@@ -144,6 +144,7 @@ import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetOperation;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetSessionAuthorization;
 import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.SimpleGroupBy;
@@ -982,6 +983,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitDropMaterializedView(DropMaterializedView node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetSessionAuthorization(SetSessionAuthorization node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }
@@ -3385,6 +3392,7 @@ class StatementAnalyzer
                 .setQueryId(session.getQueryId())
                 .setTransactionId(session.getTransactionId().orElse(null))
                 .setIdentity(identity)
+                .setOriginalIdentity(session.getOriginalIdentity())
                 .setSource(session.getSource().orElse(null))
                 .setCatalog(catalog.orElse(null))
                 .setSchema(schema.orElse(null))

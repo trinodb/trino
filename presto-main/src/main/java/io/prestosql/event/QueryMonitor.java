@@ -284,6 +284,7 @@ public class QueryMonitor
     {
         return new QueryContext(
                 session.getUser(),
+                session.getOriginalUser(),
                 session.getPrincipal(),
                 session.getGroups(),
                 session.getTraceToken(),

@@ -168,6 +168,7 @@ public class TestQueryStateInfo
                 ImmutableSet.of(),
                 Optional.empty(),
                 false,
+                Optional.empty(),
                 "33",
                 Optional.empty(),
                 null,

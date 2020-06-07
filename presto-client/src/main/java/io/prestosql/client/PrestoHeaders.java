@@ -16,6 +16,8 @@ package io.prestosql.client;
 public final class PrestoHeaders
 {
     public static final String PRESTO_USER = "X-Presto-User";
+    public static final String PRESTO_AUTHORIZATION_USER = "X-Presto-Authorization-User";
+    public static final String PRESTO_SET_AUTHORIZATION_USER = "X-Presto-Set-Authorization-User";
     public static final String PRESTO_SOURCE = "X-Presto-Source";
     public static final String PRESTO_CATALOG = "X-Presto-Catalog";
     public static final String PRESTO_SCHEMA = "X-Presto-Schema";

@@ -43,7 +43,9 @@ public final class SessionRepresentation
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final String user;
+    private final String originalUser;
     private final Set<String> groups;
+    private final Set<String> originalUserGroups;
     private final Optional<String> principal;
     private final Optional<String> source;
     private final Optional<String> catalog;
@@ -71,7 +73,9 @@ public final class SessionRepresentation
             @JsonProperty("transactionId") Optional<TransactionId> transactionId,
             @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
+            @JsonProperty("originalUser") String originalUser,
             @JsonProperty("groups") Set<String> groups,
+            @JsonProperty("originalUserGroups") Set<String> originalUserGroups,
             @JsonProperty("principal") Optional<String> principal,
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
@@ -97,7 +101,9 @@ public final class SessionRepresentation
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
+        this.originalUser = requireNonNull(originalUser, "originalUser is null");
         this.groups = requireNonNull(groups, "groups is null");
+        this.originalUserGroups = requireNonNull(originalUserGroups, "originalUserGroups is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -155,9 +161,21 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
+    public String getOriginalUser()
+    {
+        return originalUser;
+    }
+
+    @JsonProperty
     public Set<String> getGroups()
     {
         return groups;
+    }
+
+    @JsonProperty
+    public Set<String> getOriginalUserGroups()
+    {
+        return originalUserGroups;
     }
 
     @JsonProperty
@@ -287,15 +305,21 @@ public final class SessionRepresentation
 
     public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials)
     {
+        Identity identity = Identity.forUser(user)
+                .withGroups(groups)
+                .withPrincipal(principal.map(BasicPrincipal::new))
+                .withRoles(roles)
+                .withExtraCredentials(extraCredentials)
+                .build();
+
         return new Session(
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                Identity.forUser(user)
-                        .withGroups(groups)
-                        .withPrincipal(principal.map(BasicPrincipal::new))
-                        .withRoles(roles)
-                        .withExtraCredentials(extraCredentials)
+                identity,
+                Identity.from(identity)
+                        .withUser(originalUser)
+                        .withGroups(originalUserGroups)
                         .build(),
                 source,
                 catalog,

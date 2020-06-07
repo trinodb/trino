@@ -35,6 +35,7 @@ public class ClientSession
 {
     private final URI server;
     private final String user;
+    private final Optional<String> authorizationUser;
     private final String source;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
@@ -68,6 +69,7 @@ public class ClientSession
     public ClientSession(
             URI server,
             String user,
+            Optional<String> authorizationUser,
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
@@ -88,6 +90,7 @@ public class ClientSession
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
+        this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
         this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -143,6 +146,11 @@ public class ClientSession
     public String getUser()
     {
         return user;
+    }
+
+    public Optional<String> getAuthorizationUser()
+    {
+        return authorizationUser;
     }
 
     public String getSource()
@@ -244,6 +252,7 @@ public class ClientSession
         return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
+                .add("authorizationUser", authorizationUser.orElse(null))
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
@@ -267,6 +276,7 @@ public class ClientSession
     {
         private URI server;
         private String user;
+        private Optional<String> authorizationUser = Optional.empty();
         private String source;
         private Optional<String> traceToken = Optional.empty();
         private Set<String> clientTags = ImmutableSet.of();
@@ -292,6 +302,7 @@ public class ClientSession
             requireNonNull(clientSession, "clientSession is null");
             server = clientSession.getServer();
             user = clientSession.getUser();
+            authorizationUser = clientSession.getAuthorizationUser();
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
@@ -320,6 +331,12 @@ public class ClientSession
         public Builder withUser(String user)
         {
             this.user = user;
+            return this;
+        }
+
+        public Builder withAuthorizationUser(Optional<String> authorizationUser)
+        {
+            this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
             return this;
         }
 
@@ -436,6 +453,7 @@ public class ClientSession
             return new ClientSession(
                     server,
                     user,
+                    authorizationUser,
                     source,
                     traceToken,
                     clientTags,

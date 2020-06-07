@@ -175,6 +175,7 @@ public class TestDbSessionPropertyManagerIntegration
         return Session.builder(new SessionPropertyManager())
                 .setQueryId(new QueryIdGenerator().createNextQueryId())
                 .setIdentity(Identity.ofUser("user"))
+                .setOriginalIdentity(Identity.ofUser("originalUser"))
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")

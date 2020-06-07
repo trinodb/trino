@@ -74,6 +74,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.BasicStageStats.EMPTY_STAGE_STATS;
@@ -147,6 +148,8 @@ public class QueryStateMachine
 
     private final AtomicReference<TransactionId> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
+
+    private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
 
     private final AtomicReference<String> updateType = new AtomicReference<>();
 
@@ -443,6 +446,7 @@ public class QueryStateMachine
                 deallocatedPreparedStatements,
                 Optional.ofNullable(startedTransactionId.get()),
                 clearTransactionId.get(),
+                Optional.ofNullable(setAuthorizationUser.get()),
                 updateType.get(),
                 rootStage,
                 failureCause,
@@ -722,6 +726,12 @@ public class QueryStateMachine
     public void addSetRole(String catalog, SelectedRole role)
     {
         setRoles.put(requireNonNull(catalog, "catalog is null"), requireNonNull(role, "role is null"));
+    }
+
+    public void addSetAuthorizationUser(String authorizationUser)
+    {
+        checkArgument(!isNullOrEmpty(authorizationUser), "Authorization user cannot be null or empty");
+        this.setAuthorizationUser.set(authorizationUser);
     }
 
     public Set<String> getResetSessionProperties()
@@ -1091,6 +1101,7 @@ public class QueryStateMachine
                 queryInfo.getDeallocatedPreparedStatements(),
                 queryInfo.getStartedTransactionId(),
                 queryInfo.isClearTransactionId(),
+                queryInfo.getSetAuthorizationUser(),
                 queryInfo.getUpdateType(),
                 prunedOutputStage,
                 queryInfo.getFailureInfo(),

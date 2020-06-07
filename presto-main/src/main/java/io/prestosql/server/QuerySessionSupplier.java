@@ -70,20 +70,26 @@ public class QuerySessionSupplier
     @Override
     public Session createSession(QueryId queryId, SessionContext context)
     {
-        Identity identity = context.getIdentity();
-        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
+        Identity originalIdentity = context.getOriginalIdentity();
+        accessControl.checkCanSetUser(originalIdentity.getPrincipal(), originalIdentity.getUser());
 
         // authenticated identity is not present for HTTP or if authentication is not setup
         context.getAuthenticatedIdentity().ifPresent(authenticatedIdentity -> {
             // only check impersonation if authenticated user is not the same as the explicitly set user
-            if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
-                accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
+            if (!authenticatedIdentity.getUser().equals(originalIdentity.getUser())) {
+                accessControl.checkCanImpersonateUser(authenticatedIdentity, originalIdentity.getUser());
             }
         });
 
+        if (!originalIdentity.getUser().equals(context.getIdentity().getUser())) {
+            accessControl.checkCanSetUser(originalIdentity.getPrincipal(), context.getIdentity().getUser());
+            accessControl.checkCanImpersonateUser(originalIdentity, context.getIdentity().getUser());
+        }
+
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
-                .setIdentity(identity)
+                .setIdentity(context.getIdentity())
+                .setOriginalIdentity(context.getOriginalIdentity())
                 .setSource(context.getSource())
                 .setPath(new SqlPath(path))
                 .setRemoteUserAddress(context.getRemoteUserAddress())

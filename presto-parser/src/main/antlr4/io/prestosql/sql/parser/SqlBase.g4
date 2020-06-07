@@ -130,6 +130,7 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showFunctions
     | SHOW SESSION
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSession
+    | SET SESSION AUTHORIZATION authorizationUser                      #setSessionAuthorization
     | SET SESSION qualifiedName EQ expression                          #setSession
     | RESET SESSION qualifiedName                                      #resetSession
     | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
@@ -529,6 +530,11 @@ number
     : MINUS? DECIMAL_VALUE  #decimalLiteral
     | MINUS? DOUBLE_VALUE   #doubleLiteral
     | MINUS? INTEGER_VALUE  #integerLiteral
+    ;
+
+authorizationUser
+    : identifier                    #identifierUser
+    | string                        #stringUser
     ;
 
 nonReserved

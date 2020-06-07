@@ -153,6 +153,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetSessionAuthorization;
 import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
@@ -1120,6 +1121,17 @@ class AstBuilder
             type = SetRole.Type.NONE;
         }
         return new SetRole(getLocation(context), type, getIdentifierIfPresent(context.role));
+    }
+
+    @Override
+    public Node visitSetSessionAuthorization(SqlBaseParser.SetSessionAuthorizationContext context)
+    {
+        if (context.authorizationUser() instanceof SqlBaseParser.IdentifierUserContext || context.authorizationUser() instanceof SqlBaseParser.StringUserContext) {
+            return new SetSessionAuthorization(getLocation(context), (Expression) visit(context.authorizationUser()));
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported Session Authorization User: " + context.authorizationUser());
+        }
     }
 
     @Override

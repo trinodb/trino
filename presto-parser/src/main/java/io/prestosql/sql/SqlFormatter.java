@@ -91,6 +91,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetSessionAuthorization;
 import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
@@ -1416,6 +1417,14 @@ public final class SqlFormatter
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
+            return null;
+        }
+
+        @Override
+        protected Void visitSetSessionAuthorization(SetSessionAuthorization node, Integer context)
+        {
+            builder.append("SET SESSION AUTHORIZATION ");
+            builder.append(node.getUser());
             return null;
         }
 

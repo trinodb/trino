@@ -30,6 +30,7 @@ import java.util.Optional;
 import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.prestosql.client.PrestoHeaders.PRESTO_AUTHORIZATION_USER;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static io.prestosql.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
@@ -52,6 +53,7 @@ public class TestHttpRequestSessionContext
     {
         MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(PRESTO_USER, "testUser")
+                .put(PRESTO_AUTHORIZATION_USER, "testAuthorizationUser")
                 .put(PRESTO_SOURCE, "testSource")
                 .put(PRESTO_CATALOG, "testCatalog")
                 .put(PRESTO_SCHEMA, "testSchema")
@@ -75,7 +77,8 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
         assertEquals(context.getPath(), "testPath");
-        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+        assertEquals(context.getOriginalIdentity(), Identity.ofUser("testUser"));
+        assertEquals(context.getIdentity(), Identity.ofUser("testAuthorizationUser"));
         assertEquals(context.getClientInfo(), "client-info");
         assertEquals(context.getLanguage(), "zh-TW");
         assertEquals(context.getTimeZoneId(), "Asia/Taipei");
@@ -85,12 +88,19 @@ public class TestHttpRequestSessionContext
                 HASH_PARTITION_COUNT, "43",
                 "some_session_property", "some value with , comma"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
+        assertEquals(context.getOriginalIdentity().getRoles(), ImmutableMap.of(
+                "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
+                "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
+                "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))));
+        assertEquals(context.getOriginalIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
+        assertEquals(context.getOriginalIdentity().getGroups(), ImmutableSet.of("testUser"));
+
         assertEquals(context.getIdentity().getRoles(), ImmutableMap.of(
                 "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
                 "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
                 "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
-        assertEquals(context.getIdentity().getGroups(), ImmutableSet.of("testUser"));
+        assertEquals(context.getIdentity().getGroups(), ImmutableSet.of("testAuthorizationUser"));
     }
 
     @Test
@@ -100,6 +110,7 @@ public class TestHttpRequestSessionContext
         MultivaluedMap<String, String> emptyHeaders = new MultivaluedHashMap<>();
 
         HttpRequestSessionContext context = new HttpRequestSessionContext(userHeaders, "testRemote", Optional.empty(), ImmutableSet::of);
+        assertEquals(context.getOriginalIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
         assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         context = new HttpRequestSessionContext(
@@ -107,9 +118,11 @@ public class TestHttpRequestSessionContext
                 "testRemote",
                 Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()),
                 ImmutableSet::of);
+        assertEquals(context.getOriginalIdentity(), Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
         assertEquals(context.getIdentity(), Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
 
         context = new HttpRequestSessionContext(userHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")), ImmutableSet::of);
+        assertEquals(context.getOriginalIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
         assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         assertThatThrownBy(() -> new HttpRequestSessionContext(emptyHeaders, "testRemote", Optional.empty(), user -> ImmutableSet.of()))

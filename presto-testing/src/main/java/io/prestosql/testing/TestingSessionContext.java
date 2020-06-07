@@ -45,6 +45,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public Identity getOriginalIdentity()
+    {
+        return session.getOriginalIdentity();
+    }
+
+    @Override
     public Identity getIdentity()
     {
         return session.getIdentity();
