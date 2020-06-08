@@ -18,21 +18,21 @@ import java.sql.SQLException;
 
 import static java.util.Objects.requireNonNull;
 
-public interface ObjectWriteFunction<T>
+public interface ObjectWriteFunction
         extends WriteFunction
 {
     @Override
-    Class<T> getJavaType();
+    Class<?> getJavaType();
 
-    void set(PreparedStatement statement, int index, T value)
+    void set(PreparedStatement statement, int index, Object value)
             throws SQLException;
 
-    static <T> ObjectWriteFunction<T> of(Class<T> javaType, ObjectWriteFunctionImplementation<T> implementation)
+    static <T> ObjectWriteFunction of(Class<T> javaType, ObjectWriteFunctionImplementation<T> implementation)
     {
         requireNonNull(javaType, "javaType is null");
         requireNonNull(implementation, "implementation is null");
 
-        return new ObjectWriteFunction<T>()
+        return new ObjectWriteFunction()
         {
             @Override
             public Class<T> getJavaType()
@@ -41,10 +41,11 @@ public interface ObjectWriteFunction<T>
             }
 
             @Override
-            public void set(PreparedStatement statement, int index, T value)
+            @SuppressWarnings("unchecked")
+            public void set(PreparedStatement statement, int index, Object value)
                     throws SQLException
             {
-                implementation.set(statement, index, value);
+                implementation.set(statement, index, (T) value);
             }
         };
     }

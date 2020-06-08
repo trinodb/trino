@@ -146,7 +146,6 @@ public class JdbcPageSink
             ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, type.getSlice(block, position));
         }
         else {
-            //noinspection unchecked,rawtypes
             ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, type.getObject(block, position));
         }
     }

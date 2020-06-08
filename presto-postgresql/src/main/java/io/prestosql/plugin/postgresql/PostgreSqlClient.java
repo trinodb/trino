@@ -508,7 +508,7 @@ public class PostgreSqlClient
         });
     }
 
-    private ObjectWriteFunction<Block> hstoreWriteFunction(ConnectorSession session)
+    private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             checkArgument(block instanceof SingleMapBlock, "wrong block type: %s. expected SingleMapBlock", block.getClass().getSimpleName());
@@ -560,7 +560,7 @@ public class PostgreSqlClient
         });
     }
 
-    private static ObjectWriteFunction<Block> arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
+    private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
