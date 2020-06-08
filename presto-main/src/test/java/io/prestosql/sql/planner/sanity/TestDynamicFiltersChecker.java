@@ -42,6 +42,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.combineDisjuncts;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestDynamicFiltersChecker
@@ -82,7 +83,7 @@ public class TestDynamicFiltersChecker
     {
         PlanNode root = builder.join(
                 INNER,
-                builder.filter(PlanBuilder.expression("ORDERS_OK > 0"), ordersTableScanNode),
+                builder.filter(expression("ORDERS_OK > 0"), ordersTableScanNode),
                 lineitemTableScanNode,
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
@@ -127,7 +128,7 @@ public class TestDynamicFiltersChecker
                         builder.filter(
                                 combineConjuncts(
                                         metadata,
-                                        PlanBuilder.expression("LINEITEM_OK > 0"),
+                                        expression("LINEITEM_OK > 0"),
                                         createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
@@ -137,6 +138,31 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of()));
+        validatePlan(root);
+    }
+
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\"\\}\\] present in filter predicate whose source is not a table scan.")
+    public void testDynamicFilterNotAboveTableScan()
+    {
+        PlanNode root = builder.output(
+                ImmutableList.of(),
+                ImmutableList.of(),
+                builder.join(
+                        INNER,
+                        builder.filter(
+                                combineConjuncts(
+                                        metadata,
+                                        expression("LINEITEM_OK > 0"),
+                                        createDynamicFilterExpression(metadata, "DF", BIGINT, ordersOrderKeySymbol.toSymbolReference())),
+                                builder.values(lineitemOrderKeySymbol)),
+                        ordersTableScanNode,
+                        ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("DF", ordersOrderKeySymbol)));
         validatePlan(root);
     }
 
@@ -154,11 +180,11 @@ public class TestDynamicFiltersChecker
                                         metadata,
                                         combineDisjuncts(
                                                 metadata,
-                                                PlanBuilder.expression("LINEITEM_OK IS NULL"),
+                                                expression("LINEITEM_OK IS NULL"),
                                                 createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                         combineDisjuncts(
                                                 metadata,
-                                                PlanBuilder.expression("LINEITEM_OK IS NOT NULL"),
+                                                expression("LINEITEM_OK IS NOT NULL"),
                                                 createDynamicFilterExpression(metadata, "DF", BIGINT, lineitemOrderKeySymbol.toSymbolReference()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),

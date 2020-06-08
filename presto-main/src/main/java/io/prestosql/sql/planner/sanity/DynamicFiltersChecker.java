@@ -27,6 +27,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
 
 import java.util.HashSet;
@@ -98,8 +99,12 @@ public class DynamicFiltersChecker
             @Override
             public Set<String> visitFilter(FilterNode node, Void context)
             {
+                List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicPredicates(node.getPredicate());
+                if (!dynamicFilters.isEmpty()) {
+                    verify(node.getSource() instanceof TableScanNode, "Dynamic filters %s present in filter predicate whose source is not a table scan.", dynamicFilters);
+                }
                 ImmutableSet.Builder<String> consumed = ImmutableSet.builder();
-                extractDynamicPredicates(node.getPredicate()).stream()
+                dynamicFilters.stream()
                         .map(DynamicFilters.Descriptor::getId)
                         .forEach(consumed::add);
                 consumed.addAll(node.getSource().accept(this, context));
