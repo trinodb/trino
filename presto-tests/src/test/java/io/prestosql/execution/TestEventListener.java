@@ -376,7 +376,7 @@ public class TestEventListener
         assertEquals(statistics.getResourceWaitingTime().get().toMillis(), queryStats.getResourceWaitingTime().toMillis());
         assertEquals(statistics.getAnalysisTime().get().toMillis(), queryStats.getAnalysisTime().toMillis());
         assertEquals(statistics.getExecutionTime().get().toMillis(), queryStats.getExecutionTime().toMillis());
-        assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakRevocableMemoryReservation().toBytes());
+        assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakUserMemoryReservation().toBytes());
         assertEquals(statistics.getPeakTotalNonRevocableMemoryBytes(), queryStats.getPeakTaskUserMemory().toBytes());
         assertEquals(statistics.getPeakTaskTotalMemory(), queryStats.getPeakTaskUserMemory().toBytes());
         assertEquals(statistics.getPhysicalInputBytes(), queryStats.getPhysicalInputDataSize().toBytes());
