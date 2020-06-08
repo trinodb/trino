@@ -163,7 +163,12 @@ public class HivePageSource
                         .orElse(ImmutableList.of());
                 HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
-                coercers.add(Optional.of(createCoercer(typeManager, fromType, toType)));
+                if (!fromType.equals(toType)) {
+                    coercers.add(Optional.of(createCoercer(typeManager, fromType, toType)));
+                }
+                else {
+                    coercers.add(Optional.empty());
+                }
             }
             else {
                 coercers.add(Optional.empty());
