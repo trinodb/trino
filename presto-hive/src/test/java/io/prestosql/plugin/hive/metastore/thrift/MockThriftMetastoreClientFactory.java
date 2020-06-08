@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MockThriftMetastoreClientFactory
-        extends ThriftMetastoreClientFactory
+        extends DefaultThriftMetastoreClientFactory
 {
     private Map<HostAndPort, Optional<ThriftMetastoreClient>> clients;
 
