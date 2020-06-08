@@ -484,7 +484,7 @@ public class PostgreSqlClient
                 DISABLE_PUSHDOWN);
     }
 
-    private ObjectReadFunction<Block> varcharMapReadFunction()
+    private ObjectReadFunction varcharMapReadFunction()
     {
         return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             @SuppressWarnings("unchecked")
@@ -528,7 +528,7 @@ public class PostgreSqlClient
                 arrayWriteFunction(session, arrayType.getElementType(), baseElementJdbcTypeName));
     }
 
-    private static ObjectReadFunction<Block> arrayReadFunction(Type elementType, ReadFunction elementReadFunction)
+    private static ObjectReadFunction arrayReadFunction(Type elementType, ReadFunction elementReadFunction)
     {
         return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             Array array = resultSet.getArray(columnIndex);
@@ -551,7 +551,7 @@ public class PostgreSqlClient
                         elementType.writeSlice(builder, ((SliceReadFunction) elementReadFunction).readSlice(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
                     }
                     else {
-                        elementType.writeObject(builder, ((ObjectReadFunction<?>) elementReadFunction).readObject(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
+                        elementType.writeObject(builder, ((ObjectReadFunction) elementReadFunction).readObject(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
                     }
                 }
             }
@@ -592,7 +592,7 @@ public class PostgreSqlClient
             }
 
             // read array into a block
-            Block block = (Block) ((ObjectReadFunction<?>) readFunction).readObject(resultSet, columnIndex);
+            Block block = (Block) ((ObjectReadFunction) readFunction).readObject(resultSet, columnIndex);
 
             // convert block to JSON slice
             BlockBuilder builder = type.createBlockBuilder(null, 1);

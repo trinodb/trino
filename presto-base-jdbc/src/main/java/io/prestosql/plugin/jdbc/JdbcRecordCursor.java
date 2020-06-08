@@ -44,7 +44,7 @@ public class JdbcRecordCursor
     private final DoubleReadFunction[] doubleReadFunctions;
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
-    private final ObjectReadFunction<?>[] objectReadFunctions;
+    private final ObjectReadFunction[] objectReadFunctions;
 
     private final JdbcClient jdbcClient;
     private final Connection connection;
@@ -63,7 +63,7 @@ public class JdbcRecordCursor
         doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
         longReadFunctions = new LongReadFunction[columnHandles.size()];
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
-        objectReadFunctions = new ObjectReadFunction<?>[columnHandles.size()];
+        objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         try {
             connection = jdbcClient.getConnection(JdbcIdentity.from(session), split);
@@ -88,7 +88,7 @@ public class JdbcRecordCursor
                     sliceReadFunctions[i] = (SliceReadFunction) readFunction;
                 }
                 else {
-                    objectReadFunctions[i] = (ObjectReadFunction<?>) readFunction;
+                    objectReadFunctions[i] = (ObjectReadFunction) readFunction;
                 }
             }
 
