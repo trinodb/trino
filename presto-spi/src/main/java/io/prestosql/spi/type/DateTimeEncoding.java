@@ -26,6 +26,10 @@ public final class DateTimeEncoding
 
     private static long pack(long millisUtc, short timeZoneKey)
     {
+        if (millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT != millisUtc) {
+            throw new IllegalArgumentException("Millis overflow: " + millisUtc);
+        }
+
         return (millisUtc << MILLIS_SHIFT) | (timeZoneKey & TIME_ZONE_MASK);
     }
 
