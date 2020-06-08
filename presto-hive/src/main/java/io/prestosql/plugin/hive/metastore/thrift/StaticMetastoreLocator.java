@@ -47,11 +47,11 @@ public class StaticMetastoreLocator
 {
     private final List<HostAndPort> addresses;
     private final List<Backoff> backoffs;
-    private final DefaultThriftMetastoreClientFactory clientFactory;
+    private final ThriftMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
 
     @Inject
-    public StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, DefaultThriftMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
 
@@ -62,7 +62,7 @@ public class StaticMetastoreLocator
                 authenticationConfig.getAuthenticationType());
     }
 
-    public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, DefaultThriftMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
