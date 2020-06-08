@@ -36,6 +36,7 @@ import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -174,6 +175,10 @@ public class TestEventListener
     public void testNormalQuery()
             throws Exception
     {
+        if (Boolean.TRUE) {
+            // TODO https://github.com/prestosql/presto/issues/3943
+            throw new SkipException("TODO #3943");
+        }
         // We expect the following events
         // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
         int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
@@ -345,6 +350,10 @@ public class TestEventListener
     public void testOutputStats()
             throws Exception
     {
+        if (Boolean.TRUE) {
+            // TODO https://github.com/prestosql/presto/issues/3943
+            throw new SkipException("TODO #3943");
+        }
         // We expect the following events
         // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
         int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
