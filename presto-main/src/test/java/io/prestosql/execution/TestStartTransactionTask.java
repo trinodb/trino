@@ -50,6 +50,7 @@ import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -256,7 +257,7 @@ public class TestStartTransactionTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(transactionManager, new AccessControlConfig()),
+                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
                 executor,
                 metadata,
                 WarningCollector.NOOP);

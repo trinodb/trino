@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>334-SNAPSHOT</version>
+    <version>335-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -53,7 +53,7 @@
         <dep.tempto.version>175</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.4</dep.errorprone.version>
-        <rubix.version>0.3.9</rubix.version>
+        <rubix.version>0.3.11</rubix.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -134,6 +134,7 @@
         <module>presto-thrift</module>
         <module>presto-matching</module>
         <module>presto-memory-context</module>
+        <module>presto-prometheus</module>
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
@@ -1352,7 +1353,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <includes>
+                        <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
                         <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
                         <include>**/Benchmark*.java</include>
                     </includes>
                     <excludes>

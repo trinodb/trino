@@ -24,7 +24,6 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
@@ -34,6 +33,7 @@ import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.ByteArrayBlockEncoding;
 import io.prestosql.spi.block.DictionaryBlockEncoding;
 import io.prestosql.spi.block.Int128ArrayBlockEncoding;
+import io.prestosql.spi.block.Int96ArrayBlockEncoding;
 import io.prestosql.spi.block.IntArrayBlockEncoding;
 import io.prestosql.spi.block.LazyBlockEncoding;
 import io.prestosql.spi.block.LongArrayBlockEncoding;
@@ -73,6 +73,9 @@ import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -93,6 +96,7 @@ import io.prestosql.sql.planner.ConnectorExpressions;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.type.FunctionType;
 import io.prestosql.type.InternalTypeManager;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -129,7 +133,10 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -195,6 +202,7 @@ public final class MetadataManager
         addBlockEncoding(new ShortArrayBlockEncoding());
         addBlockEncoding(new IntArrayBlockEncoding());
         addBlockEncoding(new LongArrayBlockEncoding());
+        addBlockEncoding(new Int96ArrayBlockEncoding());
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
@@ -1204,6 +1212,19 @@ public final class MetadataManager
     }
 
     @Override
+    public Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (!catalogMetadata.isPresent()) {
+            return ImmutableSet.of();
+        }
+        CatalogName catalogName = catalogMetadata.get().getCatalogName();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+        return metadata.listAllRoleGrants(connectorSession, roles, grantees, limit);
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
@@ -1377,9 +1398,6 @@ public final class MetadataManager
                         missingOperators.put(type, operator);
                     }
                 }
-                if (!canResolveOperator(BETWEEN, BOOLEAN, ImmutableList.of(type, type, type))) {
-                    missingOperators.put(type, BETWEEN);
-                }
             }
         }
         // TODO: verify the parametric types too
@@ -1406,12 +1424,6 @@ public final class MetadataManager
     public List<FunctionMetadata> listFunctions()
     {
         return functions.list();
-    }
-
-    @Override
-    public FunctionInvokerProvider getFunctionInvokerProvider()
-    {
-        return new FunctionInvokerProvider(this);
     }
 
     @Override
@@ -1517,9 +1529,29 @@ public final class MetadataManager
     }
 
     @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
-        return functions.getScalarFunctionImplementation(this, resolvedFunction);
+        InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(resolvedFunction));
+        return functions.getScalarFunctionInvoker(this, resolvedFunction, expectedConvention);
+    }
+
+    /**
+     * Default calling convention is no nulls and null is never returned. Since the no nulls adaptation strategy is to fail, the scalar must have this
+     * exact convention or convention must be specified.
+     */
+    private InvocationConvention getDefaultCallingConvention(ResolvedFunction resolvedFunction)
+    {
+        FunctionMetadata functionMetadata = getFunctionMetadata(resolvedFunction);
+        List<InvocationArgumentConvention> argumentConventions = functionMetadata.getSignature().getArgumentTypes().stream()
+                .map(typeSignature -> typeSignature.getBase().equalsIgnoreCase(FunctionType.NAME) ? FUNCTION : NEVER_NULL)
+                .collect(toImmutableList());
+        InvocationReturnConvention returnConvention = functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL;
+
+        return new InvocationConvention(
+                argumentConventions,
+                returnConvention,
+                true,
+                false);
     }
 
     @Override

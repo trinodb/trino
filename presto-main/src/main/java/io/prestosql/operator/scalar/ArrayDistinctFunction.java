@@ -18,6 +18,7 @@ import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
@@ -29,10 +30,10 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.google.common.base.Defaults.defaultValue;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.internalError;
 
 @ScalarFunction("array_distinct")
@@ -51,7 +52,10 @@ public final class ArrayDistinctFunction
     @SqlType("array(E)")
     public Block distinct(
             @TypeParameter("E") Type type,
-            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
+            @OperatorDependency(
+                    operator = IS_DISTINCT_FROM,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block array)
     {
         if (array.getPositionCount() < 2) {
@@ -59,13 +63,9 @@ public final class ArrayDistinctFunction
         }
 
         if (array.getPositionCount() == 2) {
-            boolean firstValueNull = array.isNull(0);
-            Object firstValue = firstValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, array, 0);
-            boolean secondValueNull = array.isNull(1);
-            Object secondValue = secondValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, array, 1);
             boolean distinct;
             try {
-                distinct = (boolean) elementIsDistinctFrom.invoke(firstValue, firstValueNull, secondValue, secondValueNull);
+                distinct = (boolean) elementIsDistinctFrom.invoke(array, 0, array, 1);
             }
             catch (Throwable t) {
                 throw internalError(t);

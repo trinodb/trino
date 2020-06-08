@@ -92,7 +92,7 @@ public abstract class BaseElasticsearchSmokeTest
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
-                .row("orderdate", "timestamp", "", "")
+                .row("orderdate", "timestamp(3)", "", "")
                 .row("orderkey", "bigint", "", "")
                 .row("orderpriority", "varchar", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -111,7 +111,7 @@ public abstract class BaseElasticsearchSmokeTest
                         "   clerk varchar,\n" +
                         "   comment varchar,\n" +
                         "   custkey bigint,\n" +
-                        "   orderdate timestamp,\n" +
+                        "   orderdate timestamp(3),\n" +
                         "   orderkey bigint,\n" +
                         "   orderpriority varchar,\n" +
                         "   orderstatus varchar,\n" +

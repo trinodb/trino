@@ -15,6 +15,7 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+import io.prestosql.operator.scalar.timestamp.TimestampWithTimezoneToTimestampCast;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -35,7 +36,6 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -53,9 +53,8 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.type.DateTimeOperators.modulo24Hour;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
+import static io.prestosql.util.DateTimeUtils.convertToTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.printTimestampWithTimeZone;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
 
 public final class TimestampWithTimeZoneOperators
@@ -113,16 +112,6 @@ public final class TimestampWithTimeZoneOperators
         return unpackMillisUtc(left) >= unpackMillisUtc(right);
     }
 
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(
-            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value,
-            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long min,
-            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long max)
-    {
-        return unpackMillisUtc(min) <= unpackMillisUtc(value) && unpackMillisUtc(value) <= unpackMillisUtc(max);
-    }
-
     @ScalarFunction("date")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DATE)
@@ -145,7 +134,7 @@ public final class TimestampWithTimeZoneOperators
             return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
         }
 
-        return modulo24Hour(castToTimestamp(session, value));
+        return modulo24Hour(TimestampWithTimezoneToTimestampCast.cast(3, session, value));
     }
 
     @ScalarOperator(CAST)
@@ -157,7 +146,7 @@ public final class TimestampWithTimeZoneOperators
             return packDateTimeWithZone(millis, unpackZoneKey(value));
         }
 
-        long millis = modulo24Hour(castToTimestamp(session, value));
+        long millis = modulo24Hour(TimestampWithTimezoneToTimestampCast.cast(3, session, value));
         ISOChronology localChronology = unpackChronology(value);
         // This cast does treat TIME as wall time in given TZ. This means that in order to get
         // its UTC representation we need to shift the value by the offset of TZ.
@@ -165,18 +154,6 @@ public final class TimestampWithTimeZoneOperators
         // in TIME WITH TIME ZONE. Calculating real TZ offset will happen when really required.
         // This is done due to inadequate TIME WITH TIME ZONE representation.
         return packDateTimeWithZone(millis - localChronology.getZone().getOffset(millis), unpackZoneKey(value));
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
-    {
-        if (session.isLegacyTimestamp()) {
-            return unpackMillisUtc(value);
-        }
-
-        ISOChronology chronology = getChronology(unpackZoneKey(value));
-        return chronology.getZone().convertUTCToLocal(unpackMillisUtc(value));
     }
 
     @ScalarOperator(CAST)
@@ -193,7 +170,7 @@ public final class TimestampWithTimeZoneOperators
     public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return parseTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+            return convertToTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: " + value.toStringUtf8(), e);

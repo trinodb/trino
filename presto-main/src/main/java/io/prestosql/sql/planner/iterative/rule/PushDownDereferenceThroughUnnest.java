@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
  *          Project(A, B_ARRAY, C, symbol := A.x)
  *              Source(A, B_ARAAY, C)
  * </pre>
- *
+ * <p>
  * Pushes down dereference projections through Unnest. Currently, the pushdown is only supported for dereferences on replicate symbols.
  */
 public class PushDownDereferenceThroughUnnest

@@ -120,7 +120,7 @@ public class TestRowOperators
         assertFunction(
                 "CAST(ROW(TIMESTAMP '1970-01-01 00:00:01', cast(null as TIMESTAMP)) AS JSON)",
                 JSON,
-                format("[\"%s\",null]", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+                format("[\"%s\",null]", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
 
         assertFunction(
                 "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY(BIGINT))) AS JSON)",

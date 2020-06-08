@@ -24,6 +24,7 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemSecurityContext;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -44,7 +45,7 @@ import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedSystemAccessControl
 {
-    private static final Identity alice = Identity.ofUser("alice");
+    private static final Identity alice = Identity.forUser("alice").withGroups(ImmutableSet.of("staff")).build();
     private static final Identity kerberosValidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")).build();
     private static final Identity kerberosValidNonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withPrincipal(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")).build();
     private static final Identity kerberosInvalidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")).build();
@@ -53,12 +54,100 @@ public class TestFileBasedSystemAccessControl
     private static final Identity validSpecialRegexWildDot = Identity.forUser(".*").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
     private static final Identity validSpecialRegexEndQuote = Identity.forUser("\\E").withPrincipal(new KerberosPrincipal("special/\\E@EXAMPLE.COM")).build();
     private static final Identity invalidSpecialRegex = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
-    private static final Identity bob = Identity.ofUser("bob");
-    private static final Identity admin = Identity.ofUser("admin");
+    private static final Identity bob = Identity.forUser("bob").withGroups(ImmutableSet.of("staff")).build();
+    private static final Identity admin = Identity.forUser("admin").withGroups(ImmutableSet.of("admin", "staff")).build();
     private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
     private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0200\u0200\u0200");
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
     private static final Optional<QueryId> queryId = Optional.empty();
+
+    private static final Identity charlie = Identity.forUser("charlie").withGroups(ImmutableSet.of("guests")).build();
+    private static final Identity joe = Identity.ofUser("joe");
+    private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
+    private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId);
+    private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId);
+
+    private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop schema .*";
+    private static final String RENAME_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename schema from .* to .*";
+    private static final String AUTH_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for schema .* to .*";
+    private static final String SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create schema for .*";
+
+    @Test
+    public void testSchemaRulesForCheckCanDropSchema()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
+
+        accessControl.checkCanDropSchema(ADMIN, new CatalogSchemaName("some-catalog", "bob"));
+        accessControl.checkCanDropSchema(ADMIN, new CatalogSchemaName("some-catalog", "staff"));
+        accessControl.checkCanDropSchema(ADMIN, new CatalogSchemaName("some-catalog", "authenticated"));
+        accessControl.checkCanDropSchema(ADMIN, new CatalogSchemaName("some-catalog", "test"));
+
+        accessControl.checkCanDropSchema(BOB, new CatalogSchemaName("some-catalog", "bob"));
+        accessControl.checkCanDropSchema(BOB, new CatalogSchemaName("some-catalog", "staff"));
+        accessControl.checkCanDropSchema(BOB, new CatalogSchemaName("some-catalog", "authenticated"));
+        assertAccessDenied(() -> accessControl.checkCanDropSchema(BOB, new CatalogSchemaName("some-catalog", "test")), DROP_SCHEMA_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanDropSchema(CHARLIE, new CatalogSchemaName("some-catalog", "authenticated"));
+        assertAccessDenied(() -> accessControl.checkCanDropSchema(CHARLIE, new CatalogSchemaName("some-catalog", "bob")), DROP_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanDropSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff")), DROP_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanDropSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test")), DROP_SCHEMA_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanRenameSchema()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
+
+        accessControl.checkCanRenameSchema(ADMIN, new CatalogSchemaName("some-catalog", "bob"), "new_schema");
+        accessControl.checkCanRenameSchema(ADMIN, new CatalogSchemaName("some-catalog", "staff"), "new_schema");
+        accessControl.checkCanRenameSchema(ADMIN, new CatalogSchemaName("some-catalog", "authenticated"), "new_schema");
+        accessControl.checkCanRenameSchema(ADMIN, new CatalogSchemaName("some-catalog", "test"), "new_schema");
+
+        accessControl.checkCanRenameSchema(BOB, new CatalogSchemaName("some-catalog", "bob"), "staff");
+        accessControl.checkCanRenameSchema(BOB, new CatalogSchemaName("some-catalog", "staff"), "authenticated");
+        accessControl.checkCanRenameSchema(BOB, new CatalogSchemaName("some-catalog", "authenticated"), "bob");
+        assertAccessDenied(() -> accessControl.checkCanRenameSchema(BOB, new CatalogSchemaName("some-catalog", "test"), "bob"), RENAME_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanRenameSchema(BOB, new CatalogSchemaName("some-catalog", "bob"), "test"), RENAME_SCHEMA_ACCESS_DENIED_MESSAGE);
+
+        assertAccessDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, new CatalogSchemaName("some-catalog", "bob"), "new_schema"), RENAME_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff"), "new_schema"), RENAME_SCHEMA_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanRenameSchema(CHARLIE, new CatalogSchemaName("some-catalog", "authenticated"), "authenticated");
+        assertAccessDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test"), "new_schema"), RENAME_SCHEMA_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanSetSchemaAuthorization()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
+
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("some-catalog", "test"), new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("some-catalog", "test"), new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "bob"), new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "bob"), new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        assertAccessDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "test"), new PrestoPrincipal(PrincipalType.ROLE, "some_role")), AUTH_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "test"), new PrestoPrincipal(PrincipalType.USER, "some_user")), AUTH_SCHEMA_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanShowCreateSchema()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
+
+        accessControl.checkCanShowCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "bob"));
+        accessControl.checkCanShowCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "staff"));
+        accessControl.checkCanShowCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "authenticated"));
+        accessControl.checkCanShowCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "test"));
+
+        accessControl.checkCanShowCreateSchema(BOB, new CatalogSchemaName("some-catalog", "bob"));
+        accessControl.checkCanShowCreateSchema(BOB, new CatalogSchemaName("some-catalog", "staff"));
+        accessControl.checkCanShowCreateSchema(BOB, new CatalogSchemaName("some-catalog", "authenticated"));
+        assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(BOB, new CatalogSchemaName("some-catalog", "test")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "authenticated"));
+        assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "bob")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+    }
 
     @Test
     public void testCanSetUserOperations()
@@ -267,5 +356,12 @@ public class TestFileBasedSystemAccessControl
     private String getResourcePath(String resourceName)
     {
         return this.getClass().getClassLoader().getResource(resourceName).getPath();
+    }
+
+    private static void assertAccessDenied(ThrowingCallable callable, String expectedMessage)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageMatching(expectedMessage);
     }
 }

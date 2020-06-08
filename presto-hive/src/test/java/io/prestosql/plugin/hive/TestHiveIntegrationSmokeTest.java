@@ -753,11 +753,11 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "CREATE SCHEMA test_show_create_schema");
 
         String createSchemaSql = format("" +
-                "CREATE SCHEMA %s.test_show_create_schema\n" +
-                "AUTHORIZATION USER hive\n" +
-                "WITH \\(\n" +
-                "   location = '.*test_show_create_schema'\n" +
-                "\\)",
+                        "CREATE SCHEMA %s.test_show_create_schema\n" +
+                        "AUTHORIZATION USER hive\n" +
+                        "WITH \\(\n" +
+                        "   location = '.*test_show_create_schema'\n" +
+                        "\\)",
                 getSession().getCatalog().get());
 
         String actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
@@ -768,11 +768,11 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "ALTER SCHEMA test_show_create_schema SET AUTHORIZATION ROLE test_show_create_schema_role");
 
         createSchemaSql = format("" +
-                "CREATE SCHEMA %s.test_show_create_schema\n" +
-                "AUTHORIZATION ROLE test_show_create_schema_role\n" +
-                "WITH \\(\n" +
-                "   location = '.*test_show_create_schema'\n" +
-                "\\)",
+                        "CREATE SCHEMA %s.test_show_create_schema\n" +
+                        "AUTHORIZATION ROLE test_show_create_schema_role\n" +
+                        "WITH \\(\n" +
+                        "   location = '.*test_show_create_schema'\n" +
+                        "\\)",
                 getSession().getCatalog().get());
 
         actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
@@ -3046,11 +3046,11 @@ public class TestHiveIntegrationSmokeTest
                 session,
                 format("SELECT col0, col1.f0, col2.f1.f1 FROM %s", tableName),
                 "SELECT * FROM \n" +
-                "    (SELECT 1, 2, 6) UNION\n" +
-                "    (SELECT 7, 8, NULL) UNION\n" +
-                "    (SELECT NULL, NULL, NULL) UNION\n" +
-                "    (SELECT 13, NULL, NULL) UNION\n" +
-                "    (SELECT 15, 16, 18)");
+                        "    (SELECT 1, 2, 6) UNION\n" +
+                        "    (SELECT 7, 8, NULL) UNION\n" +
+                        "    (SELECT NULL, NULL, NULL) UNION\n" +
+                        "    (SELECT 13, NULL, NULL) UNION\n" +
+                        "    (SELECT 15, 16, 18)");
 
         assertQuery(session, format("SELECT col0 FROM %s WHERE col2.f1.f1 IS NOT NULL", tableName), "SELECT * FROM UNNEST(array[1, 15])");
 
@@ -4974,6 +4974,113 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testRoleAuthorizationDescriptors()
+    {
+        Session user = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+
+        assertUpdate("CREATE ROLE test_r_a_d1");
+        assertUpdate("CREATE ROLE test_r_a_d2");
+        assertUpdate("CREATE ROLE test_r_a_d3");
+
+        // nothing showing because no roles have been granted
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.role_authorization_descriptors");
+
+        // role_authorization_descriptors is not accessible for a non-admin user, even when it's empty
+        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
+                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
+
+        assertUpdate("GRANT test_r_a_d1 TO USER user");
+        // user with same name as a role
+        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1");
+        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION");
+        assertUpdate("GRANT test_r_a_d2 TO USER user2");
+        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1");
+
+        // role_authorization_descriptors is not accessible for a non-admin user
+        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
+                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
+                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors LIMIT 1000000000",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
+                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors LIMIT 2)",
+                "VALUES (2)");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2'",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2' LIMIT 1)",
+                "VALUES 1");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'user'",
+                "VALUES ('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%'",
+                "VALUES " +
+                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
+                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')");
+
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%' LIMIT 2)",
+                "VALUES 2");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1'",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' LIMIT 1",
+                "VALUES " +
+                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'USER'",
+                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'ROLE'",
+                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
+
+        assertQuery(
+                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee_type = 'ROLE'",
+                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
+
+        assertUpdate("DROP ROLE test_r_a_d1");
+        assertUpdate("DROP ROLE test_r_a_d2");
+        assertUpdate("DROP ROLE test_r_a_d3");
+    }
+
+    @Test
     public void testShowViews()
     {
         String viewName = "test_show_views";
@@ -5109,12 +5216,12 @@ public class TestHiveIntegrationSmokeTest
                 "  VALUES " +
                 "    (null, null, null, null, null, null, 'p1'), " +
                 "    (null, null, null, null, null, null, 'p1'), " +
-                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), 'p1')," +
-                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), 'p1')," +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00:00.000', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00:00.000', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), 'p1')," +
                 "    (null, null, null, null, null, null, 'p2'), " +
                 "    (null, null, null, null, null, null, 'p2'), " +
-                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), 'p2'), " +
-                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), 'p2') " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00:00.000', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00:00.000', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), 'p2') " +
                 ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar)", tableName), 8);
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tableName),
@@ -5218,6 +5325,60 @@ public class TestHiveIntegrationSmokeTest
                         "('c_varbinary', null, 0E0, 0E0, null, null, null), " +
                         "('p_varchar', 0E0, 0E0, 0E0, null, null, null), " +
                         "(null, null, null, null, 0E0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCollectColumnStatisticsOnInsertToEmptyTable()
+    {
+        String tableName = "test_collect_column_statistics_empty_table";
+
+        assertUpdate(format("CREATE TABLE %s (col INT)", tableName));
+
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('col', null, null, null, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)");
+
+        assertUpdate(format("INSERT INTO %s (col) VALUES 50, 100, 1, 200, 2", tableName), 5);
+
+        assertQuery(format("SHOW STATS FOR %s", tableName),
+                "SELECT * FROM VALUES " +
+                        "('col', null, 5.0, 0.0, null, 1, 200), " +
+                        "(null, null, null, null, 5.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCollectColumnStatisticsOnInsertToPartiallyAnalyzedTable()
+    {
+        String tableName = "test_collect_column_statistics_partially_analyzed_table";
+
+        assertUpdate(format("CREATE TABLE %s (col INT, col2 INT)", tableName));
+
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('col', null, null, null, null, null, null), " +
+                        "('col2', null, null, null, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)");
+
+        assertUpdate(format("ANALYZE %s WITH (columns = ARRAY['col2'])", tableName), 0);
+
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('col', null, null, null, null, null, null), " +
+                        "('col2', null, 0.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)");
+
+        assertUpdate(format("INSERT INTO %s (col, col2) VALUES (50, 49), (100, 99), (1, 0), (200, 199), (2, 1)", tableName), 5);
+
+        assertQuery(format("SHOW STATS FOR %s", tableName),
+                "SELECT * FROM VALUES " +
+                        "('col', null, 5.0, 0.0, null, 1, 200), " +
+                        "('col2', null, 5.0, 0.0, null, 0, 199), " +
+                        "(null, null, null, null, 5.0, null, null)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -6133,23 +6294,23 @@ public class TestHiveIntegrationSmokeTest
                         // p_varchar = 'p1', p_bigint = BIGINT '7'
                         "    (null, null, null, null, null, null, 'p1', BIGINT '7'), " +
                         "    (null, null, null, null, null, null, 'p1', BIGINT '7'), " +
-                        "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', 'abc1', X'bcd1', 'p1', BIGINT '7'), " +
-                        "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', 'abc2', X'bcd2', 'p1', BIGINT '7'), " +
+                        "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00:00.000', 'abc1', X'bcd1', 'p1', BIGINT '7'), " +
+                        "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00:00.000', 'abc2', X'bcd2', 'p1', BIGINT '7'), " +
                         // p_varchar = 'p2', p_bigint = BIGINT '7'
                         "    (null, null, null, null, null, null, 'p2', BIGINT '7'), " +
                         "    (null, null, null, null, null, null, 'p2', BIGINT '7'), " +
-                        "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', 'cba1', X'dcb1', 'p2', BIGINT '7'), " +
-                        "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', 'cba2', X'dcb2', 'p2', BIGINT '7'), " +
+                        "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00:00.000', 'cba1', X'dcb1', 'p2', BIGINT '7'), " +
+                        "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00:00.000', 'cba2', X'dcb2', 'p2', BIGINT '7'), " +
                         // p_varchar = 'p3', p_bigint = BIGINT '8'
                         "    (null, null, null, null, null, null, 'p3', BIGINT '8'), " +
                         "    (null, null, null, null, null, null, 'p3', BIGINT '8'), " +
-                        "    (true, BIGINT '3', DOUBLE '4.4', TIMESTAMP '2012-10-10 01:00', 'bca1', X'cdb1', 'p3', BIGINT '8'), " +
-                        "    (false, BIGINT '2', DOUBLE '3.4', TIMESTAMP '2012-10-10 00:00', 'bca2', X'cdb2', 'p3', BIGINT '8'), " +
+                        "    (true, BIGINT '3', DOUBLE '4.4', TIMESTAMP '2012-10-10 01:00:00.000', 'bca1', X'cdb1', 'p3', BIGINT '8'), " +
+                        "    (false, BIGINT '2', DOUBLE '3.4', TIMESTAMP '2012-10-10 00:00:00.000', 'bca2', X'cdb2', 'p3', BIGINT '8'), " +
                         // p_varchar = NULL, p_bigint = NULL
-                        "    (false, BIGINT '7', DOUBLE '7.7', TIMESTAMP '1977-07-07 07:07', 'efa1', X'efa1', NULL, NULL), " +
-                        "    (false, BIGINT '6', DOUBLE '6.7', TIMESTAMP '1977-07-07 07:06', 'efa2', X'efa2', NULL, NULL), " +
-                        "    (false, BIGINT '5', DOUBLE '5.7', TIMESTAMP '1977-07-07 07:05', 'efa3', X'efa3', NULL, NULL), " +
-                        "    (false, BIGINT '4', DOUBLE '4.7', TIMESTAMP '1977-07-07 07:04', 'efa4', X'efa4', NULL, NULL) " +
+                        "    (false, BIGINT '7', DOUBLE '7.7', TIMESTAMP '1977-07-07 07:07:00.000', 'efa1', X'efa1', NULL, NULL), " +
+                        "    (false, BIGINT '6', DOUBLE '6.7', TIMESTAMP '1977-07-07 07:06:00.000', 'efa2', X'efa2', NULL, NULL), " +
+                        "    (false, BIGINT '5', DOUBLE '5.7', TIMESTAMP '1977-07-07 07:05:00.000', 'efa3', X'efa3', NULL, NULL), " +
+                        "    (false, BIGINT '4', DOUBLE '4.7', TIMESTAMP '1977-07-07 07:04:00.000', 'efa4', X'efa4', NULL, NULL) " +
                         ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar, p_bigint)", 16);
 
         if (partitioned) {

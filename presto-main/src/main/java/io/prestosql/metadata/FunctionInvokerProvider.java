@@ -13,31 +13,38 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.prestosql.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.String.format;
+import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
-public class FunctionInvokerProvider
+class FunctionInvokerProvider
 {
+    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(UNSUPPORTED);
     private final Metadata metadata;
 
     public FunctionInvokerProvider(Metadata metadata)
@@ -45,62 +52,102 @@ public class FunctionInvokerProvider
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public FunctionInvoker createFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker createFunctionInvoker(
+            ScalarFunctionImplementation scalarFunctionImplementation,
+            Signature resolvedSignature,
+            InvocationConvention expectedConvention)
     {
-        ScalarFunctionImplementation scalarFunctionImplementation = metadata.getScalarFunctionImplementation(resolvedFunction);
+        List<Choice> choices = new ArrayList<>();
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
-            if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasSession(), invocationConvention)) {
-                return new FunctionInvoker(choice.getMethodHandle());
+            InvocationConvention callingConvention = toCallingConvention(choice);
+            if (functionAdapter.canAdapt(callingConvention, expectedConvention)) {
+                choices.add(new Choice(choice, callingConvention));
             }
         }
-        checkState(invocationConvention.isPresent());
-        throw new PrestoException(FUNCTION_NOT_FOUND, format("Dependent function implementation (%s) with convention (%s) is not available", resolvedFunction, invocationConvention.toString()));
+        if (choices.isEmpty()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND,
+                    format("Function implementation for (%s) cannot be adapted to convention (%s)", resolvedSignature, expectedConvention));
+        }
+
+        Choice bestChoice = Collections.max(choices, comparingInt(Choice::getScore));
+        List<Type> actualTypes = resolvedSignature.getArgumentTypes().stream()
+                .map(metadata::getType)
+                .collect(toImmutableList());
+        MethodHandle methodHandle = functionAdapter.adapt(bestChoice.getChoice().getMethodHandle(), actualTypes, bestChoice.getCallingConvention(), expectedConvention);
+        return new FunctionInvoker(
+                methodHandle,
+                bestChoice.getChoice().getInstanceFactory(),
+                bestChoice.getChoice().getArgumentProperties().stream()
+                        .map(ArgumentProperty::getLambdaInterface)
+                        .collect(Collectors.toList()));
     }
 
-    @VisibleForTesting
-    static boolean checkChoice(List<ArgumentProperty> definitionArgumentProperties, boolean definitionReturnsNullable, boolean definitionHasSession, Optional<InvocationConvention> invocationConvention)
+    private static InvocationConvention toCallingConvention(ScalarImplementationChoice choice)
     {
-        for (int i = 0; i < definitionArgumentProperties.size(); i++) {
-            InvocationArgumentConvention invocationArgumentConvention = invocationConvention.get().getArgumentConvention(i);
-            NullConvention nullConvention = definitionArgumentProperties.get(i).getNullConvention();
+        return new InvocationConvention(
+                choice.getArgumentProperties().stream()
+                        .map(FunctionInvokerProvider::toArgumentConvention)
+                        .collect(toImmutableList()),
+                choice.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
+                choice.hasSession(),
+                choice.getInstanceFactory().isPresent());
+    }
 
-            // return false because function types do not have a null convention
-            if (definitionArgumentProperties.get(i).getArgumentType() == FUNCTION_TYPE) {
-                if (invocationArgumentConvention != InvocationArgumentConvention.FUNCTION) {
-                    return false;
+    private static InvocationArgumentConvention toArgumentConvention(ArgumentProperty argumentProperty)
+    {
+        if (argumentProperty.getArgumentType() == FUNCTION_TYPE) {
+            return FUNCTION;
+        }
+        switch (argumentProperty.getNullConvention()) {
+            case RETURN_NULL_ON_NULL:
+                return NEVER_NULL;
+            case USE_BOXED_TYPE:
+                return BOXED_NULLABLE;
+            case USE_NULL_FLAG:
+                return NULL_FLAG;
+            case BLOCK_AND_POSITION:
+                return BLOCK_POSITION;
+            default:
+                throw new IllegalArgumentException("Unsupported null convention: " + argumentProperty.getNullConvention());
+        }
+    }
+
+    private static final class Choice
+    {
+        private final ScalarImplementationChoice choice;
+        private final InvocationConvention callingConvention;
+        private final int score;
+
+        public Choice(ScalarImplementationChoice choice, InvocationConvention callingConvention)
+        {
+            this.choice = requireNonNull(choice, "choice is null");
+            this.callingConvention = requireNonNull(callingConvention, "callingConvention is null");
+
+            int score = 0;
+            for (InvocationArgumentConvention argument : callingConvention.getArgumentConventions()) {
+                if (argument == NULL_FLAG) {
+                    score += 1;
                 }
-                // Support can be added when this becomes necessary
-                throw new UnsupportedOperationException("Invocation convention for function type is not supported");
+                else if (argument == BLOCK_POSITION) {
+                    score += 1000;
+                }
             }
-            if (nullConvention == RETURN_NULL_ON_NULL && invocationArgumentConvention != InvocationArgumentConvention.NEVER_NULL) {
-                return false;
-            }
-            if (nullConvention == USE_BOXED_TYPE && invocationArgumentConvention != InvocationArgumentConvention.BOXED_NULLABLE) {
-                return false;
-            }
-            if (nullConvention == USE_NULL_FLAG && invocationArgumentConvention != InvocationArgumentConvention.NULL_FLAG) {
-                return false;
-            }
-            if (nullConvention == BLOCK_AND_POSITION && invocationArgumentConvention != InvocationArgumentConvention.BLOCK_POSITION) {
-                return false;
-            }
+            this.score = score;
         }
 
-        if (definitionReturnsNullable && invocationConvention.get().getReturnConvention() != InvocationReturnConvention.NULLABLE_RETURN) {
-            return false;
+        public ScalarImplementationChoice getChoice()
+        {
+            return choice;
         }
-        if (!definitionReturnsNullable) {
-            // For each of the arguments, the invocation convention is required to be FAIL_ON_NULL
-            // when the  corresponding definition convention has RETURN_NULL_ON_NULL convention.
-            // As a result, when `definitionReturnsNullable` is false, the function
-            // can never return a null value. Therefore, the if below is sufficient.
-            if (invocationConvention.get().getReturnConvention() != InvocationReturnConvention.FAIL_ON_NULL) {
-                return false;
-            }
+
+        public InvocationConvention getCallingConvention()
+        {
+            return callingConvention;
         }
-        if (definitionHasSession != invocationConvention.get().hasSession()) {
-            return false;
+
+        public int getScore()
+        {
+            return score;
         }
-        return true;
     }
 }

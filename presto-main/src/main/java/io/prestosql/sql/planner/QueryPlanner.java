@@ -75,6 +75,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -776,7 +777,9 @@ class QueryPlanner
 
             // Pre-project inputs
             ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
-                    .addAll(windowFunction.getArguments())
+                    .addAll(windowFunction.getArguments().stream()
+                            .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
+                            .collect(Collectors.toList()))
                     .addAll(window.getPartitionBy())
                     .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream()
                             .map(SortItem::getSortKey)

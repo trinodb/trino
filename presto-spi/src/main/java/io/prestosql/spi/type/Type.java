@@ -177,7 +177,7 @@ public interface Type
 
     /**
      * Return the range of possible values for this type, if available.
-     *
+     * <p>
      * The type of the values must match {@link #getJavaType}
      */
     default Optional<Range> getRange()

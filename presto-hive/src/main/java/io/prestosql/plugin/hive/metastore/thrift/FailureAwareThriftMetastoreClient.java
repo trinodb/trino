@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -136,10 +137,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table newTable)
+    public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException
     {
-        runWithHandle(() -> delegate.alterTable(databaseName, tableName, newTable));
+        runWithHandle(() -> delegate.alterTableWithEnvironmentContext(databaseName, tableName, newTable, context));
     }
 
     @Override
@@ -315,6 +316,13 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         runWithHandle(() -> delegate.revokeRole(role, granteeName, granteeType, grantOption));
+    }
+
+    @Override
+    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.listGrantedPrincipals(role));
     }
 
     @Override

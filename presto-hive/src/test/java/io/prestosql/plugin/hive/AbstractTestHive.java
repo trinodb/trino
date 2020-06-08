@@ -27,7 +27,6 @@ import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.azure.HiveAzureConfig;
@@ -728,7 +727,7 @@ public abstract class AbstractTestHive
 
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), hdfsEnvironment, false)),
                 executor,
                 Duration.valueOf("1m"),
                 Optional.of(Duration.valueOf("15s")),
@@ -4200,7 +4199,7 @@ public abstract class AbstractTestHive
                         assertNull(row.getField(index));
                     }
                     else {
-                        SqlTimestamp expected = sqlTimestampOf(2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION);
+                        SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION);
                         assertEquals(row.getField(index), expected);
                     }
                 }

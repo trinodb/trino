@@ -83,8 +83,8 @@ public class IcebergPageSource
         int outputIndex = 0;
         int delegateIndex = 0;
         for (IcebergColumnHandle column : columns) {
-            String partitionValue = partitionKeys.get(column.getId());
-            if (partitionValue != null) {
+            if (partitionKeys.containsKey(column.getId())) {
+                String partitionValue = partitionKeys.get(column.getId());
                 Type type = column.getType();
                 Object prefilledValue = deserializePartitionValue(type, partitionValue, column.getName(), timeZoneKey);
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
@@ -182,6 +182,10 @@ public class IcebergPageSource
 
     private static Object deserializePartitionValue(Type type, String valueString, String name, TimeZoneKey timeZoneKey)
     {
+        if (valueString == null) {
+            return null;
+        }
+
         try {
             if (type.equals(BOOLEAN)) {
                 if (valueString.equalsIgnoreCase("true")) {

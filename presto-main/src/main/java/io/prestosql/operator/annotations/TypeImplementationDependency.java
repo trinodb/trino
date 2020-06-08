@@ -22,7 +22,7 @@ import io.prestosql.spi.type.TypeSignature;
 import java.util.Objects;
 
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeImplementationDependency

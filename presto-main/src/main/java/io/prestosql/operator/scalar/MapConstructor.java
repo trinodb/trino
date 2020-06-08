@@ -28,11 +28,10 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.DuplicateMapKeyException;
 import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
@@ -43,9 +42,14 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Failures.internalError;
@@ -97,10 +101,11 @@ public final class MapConstructor
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        Type mapType = metadata.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType.getTypeSignature()), TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
-        MethodHandle keyHashCode = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle keyEqual = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
-        MethodHandle keyIndeterminate = metadata.getScalarFunctionImplementation(metadata.resolveOperator(INDETERMINATE, ImmutableList.of(keyType))).getMethodHandle();
+        Type mapType = metadata.getParameterizedType(MAP, ImmutableList.of(typeParameter(keyType.getTypeSignature()), typeParameter(valueType.getTypeSignature())));
+        MethodHandle keyHashCode = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(keyType)), Optional.empty()).getMethodHandle();
+        MethodHandle keyEqual = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(keyType, keyType)), Optional.empty()).getMethodHandle();
+        InvocationConvention indeterminateCallingConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG), FAIL_ON_NULL, false, false);
+        MethodHandle keyIndeterminate = metadata.getScalarFunctionInvoker(metadata.resolveOperator(INDETERMINATE, ImmutableList.of(keyType)), Optional.of(indeterminateCallingConvention)).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         return new ScalarFunctionImplementation(

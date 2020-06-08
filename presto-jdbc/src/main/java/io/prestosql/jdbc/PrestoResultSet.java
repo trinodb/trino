@@ -52,6 +52,8 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -65,8 +67,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -81,6 +86,27 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class PrestoResultSet
         implements ResultSet
 {
+    private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
+            "(?<year>\\d\\d\\d\\d)-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
+            "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
+            "\\s*(?<timezone>.+)?");
+
+    private static final long[] POWERS_OF_TEN = {
+            1L,
+            10L,
+            100L,
+            1000L,
+            10_000L,
+            100_000L,
+            1_000_000L,
+            10_000_000L,
+            100_000_000L,
+            1_000_000_000L,
+            10_000_000_000L,
+            100_000_000_000L,
+            1000_000_000_000L
+    };
+
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
     static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
@@ -93,6 +119,7 @@ public class PrestoResultSet
             .withOffsetParsed();
 
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+
     static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
                     new DateTimeParser[] {
@@ -329,9 +356,9 @@ public class PrestoResultSet
         }
 
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp")) {
+        if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp")) {
             try {
-                return new Timestamp(TIMESTAMP_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+                return parseTimestamp(String.valueOf(value), localTimeZone);
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -1923,5 +1950,72 @@ public class PrestoResultSet
             list.add(builder.build());
         }
         return list.build();
+    }
+
+    private static Timestamp parseTimestamp(String value, DateTimeZone localTimeZone)
+    {
+        Matcher matcher = DATETIME_PATTERN.matcher(value);
+        if (!matcher.matches() || matcher.group("timezone") != null) {
+            throw new IllegalArgumentException("Invalid timestamp: " + value);
+        }
+
+        int year = Integer.parseInt(matcher.group("year"));
+        int month = Integer.parseInt(matcher.group("month"));
+        int day = Integer.parseInt(matcher.group("day"));
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = Integer.parseInt(matcher.group("second"));
+        String fraction = matcher.group("fraction");
+
+        long fractionValue = 0;
+        int precision = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
+                .atZone(ZoneId.of(localTimeZone.getID()))
+                .toEpochSecond();
+
+        Timestamp timestamp = new Timestamp(epochSecond * 1000);
+        timestamp.setNanos((int) rescale(fractionValue, precision, 9));
+        return timestamp;
+    }
+
+    public static long rescale(long value, int fromPrecision, int toPrecision)
+    {
+        if (value < 0) {
+            throw new IllegalArgumentException("value must be >= 0");
+        }
+
+        if (fromPrecision <= toPrecision) {
+            value *= scaleFactor(fromPrecision, toPrecision);
+        }
+        else {
+            value = roundDiv(value, scaleFactor(toPrecision, fromPrecision));
+        }
+
+        return value;
+    }
+
+    private static long scaleFactor(int fromPrecision, int toPrecision)
+    {
+        if (fromPrecision > toPrecision) {
+            throw new IllegalArgumentException("fromPrecision must be <= toPrecision");
+        }
+
+        return POWERS_OF_TEN[toPrecision - fromPrecision];
+    }
+
+    private static long roundDiv(long value, long factor)
+    {
+        checkArgument(factor > 0, "factor must be positive");
+
+        if (value >= 0) {
+            return (value + (factor / 2)) / factor;
+        }
+
+        return (value - (factor / 2)) / factor;
     }
 }

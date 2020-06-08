@@ -73,6 +73,8 @@ public final class ValueStreams
                     return createLongStream(new OrcInputStream(chunkLoader), encoding, true);
                 case DECIMAL:
                     return new DecimalInputStream(chunkLoader);
+                case UNION:
+                    return new ByteInputStream(new OrcInputStream(chunkLoader));
             }
         }
 

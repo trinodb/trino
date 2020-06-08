@@ -352,9 +352,9 @@ public class CassandraSession
     /**
      * Get the list of partitions matching the given filters on partition keys.
      *
-     * @param table          the table to get partitions from
+     * @param table the table to get partitions from
      * @param filterPrefixes the list of possible values for each partition key.
-     *                       Order of values should match {@link CassandraTable#getPartitionKeyColumns()}
+     * Order of values should match {@link CassandraTable#getPartitionKeyColumns()}
      * @return list of {@link CassandraPartition}
      */
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefixes)

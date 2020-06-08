@@ -27,6 +27,7 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
@@ -156,7 +157,8 @@ public abstract class AbstractMinMaxBy
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        MethodHandle compareMethod = metadata.getScalarFunctionImplementation(metadata.resolveOperator(operator, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        ResolvedFunction resolvedFunction = metadata.resolveOperator(operator, ImmutableList.of(keyType, keyType));
+        MethodHandle compareMethod = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

@@ -68,7 +68,7 @@ public class TestReadBloomFilter
 
         testType(DATE, ImmutableList.of(new SqlDate(1), new SqlDate(5_000), new SqlDate(10_000)), 5_000L, 7_777L);
         testType(TIMESTAMP,
-                ImmutableList.of(new SqlTimestamp(1, TIME_ZONE), new SqlTimestamp(500_000L, TIME_ZONE), new SqlTimestamp(1_000_000L, TIME_ZONE)),
+                ImmutableList.of(SqlTimestamp.legacyFromMillis(3, 1, TIME_ZONE), SqlTimestamp.legacyFromMillis(3, 500_000L, TIME_ZONE), SqlTimestamp.legacyFromMillis(3, 1_000_000L, TIME_ZONE)),
                 500_000L + HIVE_STORAGE_TIME_ZONE.getOffset(500_000L),
                 777_777L + HIVE_STORAGE_TIME_ZONE.getOffset(777_777L));
 

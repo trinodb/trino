@@ -1035,7 +1035,7 @@ public class BenchmarkColumnReaders
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(new SqlTimestamp((random.nextLong()), UTC_KEY));
+                values.add(SqlTimestamp.legacyFromMillis(3, (random.nextLong()), UTC_KEY));
             }
             return values.iterator();
         }
@@ -1058,7 +1058,7 @@ public class BenchmarkColumnReaders
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(new SqlTimestamp(random.nextLong(), UTC_KEY));
+                    values.add(SqlTimestamp.legacyFromMillis(3, random.nextLong(), UTC_KEY));
                 }
                 else {
                     values.add(null);

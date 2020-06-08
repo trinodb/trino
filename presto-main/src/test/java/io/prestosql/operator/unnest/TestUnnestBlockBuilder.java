@@ -34,13 +34,13 @@ public class TestUnnestBlockBuilder
     @Test
     public void testWithNullElements()
     {
-        testUnnestBlockBuilderMethods(new String[]{"a", "b", "c", null, "d", "e"});
+        testUnnestBlockBuilderMethods(new String[] {"a", "b", "c", null, "d", "e"});
     }
 
     @Test
     public void testWithoutNullElements()
     {
-        testUnnestBlockBuilderMethods(new String[]{"a", "b", "c", "d", "e"});
+        testUnnestBlockBuilderMethods(new String[] {"a", "b", "c", "d", "e"});
     }
 
     @Test
@@ -65,7 +65,7 @@ public class TestUnnestBlockBuilder
     @Test
     public void testEmptyOutput()
     {
-        Slice[] values = toSlices(new String[]{"a", "b"});
+        Slice[] values = toSlices(new String[] {"a", "b"});
         UnnestBlockBuilder unnestBlockBuilder = new UnnestBlockBuilder(VARCHAR);
         Block valuesBlock = createSimpleBlock(values);
         unnestBlockBuilder.resetInputBlock(valuesBlock);
@@ -74,7 +74,7 @@ public class TestUnnestBlockBuilder
         // Nothing added to the output
         Block block = unnestBlockBuilder.buildOutputAndFlush();
         assertTrue(block instanceof DictionaryBlock);
-        assertBlock(block, new Slice[]{});
+        assertBlock(block, new Slice[] {});
     }
 
     private static void testUnnestBlockBuilderMethods(String[] stringValues)
@@ -134,7 +134,7 @@ public class TestUnnestBlockBuilder
         unnestBlockBuilder.appendElement(0);
         Block block = unnestBlockBuilder.buildOutputAndFlush();
         assertTrue(block instanceof DictionaryBlock);
-        assertBlock(block, new Slice[]{values[0]});
+        assertBlock(block, new Slice[] {values[0]});
 
         // Test-2: appending a non-null element and a null.
         unnestBlockBuilder.startNewOutput(new PageBuilderStatus(), 10);
@@ -143,7 +143,7 @@ public class TestUnnestBlockBuilder
         block = unnestBlockBuilder.buildOutputAndFlush();
         assertTrue((block instanceof DictionaryBlock) || (nullIndex == -1));
         assertFalse((block instanceof DictionaryBlock) && (nullIndex == -1));
-        assertBlock(block, new Slice[]{values[0], null});
+        assertBlock(block, new Slice[] {values[0], null});
 
         // Test-3: appending a non-null element, a null, and another non-null element.
         unnestBlockBuilder.startNewOutput(new PageBuilderStatus(), 10);
@@ -153,6 +153,6 @@ public class TestUnnestBlockBuilder
         block = unnestBlockBuilder.buildOutputAndFlush();
         assertTrue((block instanceof DictionaryBlock) || (nullIndex == -1));
         assertFalse((block instanceof DictionaryBlock) && (nullIndex == -1));
-        assertBlock(block, new Slice[]{values[0], null, values[0]});
+        assertBlock(block, new Slice[] {values[0], null, values[0]});
     }
 }

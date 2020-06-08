@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.iceberg.FileFormat;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -55,7 +56,7 @@ public class IcebergSplit
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
-        this.partitionKeys = ImmutableMap.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
+        this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
     }
 
     @Override

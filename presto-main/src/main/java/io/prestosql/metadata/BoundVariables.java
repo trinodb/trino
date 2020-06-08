@@ -13,17 +13,17 @@
  */
 package io.prestosql.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.Type;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.util.Objects.requireNonNull;
 
 public class BoundVariables
@@ -31,15 +31,16 @@ public class BoundVariables
     private final Map<String, Type> typeVariables;
     private final Map<String, Long> longVariables;
 
-    @JsonCreator
-    public BoundVariables(
-            @JsonProperty("typeVariables") Map<String, Type> typeVariables,
-            @JsonProperty("longVariables") Map<String, Long> longVariables)
+    public BoundVariables(Map<String, Type> typeVariables, Map<String, Long> longVariables)
     {
         requireNonNull(typeVariables, "typeVariableBindings is null");
         requireNonNull(longVariables, "longVariableBindings is null");
-        this.typeVariables = ImmutableMap.copyOf(typeVariables);
-        this.longVariables = ImmutableMap.copyOf(longVariables);
+
+        this.typeVariables = typeVariables.entrySet().stream()
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));
+
+        this.longVariables = longVariables.entrySet().stream()
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));
     }
 
     public Type getTypeVariable(String variableName)
@@ -52,12 +53,6 @@ public class BoundVariables
         return containsValue(typeVariables, variableName);
     }
 
-    @JsonProperty
-    public Map<String, Type> getTypeVariables()
-    {
-        return typeVariables;
-    }
-
     public Long getLongVariable(String variableName)
     {
         return getValue(longVariables, variableName);
@@ -66,12 +61,6 @@ public class BoundVariables
     public boolean containsLongVariable(String variableName)
     {
         return containsValue(longVariables, variableName);
-    }
-
-    @JsonProperty
-    public Map<String, Long> getLongVariables()
-    {
-        return longVariables;
     }
 
     private static <T> T getValue(Map<String, T> map, String variableName)
@@ -124,6 +113,14 @@ public class BoundVariables
                 .toString();
     }
 
+    public Map<String, Object> getBindings()
+    {
+        return ImmutableMap.<String, Object>builder()
+                .putAll(typeVariables)
+                .putAll(longVariables)
+                .build();
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -131,8 +128,8 @@ public class BoundVariables
 
     public static class Builder
     {
-        private final Map<String, Type> typeVariables = new HashMap<>();
-        private final Map<String, Long> longVariables = new HashMap<>();
+        private final Map<String, Type> typeVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
+        private final Map<String, Long> longVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
 
         public Type getTypeVariable(String variableName)
         {
@@ -148,11 +145,6 @@ public class BoundVariables
         public boolean containsTypeVariable(String variableName)
         {
             return containsValue(typeVariables, variableName);
-        }
-
-        public Map<String, Type> getTypeVariables()
-        {
-            return typeVariables;
         }
 
         public Long getLongVariable(String variableName)

@@ -23,7 +23,7 @@ import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
 /**
  * Unnester for a nested column with map type.
  * Maintains a {@link ColumnarMap} object to get underlying keys and values block from the map block.
- *
+ * <p>
  * All protected methods implemented here assume that they are being invoked when {@code columnarMap} is non-null.
  */
 class MapUnnester

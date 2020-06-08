@@ -20,6 +20,7 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
@@ -36,7 +37,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -114,7 +114,7 @@ public final class ArrayJoin
         @Override
         public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
         {
-            return specializeArrayJoin(boundVariables.getTypeVariables(), metadata, ImmutableList.of(false, false, false), METHOD_HANDLE);
+            return specializeArrayJoin(boundVariables, metadata, ImmutableList.of(false, false, false), METHOD_HANDLE);
         }
     }
 
@@ -147,12 +147,12 @@ public final class ArrayJoin
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        return specializeArrayJoin(boundVariables.getTypeVariables(), metadata, ImmutableList.of(false, false), METHOD_HANDLE);
+        return specializeArrayJoin(boundVariables, metadata, ImmutableList.of(false, false), METHOD_HANDLE);
     }
 
-    private static ScalarFunctionImplementation specializeArrayJoin(Map<String, Type> types, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
+    private static ScalarFunctionImplementation specializeArrayJoin(BoundVariables types, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
     {
-        Type type = types.get("T");
+        Type type = types.getTypeVariable("T");
         List<ArgumentProperty> argumentProperties = nullableArguments.stream()
                 .map(nullable -> nullable
                         ? valueTypeArgumentProperty(USE_BOXED_TYPE)
@@ -168,7 +168,8 @@ public final class ArrayJoin
         }
         else {
             try {
-                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(metadata.getCoercion(type, VARCHAR));
+                ResolvedFunction resolvedFunction = metadata.getCoercion(type, VARCHAR);
+                MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();
@@ -187,8 +188,6 @@ public final class ArrayJoin
                 else {
                     throw new UnsupportedOperationException("Unsupported type: " + elementType.getName());
                 }
-
-                MethodHandle cast = castFunction.getMethodHandle();
 
                 // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
                 if (cast.type().parameterArray()[0] != ConnectorSession.class) {

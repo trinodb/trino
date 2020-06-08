@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
+import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -114,6 +115,7 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(
             HiveConfig hiveConfig,
+            RubixEnabledConfig rubixEnabledConfig,
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,

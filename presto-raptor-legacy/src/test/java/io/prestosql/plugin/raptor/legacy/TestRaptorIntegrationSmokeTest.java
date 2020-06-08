@@ -505,7 +505,7 @@ public class TestRaptorIntegrationSmokeTest
                         "   \"c'4\" array(bigint),\n" +
                         "   c5 map(bigint, varchar),\n" +
                         "   c6 bigint,\n" +
-                        "   c7 timestamp\n" +
+                        "   c7 timestamp(3)\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   bucket_count = 32,\n" +
@@ -534,7 +534,7 @@ public class TestRaptorIntegrationSmokeTest
                         "   \"c'4\" array(bigint),\n" +
                         "   c5 map(bigint, varchar),\n" +
                         "   c6 bigint,\n" +
-                        "   c7 timestamp\n" +
+                        "   c7 timestamp(3)\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   bucket_count = 32,\n" +

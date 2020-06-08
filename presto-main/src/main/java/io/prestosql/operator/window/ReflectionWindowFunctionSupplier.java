@@ -14,8 +14,10 @@
 package io.prestosql.operator.window;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.LambdaProvider;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ValueWindowFunction;
 import io.prestosql.spi.function.WindowFunction;
@@ -47,7 +49,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
     {
-        super(signature, getDescription(requireNonNull(type, "type is null")));
+        super(signature, getDescription(requireNonNull(type, "type is null")), ImmutableList.of());
         try {
             Constructor<T> constructor;
             ConstructorType constructorType;
@@ -81,7 +83,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     }
 
     @Override
-    protected T newWindowFunction(List<Integer> inputs, boolean ignoreNulls)
+    protected T newWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
     {
         try {
             switch (constructorType) {

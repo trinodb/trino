@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
-import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
 import java.util.Optional;

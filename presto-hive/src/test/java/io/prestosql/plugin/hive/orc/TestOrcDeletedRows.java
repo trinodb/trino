@@ -48,11 +48,11 @@ public class TestOrcDeletedRows
     {
         partitionDirectory = new Path(TestOrcDeletedRows.class.getClassLoader().getResource("fullacid_delete_delta_test") + "/");
         bucketBlock = INTEGER.createFixedSizeBlockBuilder(1)
-            .writeInt(536870912)
-            .build();
+                .writeInt(536870912)
+                .build();
         rowIdBlock = BIGINT.createFixedSizeBlockBuilder(1)
-            .writeLong(0)
-            .build();
+                .writeLong(0)
+                .build();
     }
 
     @Test

@@ -49,10 +49,10 @@ public class TestIcebergSmoke
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
                 .matches("CREATE SCHEMA iceberg.tpch\n" +
-                         "AUTHORIZATION USER user\n" +
-                         "WITH \\(\n" +
-                         "   location = '.*/iceberg_data/tpch'\n" +
-                         "\\)");
+                        "AUTHORIZATION USER user\n" +
+                        "WITH \\(\n" +
+                        "   location = '.*/iceberg_data/tpch'\n" +
+                        "\\)");
     }
 
     @Test
@@ -122,6 +122,7 @@ public class TestIcebergSmoke
     {
         testWithAllFileFormats(this::testCreatePartitionedTable);
         testWithAllFileFormats(this::testCreatePartitionedTableWithNestedTypes);
+        testWithAllFileFormats(this::testPartitionedTableWithNullValues);
     }
 
     private void testCreatePartitionedTable(Session session, FileFormat fileFormat)
@@ -205,6 +206,59 @@ public class TestIcebergSmoke
         assertUpdate(session, createTable);
 
         dropTable(session, "test_partitioned_table_nested_type");
+    }
+
+    private void testPartitionedTableWithNullValues(Session session, FileFormat fileFormat)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_partitioned_table (" +
+                "  _string VARCHAR" +
+                ", _bigint BIGINT" +
+                ", _integer INTEGER" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _boolean BOOLEAN" +
+//                ", _decimal_short DECIMAL(3,2)" +
+//                ", _decimal_long DECIMAL(30,10)" +
+//                ", _timestamp TIMESTAMP" +
+                ", _date DATE" +
+                ") " +
+                "WITH (" +
+                "format = '" + fileFormat + "', " +
+                "partitioning = ARRAY[" +
+                "  '_string'," +
+                "  '_integer'," +
+                "  '_bigint'," +
+                "  '_boolean'," +
+                "  '_real'," +
+                "  '_double'," +
+//                "  '_decimal_short', " +
+//                "  '_decimal_long'," +
+//                "  '_timestamp'," +
+                "  '_date']" +
+                ")";
+
+        assertUpdate(session, createTable);
+
+        MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
+        assertEquals(result.getRowCount(), 0);
+
+        @Language("SQL") String select = "" +
+                "SELECT" +
+                " null _string" +
+                ", null _bigint" +
+                ", null _integer" +
+                ", null _real" +
+                ", null _double" +
+                ", null _boolean" +
+//                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+//                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
+//                ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp" +
+                ", null _date";
+
+        assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
+        assertQuery(session, "SELECT * from test_partitioned_table", select);
+        dropTable(session, "test_partitioned_table");
     }
 
     @Test

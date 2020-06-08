@@ -23,19 +23,20 @@ import com.google.common.collect.Maps;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableProperties;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableProperties;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
@@ -174,9 +175,9 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
+        public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
         {
-            return delegate.getScalarFunctionImplementation(resolvedFunction);
+            return delegate.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
         }
 
         @Override

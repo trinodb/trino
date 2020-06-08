@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
@@ -63,6 +64,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
+import static java.util.Collections.emptySet;
 
 public interface SystemAccessControl
 {
@@ -493,7 +495,7 @@ public interface SystemAccessControl
 
     /**
      * Get a row filter associated with the given table and identity.
-     *
+     * <p>
      * The filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
      * @return the filter, or {@link Optional#empty()} if not applicable
@@ -505,7 +507,7 @@ public interface SystemAccessControl
 
     /**
      * Get a column mask associated with the given table, column and identity.
-     *
+     * <p>
      * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
@@ -514,5 +516,13 @@ public interface SystemAccessControl
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    /**
+     * @return the event listeners provided by this system access control
+     */
+    default Iterable<EventListener> getEventListeners()
+    {
+        return emptySet();
     }
 }

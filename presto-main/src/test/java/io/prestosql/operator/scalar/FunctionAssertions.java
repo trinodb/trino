@@ -259,7 +259,7 @@ public final class FunctionAssertions
         tryEvaluate(expression, expectedType, session);
     }
 
-    private void tryEvaluate(String expression, Type expectedType, Session session)
+    public void tryEvaluate(String expression, Type expectedType, Session session)
     {
         selectUniqueValue(expression, expectedType, session, compiler);
     }

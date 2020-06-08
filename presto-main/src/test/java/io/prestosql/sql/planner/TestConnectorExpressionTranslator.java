@@ -70,9 +70,9 @@ public class TestConnectorExpressionTranslator
                         new Identifier("int_symbol_1")),
                 Optional.of(
                         new FieldDereference(
-                            INTEGER,
-                            new Variable("row_symbol_1", ROW_TYPE),
-                            0)));
+                                INTEGER,
+                                new Variable("row_symbol_1", ROW_TYPE),
+                                0)));
     }
 
     @Test

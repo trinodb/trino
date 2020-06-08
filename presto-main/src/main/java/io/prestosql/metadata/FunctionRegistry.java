@@ -143,6 +143,44 @@ import io.prestosql.operator.scalar.UrlFunctions;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
 import io.prestosql.operator.scalar.WilsonInterval;
 import io.prestosql.operator.scalar.WordStemFunction;
+import io.prestosql.operator.scalar.timestamp.DateAdd;
+import io.prestosql.operator.scalar.timestamp.DateDiff;
+import io.prestosql.operator.scalar.timestamp.DateFormat;
+import io.prestosql.operator.scalar.timestamp.DateToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.DateTrunc;
+import io.prestosql.operator.scalar.timestamp.ExtractDay;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfWeek;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractHour;
+import io.prestosql.operator.scalar.timestamp.ExtractMillisecond;
+import io.prestosql.operator.scalar.timestamp.ExtractMinute;
+import io.prestosql.operator.scalar.timestamp.ExtractMonth;
+import io.prestosql.operator.scalar.timestamp.ExtractQuarter;
+import io.prestosql.operator.scalar.timestamp.ExtractSecond;
+import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
+import io.prestosql.operator.scalar.timestamp.FormatDateTime;
+import io.prestosql.operator.scalar.timestamp.LastDayOfMonth;
+import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
+import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
+import io.prestosql.operator.scalar.timestamp.SequenceIntervalYearToMonth;
+import io.prestosql.operator.scalar.timestamp.TimeToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.TimestampDistinctFromOperator;
+import io.prestosql.operator.scalar.timestamp.TimestampOperators;
+import io.prestosql.operator.scalar.timestamp.TimestampToDateCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToJsonCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimeCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimestampWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToVarcharCast;
+import io.prestosql.operator.scalar.timestamp.TimestampWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.ToIso8601;
+import io.prestosql.operator.scalar.timestamp.ToUnixTime;
+import io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.WithTimeZone;
 import io.prestosql.operator.window.CumulativeDistributionFunction;
 import io.prestosql.operator.window.DenseRankFunction;
 import io.prestosql.operator.window.FirstValueFunction;
@@ -157,6 +195,7 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.operator.window.SqlWindowFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.QualifiedName;
@@ -179,7 +218,6 @@ import io.prestosql.type.RealOperators;
 import io.prestosql.type.SmallintOperators;
 import io.prestosql.type.TimeOperators;
 import io.prestosql.type.TimeWithTimeZoneOperators;
-import io.prestosql.type.TimestampOperators;
 import io.prestosql.type.TimestampWithTimeZoneOperators;
 import io.prestosql.type.TinyintOperators;
 import io.prestosql.type.UnknownOperators;
@@ -297,7 +335,6 @@ import static io.prestosql.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_BETWEEN_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_DISTINCT_FROM_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_EQUAL_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OPERATOR;
@@ -457,8 +494,6 @@ public class FunctionRegistry
                 .scalar(DateOperators.DateDistinctFromOperator.class)
                 .scalars(TimeOperators.class)
                 .scalar(TimeOperators.TimeDistinctFromOperator.class)
-                .scalars(TimestampOperators.class)
-                .scalar(TimestampOperators.TimestampDistinctFromOperator.class)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
@@ -567,7 +602,6 @@ public class FunctionRegistry
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(DECIMAL_DISTINCT_FROM_OPERATOR)
                 .function(new Histogram(featuresConfig.getHistogramGroupImplementation()))
                 .function(CHECKSUM_AGGREGATION)
@@ -594,6 +628,62 @@ public class FunctionRegistry
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class);
+
+        // timestamp operators and functions
+        builder
+                .scalar(TimestampOperators.Equal.class)
+                .scalar(TimestampOperators.NotEqual.class)
+                .scalar(TimestampOperators.LessThan.class)
+                .scalar(TimestampOperators.LessThanOrEqual.class)
+                .scalar(TimestampOperators.GreaterThan.class)
+                .scalar(TimestampOperators.GreaterThanOrEqual.class)
+                .scalar(TimestampDistinctFromOperator.class)
+                .scalar(TimestampOperators.HashCode.class)
+                .scalar(TimestampOperators.Indeterminate.class)
+                .scalar(TimestampOperators.XxHash64Operator.class)
+                .scalar(TimestampOperators.TimestampPlusIntervalDayToSecond.class)
+                .scalar(TimestampOperators.IntervalDayToSecondPlusTimestamp.class)
+                .scalar(TimestampOperators.TimestampPlusIntervalYearToMonth.class)
+                .scalar(TimestampOperators.IntervalYearToMonthPlusTimestamp.class)
+                .scalar(TimestampOperators.TimestampMinusIntervalDayToSecond.class)
+                .scalar(TimestampOperators.TimestampMinusIntervalYearToMonth.class)
+                .scalar(TimestampOperators.TimestampMinusTimestamp.class)
+                .scalar(TimestampToTimestampCast.class)
+                .scalar(TimestampToTimeCast.class)
+                .scalar(TimestampToTimeWithTimezoneCast.class)
+                .scalar(TimestampToTimestampWithTimezoneCast.class)
+                .scalar(TimestampToDateCast.class)
+                .scalar(TimestampToVarcharCast.class)
+                .scalar(TimestampToJsonCast.class)
+                .scalar(DateToTimestampCast.class)
+                .scalar(TimeToTimestampCast.class)
+                .scalar(TimeWithTimezoneToTimestampCast.class)
+                .scalar(TimestampWithTimezoneToTimestampCast.class)
+                .scalar(VarcharToTimestampCast.class)
+                .scalar(LocalTimestamp.class)
+                .scalar(DateTrunc.class)
+                .scalar(ToUnixTime.class)
+                .scalar(ToIso8601.class)
+                .scalar(WithTimeZone.class)
+                .scalar(FormatDateTime.class)
+                .scalar(DateFormat.class)
+                .scalar(SequenceIntervalYearToMonth.class)
+                .scalar(SequenceIntervalDayToSecond.class)
+                .scalar(DateAdd.class)
+                .scalar(DateDiff.class)
+                .scalar(ExtractYear.class)
+                .scalar(ExtractQuarter.class)
+                .scalar(ExtractMonth.class)
+                .scalar(ExtractDay.class)
+                .scalar(ExtractHour.class)
+                .scalar(ExtractMinute.class)
+                .scalar(ExtractSecond.class)
+                .scalar(ExtractMillisecond.class)
+                .scalar(ExtractDayOfYear.class)
+                .scalar(ExtractDayOfWeek.class)
+                .scalar(ExtractWeekOfYear.class)
+                .scalar(ExtractYearOfWeek.class)
+                .scalar(LastDayOfMonth.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:
@@ -699,16 +789,19 @@ public class FunctionRegistry
         return implementation;
     }
 
-    public ScalarFunctionImplementation getScalarFunctionImplementation(Metadata metadata, ResolvedFunction resolvedFunction)
+    public FunctionInvoker getScalarFunctionInvoker(Metadata metadata, ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
+        ScalarFunctionImplementation scalarFunctionImplementation;
         try {
-            return specializedScalarCache.get(key, () -> specializeScalarFunction(metadata, key));
+            scalarFunctionImplementation = specializedScalarCache.get(key, () -> specializeScalarFunction(metadata, key));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw new RuntimeException(e.getCause());
         }
+        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider(metadata);
+        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, resolvedFunction.getSignature(), invocationConvention);
     }
 
     private static ScalarFunctionImplementation specializeScalarFunction(Metadata metadata, SpecializedFunctionKey key)

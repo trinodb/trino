@@ -34,6 +34,7 @@ import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
 import io.prestosql.plugin.hive.s3select.PrestoS3ClientFactory;
@@ -42,6 +43,7 @@ import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
@@ -56,11 +58,14 @@ import io.prestosql.type.InternalTypeManager;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 
@@ -96,8 +101,14 @@ public final class HiveTestUtils
 
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
     {
+        return getHiveSessionProperties(hiveConfig, new RubixEnabledConfig(), orcReaderConfig);
+    }
+
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, RubixEnabledConfig rubixEnabledConfig, OrcReaderConfig orcReaderConfig)
+    {
         return new HiveSessionProperties(
                 hiveConfig,
+                rubixEnabledConfig,
                 orcReaderConfig,
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
@@ -204,7 +215,8 @@ public final class HiveTestUtils
     public static MethodHandle distinctFromOperator(Type type)
     {
         ResolvedFunction function = METADATA.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-        return METADATA.getScalarFunctionImplementation(function).getMethodHandle();
+        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG, NULL_FLAG), FAIL_ON_NULL, false, false);
+        return METADATA.getScalarFunctionInvoker(function, Optional.of(invocationConvention)).getMethodHandle();
     }
 
     public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)

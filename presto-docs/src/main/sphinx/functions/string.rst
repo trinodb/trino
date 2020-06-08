@@ -150,11 +150,19 @@ String Functions
 
 .. function:: substr(string, start) -> varchar
 
+    This is an alias for :func:`substring`.
+
+.. function:: substring(string, start) -> varchar
+
     Returns the rest of ``string`` from the starting position ``start``.
     Positions start with ``1``. A negative starting position is interpreted
     as being relative to the end of the string.
 
 .. function:: substr(string, start, length) -> varchar
+
+    This is an alias for :func:`substring`.
+
+.. function:: substring(string, start, length) -> varchar
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting

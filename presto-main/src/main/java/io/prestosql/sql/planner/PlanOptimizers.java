@@ -95,6 +95,8 @@ import io.prestosql.sql.planner.iterative.rule.PruneSampleColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSortColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneSpatialJoinChildrenColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneSpatialJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNRowNumberColumns;
@@ -299,7 +301,9 @@ public class PlanOptimizers
                 new PruneSemiJoinColumns(),
                 new PruneSemiJoinFilteringSourceColumns(),
                 new PruneSortColumns(),
-                new PruneTableScanColumns(metadata, typeAnalyzer),
+                new PruneSpatialJoinChildrenColumns(),
+                new PruneSpatialJoinColumns(),
+                new PruneTableScanColumns(metadata),
                 new PruneTopNColumns(),
                 new PruneTopNRowNumberColumns(),
                 new PruneUnionColumns(),
@@ -665,8 +669,7 @@ public class PlanOptimizers
         // and to pushdown dynamic filters
         builder.add(new StatsRecordingPlanOptimizer(
                 optimizerStats,
-                new PredicatePushDown(metadata, typeAnalyzer, true, true)));
-        builder.add(new RemoveUnsupportedDynamicFilters(metadata));
+                new PredicatePushDown(metadata, typeAnalyzer, true, false)));
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(new IterativeOptimizer(
                 ruleStats,

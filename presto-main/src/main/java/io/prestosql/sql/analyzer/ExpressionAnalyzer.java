@@ -38,6 +38,7 @@ import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -143,6 +144,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -155,16 +157,20 @@ import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeExcep
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIMESTAMP;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.Timestamps.extractTimestampPrecision;
+import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
+import static io.prestosql.type.Timestamps.parseTimestamp;
+import static io.prestosql.type.Timestamps.timestampHasTimeZone;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
+import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.timeHasTimeZone;
-import static io.prestosql.util.DateTimeUtils.timestampHasTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -364,7 +370,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
-            if (node.getPrecision() != null) {
+            if (node.getPrecision() != null && node.getFunction() != LOCALTIMESTAMP) {
                 throw semanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
@@ -383,7 +389,12 @@ public class ExpressionAnalyzer
                     type = TIMESTAMP_WITH_TIME_ZONE;
                     break;
                 case LOCALTIMESTAMP:
-                    type = TIMESTAMP;
+                    if (node.getPrecision() != null) {
+                        type = createTimestampType(node.getPrecision());
+                    }
+                    else {
+                        type = TIMESTAMP;
+                    }
                     break;
                 default:
                     throw semanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
@@ -824,25 +835,30 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
         {
+            Type type;
             try {
-                if (SystemSessionProperties.isLegacyTimestamp(session)) {
-                    parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                if (timestampHasTimeZone(node.getValue())) {
+                    type = TIMESTAMP_WITH_TIME_ZONE;
+                    parseTimestampWithTimeZone(node.getValue());
                 }
                 else {
-                    parseTimestampLiteral(node.getValue());
+                    int precision = extractTimestampPrecision(node.getValue());
+                    type = createTimestampType(precision);
+                    if (SystemSessionProperties.isLegacyTimestamp(session)) {
+                        parseLegacyTimestamp(precision, session.getTimeZoneKey(), node.getValue());
+                    }
+                    else {
+                        parseTimestamp(precision, node.getValue());
+                    }
                 }
+            }
+            catch (PrestoException e) {
+                throw new PrestoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (Exception e) {
                 throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
             }
 
-            Type type;
-            if (timestampHasTimeZone(node.getValue())) {
-                type = TIMESTAMP_WITH_TIME_ZONE;
-            }
-            else {
-                type = TIMESTAMP;
-            }
             return setExpressionType(node, type);
         }
 
@@ -1021,14 +1037,14 @@ public class ExpressionAnalyzer
         {
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
-            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !valueType.equals(TIMESTAMP)) {
+            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !(valueType instanceof TimestampType)) {
                 throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;
             if (valueType.equals(TIME)) {
                 resultType = TIME_WITH_TIME_ZONE;
             }
-            else if (valueType.equals(TIMESTAMP)) {
+            else if (valueType instanceof TimestampType) {
                 resultType = TIMESTAMP_WITH_TIME_ZONE;
             }
 
@@ -1110,7 +1126,7 @@ public class ExpressionAnalyzer
             return type.equals(DATE) ||
                     type.equals(TIME) ||
                     type.equals(TIME_WITH_TIME_ZONE) ||
-                    type.equals(TIMESTAMP) ||
+                    type instanceof TimestampType ||
                     type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
                     type.equals(INTERVAL_DAY_TIME) ||
                     type.equals(INTERVAL_YEAR_MONTH);
@@ -1119,7 +1135,35 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitBetweenPredicate(BetweenPredicate node, StackableAstVisitorContext<Context> context)
         {
-            return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
+            Type valueType = process(node.getValue(), context);
+            Type minType = process(node.getMin(), context);
+            Type maxType = process(node.getMax(), context);
+
+            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueType, minType)
+                    .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
+
+            if (commonType.isEmpty()) {
+                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            try {
+                metadata.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, List.of(commonType.get(), commonType.get()));
+            }
+            catch (OperatorNotFoundException e) {
+                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            if (!valueType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(node.getValue(), valueType, commonType.get());
+            }
+            if (!minType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(node.getMin(), minType, commonType.get());
+            }
+            if (!maxType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(node.getMax(), maxType, commonType.get());
+            }
+
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override

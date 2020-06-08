@@ -29,6 +29,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
@@ -37,13 +38,12 @@ import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.IllegalFormatException;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -70,13 +70,13 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.Timestamps.toLocalDateTime;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -184,8 +184,8 @@ public final class FormatFunction
         if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             return (session, block) -> toZonedDateTime(type.getLong(block, position));
         }
-        if (type.equals(TIMESTAMP)) {
-            return (session, block) -> toLocalDateTime(session, type.getLong(block, position));
+        if (type instanceof TimestampType) {
+            return (session, block) -> toLocalDateTime(((TimestampType) type), session, block, position);
         }
         if (type.equals(TIME)) {
             return (session, block) -> toLocalTime(session, type.getLong(block, position));
@@ -193,7 +193,7 @@ public final class FormatFunction
         // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
             ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("json_format"), fromTypes(JSON));
-            MethodHandle handle = metadata.getScalarFunctionImplementation(function).getMethodHandle();
+            MethodHandle handle = metadata.getScalarFunctionInvoker(function, Optional.empty()).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
         if (isShortDecimal(type)) {
@@ -241,7 +241,7 @@ public final class FormatFunction
     {
         try {
             ResolvedFunction cast = metadata.getCoercion(type, VARCHAR);
-            return metadata.getScalarFunctionImplementation(cast).getMethodHandle();
+            return metadata.getScalarFunctionInvoker(cast, Optional.empty()).getMethodHandle();
         }
         catch (OperatorNotFoundException e) {
             return null;
@@ -253,16 +253,6 @@ public final class FormatFunction
         Instant instant = Instant.ofEpochMilli(unpackMillisUtc(value));
         ZoneId zoneId = ZoneId.of(unpackZoneKey(value).getId());
         return ZonedDateTime.ofInstant(instant, zoneId);
-    }
-
-    private static LocalDateTime toLocalDateTime(ConnectorSession session, long value)
-    {
-        Instant instant = Instant.ofEpochMilli(value);
-        if (session.isLegacyTimestamp()) {
-            ZoneId zoneId = ZoneId.of(session.getTimeZoneKey().getId());
-            return LocalDateTime.ofInstant(instant, zoneId);
-        }
-        return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
     private static LocalTime toLocalTime(ConnectorSession session, long value)

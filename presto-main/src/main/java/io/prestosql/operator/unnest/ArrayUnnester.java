@@ -23,7 +23,7 @@ import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 /**
  * Unnester for a nested column with array type, only when array elements are NOT of type {@code RowType}.
  * Maintains a {@link ColumnarArray} object to get underlying elements block from the array block.
- *
+ * <p>
  * All protected methods implemented here assume that they are being invoked when {@code columnarArray} is non-null.
  */
 class ArrayUnnester

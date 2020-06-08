@@ -26,6 +26,7 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.orderableWithVariadicBound;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -51,7 +52,7 @@ public abstract class RowComparisonOperator
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
             ResolvedFunction resolvedFunction = metadata.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(metadata.getScalarFunctionImplementation(resolvedFunction).getMethodHandle());
+            argumentMethods.add(metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle());
         }
         return argumentMethods.build();
     }

@@ -68,14 +68,14 @@ public final class ScalarFunctionImplementation
         this.choices = ImmutableList.copyOf(choices);
     }
 
-    public boolean isNullable()
-    {
-        return choices.get(0).isNullable();
-    }
-
     public ArgumentProperty getArgumentProperty(int argumentIndex)
     {
-        return choices.get(0).argumentProperties.get(argumentIndex);
+        return getArgumentProperties().get(argumentIndex);
+    }
+
+    public List<ArgumentProperty> getArgumentProperties()
+    {
+        return choices.get(0).argumentProperties;
     }
 
     public MethodHandle getMethodHandle()
@@ -213,10 +213,9 @@ public final class ScalarFunctionImplementation
             return nullConvention.get();
         }
 
-        public Class<?> getLambdaInterface()
+        public Optional<Class<?>> getLambdaInterface()
         {
-            checkState(getArgumentType() == FUNCTION_TYPE, "lambdaInterface only applies to function type argument");
-            return lambdaInterface.get();
+            return lambdaInterface;
         }
 
         @Override

@@ -365,7 +365,6 @@ public class SemiTransactionalHiveMetastore
 
     // For HiveBasicStatistics, we only overwrite the original statistics if the new one is not empty.
     // For HiveColumnStatistics, only overwrite the original statistics for columns present in the new ones and preserve the others.
-    // TODO: Collect file count, on-disk size and in-memory size during ANALYZE
     private PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
     {
         HiveBasicStatistics oldBasicStatistics = oldPartitionStats.getBasicStatistics();
@@ -875,6 +874,12 @@ public class SemiTransactionalHiveMetastore
     public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeRoles(roles, grantees, adminOption, grantor));
+    }
+
+    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        checkReadable();
+        return delegate.listGrantedPrincipals(role);
     }
 
     public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)

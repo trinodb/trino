@@ -77,6 +77,11 @@ public class TestTypeParser
 
         assertThat(type("double precision"))
                 .isEqualTo(simpleType(location(1, 0), "double"));
+
+        assertThat(type("ROW(DOUBLE PRECISION)"))
+                .isEqualTo(rowType(
+                        location(1, 0),
+                        field(location(1, 4), simpleType(location(1, 4), "DOUBLE"))));
     }
 
     @Test
@@ -108,13 +113,22 @@ public class TestTypeParser
                 .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, true));
 
         assertThat(type("TIMESTAMP(3)"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, "3"));
+                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(location(1, 10), "3")));
 
         assertThat(type("TIMESTAMP(3) WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, "3"));
+                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(location(1, 10), "3")));
 
         assertThat(type("TIMESTAMP(3) WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, true, "3"));
+                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, true, parameter(location(1, 10), "3")));
+
+        assertThat(type("TIMESTAMP(p)"))
+                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(simpleType(location(1, 10), "p"))));
+
+        assertThat(type("TIMESTAMP(p) WITHOUT TIME ZONE"))
+                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(simpleType(location(1, 10), "p"))));
+
+        assertThat(type("TIMESTAMP(p) WITH TIME ZONE"))
+                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, true, parameter(simpleType(location(1, 10), "p"))));
 
         assertThat(type("TIME"))
                 .isEqualTo(dateTimeType(location(1, 0), TIME, false));
@@ -126,13 +140,22 @@ public class TestTypeParser
                 .isEqualTo(dateTimeType(location(1, 0), TIME, true));
 
         assertThat(type("TIME(3)"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false, "3"));
+                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(location(1, 5), "3")));
 
         assertThat(type("TIME(3) WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false, "3"));
+                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(location(1, 5), "3")));
 
         assertThat(type("TIME(3) WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, true, "3"));
+                .isEqualTo(dateTimeType(location(1, 0), TIME, true, parameter(location(1, 5), "3")));
+
+        assertThat(type("TIME(p)"))
+                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(simpleType(location(1, 5), "p"))));
+
+        assertThat(type("TIME(p) WITHOUT TIME ZONE"))
+                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(simpleType(location(1, 5), "p"))));
+
+        assertThat(type("TIME(p) WITH TIME ZONE"))
+                .isEqualTo(dateTimeType(location(1, 0), TIME, true, parameter(simpleType(location(1, 5), "p"))));
     }
 
     @Test

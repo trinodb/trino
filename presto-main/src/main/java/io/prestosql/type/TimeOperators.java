@@ -27,11 +27,11 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.util.DateTimeUtils;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -105,13 +105,6 @@ public final class TimeOperators
         return left >= right;
     }
 
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.TIME) long value, @SqlType(StandardTypes.TIME) long min, @SqlType(StandardTypes.TIME) long max)
-    {
-        return min <= value && value <= max;
-    }
-
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME) long value)
@@ -127,13 +120,6 @@ public final class TimeOperators
         // in TIME WITH TIME ZONE. Calculating real TZ offset will happen when really required.
         // This is done due to inadequate TIME WITH TIME ZONE representation.
         return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), session.getTimeZoneKey());
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(@SqlType(StandardTypes.TIME) long value)
-    {
-        return value;
     }
 
     @ScalarOperator(CAST)
@@ -162,7 +148,7 @@ public final class TimeOperators
     {
         try {
             if (session.isLegacyTimestamp()) {
-                return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+                return DateTimeUtils.parseLegacyTime(session.getTimeZoneKey(), value.toStringUtf8());
             }
             return parseTimeWithoutTimeZone(value.toStringUtf8());
         }

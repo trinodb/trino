@@ -23,11 +23,11 @@ import static io.prestosql.sql.ExpressionUtils.extractPredicates;
 
 /**
  * Flattens and removes duplicate conjuncts or disjuncts. E.g.,
- *
+ * <p>
  * a = 1 AND a = 1
- *
+ * <p>
  * rewrites to:
- *
+ * <p>
  * a = 1
  */
 public class RemoveDuplicateConditions

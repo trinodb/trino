@@ -513,6 +513,12 @@ public class InMemoryThriftMetastore
     }
 
     @Override
+    public Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         throw new UnsupportedOperationException();

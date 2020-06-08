@@ -296,11 +296,11 @@ public abstract class AbstractTestOrcReader
     {
         @SuppressWarnings("deprecation")
         List<SqlTimestamp> values = ImmutableList.of(
-                new SqlTimestamp(0, TimeZoneKey.UTC_KEY),
-                new SqlTimestamp(10, TimeZoneKey.UTC_KEY),
-                new SqlTimestamp(1123456789L, TimeZoneKey.UTC_KEY), // 1970-01-14T00:04:16.789Z
-                new SqlTimestamp(1000123456789L, TimeZoneKey.UTC_KEY), // 2001-09-10T12:04:16.789Z
-                new SqlTimestamp(1575553299564L, TimeZoneKey.UTC_KEY)); // 2019-12-05T13:41:39.564Z
+                SqlTimestamp.legacyFromMillis(3, 0, TimeZoneKey.UTC_KEY),
+                SqlTimestamp.legacyFromMillis(3, 10, TimeZoneKey.UTC_KEY),
+                SqlTimestamp.legacyFromMillis(3, 1123456789L, TimeZoneKey.UTC_KEY), // 1970-01-14T00:04:16.789Z
+                SqlTimestamp.legacyFromMillis(3, 1000123456789L, TimeZoneKey.UTC_KEY), // 2001-09-10T12:04:16.789Z
+                SqlTimestamp.legacyFromMillis(3, 1575553299564L, TimeZoneKey.UTC_KEY)); // 2019-12-05T13:41:39.564Z
         tester.testRoundTrip(TIMESTAMP, newArrayList(limit(cycle(values), 30_000)));
     }
 

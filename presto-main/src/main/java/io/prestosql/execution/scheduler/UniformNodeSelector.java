@@ -224,6 +224,7 @@ public class UniformNodeSelector
      * The method tries to make the distribution of splits more uniform. All nodes are arranged into a maxHeap and a minHeap
      * based on the number of splits that are assigned to them. Splits are redistributed, one at a time, from a maxNode to a
      * minNode until we have as uniform a distribution as possible.
+     *
      * @param assignment the node-splits multimap after the first and the second stage
      * @param assignmentStats required to obtain info regarding splits assigned to a node outside the current batch of assignment
      * @param nodeMap to get a list of all nodes to which splits can be assigned
@@ -261,7 +262,14 @@ public class UniformNodeSelector
             InternalNode maxNode = maxNodes.poll();
             InternalNode minNode = minNodes.poll();
 
-            if (assignmentStats.getTotalSplitCount(maxNode) - assignmentStats.getTotalSplitCount(minNode) <= 1) {
+            // Allow some degree of non uniformity when assigning splits to nodes. Usually data distribution
+            // among nodes in a cluster won't be fully uniform (e.g because hash function with non-uniform
+            // distribution is used like consistent hashing). In such case it makes sense to assign splits to nodes
+            // with data because of potential savings in network throughput and CPU time.
+            // The difference of 5 between node with maximum and minimum splits is a tradeoff between ratio of
+            // misassigned splits and assignment uniformity. Using larger numbers doesn't reduce the number of
+            // misassigned splits greatly (in absolute values).
+            if (assignmentStats.getTotalSplitCount(maxNode) - assignmentStats.getTotalSplitCount(minNode) <= 5) {
                 return;
             }
 

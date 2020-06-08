@@ -40,8 +40,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public interface ImplementationDependency
 {
@@ -80,7 +80,7 @@ public interface ImplementationDependency
     {
         // Check recursively if `typeSignature` contains something like `T(bigint)`
         if (typeParameterNames.contains(typeSignature.getBase())) {
-            checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got %s on method [%s]", typeSignature.getBase(), element);
+            checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got '%s' on method [%s]", typeSignature.getBase(), element);
             return;
         }
 
@@ -143,7 +143,7 @@ public interface ImplementationDependency
             }
             List<InvocationConvention.InvocationArgumentConvention> argumentConventions = new ArrayList<>();
             Collections.addAll(argumentConventions, convention.arguments());
-            return Optional.of(new InvocationConvention(argumentConventions, convention.result(), convention.session()));
+            return Optional.of(new InvocationConvention(argumentConventions, convention.result(), convention.session(), false));
         }
     }
 }

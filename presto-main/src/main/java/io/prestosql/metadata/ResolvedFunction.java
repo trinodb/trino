@@ -18,8 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.operator.TypeSignatureParser;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.analyzer.TypeSignatureTranslator;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
@@ -94,9 +94,9 @@ public class ResolvedFunction
         List<String> parts = Splitter.on('|').splitToList(encodedSignature);
         checkArgument(parts.size() >= 2, "Expected encoded signature to contain at least 2 parts: %s", encodedSignature);
         String name = parts.get(0);
-        TypeSignature returnType = TypeSignatureParser.parseTypeSignature(parts.get(1), ImmutableSet.of());
+        TypeSignature returnType = TypeSignatureTranslator.parseTypeSignature(parts.get(1), ImmutableSet.of());
         List<TypeSignature> argumentTypes = parts.subList(2, parts.size()).stream()
-                .map(part -> TypeSignatureParser.parseTypeSignature(part, ImmutableSet.of()))
+                .map(part -> TypeSignatureTranslator.parseTypeSignature(part, ImmutableSet.of()))
                 .collect(toImmutableList());
         return new Signature(name, returnType, argumentTypes);
     }

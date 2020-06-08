@@ -58,7 +58,7 @@ import static java.util.Objects.requireNonNull;
  *          Project(A, B, C, D, E, F, symbol := A.x)
  *              Source(A, B, C, D, E, F)
  * </pre>
- *
+ * <p>
  * Pushes down dereference projections through Window. Excludes dereferences on symbols in ordering scheme and partitionBy
  * to avoid data replication, since these symbols cannot be pruned.
  */

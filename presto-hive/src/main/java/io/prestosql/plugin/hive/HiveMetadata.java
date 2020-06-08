@@ -859,7 +859,7 @@ public class HiveMetadata
                 external,
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
-        HiveBasicStatistics basicStatistics = table.getPartitionColumns().isEmpty() ? createZeroStatistics() : createEmptyStatistics();
+        HiveBasicStatistics basicStatistics = (!external && table.getPartitionColumns().isEmpty()) ? createZeroStatistics() : createEmptyStatistics();
         metastore.createTable(
                 session,
                 table,
@@ -947,6 +947,12 @@ public class HiveMetadata
                     checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.CSV, CSV_SEPARATOR);
                     tableProperties.put(CSV_SEPARATOR_KEY, separator.toString());
                 });
+
+        // Set bogus table stats to prevent Hive 2.x from gathering these stats at table creation.
+        // These stats are not useful by themselves and can take very long time to collect when creating an
+        // external table over large data set.
+        tableProperties.put("numFiles", "-1");
+        tableProperties.put("totalSize", "-1");
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
@@ -2358,6 +2364,12 @@ public class HiveMetadata
     public Set<String> listRoles(ConnectorSession session)
     {
         return accessControlMetadata.listRoles(session);
+    }
+
+    @Override
+    public Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    {
+        return ImmutableSet.copyOf(accessControlMetadata.listAllRoleGrants(session, roles, grantees, limit));
     }
 
     @Override

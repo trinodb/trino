@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchHandleResolver;
 import io.prestosql.plugin.tpch.TpchRecordSetProvider;
@@ -44,12 +45,16 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -57,6 +62,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -72,6 +78,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final Supplier<Iterable<EventListener>> eventListeners;
+    private final ListRoleGrants roleGrants;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -82,7 +89,8 @@ public class MockConnectorFactory
             ApplyProjection applyProjection,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
-            Supplier<Iterable<EventListener>> eventListeners)
+            Supplier<Iterable<EventListener>> eventListeners,
+            ListRoleGrants roleGrants)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -93,6 +101,7 @@ public class MockConnectorFactory
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
+        this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
     }
 
     @Override
@@ -110,7 +119,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
     }
 
     public static Builder builder()
@@ -122,6 +131,12 @@ public class MockConnectorFactory
     public interface ApplyProjection
     {
         Optional<ProjectionApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
+    }
+
+    @FunctionalInterface
+    public interface ListRoleGrants
+    {
+        Set<RoleGrant> apply(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
     }
 
     public static class MockConnector
@@ -137,6 +152,7 @@ public class MockConnectorFactory
         private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
         private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
         private final Supplier<Iterable<EventListener>> eventListeners;
+        private final ListRoleGrants roleGrants;
 
         private MockConnector(
                 ConnectorContext context,
@@ -148,7 +164,8 @@ public class MockConnectorFactory
                 ApplyProjection applyProjection,
                 BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
                 BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
-                Supplier<Iterable<EventListener>> eventListeners)
+                Supplier<Iterable<EventListener>> eventListeners,
+                ListRoleGrants roleGrants)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -160,6 +177,7 @@ public class MockConnectorFactory
             this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
             this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
             this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
+            this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         }
 
         @Override
@@ -304,6 +322,36 @@ public class MockConnectorFactory
             {
                 return new ConnectorTableProperties();
             }
+
+            @Override
+            public Set<String> listRoles(ConnectorSession session)
+            {
+                return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().map(grant -> grant.getRoleName()).collect(toImmutableSet());
+            }
+
+            @Override
+            public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
+            {
+                return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().filter(grant -> grant.getGrantee().equals(principal)).collect(toImmutableSet());
+            }
+
+            @Override
+            public Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+            {
+                return roleGrants.apply(session, roles, grantees, limit);
+            }
+
+            @Override
+            public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
+            {
+                return listRoleGrants(session, principal);
+            }
+
+            @Override
+            public Set<String> listEnabledRoles(ConnectorSession session)
+            {
+                return listRoles(session);
+            }
         }
     }
 
@@ -365,10 +413,17 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
+        private ListRoleGrants roleGrants = defaultRoleAuthorizations();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
+            return this;
+        }
+
+        public Builder withListRoleGrants(ListRoleGrants roleGrants)
+        {
+            this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
             return this;
         }
 
@@ -432,12 +487,17 @@ public class MockConnectorFactory
 
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners);
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
         {
             return (session) -> ImmutableList.of();
+        }
+
+        public static ListRoleGrants defaultRoleAuthorizations()
+        {
+            return (session, roles, grantees, limit) -> ImmutableSet.of();
         }
 
         public static BiFunction<ConnectorSession, String, List<SchemaTableName>> defaultListTables()

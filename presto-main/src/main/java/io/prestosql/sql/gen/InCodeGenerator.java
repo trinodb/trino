@@ -26,8 +26,7 @@ import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
@@ -41,6 +40,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,6 +49,8 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
@@ -122,9 +124,10 @@ public class InCodeGenerator
 
         Metadata metadata = generatorContext.getMetadata();
         ResolvedFunction resolvedHashCodeFunction = metadata.resolveOperator(HASH_CODE, ImmutableList.of(type));
-        MethodHandle hashCodeFunction = metadata.getScalarFunctionImplementation(resolvedHashCodeFunction).getMethodHandle();
-        ResolvedFunction isIndeterminateSignature = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(type));
-        ScalarFunctionImplementation isIndeterminateFunction = metadata.getScalarFunctionImplementation(isIndeterminateSignature);
+        MethodHandle hashCodeFunction = metadata.getScalarFunctionInvoker(resolvedHashCodeFunction, Optional.empty()).getMethodHandle();
+        ResolvedFunction resolvedIsIndeterminate = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(type));
+        InvocationConvention indeterminateCallingConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG), FAIL_ON_NULL, false, false);
+        MethodHandle isIndeterminateFunction = metadata.getScalarFunctionInvoker(resolvedIsIndeterminate, Optional.of(indeterminateCallingConvention)).getMethodHandle();
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
@@ -133,7 +136,7 @@ public class InCodeGenerator
         for (RowExpression testValue : values) {
             BytecodeNode testBytecode = generatorContext.generate(testValue);
 
-            if (isDeterminateConstant(testValue, isIndeterminateFunction.getMethodHandle())) {
+            if (isDeterminateConstant(testValue, isIndeterminateFunction)) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
                 switch (switchGenerationCase) {
@@ -203,8 +206,7 @@ public class InCodeGenerator
                             value,
                             testValues,
                             false,
-                            isIndeterminateSignature.getSignature(),
-                            isIndeterminateFunction);
+                            resolvedIsIndeterminate);
                     switchBuilder.addCase(bucket.getKey(), caseBlock);
                 }
                 switchBuilder.defaultCase(jump(defaultLabel));
@@ -248,8 +250,7 @@ public class InCodeGenerator
                 value,
                 defaultBucket.build(),
                 true,
-                isIndeterminateSignature.getSignature(),
-                isIndeterminateFunction)
+                resolvedIsIndeterminate)
                 .setDescription("default");
 
         BytecodeBlock block = new BytecodeBlock()
@@ -295,8 +296,7 @@ public class InCodeGenerator
             Variable value,
             Collection<BytecodeNode> testValues,
             boolean checkForNulls,
-            Signature isIndeterminateSignature,
-            ScalarFunctionImplementation isIndeterminateFunction)
+            ResolvedFunction isIndeterminateFunction)
     {
         Variable caseWasNull = null; // caseWasNull is set to true the first time a null in `testValues` is encountered
         if (checkForNulls) {
@@ -322,7 +322,7 @@ public class InCodeGenerator
             // That is incorrect. Doing an explicit check for indeterminate is required to correctly return NULL.
             if (testValues.isEmpty()) {
                 elseBlock.append(new BytecodeBlock()
-                        .append(generatorContext.generateCall(isIndeterminateSignature.getName(), isIndeterminateFunction, ImmutableList.of(value)))
+                        .append(generatorContext.generateCall(isIndeterminateFunction, ImmutableList.of(value)))
                         .putVariable(wasNull));
             }
             else {
@@ -333,17 +333,13 @@ public class InCodeGenerator
         elseBlock.gotoLabel(noMatchLabel);
 
         ResolvedFunction resolvedEqualsFunction = generatorContext.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getMetadata().getScalarFunctionImplementation(resolvedEqualsFunction);
 
         BytecodeNode elseNode = elseBlock;
         for (BytecodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
             IfStatement test = new IfStatement();
 
-            BytecodeNode equalsCall = generatorContext.generateCall(
-                    resolvedEqualsFunction.getSignature().getName(),
-                    equalsFunction,
-                    ImmutableList.of(value, testNode));
+            BytecodeNode equalsCall = generatorContext.generateCall(resolvedEqualsFunction, ImmutableList.of(value, testNode));
 
             test.condition()
                     .visitLabel(testLabel)

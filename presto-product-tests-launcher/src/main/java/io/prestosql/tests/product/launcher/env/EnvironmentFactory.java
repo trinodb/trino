@@ -37,7 +37,7 @@ public final class EnvironmentFactory
     {
         checkArgument(environmentProviders.containsKey(environmentName), "No environment with name '%s'. Those do exist, however: %s", environmentName, list());
         return environmentProviders.get(environmentName)
-                .createEnvironment();
+                .createEnvironment(environmentName);
     }
 
     public List<String> list()

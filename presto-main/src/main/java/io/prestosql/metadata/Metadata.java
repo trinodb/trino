@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncoding;
@@ -36,6 +35,7 @@ import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -141,6 +141,7 @@ public interface Metadata
 
     /**
      * Creates a schema.
+     *
      * @param principal TODO
      */
     void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal);
@@ -376,6 +377,12 @@ public interface Metadata
     Set<String> listRoles(Session session, String catalog);
 
     /**
+     * List all role grants in the specified catalog,
+     * optionally filtered by passed role, grantee, and limit predicates.
+     */
+    Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
+
+    /**
      * List roles grants in the specified catalog for a given principal, not recursively.
      */
     Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal);
@@ -448,8 +455,6 @@ public interface Metadata
 
     List<FunctionMetadata> listFunctions();
 
-    FunctionInvokerProvider getFunctionInvokerProvider();
-
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -478,7 +483,7 @@ public interface Metadata
 
     InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
-    ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction);
+    FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention);
 
     ProcedureRegistry getProcedureRegistry();
 

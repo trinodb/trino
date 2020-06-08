@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -30,7 +29,6 @@ public class TestHiveAuthenticationConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HiveAuthenticationConfig.class)
-                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false));
     }
@@ -39,13 +37,11 @@ public class TestHiveAuthenticationConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .build();
 
         HiveAuthenticationConfig expected = new HiveAuthenticationConfig()
-                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true);
 

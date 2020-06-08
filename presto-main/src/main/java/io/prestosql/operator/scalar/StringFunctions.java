@@ -269,10 +269,10 @@ public final class StringFunctions
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction
+    @ScalarFunction(alias = "substr")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
         if ((start == 0) || utf8.length() == 0) {
             return Slices.EMPTY_SLICE;
@@ -307,19 +307,19 @@ public final class StringFunctions
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction("substr")
+    @ScalarFunction(value = "substring", alias = "substr")
     @LiteralParameters("x")
-    @SqlType("char(x)")
-    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    @SqlType("varchar(x)")
+    public static Slice charSubstring(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
-        return substr(utf8, start);
+        return substring(padSpaces(utf8, x.intValue()), start);
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction
+    @ScalarFunction(alias = "substr")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         if (start == 0 || (length <= 0) || (utf8.length() == 0)) {
             return Slices.EMPTY_SLICE;
@@ -365,12 +365,12 @@ public final class StringFunctions
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction("substr")
+    @ScalarFunction(value = "substring", alias = "substr")
     @LiteralParameters("x")
-    @SqlType("char(x)")
-    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    @SqlType("varchar(x)")
+    public static Slice charSubstr(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        return trimTrailingSpaces(substr(utf8, start, length));
+        return substring(padSpaces(utf8, x.intValue()), start, length);
     }
 
     @ScalarFunction

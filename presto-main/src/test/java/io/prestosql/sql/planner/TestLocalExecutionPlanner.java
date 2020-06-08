@@ -49,8 +49,8 @@ public class TestLocalExecutionPlanner
         String outer = Joiner.on(" + ").join(nCopies(100, inner));
 
         assertPrestoExceptionThrownBy(() -> runner.execute("SELECT " + outer))
-            .hasErrorCode(COMPILER_ERROR)
-            .hasMessageStartingWith("Query exceeded maximum columns");
+                .hasErrorCode(COMPILER_ERROR)
+                .hasMessageStartingWith("Query exceeded maximum columns");
     }
 
     @Test
@@ -58,12 +58,12 @@ public class TestLocalExecutionPlanner
     {
         // Filter Query
         String filterQueryInner = "FROM (SELECT rand() as c1, rand() as c2, rand() as c3)";
-        String filterQueryWhere = "WHERE c1 = rand() OR " + Joiner.on(" AND ").join(nCopies(200, "c1 = rand()"))
+        String filterQueryWhere = "WHERE c1 = rand() OR " + Joiner.on(" AND ").join(nCopies(250, "c1 = rand()"))
                 + " OR " + Joiner.on(" AND ").join(nCopies(200, " c2 = rand()"))
                 + " OR " + Joiner.on(" AND ").join(nCopies(200, " c3 = rand()"));
 
         assertPrestoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
-            .hasErrorCode(COMPILER_ERROR)
-            .hasMessageStartingWith("Query exceeded maximum filters");
+                .hasErrorCode(COMPILER_ERROR)
+                .hasMessageStartingWith("Query exceeded maximum filters");
     }
 }

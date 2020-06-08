@@ -36,6 +36,7 @@ import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -74,11 +75,11 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -299,9 +300,15 @@ public class MaterializedResult
             TimeZoneKey timeZoneKey = ((SqlTimeWithTimeZone) value).getTimeZoneKey();
             type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
         }
-        else if (TIMESTAMP.equals(type)) {
-            long millisUtc = ((SqlTimestamp) value).getMillisUtc();
-            type.writeLong(blockBuilder, millisUtc);
+        else if (type instanceof TimestampType) {
+            long micros = ((SqlTimestamp) value).getEpochMicros();
+            int precision = ((TimestampType) type).getPrecision();
+            if (precision <= 3) {
+                type.writeLong(blockBuilder, scaleEpochMicrosToMillis(micros));
+            }
+            else {
+                type.writeLong(blockBuilder, micros);
+            }
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();

@@ -387,10 +387,10 @@ normalForm
 type
     : ROW '(' rowField (',' rowField)* ')'                                         #rowType
     | INTERVAL from=intervalField (TO to=intervalField)?                           #intervalType
-    | base=TIMESTAMP ('(' precision = INTEGER_VALUE ')')? (WITHOUT TIME ZONE)?     #dateTimeType
-    | base=TIMESTAMP ('(' precision = INTEGER_VALUE ')')? WITH TIME ZONE           #dateTimeType
-    | base=TIME ('(' precision = INTEGER_VALUE ')')? (WITHOUT TIME ZONE)?          #dateTimeType
-    | base=TIME ('(' precision = INTEGER_VALUE ')')? WITH TIME ZONE                #dateTimeType
+    | base=TIMESTAMP ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?     #dateTimeType
+    | base=TIMESTAMP ('(' precision = typeParameter ')')? WITH TIME ZONE           #dateTimeType
+    | base=TIME ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?          #dateTimeType
+    | base=TIME ('(' precision = typeParameter ')')? WITH TIME ZONE                #dateTimeType
     | DOUBLE PRECISION                                                             #doublePrecisionType
     | ARRAY '<' type '>'                                                           #legacyArrayType
     | MAP '<' keyType=type ',' valueType=type '>'                                  #legacyMapType
@@ -399,7 +399,8 @@ type
     ;
 
 rowField
-    : identifier? type;
+    : type
+    | identifier type;
 
 typeParameter
     : INTEGER_VALUE | type

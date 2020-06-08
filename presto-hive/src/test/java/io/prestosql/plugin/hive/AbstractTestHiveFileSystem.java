@@ -25,7 +25,6 @@ import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.prestosql.plugin.hive.AbstractTestHive.Transaction;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -180,7 +179,7 @@ public abstract class AbstractTestHiveFileSystem
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), hdfsEnvironment, false)),
                 executor,
                 getBasePath(),
                 hdfsEnvironment);

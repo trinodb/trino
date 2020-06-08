@@ -103,7 +103,6 @@ public final class TypeConverter
             .put(RealType.class, Types.FloatType.get())
             .put(IntegerType.class, Types.IntegerType.get())
             .put(TimeType.class, Types.TimeType.get())
-            .put(TimestampType.class, Types.TimestampType.withoutZone())
             .put(TimestampWithTimeZoneType.class, Types.TimestampType.withZone())
             .put(VarcharType.class, Types.StringType.get())
             .build();
@@ -176,6 +175,9 @@ public final class TypeConverter
         }
         if (type instanceof MapType) {
             return fromMap((MapType) type);
+        }
+        if (type.equals(TIMESTAMP)) {
+            return Types.TimestampType.withoutZone();
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }

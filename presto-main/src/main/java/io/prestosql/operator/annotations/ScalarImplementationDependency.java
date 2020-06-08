@@ -21,6 +21,8 @@ import io.prestosql.spi.function.InvocationConvention;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public abstract class ScalarImplementationDependency
         implements ImplementationDependency
 {
@@ -28,7 +30,10 @@ public abstract class ScalarImplementationDependency
 
     protected ScalarImplementationDependency(Optional<InvocationConvention> invocationConvention)
     {
-        this.invocationConvention = invocationConvention;
+        this.invocationConvention = requireNonNull(invocationConvention, "invocationConvention is null");
+        if (invocationConvention.map(InvocationConvention::supportsInstanceFactor).orElse(false)) {
+            throw new IllegalArgumentException(getClass().getSimpleName() + " does not support instance functions");
+        }
     }
 
     protected abstract ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata);
@@ -37,10 +42,7 @@ public abstract class ScalarImplementationDependency
     public MethodHandle resolve(BoundVariables boundVariables, Metadata metadata)
     {
         ResolvedFunction resolvedFunction = getResolvedFunction(boundVariables, metadata);
-        if (invocationConvention.isPresent()) {
-            return metadata.getFunctionInvokerProvider().createFunctionInvoker(resolvedFunction, invocationConvention).methodHandle();
-        }
-        return metadata.getScalarFunctionImplementation(resolvedFunction).getMethodHandle();
+        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention).getMethodHandle();
     }
 
     @Override

@@ -83,6 +83,23 @@ public class TestHiveHadoop2Plugin
     }
 
     @Test
+    public void testHdfsImpersonationAndHiveCachingMutuallyExclusive()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.hdfs.impersonation.enabled", "true")
+                        .put("hive.cache.enabled", "true")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown())
+                .hasMessageContaining("Hdfs impersonation is not compatible with Hive caching");
+    }
+
+    @Test
     public void testRubixCache()
     {
         Plugin plugin = new HiveHadoop2Plugin();

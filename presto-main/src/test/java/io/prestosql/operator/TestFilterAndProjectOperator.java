@@ -40,8 +40,8 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -86,11 +86,10 @@ public class TestFilterAndProjectOperator
 
         Metadata metadata = createTestMetadataManager();
         RowExpression filter = call(
-                metadata.resolveOperator(BETWEEN, ImmutableList.of(BIGINT, BIGINT, BIGINT)),
+                metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(1, BIGINT),
-                constant(10L, BIGINT),
-                constant(19L, BIGINT));
+                constant(9L, BIGINT));
 
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = call(
@@ -111,16 +110,17 @@ public class TestFilterAndProjectOperator
                 0);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("10", 15L)
-                .row("11", 16L)
-                .row("12", 17L)
-                .row("13", 18L)
-                .row("14", 19L)
-                .row("15", 20L)
-                .row("16", 21L)
-                .row("17", 22L)
-                .row("18", 23L)
-                .row("19", 24L)
+                .row("0", 5L)
+                .row("1", 6L)
+                .row("2", 7L)
+                .row("3", 8L)
+                .row("4", 9L)
+                .row("5", 10L)
+                .row("6", 11L)
+                .row("7", 12L)
+                .row("8", 13L)
+                .row("9", 14L)
+
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);

@@ -22,6 +22,7 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -332,7 +333,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table newTable)
+    public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
     {
         throw new UnsupportedOperationException();
     }
@@ -412,6 +413,13 @@ public class MockThriftMetastoreClient
     public void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
     {
         // No-op
+    }
+
+    @Override
+    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

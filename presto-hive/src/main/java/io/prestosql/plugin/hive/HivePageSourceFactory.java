@@ -45,7 +45,7 @@ public interface HivePageSourceFactory
      * A wrapper class for
      * - delegate reader page source and
      * - projection information for columns to be returned by the delegate
-     *
+     * <p>
      * Empty {@param projectedReaderColumns} indicates that the delegate page source reads the exact same columns provided to
      * it in {@link HivePageSourceFactory#createPageSource}
      */

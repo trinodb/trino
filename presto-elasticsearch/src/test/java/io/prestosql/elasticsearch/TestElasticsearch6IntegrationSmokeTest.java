@@ -33,7 +33,7 @@ public class TestElasticsearch6IntegrationSmokeTest
     protected String indexMapping(String properties)
     {
         return "{\"mappings\": " +
-               "  {\"doc\": " + properties + "}" +
-               "}";
+                "  {\"doc\": " + properties + "}" +
+                "}";
     }
 }

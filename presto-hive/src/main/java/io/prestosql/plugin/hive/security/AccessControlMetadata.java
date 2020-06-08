@@ -23,6 +23,7 @@ import io.prestosql.spi.security.RoleGrant;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -51,6 +52,14 @@ public interface AccessControlMetadata
      * List available roles.
      */
     default Set<String> listRoles(ConnectorSession session)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+    }
+
+    /**
+     * List principals for a given role, not recursively.
+     */
+    default Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }

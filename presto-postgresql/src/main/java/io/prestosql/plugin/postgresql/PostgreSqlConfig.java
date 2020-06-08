@@ -23,7 +23,8 @@ public class PostgreSqlConfig
     private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
     private boolean includeSystemTables;
 
-    public enum ArrayMapping {
+    public enum ArrayMapping
+    {
         DISABLED,
         AS_ARRAY,
         AS_JSON,

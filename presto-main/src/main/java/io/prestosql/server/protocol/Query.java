@@ -24,6 +24,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.client.ClientCapabilities;
 import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.ClientTypeSignatureParameter;
 import io.prestosql.client.Column;
@@ -91,6 +92,7 @@ import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
@@ -113,6 +115,7 @@ class Query
     private final ScheduledExecutorService timeoutExecutor;
 
     private final PagesSerde serde;
+    private final boolean supportsParametricDateTime;
 
     @GuardedBy("this")
     private OptionalLong nextToken = OptionalLong.of(0);
@@ -210,7 +213,7 @@ class Query
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
-
+        this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
         serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
     }
 
@@ -405,7 +408,7 @@ class Query
                 Page page = serde.deserialize(serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 rows += page.getPositionCount();
-                pages.add(new RowIterable(session.toConnectorSession(), types, page));
+                pages.add(new RowIterable(session, types, page));
             }
             if (rows > 0) {
                 // client implementations do not properly handle empty list of data
@@ -570,20 +573,24 @@ class Query
                 .build();
     }
 
-    private static Column createColumn(String name, Type type)
+    private Column createColumn(String name, Type type)
     {
         TypeSignature signature = type.getTypeSignature();
         return new Column(name, type.getDisplayName(), toClientTypeSignature(signature));
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature)
+    private ClientTypeSignature toClientTypeSignature(TypeSignature signature)
     {
+        if (signature.getBase().equalsIgnoreCase(TIMESTAMP) && !supportsParametricDateTime) {
+            return new ClientTypeSignature(TIMESTAMP);
+        }
+
         return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
-                .map(Query::toClientTypeSignatureParameter)
+                .map(this::toClientTypeSignatureParameter)
                 .collect(toImmutableList()));
     }
 
-    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(TypeSignatureParameter parameter)
+    private ClientTypeSignatureParameter toClientTypeSignatureParameter(TypeSignatureParameter parameter)
     {
         switch (parameter.getKind()) {
             case TYPE:

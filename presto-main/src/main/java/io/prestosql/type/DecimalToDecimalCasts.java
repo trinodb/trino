@@ -21,9 +21,9 @@ import io.prestosql.spi.type.DecimalConversions;
 import io.prestosql.spi.type.DecimalType;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public final class DecimalToDecimalCasts
 {

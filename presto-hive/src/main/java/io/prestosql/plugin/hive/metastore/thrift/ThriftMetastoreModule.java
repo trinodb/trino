@@ -68,5 +68,7 @@ public class ThriftMetastoreModule
         }
 
         binder.install(new CachingHiveMetastoreModule());
+
+        install(new ThriftMetastoreAuthenticationModule());
     }
 }

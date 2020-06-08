@@ -52,11 +52,9 @@ import static io.prestosql.spi.type.StandardTypes.INTEGER;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.StandardTypes.REAL;
 import static io.prestosql.spi.type.StandardTypes.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.spi.type.StandardTypes.TINYINT;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.util.DateTimeUtils.printDate;
-import static io.prestosql.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.createJsonGenerator;
 import static io.prestosql.util.JsonUtil.createJsonParser;
@@ -325,22 +323,6 @@ public final class JsonOperators
             SliceOutput output = new DynamicSliceOutput(5);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeBoolean(value);
-            }
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
-        }
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(JSON)
-    public static Slice castFromTimestamp(ConnectorSession session, @SqlType(TIMESTAMP) long value)
-    {
-        try {
-            SliceOutput output = new DynamicSliceOutput(25);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
             }
             return output.slice();
         }

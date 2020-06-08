@@ -339,8 +339,8 @@ public class AlluxioHiveMetastore
      * contained which the {@code parts} argument
      *
      * @param databaseName the name of the database
-     * @param tableName    the name of the table
-     * @param parts        list of values which returned partitions should contain
+     * @param tableName the name of the table
+     * @param parts list of values which returned partitions should contain
      * @return optionally, a list of strings where each entry is in the form of {key}={value}
      */
     @Override
@@ -459,6 +459,12 @@ public class AlluxioHiveMetastore
             HivePrincipal grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "revokeRoles");
+    }
+
+    @Override
+    public Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "listRoleGrants");
     }
 
     @Override

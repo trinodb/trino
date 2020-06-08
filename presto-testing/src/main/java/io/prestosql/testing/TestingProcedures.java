@@ -154,14 +154,14 @@ public final class TestingProcedures
                         new Argument("x", VARCHAR),
                         new Argument("y", VARCHAR, false, "world"))))
                 .add(procedure(schema, "test_optionals3", "optionals3", ImmutableList.of(
-                    new Argument("x", VARCHAR, false, "this"),
-                    new Argument("y", VARCHAR, false, "is"),
-                    new Argument("z", VARCHAR, false, "default"))))
+                        new Argument("x", VARCHAR, false, "this"),
+                        new Argument("y", VARCHAR, false, "is"),
+                        new Argument("z", VARCHAR, false, "default"))))
                 .add(procedure(schema, "test_optionals4", "optionals4", ImmutableList.of(
-                    new Argument("x", VARCHAR),
-                    new Argument("y", VARCHAR),
-                    new Argument("z", VARCHAR, false, "z default"),
-                    new Argument("v", VARCHAR, false, "v default"))))
+                        new Argument("x", VARCHAR),
+                        new Argument("y", VARCHAR),
+                        new Argument("z", VARCHAR, false, "z default"),
+                        new Argument("v", VARCHAR, false, "v default"))))
                 .add(procedure(schema, "test_exception", "exception", ImmutableList.of()))
                 .add(procedure(schema, "test_error", "error", ImmutableList.of()))
                 .build();

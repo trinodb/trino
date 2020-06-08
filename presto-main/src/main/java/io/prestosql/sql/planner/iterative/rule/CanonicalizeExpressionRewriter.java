@@ -37,6 +37,7 @@ import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
+import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SearchedCaseExpression;
@@ -51,6 +52,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
@@ -134,7 +136,7 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.getPrecision() != null) {
+            if (node.getPrecision() != null && node.getFunction() != LOCALTIMESTAMP) {
                 throw new UnsupportedOperationException("not yet implemented: non-default precision");
             }
 
@@ -157,7 +159,8 @@ public final class CanonicalizeExpressionRewriter
                             .build();
                 case LOCALTIMESTAMP:
                     return new FunctionCallBuilder(metadata)
-                            .setName(QualifiedName.of("localtimestamp"))
+                            .setName(QualifiedName.of("$localtimestamp"))
+                            .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
                 default:
                     throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());

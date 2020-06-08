@@ -80,7 +80,7 @@ public class ParametricScalar
         for (ParametricScalarImplementation implementation : implementations.getSpecializedImplementations()) {
             Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
             if (scalarFunctionImplementation.isPresent()) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getTypeVariables());
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getBindings());
                 selectedImplementation = scalarFunctionImplementation.get();
             }
         }
@@ -90,7 +90,7 @@ public class ParametricScalar
         for (ParametricScalarImplementation implementation : implementations.getGenericImplementations()) {
             Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
             if (scalarFunctionImplementation.isPresent()) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getTypeVariables());
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getBindings());
                 selectedImplementation = scalarFunctionImplementation.get();
             }
         }

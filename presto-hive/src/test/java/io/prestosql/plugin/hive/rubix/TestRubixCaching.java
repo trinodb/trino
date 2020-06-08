@@ -27,10 +27,13 @@ import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode;
-import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -50,6 +53,7 @@ import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -63,6 +67,7 @@ import static com.qubole.rubix.spi.CacheConfig.setRemoteFetchProcessInterval;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.NodeVersion.UNKNOWN;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode.ASYNC;
 import static io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode.READ_THROUGH;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
@@ -88,8 +93,10 @@ public class TestRubixCaching
     private java.nio.file.Path tempDirectory;
     private Path cacheStoragePath;
     private HdfsConfig config;
+    private List<PropertyMetadata<?>> hiveSessionProperties;
     private HdfsContext context;
     private RubixInitializer rubixInitializer;
+    private RubixConfigurationInitializer rubixConfigInitializer;
     private FileSystem nonCachingFileSystem;
     private FileSystem cachingFileSystem;
 
@@ -99,7 +106,15 @@ public class TestRubixCaching
     {
         cacheStoragePath = getStoragePath("/");
         config = new HdfsConfig();
-        context = new HdfsContext(ConnectorIdentity.ofUser("user"));
+        hiveSessionProperties = getHiveSessionProperties(
+                new HiveConfig(),
+                new RubixEnabledConfig().setCacheEnabled(true),
+                new OrcReaderConfig()).getSessionProperties();
+        context = new HdfsContext(
+                TestingConnectorSession.builder()
+                        .setPropertyMetadata(hiveSessionProperties)
+                        .build(),
+                "test");
 
         nonCachingFileSystem = getNonCachingFileSystem();
     }
@@ -116,10 +131,11 @@ public class TestRubixCaching
     private void initializeCachingFileSystem(RubixConfig rubixConfig)
             throws IOException
     {
-        cachingFileSystem = getCachingFileSystem(initializeRubix(rubixConfig));
+        initializeRubix(rubixConfig);
+        cachingFileSystem = getCachingFileSystem();
     }
 
-    private RubixConfigurationInitializer initializeRubix(RubixConfig rubixConfig)
+    private void initializeRubix(RubixConfig rubixConfig)
             throws IOException
     {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
@@ -138,7 +154,6 @@ public class TestRubixCaching
                 cacheDirectories.stream()
                         .map(java.nio.file.Path::toString)
                         .collect(toImmutableList())));
-        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(
                 config,
                 ImmutableSet.of(
@@ -156,15 +171,19 @@ public class TestRubixCaching
                 rubixConfig,
                 nodeManager,
                 new CatalogName("catalog"),
-                rubixConfigInitializer,
-                configurationInitializer);
+                configurationInitializer,
+                Optional.empty());
+        rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
-
-        return rubixConfigInitializer;
     }
 
-    private FileSystem getCachingFileSystem(
-            RubixConfigurationInitializer rubixConfigInitializer)
+    private FileSystem getCachingFileSystem()
+            throws IOException
+    {
+        return getCachingFileSystem(context);
+    }
+
+    private FileSystem getCachingFileSystem(HdfsContext context)
             throws IOException
     {
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
@@ -207,7 +226,17 @@ public class TestRubixCaching
             });
             closer.register(() -> {
                 if (rubixInitializer != null) {
-                    rubixInitializer.stopRubix();
+                    try {
+                        retry().run(
+                                "stopRubix",
+                                () -> {
+                                    rubixInitializer.stopRubix();
+                                    return null;
+                                });
+                    }
+                    catch (Exception exception) {
+                        throw new RuntimeException(exception);
+                    }
                     rubixInitializer = null;
                 }
             });
@@ -224,7 +253,6 @@ public class TestRubixCaching
     public void testCoordinatorNotJoining()
     {
         RubixConfig rubixConfig = new RubixConfig();
-        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixConfig);
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
         InternalNode workerNode = new InternalNode(
                 "master",
@@ -233,11 +261,12 @@ public class TestRubixCaching
                 false);
         RubixInitializer rubixInitializer = new RubixInitializer(
                 retry().maxAttempts(1),
-                true,
+                rubixConfig.setStartServerOnCoordinator(true),
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
-                rubixConfigInitializer,
-                configurationInitializer);
+                configurationInitializer,
+                Optional.empty());
+        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }
@@ -246,7 +275,8 @@ public class TestRubixCaching
     public void testCacheRead(ReadMode readMode)
             throws Exception
     {
-        initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
+        RubixConfig rubixConfig = new RubixConfig().setReadMode(readMode);
+        initializeCachingFileSystem(rubixConfig);
         byte[] randomData = new byte[(int) SMALL_FILE_SIZE.toBytes()];
         new Random().nextBytes(randomData);
 
@@ -257,7 +287,14 @@ public class TestRubixCaching
         long beforeCachedReadsCount = getCachedReadsCount();
         long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
 
-        assertEquals(readFile(cachingFileSystem.open(file)), randomData);
+        assertEquals(readFile(cachingFileSystem, file), randomData);
+
+        if (readMode == ASYNC) {
+            // wait for async Rubix requests to complete
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 1));
+        }
 
         // stats are propagated asynchronously
         assertEventually(
@@ -267,24 +304,15 @@ public class TestRubixCaching
                     assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
                     assertEquals(getCachedReadsCount(), beforeCachedReadsCount);
                 });
-        long firstRemoteReadsCount = getRemoteReadsCount();
 
-        if (readMode == ASYNC) {
-            // wait for async Rubix requests to complete
-            assertEventually(
-                    new Duration(10, SECONDS),
-                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 1));
-        }
-
-        assertEquals(readFile(cachingFileSystem.open(file)), randomData);
-
-        // stats are propagated asynchronously
+        // ensure that subsequent read uses cache exclusively
         assertEventually(
                 new Duration(10, SECONDS),
                 () -> {
-                    // data should be read from cache only
+                    long remoteReadsCount = getRemoteReadsCount();
+                    assertEquals(readFile(cachingFileSystem, file), randomData);
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), firstRemoteReadsCount);
+                    assertEquals(getRemoteReadsCount(), remoteReadsCount);
                 });
     }
 
@@ -297,7 +325,7 @@ public class TestRubixCaching
 
         byte[] data = "Hello world".getBytes(UTF_8);
         writeFile(cachingFileSystem.create(file), data);
-        assertEquals(readFile(nonCachingFileSystem.open(file)), data);
+        assertEquals(readFile(nonCachingFileSystem, file), data);
     }
 
     @Test(dataProvider = "readMode")
@@ -315,16 +343,7 @@ public class TestRubixCaching
         long beforeCachedReadsCount = getCachedReadsCount();
         long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
 
-        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
-
-        // stats are propagated asynchronously
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    // data should be fetched from remote source
-                    assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
-                });
-        long firstRemoteReadsCount = getRemoteReadsCount();
+        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
 
         if (readMode == ASYNC) {
             // wait for async Rubix requests to complete
@@ -333,15 +352,22 @@ public class TestRubixCaching
                     () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 100));
         }
 
-        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
-
         // stats are propagated asynchronously
         assertEventually(
                 new Duration(10, SECONDS),
                 () -> {
-                    // data should be read from cache only
+                    // data should be fetched from remote source
+                    assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
+                });
+
+        // ensure that subsequent read uses cache exclusively
+        assertEventually(
+                new Duration(10, SECONDS),
+                () -> {
+                    long remoteReadsCount = getRemoteReadsCount();
+                    assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), firstRemoteReadsCount);
+                    assertEquals(getRemoteReadsCount(), remoteReadsCount);
                 });
         long secondCachedReadsCount = getCachedReadsCount();
         long secondRemoteReadsCount = getRemoteReadsCount();
@@ -352,7 +378,7 @@ public class TestRubixCaching
             List<Callable<?>> reads = nCopies(
                     3,
                     () -> {
-                        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem.open(file))));
+                        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
                         return null;
                     });
             List<Future<?>> futures = reads.stream()
@@ -376,14 +402,13 @@ public class TestRubixCaching
                 });
     }
 
-    private byte[] readFile(FSDataInputStream inputStream)
-            throws IOException
+    private byte[] readFile(FileSystem fileSystem, Path path)
     {
-        try {
+        try (FSDataInputStream inputStream = fileSystem.open(path)) {
             return ByteStreams.toByteArray(inputStream);
         }
-        finally {
-            inputStream.close();
+        catch (IOException exception) {
+            throw new RuntimeException(exception);
         }
     }
 

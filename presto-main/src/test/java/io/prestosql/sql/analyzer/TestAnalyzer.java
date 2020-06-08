@@ -119,6 +119,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -2030,7 +2031,10 @@ public class TestAnalyzer
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControl = new AccessControlManager(
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig());
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));

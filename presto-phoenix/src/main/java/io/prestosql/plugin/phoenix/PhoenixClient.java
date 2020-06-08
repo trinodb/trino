@@ -15,8 +15,6 @@ package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
-import io.prestosql.plugin.jdbc.BlockReadFunction;
-import io.prestosql.plugin.jdbc.BlockWriteFunction;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
@@ -25,9 +23,12 @@ import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.ObjectReadFunction;
+import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
@@ -78,7 +79,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunctionUsingSqlTime;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.getUnsupportedTypeHandling;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.phoenix.MetadataUtil.toPhoenixSchemaName;
 import static io.prestosql.plugin.phoenix.PhoenixClientModule.getConnectionProperties;
@@ -292,7 +293,7 @@ public class PhoenixClient
             Type elementType = ((ArrayType) type).getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType().toUpperCase();
             String elementWriteName = getArrayElementPhoenixTypeName(session, this, elementType);
-            return WriteMapping.blockMapping(elementDataType + " ARRAY", arrayWriteFunction(session, elementType, elementWriteName));
+            return WriteMapping.objectMapping(elementDataType + " ARRAY", arrayWriteFunction(session, elementType, elementWriteName));
         }
         return super.toWriteMapping(session, type);
     }
@@ -305,26 +306,26 @@ public class PhoenixClient
 
     private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName)
     {
-        return ColumnMapping.blockMapping(
+        return ColumnMapping.objectMapping(
                 arrayType,
                 arrayReadFunction(session, arrayType.getElementType()),
                 arrayWriteFunction(session, arrayType.getElementType(), elementJdbcTypeName));
     }
 
-    private static BlockReadFunction arrayReadFunction(ConnectorSession session, Type elementType)
+    private static ObjectReadFunction<Block> arrayReadFunction(ConnectorSession session, Type elementType)
     {
-        return (resultSet, columnIndex) -> {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             Object[] objectArray = toBoxedArray(resultSet.getArray(columnIndex).getArray());
             return jdbcObjectArrayToBlock(session, elementType, objectArray);
-        };
+        });
     }
 
-    private static BlockWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
+    private static ObjectWriteFunction<Block> arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
     {
-        return (statement, index, block) -> {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             Array jdbcArray = statement.getConnection().createArrayOf(elementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
             statement.setArray(index, jdbcArray);
-        };
+        });
     }
 
     private JdbcTypeHandle getArrayElementTypeHandle(JdbcTypeHandle arrayTypeHandle)

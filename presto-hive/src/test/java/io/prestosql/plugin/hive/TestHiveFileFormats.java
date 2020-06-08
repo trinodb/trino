@@ -28,6 +28,7 @@ import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -320,6 +321,7 @@ public class TestHiveFileFormats
     {
         HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
+                new RubixEnabledConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig()
                         .setValidationPercentage(100.0),
@@ -676,7 +678,7 @@ public class TestHiveFileFormats
                     // TODO: This is a bug in the RC text reader
                     // RC file does not support complex type as key of a map
                     return !testColumn.getName().equals("t_struct_null")
-                        && !testColumn.getName().equals("t_map_null_key_complex_key_value");
+                            && !testColumn.getName().equals("t_map_null_key_complex_key_value");
                 })
                 .collect(toImmutableList());
 
@@ -745,10 +747,10 @@ public class TestHiveFileFormats
         List<TestColumn> readColumns = readeColumnsBuilder.addAll(partitionColumns).build();
 
         assertThatFileFormat(RCBINARY)
-            .withWriteColumns(writeColumns)
-            .withReadColumns(readColumns)
-            .withRowsCount(rowCount)
-            .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withWriteColumns(writeColumns)
+                .withReadColumns(readColumns)
+                .withRowsCount(rowCount)
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
     @Test(dataProvider = "rowCount")
@@ -825,7 +827,7 @@ public class TestHiveFileFormats
             List<TestColumn> testReadColumns,
             ConnectorSession session,
             int rowCount)
-                throws Exception
+            throws Exception
     {
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
@@ -885,12 +887,12 @@ public class TestHiveFileFormats
         splitProperties.setProperty(
                 "columns",
                 splitPropertiesColumnNames.build().stream()
-                    .collect(Collectors.joining(",")));
+                        .collect(Collectors.joining(",")));
 
         splitProperties.setProperty(
                 "columns.types",
                 splitPropertiesColumnTypes.build().stream()
-                    .collect(Collectors.joining(",")));
+                        .collect(Collectors.joining(",")));
 
         List<HivePartitionKey> partitionKeys = testReadColumns.stream()
                 .filter(TestColumn::isPartitionKey)

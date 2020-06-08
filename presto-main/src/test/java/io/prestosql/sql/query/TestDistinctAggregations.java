@@ -278,8 +278,8 @@ public class TestDistinctAggregations
     {
         assertions.assertQuery(
                 "SELECT DISTINCT uuid_col " +
-                "FROM (VALUES (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')," +
-                "             (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')) AS t (uuid_col)",
+                        "FROM (VALUES (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')," +
+                        "             (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')) AS t (uuid_col)",
                 "VALUES UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741'");
     }
 

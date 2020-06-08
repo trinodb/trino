@@ -27,7 +27,10 @@ import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.CommitTxnRequest;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.GetPrincipalsInRoleRequest;
+import org.apache.hadoop.hive.metastore.api.GetPrincipalsInRoleResponse;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
 import org.apache.hadoop.hive.metastore.api.GetTableRequest;
@@ -164,10 +167,10 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table newTable)
+    public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException
     {
-        client.alter_table(databaseName, tableName, newTable);
+        client.alter_table_with_environment_context(databaseName, tableName, newTable, context);
     }
 
     @Override
@@ -416,6 +419,15 @@ public class ThriftHiveMetastoreClient
         if (!response.isSetSuccess()) {
             throw new MetaException("GrantRevokeResponse missing success field");
         }
+    }
+
+    @Override
+    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException
+    {
+        GetPrincipalsInRoleRequest request = new GetPrincipalsInRoleRequest(role);
+        GetPrincipalsInRoleResponse response = client.get_principals_in_role(request);
+        return ImmutableList.copyOf(response.getPrincipalGrants());
     }
 
     @Override

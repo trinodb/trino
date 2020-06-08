@@ -359,7 +359,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(metadata, session, node);
+            return LiteralInterpreter.evaluate(metadata, session, expressionTypes, node);
         }
 
         @Override
@@ -678,7 +678,7 @@ public class ExpressionInterpreter
                     return value;
                 case MINUS:
                     ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
-                    MethodHandle handle = metadata.getScalarFunctionImplementation(resolvedOperator).getMethodHandle();
+                    MethodHandle handle = metadata.getScalarFunctionInvoker(resolvedOperator, Optional.empty()).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(session);
@@ -775,7 +775,7 @@ public class ExpressionInterpreter
 
             Boolean greaterOrEqualToMin = null;
             if (min != null) {
-                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.GREATER_THAN_OR_EQUAL, types(node.getValue(), node.getMin()), ImmutableList.of(value, min));
+                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.getMin(), node.getValue()), ImmutableList.of(min, value));
             }
             Boolean lessThanOrEqualToMax = null;
             if (max != null) {

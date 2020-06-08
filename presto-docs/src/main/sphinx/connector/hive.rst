@@ -258,48 +258,52 @@ Property Name                                      Description                  
 Hive Thrift Metastore Configuration Properties
 ----------------------------------------------
 
-======================================================== ============================================================ ============
-Property Name                                            Description                                                  Default
-======================================================== ============================================================ ============
-``hive.metastore.uri``                                   The URI(s) of the Hive metastore to connect to using the
-                                                         Thrift protocol. If multiple URIs are provided, the first
-                                                         URI is used by default, and the rest of the URIs are
-                                                         fallback metastores. This property is required.
-                                                         Example: ``thrift://192.0.2.3:9083`` or
-                                                         ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+============================================================= ============================================================ ============
+Property Name                                                 Description                                                  Default
+============================================================= ============================================================ ============
+``hive.metastore.uri``                                        The URI(s) of the Hive metastore to connect to using the
+                                                              Thrift protocol. If multiple URIs are provided, the first
+                                                              URI is used by default, and the rest of the URIs are
+                                                              fallback metastores. This property is required.
+                                                              Example: ``thrift://192.0.2.3:9083`` or
+                                                              ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
-``hive.metastore.username``                              The username Presto uses to access the Hive metastore.
+``hive.metastore.username``                                   The username Presto uses to access the Hive metastore.
 
-``hive.metastore.authentication.type``                   Hive metastore authentication type.
-                                                         Possible values are ``NONE`` or ``KERBEROS``
-                                                         (defaults to ``NONE``).
+``hive.metastore.authentication.type``                        Hive metastore authentication type.
+                                                              Possible values are ``NONE`` or ``KERBEROS``
+                                                              (defaults to ``NONE``).
 
-``hive.metastore.thrift.impersonation.enabled``          Enable Hive metastore end user impersonation.
+``hive.metastore.thrift.impersonation.enabled``               Enable Hive metastore end user impersonation.
 
-``hive.metastore.thrift.client.ssl.enabled``             Use SSL when connecting to metastore.                        ``false``
+``hive.metastore.thrift.delegation-token.cache-ttl``          Time to live delegation token cache for metastore.           ``1h``
 
-``hive.metastore.thrift.client.ssl.key``                 Path to PEM private key and client certificate (key store).
+``hive.metastore.thrift.delegation-token.cache-maximum-size`` Delegation token cache maximum size.                         1,000
 
-``hive.metastore.thrift.client.ssl.key-password``        Password for the PEM private key.
+``hive.metastore.thrift.client.ssl.enabled``                  Use SSL when connecting to metastore.                        ``false``
 
-``hive.metastore.thrift.client.ssl.trust-certificate``   Path to the PEM server certificate chain (trust store).
-                                                         Required when SSL is enabled.
+``hive.metastore.thrift.client.ssl.key``                      Path to PEM private key and client certificate (key store).
 
-``hive.metastore.service.principal``                     The Kerberos principal of the Hive metastore service.
+``hive.metastore.thrift.client.ssl.key-password``             Password for the PEM private key.
 
-``hive.metastore.client.principal``                      The Kerberos principal that Presto uses when connecting
-                                                         to the Hive metastore service.
+``hive.metastore.thrift.client.ssl.trust-certificate``        Path to the PEM server certificate chain (trust store).
+                                                              Required when SSL is enabled.
 
-``hive.metastore.client.keytab``                         Hive metastore client keytab location.
+``hive.metastore.service.principal``                          The Kerberos principal of the Hive metastore service.
 
-``hive.metastore-cache-ttl``                             Time to live Hive metadata cache.                            ``0s``
+``hive.metastore.client.principal``                           The Kerberos principal that Presto uses when connecting
+                                                              to the Hive metastore service.
 
-``hive.metastore-refresh-interval``                      How often to refresh the Hive metastore cache.
+``hive.metastore.client.keytab``                              Hive metastore client keytab location.
 
-``hive.metastore-cache-maximum-size``                    Hive metastore cache maximum size.                           10,000
+``hive.metastore-cache-ttl``                                  Time to live Hive metadata cache.                            ``0s``
 
-``hive.metastore-refresh-max-threads``                   Maximum number of threads to refresh Hive metastore cache.   100
-======================================================== ============================================================ ============
+``hive.metastore-refresh-interval``                           How often to refresh the Hive metastore cache.
+
+``hive.metastore-cache-maximum-size``                         Hive metastore cache maximum size.                           10,000
+
+``hive.metastore-refresh-max-threads``                        Maximum number of threads to refresh Hive metastore cache.   100
+============================================================= ============================================================ ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
@@ -941,13 +945,18 @@ Procedures
 
     Create an empty partition in the specified table.
 
-* ``system.sync_partition_metadata(schema_name, table_name, mode)``
+* ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
 
     Check and update partitions list in metastore. There are three modes available:
 
     * ``ADD`` : add any partitions that exist on the file system, but not in the metastore.
     * ``DROP``: drop any partitions that exist in the metastore, but not on the file system.
     * ``FULL``: perform both ``ADD`` and ``DROP``.
+
+    The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
+    with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
+    file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+    not conforming to this convention are ignored, unless the argument is set to ``false``.
 
 * ``system.drop_stats(schema_name, table_name, partition_values)``
 

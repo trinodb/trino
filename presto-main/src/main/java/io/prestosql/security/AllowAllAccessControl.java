@@ -251,6 +251,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
     public void checkCanShowRoles(SecurityContext context, String catalogName)
     {
     }

@@ -40,13 +40,13 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.metadata.Signature.unmangleOperator;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -251,7 +251,7 @@ public class TestFunctionRegistry
                         functionSignature(ImmutableList.of("integer"), "boolean"))
                 .forParameters(UNKNOWN)
                 // any function can be selected, but to make it deterministic we sort function signatures alphabetically
-                .returns(functionSignature("integer"));
+                .returns(functionSignature("JoniRegExp"));
 
         // when the return type is different
         assertThatResolveFunction()

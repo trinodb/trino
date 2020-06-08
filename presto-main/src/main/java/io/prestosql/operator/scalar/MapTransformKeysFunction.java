@@ -104,8 +104,8 @@ public final class MapTransformKeysFunction
                         false),
                 false,
                 ImmutableList.of(
-                                        new FunctionArgumentDefinition(false),
-                                        new FunctionArgumentDefinition(false)),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 false,
                 "Apply lambda to each entry of the map and transform the key",

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.hash.Hashing;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.scheduler.NetworkLocation;
@@ -43,6 +44,7 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;
@@ -56,12 +58,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.String.format;
@@ -145,7 +151,7 @@ public class TestNodeScheduler
         Split split = new Split(CONNECTOR_ID, new TestSplitLocallyAccessible(), Lifespan.taskWide());
         Set<Split> splits = ImmutableSet.of(split);
 
-        Map.Entry<InternalNode, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
+        Map.Entry<InternalNode, Split> assignment = getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
         assertEquals(assignment.getKey().getHostAndPort(), split.getAddresses().get(0));
         assertEquals(assignment.getValue(), split);
     }
@@ -601,10 +607,64 @@ public class TestNodeScheduler
         Multimap<InternalNode, Split> assignment = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertEquals(assignment.size(), 20);
         assertEquals(assignment.keySet().size(), 4);
-        assertEquals(assignment.get(node1).size(), 5);
-        assertEquals(assignment.get(node2).size(), 5);
-        assertEquals(assignment.get(node3).size(), 5);
-        assertEquals(assignment.get(node4).size(), 5);
+        assertEquals(assignment.get(node1).size(), 8);
+        assertEquals(assignment.get(node2).size(), 4);
+        assertEquals(assignment.get(node3).size(), 4);
+        assertEquals(assignment.get(node4).size(), 4);
+    }
+
+    @DataProvider
+    public static Object[][] equateDistributionTestParameters()
+    {
+        return new Object[][] {
+                {5, 10, 0.00},
+                {5, 20, 0.05},
+                {10, 50, 0.00},
+                {10, 100, 0.04},
+                {10, 200, 0.085},
+                {50, 550, 0.040},
+                {50, 600, 0.042},
+                {50, 700, 0.040},
+                {100, 550, 0.031},
+                {100, 600, 0.049},
+                {100, 1000, 0.034},
+                {100, 1500, 0.04}};
+    }
+
+    @Test(dataProvider = "equateDistributionTestParameters")
+    public void testEquateDistributionConsistentHashing(int numberOfNodes, int numberOfSplits, double misassignedSplitsRatio)
+    {
+        ImmutableList.Builder<InternalNode> nodesBuilder = ImmutableList.builder();
+        for (int i = 0; i < numberOfNodes; ++i) {
+            InternalNode node = new InternalNode("node" + i, URI.create("http://10.0.0.1:" + (i + 10)), NodeVersion.UNKNOWN, false);
+            nodesBuilder.add(node);
+            nodeManager.addNode(CONNECTOR_ID, node);
+        }
+        List<InternalNode> nodes = nodesBuilder.build();
+
+        Set<Split> splits = new LinkedHashSet<>();
+        Random random = new Random(0);
+        ImmutableSetMultimap.Builder<InternalNode, Split> originalAssignmentBuilder = ImmutableSetMultimap.builder();
+        // assign splits randomly according to consistent hashing
+        for (int i = 0; i < numberOfSplits; i++) {
+            InternalNode node = nodes.get(Hashing.consistentHash(random.nextInt(), nodes.size()));
+            Split split = new Split(CONNECTOR_ID, new TestSplitLocal(node.getHostAndPort()), Lifespan.taskWide());
+            splits.add(split);
+            originalAssignmentBuilder.put(node, split);
+        }
+
+        Multimap<Split, InternalNode> originalNodeAssignment = originalAssignmentBuilder.build().inverse();
+        Multimap<InternalNode, Split> assignment = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        Multimap<Split, InternalNode> nodeAssignment = ImmutableSetMultimap.copyOf(assignment).inverse();
+
+        int misassignedSplits = 0;
+        for (Split split : splits) {
+            if (!getOnlyElement(originalNodeAssignment.get(split)).equals(getOnlyElement(nodeAssignment.get(split)))) {
+                misassignedSplits++;
+            }
+        }
+
+        assertLessThanOrEqual((double) misassignedSplits / numberOfSplits, misassignedSplitsRatio);
     }
 
     @Test
@@ -710,6 +770,18 @@ public class TestNodeScheduler
     private static class TestSplitLocal
             implements ConnectorSplit
     {
+        private final HostAddress address;
+
+        private TestSplitLocal()
+        {
+            this(HostAddress.fromString("10.0.0.1:11"));
+        }
+
+        private TestSplitLocal(HostAddress address)
+        {
+            this.address = requireNonNull(address, "address is null");
+        }
+
         @Override
         public boolean isRemotelyAccessible()
         {
@@ -719,13 +791,21 @@ public class TestNodeScheduler
         @Override
         public List<HostAddress> getAddresses()
         {
-            return ImmutableList.of(HostAddress.fromString("10.0.0.1:11"));
+            return ImmutableList.of(address);
         }
 
         @Override
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("address", address)
+                    .toString();
         }
     }
 
