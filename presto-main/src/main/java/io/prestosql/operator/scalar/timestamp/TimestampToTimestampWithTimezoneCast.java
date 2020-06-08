@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
@@ -22,6 +23,7 @@ import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.type.Timestamps.round;
@@ -41,14 +43,22 @@ public final class TimestampToTimestampWithTimezoneCast
             value = scaleEpochMicrosToMillis(round(value, 3));
         }
 
+        long millisUtc;
         if (session.isLegacyTimestamp()) {
-            return packDateTimeWithZone(value, session.getTimeZoneKey());
+            millisUtc = value;
         }
-
-        ISOChronology localChronology = getChronology(session.getTimeZoneKey());
-        // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
-        // its UTC representation we need to shift the value by the offset of TZ.
-        return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), session.getTimeZoneKey());
+        else {
+            ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+            // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
+            // its UTC representation we need to shift the value by the offset of TZ.
+            millisUtc = localChronology.getZone().convertLocalToUTC(value, false);
+        }
+        try {
+            return packDateTimeWithZone(millisUtc, session.getTimeZoneKey());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp with time zone: " + millisUtc, e);
+        }
     }
 
     @LiteralParameters("p")

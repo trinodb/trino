@@ -567,6 +567,12 @@ public abstract class BaseTestTimestamp
 
         // 5-digit year in the past
         assertThat(assertions.expression("CAST(TIMESTAMP '-12001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)", session)).matches("TIMESTAMP '-12001-05-01 12:34:56 America/Los_Angeles'");
+
+        // Overflow
+        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)", session))
+                .hasMessage("Out of range for timestamp with time zone: 3819379894496000");
+        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)", session))
+                .hasMessage("Out of range for timestamp with time zone: -3943693366326000");
     }
 
     @Test
