@@ -46,6 +46,7 @@ import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultThriftMetastoreClientFactory
+        implements ThriftMetastoreClientFactory
 {
     private final Optional<SSLContext> sslContext;
     private final Optional<HostAndPort> socksProxy;
@@ -85,6 +86,7 @@ public class DefaultThriftMetastoreClientFactory
                 nodeManager.getCurrentNode().getHost());
     }
 
+    @Override
     public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
             throws TTransportException
     {
