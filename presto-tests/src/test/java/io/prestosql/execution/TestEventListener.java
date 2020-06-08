@@ -218,11 +218,11 @@ public class TestEventListener
         assertEquals(actualCompletedPositions, expectedCompletedPositions);
 
         QueryStatistics statistics = queryCompletedEvent.getStatistics();
-        // No memory pool usage
-        assertEquals(statistics.getPeakUserMemoryBytes(), 0);
-        assertEquals(statistics.getPeakTaskUserMemory(), 0);
-        assertEquals(statistics.getPeakTaskTotalMemory(), 0);
-        assertEquals(statistics.getCumulativeMemory(), 0.0);
+        // Aggregation can have memory pool usage
+        assertTrue(statistics.getPeakUserMemoryBytes() >= 0);
+        assertTrue(statistics.getPeakTaskUserMemory() >= 0);
+        assertTrue(statistics.getPeakTaskTotalMemory() >= 0);
+        assertTrue(statistics.getCumulativeMemory() >= 0);
 
         // Not a write query
         assertEquals(statistics.getWrittenBytes(), 0);
