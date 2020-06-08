@@ -45,7 +45,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
-public class ThriftMetastoreClientFactory
+public class DefaultThriftMetastoreClientFactory
 {
     private final Optional<SSLContext> sslContext;
     private final Optional<HostAndPort> socksProxy;
@@ -53,7 +53,7 @@ public class ThriftMetastoreClientFactory
     private final HiveMetastoreAuthentication metastoreAuthentication;
     private final String hostname;
 
-    public ThriftMetastoreClientFactory(
+    public DefaultThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
             Duration timeout,
@@ -68,7 +68,7 @@ public class ThriftMetastoreClientFactory
     }
 
     @Inject
-    public ThriftMetastoreClientFactory(
+    public DefaultThriftMetastoreClientFactory(
             ThriftMetastoreConfig config,
             HiveMetastoreAuthentication metastoreAuthentication,
             NodeManager nodeManager)

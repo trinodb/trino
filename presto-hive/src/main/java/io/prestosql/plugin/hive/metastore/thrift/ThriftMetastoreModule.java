@@ -36,7 +36,7 @@ public class ThriftMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(ThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
