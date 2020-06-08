@@ -66,12 +66,12 @@ public final class ColumnMapping
         return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
     }
 
-    public static <T> ColumnMapping objectMapping(Type prestoType, ObjectReadFunction readFunction, ObjectWriteFunction<T> writeFunction)
+    public static <T> ColumnMapping objectMapping(Type prestoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction)
     {
         return objectMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
     }
 
-    public static <T> ColumnMapping objectMapping(Type prestoType, ObjectReadFunction readFunction, ObjectWriteFunction<T> writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public static <T> ColumnMapping objectMapping(Type prestoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
         return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
     }
