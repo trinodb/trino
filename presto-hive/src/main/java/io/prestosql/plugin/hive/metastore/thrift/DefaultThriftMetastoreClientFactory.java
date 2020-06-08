@@ -18,6 +18,7 @@ import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
 import io.prestosql.spi.NodeManager;
+import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;
@@ -90,9 +91,20 @@ public class DefaultThriftMetastoreClientFactory
     public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
             throws TTransportException
     {
+        return create(createTransport(address, delegationToken), hostname);
+    }
+
+    protected ThriftMetastoreClient create(TTransport transport, String hostname)
+    {
         return new ThriftHiveMetastoreClient(
-                Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, delegationToken),
+                transport,
                 hostname);
+    }
+
+    private TTransport createTransport(HostAndPort address, Optional<String> delegationToken)
+            throws TTransportException
+    {
+        return Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, delegationToken);
     }
 
     private static Optional<SSLContext> buildSslContext(
