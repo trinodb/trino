@@ -43,7 +43,7 @@ public final class WriteMapping
         return objectMapping(dataType, ObjectWriteFunction.of(javaType, writeFunction));
     }
 
-    public static WriteMapping objectMapping(String dataType, ObjectWriteFunction<?> writeFunction)
+    public static WriteMapping objectMapping(String dataType, ObjectWriteFunction writeFunction)
     {
         return new WriteMapping(dataType, writeFunction);
     }

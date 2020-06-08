@@ -320,7 +320,7 @@ public class PhoenixClient
         });
     }
 
-    private static ObjectWriteFunction<Block> arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
+    private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             Array jdbcArray = statement.getConnection().createArrayOf(elementJdbcTypeName, getJdbcObjectArray(session, elementType, block));

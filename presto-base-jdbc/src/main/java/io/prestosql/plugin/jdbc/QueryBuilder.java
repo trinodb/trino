@@ -146,7 +146,6 @@ public class QueryBuilder
                 ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
             }
             else {
-                //noinspection unchecked,rawtypes
                 ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
             }
         }
