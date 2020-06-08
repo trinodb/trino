@@ -74,7 +74,7 @@ public class ThriftHiveMetastoreClient
     private static final ParameterNamesProvider PARAMETER_NAMES_PROVIDER = new AirliftParameterNamesProvider(ThriftHiveMetastore.Iface.class, ThriftHiveMetastore.Client.class);
 
     private final TTransport transport;
-    private final ThriftHiveMetastore.Iface client;
+    protected final ThriftHiveMetastore.Iface client;
     private final String hostname;
 
     public ThriftHiveMetastoreClient(TTransport transport, String hostname)
