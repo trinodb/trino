@@ -18,20 +18,20 @@ import java.sql.SQLException;
 
 import static java.util.Objects.requireNonNull;
 
-public interface ObjectReadFunction<T>
+public interface ObjectReadFunction
         extends ReadFunction
 {
     @Override
-    Class<T> getJavaType();
+    Class<?> getJavaType();
 
-    T readObject(ResultSet resultSet, int columnIndex)
+    Object readObject(ResultSet resultSet, int columnIndex)
             throws SQLException;
 
-    static <T> ObjectReadFunction<T> of(Class<T> javaType, ObjectReadFunctionImplementation<T> implementation)
+    static <T> ObjectReadFunction of(Class<T> javaType, ObjectReadFunctionImplementation<T> implementation)
     {
         requireNonNull(javaType, "javaType is null");
         requireNonNull(implementation, "implementation is null");
-        return new ObjectReadFunction<T>()
+        return new ObjectReadFunction()
         {
             @Override
             public Class<T> getJavaType()
