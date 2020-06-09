@@ -148,28 +148,28 @@ public abstract class TestDateTimeOperatorsBase
 
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' + INTERVAL '3' hour",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 22, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("INTERVAL '3' hour + TIMESTAMP '2001-1-22 03:04:05.321 +05:09'",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 22, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' + INTERVAL '3' day",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 25, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 25, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("INTERVAL '3' day + TIMESTAMP '2001-1-22 03:04:05.321 +05:09'",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 25, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 25, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' + INTERVAL '3' month",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 4, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 4, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("INTERVAL '3' month + TIMESTAMP '2001-1-22 03:04:05.321 +05:09'",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 4, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 4, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' + INTERVAL '3' year",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2004, 1, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2004, 1, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("INTERVAL '3' year + TIMESTAMP '2001-1-22 03:04:05.321 +05:09'",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2004, 1, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2004, 1, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
@@ -215,13 +215,13 @@ public abstract class TestDateTimeOperatorsBase
                 sqlTimestampOf(3, 2001, 1, 19, 3, 4, 5, 321, session));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' day",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 19, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 19, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' - INTERVAL '3' month",
                 TIMESTAMP,
                 sqlTimestampOf(3, 2000, 10, 22, 3, 4, 5, 321, session));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' month",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2000, 10, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2000, 10, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
     }
 
     @Test

@@ -30,6 +30,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
@@ -59,8 +60,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
@@ -70,13 +69,13 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.Timestamps.toLocalDateTime;
+import static io.prestosql.type.Timestamps.toZonedDateTime;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -181,8 +180,8 @@ public final class FormatFunction
         if (type.equals(DATE)) {
             return (session, block) -> LocalDate.ofEpochDay(type.getLong(block, position));
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return (session, block) -> toZonedDateTime(type.getLong(block, position));
+        if (type instanceof TimestampWithTimeZoneType) {
+            return (session, block) -> toZonedDateTime(((TimestampWithTimeZoneType) type), block, position);
         }
         if (type instanceof TimestampType) {
             return (session, block) -> toLocalDateTime(((TimestampType) type), session, block, position);
@@ -246,13 +245,6 @@ public final class FormatFunction
         catch (OperatorNotFoundException e) {
             return null;
         }
-    }
-
-    private static ZonedDateTime toZonedDateTime(long value)
-    {
-        Instant instant = Instant.ofEpochMilli(unpackMillisUtc(value));
-        ZoneId zoneId = ZoneId.of(unpackZoneKey(value).getId());
-        return ZonedDateTime.ofInstant(instant, zoneId);
     }
 
     private static LocalTime toLocalTime(ConnectorSession session, long value)

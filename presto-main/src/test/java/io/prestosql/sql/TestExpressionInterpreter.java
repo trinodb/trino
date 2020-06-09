@@ -55,7 +55,6 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -518,15 +517,6 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[2, NULL]))", "false");
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]))", "NULL");
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]), map(ARRAY[1, 2], ARRAY[1, NULL]))", "NULL");
-    }
-
-    @Test
-    public void testCurrentTimestamp()
-    {
-        double current = TEST_SESSION.getStart().toEpochMilli() / 1000.0;
-        assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
-        double future = current + TimeUnit.MINUTES.toSeconds(1);
-        assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ")", "false");
     }
 
     @Test
@@ -1500,7 +1490,7 @@ public class TestExpressionInterpreter
                 case "bound_pattern":
                     return utf8Slice("%el%");
                 case "bound_timestamp_with_timezone":
-                    return new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 1, 0, 0, 999, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Z"));
+                    return SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 1, 0, 0, 999, DateTimeZone.UTC).getMillis(), 0, getTimeZoneKey("Z"));
                 case "bound_varbinary":
                     return Slices.wrappedBuffer((byte) 0xab);
                 case "bound_decimal_short":

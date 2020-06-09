@@ -18,8 +18,10 @@ import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTimeZone;
@@ -57,21 +59,6 @@ public final class TeradataDateFunctions
 
     private TeradataDateFunctions()
     {
-    }
-
-    @Description("Formats a timestamp")
-    @ScalarFunction("to_char")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice toChar(
-            ConnectorSession session,
-            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
-            @SqlType(StandardTypes.VARCHAR) Slice formatString)
-    {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(CHRONOLOGIES[unpackZoneKey(timestampWithTimeZone).getKey()])
-                .withLocale(session.getLocale());
-
-        return utf8Slice(formatter.print(unpackMillisUtc(timestampWithTimeZone)));
     }
 
     @Description("Converts a string to a DATE data type")
@@ -121,6 +108,39 @@ public final class TeradataDateFunctions
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    @Description("Formats a timestamp")
+    @ScalarFunction("to_char")
+    public static class ToChar
+    {
+        @LiteralParameters("p")
+        @SqlType(StandardTypes.VARCHAR)
+        public static Slice toChar(
+                ConnectorSession session,
+                @SqlType("timestamp(p) with time zone") long timestampWithTimeZone,
+                @SqlType(StandardTypes.VARCHAR) Slice formatString)
+        {
+            DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+                    .withChronology(CHRONOLOGIES[unpackZoneKey(timestampWithTimeZone).getKey()])
+                    .withLocale(session.getLocale());
+
+            return utf8Slice(formatter.print(unpackMillisUtc(timestampWithTimeZone)));
+        }
+
+        @LiteralParameters("p")
+        @SqlType(StandardTypes.VARCHAR)
+        public static Slice toChar(
+                ConnectorSession session,
+                @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestampWithTimeZone,
+                @SqlType(StandardTypes.VARCHAR) Slice formatString)
+        {
+            DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+                    .withChronology(CHRONOLOGIES[timestampWithTimeZone.getTimeZoneKey()])
+                    .withLocale(session.getLocale());
+
+            return utf8Slice(formatter.print(timestampWithTimeZone.getEpochMillis()));
         }
     }
 }

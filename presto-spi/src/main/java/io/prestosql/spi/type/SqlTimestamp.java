@@ -15,44 +15,22 @@ package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
-import static java.lang.Math.floorMod;
-import static java.lang.String.format;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.Timestamps.formatTimestamp;
+import static io.prestosql.spi.type.Timestamps.round;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 
 public final class SqlTimestamp
 {
     // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
     public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss[.SSS]";
     public static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern(JSON_FORMAT);
-
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
-
-    private static final int MICROSECONDS_PER_SECOND = 1_000_000;
-    private static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
-
-    private static final long[] POWERS_OF_TEN = {
-            1L,
-            10L,
-            100L,
-            1000L,
-            10_000L,
-            100_000L,
-            1_000_000L,
-            10_000_000L,
-            100_000_000L,
-            1_000_000_000L,
-            10_000_000_000L,
-            100_000_000_000L,
-            1000_000_000_000L
-    };
 
     private final int precision;
     private final long epochMicros;
@@ -190,37 +168,6 @@ public final class SqlTimestamp
                 .orElse(ZoneOffset.UTC);
 
         return formatTimestamp(precision, epochMicros, picosOfMicros, zoneId);
-    }
-
-    private static String formatTimestamp(int precision, long epochMicros, int picosOfMicro, ZoneId zoneId)
-    {
-        Instant instant = Instant.ofEpochSecond(Math.floorDiv(epochMicros, MICROSECONDS_PER_SECOND));
-        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
-
-        StringBuilder builder = new StringBuilder();
-        builder.append(TIMESTAMP_FORMATTER.format(dateTime));
-        if (precision > 0) {
-            long picoFraction = ((long) floorMod(epochMicros, MICROSECONDS_PER_SECOND)) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
-            long scaledFraction = picoFraction / POWERS_OF_TEN[MAX_PRECISION - precision];
-            builder.append(".");
-            builder.append(format("%0" + precision + "d", scaledFraction));
-        }
-
-        return builder.toString();
-    }
-
-    private static long round(long value, int magnitude)
-    {
-        return roundDiv(value, POWERS_OF_TEN[magnitude]) * POWERS_OF_TEN[magnitude];
-    }
-
-    private static long roundDiv(long value, long factor)
-    {
-        if (value >= 0) {
-            return (value + (factor / 2)) / factor;
-        }
-
-        return (value + 1 - (factor / 2)) / factor;
     }
 
     private static void checkState(boolean condition, String message)

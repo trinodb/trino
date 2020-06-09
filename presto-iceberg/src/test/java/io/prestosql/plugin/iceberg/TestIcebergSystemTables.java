@@ -110,7 +110,7 @@ public class TestIcebergSystemTables
     public void testHistoryTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$history\"",
-                "VALUES ('made_current_at', 'timestamp with time zone', '', '')," +
+                "VALUES ('made_current_at', 'timestamp(3) with time zone', '', '')," +
                         "('snapshot_id', 'bigint', '', '')," +
                         "('parent_id', 'bigint', '', '')," +
                         "('is_current_ancestor', 'boolean', '', '')");
@@ -123,7 +123,7 @@ public class TestIcebergSystemTables
     public void testSnapshotsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$snapshots\"",
-                "VALUES ('committed_at', 'timestamp with time zone', '', '')," +
+                "VALUES ('committed_at', 'timestamp(3) with time zone', '', '')," +
                         "('snapshot_id', 'bigint', '', '')," +
                         "('parent_id', 'bigint', '', '')," +
                         "('operation', 'varchar', '', '')," +

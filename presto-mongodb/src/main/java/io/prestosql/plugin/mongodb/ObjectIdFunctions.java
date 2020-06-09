@@ -66,7 +66,7 @@ public final class ObjectIdFunctions
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) // ObjectId's timestamp is a point in time
+    @SqlType("timestamp(3) with time zone") // ObjectId's timestamp is a point in time
     public static long objectidTimestamp(@SqlType("ObjectId") Slice value)
     {
         int epochSeconds = new ObjectId(value.getBytes()).getTimestamp();

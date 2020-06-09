@@ -55,11 +55,11 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
 import static io.prestosql.type.Timestamps.parseTimestamp;
+import static io.prestosql.type.Timestamps.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
 import static io.prestosql.util.DateTimeUtils.parseLegacyTime;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
@@ -193,7 +193,8 @@ public final class LiteralInterpreter
                 return parseTimestamp(precision, node.getValue());
             }
             else if (type instanceof TimestampWithTimeZoneType) {
-                return parseTimestampWithTimeZone(node.getValue());
+                int precision = ((TimestampWithTimeZoneType) type).getPrecision();
+                return parseTimestampWithTimeZone(precision, node.getValue());
             }
 
             throw new IllegalStateException("Unexpected type: " + type);

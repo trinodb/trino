@@ -115,13 +115,6 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castToTimestampWithTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
-    {
-        return value;
-    }
-
-    @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice castToSlice(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
