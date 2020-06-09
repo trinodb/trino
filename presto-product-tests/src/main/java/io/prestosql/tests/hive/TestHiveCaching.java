@@ -78,8 +78,6 @@ public class TestHiveCaching
                 () -> {
                     QueryResult beforeQueryCacheStats = getCacheStats();
                     long beforeQueryRemoteReads = getRemoteReads(beforeQueryCacheStats);
-                    long beforeQueryCachedReadsWorker0 = getCachedReads(0);
-                    long beforeQueryCachedReadsWorker1 = getCachedReads(1);
                     long beforeQueryNonLocalReads = getNonLocalReads(beforeQueryCacheStats);
 
                     assertThat(query("SELECT * FROM " + cachedTableName))
@@ -88,9 +86,6 @@ public class TestHiveCaching
                     // query via caching catalog should read exclusively from cache
                     QueryResult afterQueryCacheStats = getCacheStats();
                     assertEquals(getRemoteReads(afterQueryCacheStats), beforeQueryRemoteReads);
-                    // make sure each worker read cached data
-                    assertGreaterThan(getCachedReads(0), beforeQueryCachedReadsWorker0);
-                    assertGreaterThan(getCachedReads(1), beforeQueryCachedReadsWorker1);
                     // all reads should be local as Presto would schedule splits on nodes with cached data
                     assertEquals(getNonLocalReads(afterQueryCacheStats), beforeQueryNonLocalReads);
                 });
@@ -126,13 +121,6 @@ public class TestHiveCaching
     {
         return query("SELECT sum(cachedreads) as cachedreads, sum(remotereads) as remotereads, sum(nonlocalreads) as nonlocalreads FROM " +
                 "jmx.current.\"rubix:catalog=hive,name=stats\"");
-    }
-
-    private long getCachedReads(int workerNumber)
-    {
-        QueryResult result = query("SELECT sum(cachedreads) as cachedreads, sum(remotereads) as remotereads, sum(nonlocalreads) as nonlocalreads FROM " +
-                "jmx.current.\"rubix:catalog=hive,name=stats\" WHERE node = 'presto-worker-" + workerNumber + "'");
-        return getCachedReads(result);
     }
 
     private long getCachedReads(QueryResult queryResult)
