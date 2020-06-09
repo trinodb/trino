@@ -270,6 +270,7 @@ public final class StandardColumnMappings
      * forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
      * {@link #timeColumnMapping} instead.
      */
+    @Deprecated
     public static ColumnMapping timeColumnMappingUsingSqlTime(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
@@ -305,6 +306,7 @@ public final class StandardColumnMappings
      * forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
      * {@link #timeWriteFunction} instead.
      */
+    @Deprecated
     public static LongWriteFunction timeWriteFunctionUsingSqlTime(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
