@@ -127,6 +127,7 @@ public class FeaturesConfig
     private boolean ignoreDownstreamPreferences;
     private boolean iterativeRuleBasedColumnPruning = true;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
+    private boolean useLegacyWindowFilterPushdown;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -962,6 +963,18 @@ public class FeaturesConfig
     public FeaturesConfig setIterativeRuleBasedColumnPruning(boolean iterativeRuleBasedColumnPruning)
     {
         this.iterativeRuleBasedColumnPruning = iterativeRuleBasedColumnPruning;
+        return this;
+    }
+
+    public boolean isUseLegacyWindowFilterPushdown()
+    {
+        return useLegacyWindowFilterPushdown;
+    }
+
+    @Config("optimizer.use-legacy-window-filter-pushdown")
+    public FeaturesConfig setUseLegacyWindowFilterPushdown(boolean useLegacyWindowFilterPushdown)
+    {
+        this.useLegacyWindowFilterPushdown = useLegacyWindowFilterPushdown;
         return this;
     }
 

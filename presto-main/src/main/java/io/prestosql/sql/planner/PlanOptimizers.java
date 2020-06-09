@@ -15,6 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.CostCalculator;
 import io.prestosql.cost.CostCalculator.EstimatedExchanges;
 import io.prestosql.cost.CostComparator;
@@ -153,6 +154,10 @@ import io.prestosql.sql.planner.iterative.rule.PushTopNIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughUnion;
+import io.prestosql.sql.planner.iterative.rule.PushdownFilterIntoRowNumber;
+import io.prestosql.sql.planner.iterative.rule.PushdownFilterIntoWindow;
+import io.prestosql.sql.planner.iterative.rule.PushdownLimitIntoRowNumber;
+import io.prestosql.sql.planner.iterative.rule.PushdownLimitIntoWindow;
 import io.prestosql.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.prestosql.sql.planner.iterative.rule.RemoveEmptyDelete;
@@ -173,6 +178,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNode
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.prestosql.sql.planner.iterative.rule.ReorderJoins;
+import io.prestosql.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
 import io.prestosql.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.prestosql.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.prestosql.sql.planner.iterative.rule.SimplifyExpressions;
@@ -605,7 +611,18 @@ public class PlanOptimizers
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata, typeOperators), // Run this after projections and filters have been fully simplified and pushed down
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
-                new WindowFilterPushDown(metadata, typeOperators), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        SystemSessionProperties::useLegacyWindowFilterPushdown,
+                        ImmutableList.of(new WindowFilterPushDown(metadata, typeOperators)),
+                        ImmutableSet.of(
+                                new PushdownLimitIntoRowNumber(),
+                                new PushdownLimitIntoWindow(metadata),
+                                new PushdownFilterIntoRowNumber(metadata, typeOperators),
+                                new PushdownFilterIntoWindow(metadata, typeOperators),
+                                new ReplaceWindowWithRowNumber(metadata))),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
