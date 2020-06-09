@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.phoenix;
 
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.plugin.jdbc.JdbcTransactionHandle;
 import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
@@ -43,6 +44,7 @@ public class PhoenixConnector
     private final PhoenixColumnProperties columnProperties;
     private final List<PropertyMetadata<?>> sessionProperties;
 
+    @Inject
     public PhoenixConnector(
             LifeCycleManager lifeCycleManager,
             ConnectorMetadata metadata,
