@@ -14,7 +14,10 @@ import io.prestosql.plugin.sqlserver.TestingSqlServer;
 import io.prestosql.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 
 public class TestStarburstSqlServerIntegrationSmokeTest
         extends TestSqlServerIntegrationSmokeTest
@@ -25,6 +28,6 @@ public class TestStarburstSqlServerIntegrationSmokeTest
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createStarburstSqlServerQueryRunner(sqlServer, ORDERS);
+        return createStarburstSqlServerQueryRunner(sqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 }
