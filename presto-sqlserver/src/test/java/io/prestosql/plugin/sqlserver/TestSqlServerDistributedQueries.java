@@ -98,7 +98,7 @@ public class TestSqlServerDistributedQueries
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("time")
                 || typeName.equals("timestamp")
-                || typeName.equals("timestamp with time zone")) {
+                || typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 

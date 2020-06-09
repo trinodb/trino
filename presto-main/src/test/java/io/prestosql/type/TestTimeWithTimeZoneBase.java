@@ -208,7 +208,7 @@ public abstract class TestTimeWithTimeZoneBase
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
     }
 
     @Test

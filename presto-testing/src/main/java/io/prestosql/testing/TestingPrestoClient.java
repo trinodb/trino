@@ -28,6 +28,7 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.type.SqlIntervalDayTime;
@@ -64,7 +65,6 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -226,7 +226,7 @@ public class TestingPrestoClient
         else if (type instanceof TimestampType) {
             return SqlTimestamp.JSON_FORMATTER.parse((String) value, LocalDateTime::from);
         }
-        else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        else if (type instanceof TimestampWithTimeZoneType) {
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
         }
         else if (INTERVAL_DAY_TIME.equals(type)) {

@@ -117,10 +117,10 @@ import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
 import static io.prestosql.type.Timestamps.parseTimestamp;
+import static io.prestosql.type.Timestamps.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
@@ -301,7 +301,8 @@ public final class SqlToRowExpressionTranslator
                 }
             }
             else if (type instanceof TimestampWithTimeZoneType) {
-                value = parseTimestampWithTimeZone(node.getValue());
+                int precision = ((TimestampWithTimeZoneType) type).getPrecision();
+                value = parseTimestampWithTimeZone(precision, node.getValue());
             }
             else {
                 throw new IllegalStateException("Unexpected type: " + type);

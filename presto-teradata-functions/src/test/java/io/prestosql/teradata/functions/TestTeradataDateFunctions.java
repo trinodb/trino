@@ -84,6 +84,19 @@ public class TestTeradataDateFunctions
         assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 14:15:16");
 
         assertVarchar("to_char(DATE '1988-04-08','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 00:00:00");
+
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
     }
 
     @Test

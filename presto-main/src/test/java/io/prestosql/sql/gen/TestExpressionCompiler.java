@@ -26,7 +26,6 @@ import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.prestosql.operator.scalar.BitwiseFunctions;
-import io.prestosql.operator.scalar.DateTimeFunctions;
 import io.prestosql.operator.scalar.FunctionAssertions;
 import io.prestosql.operator.scalar.JoniRegexpFunctions;
 import io.prestosql.operator.scalar.JsonFunctions;
@@ -44,6 +43,8 @@ import io.prestosql.operator.scalar.timestamp.ExtractSecond;
 import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
+import io.prestosql.operator.scalar.timestamptz.TimeZoneHour;
+import io.prestosql.operator.scalar.timestamptz.TimeZoneMinute;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -229,7 +230,7 @@ public class TestExpressionCompiler
         assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
-        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
+        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), 0, TimeZoneKey.getTimeZoneKey("Z")));
         assertExecute("bound_binary_literal", VARBINARY, sqlVarbinary(0xAB));
 
         // todo enable when null output type is supported
@@ -1514,8 +1515,8 @@ public class TestExpressionCompiler
     public void testFunctionWithSessionCall()
             throws Exception
     {
-        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(TEST_SESSION.getStart().toEpochMilli(), TEST_SESSION.getTimeZoneKey()));
-        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(TEST_SESSION.getStart().toEpochMilli(), TEST_SESSION.getTimeZoneKey()));
+        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
+        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
 
         Futures.allAsList(futures).get();
     }
@@ -1577,9 +1578,9 @@ public class TestExpressionCompiler
             case SECOND:
                 return ExtractSecond.extract(precision, session, value);
             case TIMEZONE_MINUTE:
-                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return TimeZoneMinute.extract(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case TIMEZONE_HOUR:
-                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return TimeZoneHour.extract(packDateTimeWithZone(value, session.getTimeZoneKey()));
         }
         throw new AssertionError("Unhandled field: " + field);
     }

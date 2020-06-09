@@ -82,7 +82,7 @@ public class TestIcebergDistributed
 
         if (typeName.startsWith("decimal(")
                 || typeName.equals("time")
-                || typeName.equals("timestamp with time zone")) {
+                || typeName.equals("timestamp(3) with time zone")) {
             // TODO this should either work or fail cleanly
             return Optional.empty();
         }
