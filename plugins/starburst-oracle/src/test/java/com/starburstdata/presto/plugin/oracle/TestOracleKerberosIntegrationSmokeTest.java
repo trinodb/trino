@@ -13,10 +13,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 
 import static com.google.common.io.Resources.getResource;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 
 public class TestOracleKerberosIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
@@ -37,7 +40,7 @@ public class TestOracleKerberosIntegrationSmokeTest
                 .withSessionModifier(session -> Session.builder(session)
                         .setSchema("test")
                         .build())
-                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
 

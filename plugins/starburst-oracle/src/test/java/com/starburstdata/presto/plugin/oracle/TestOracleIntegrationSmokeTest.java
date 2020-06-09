@@ -12,7 +12,11 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 
 public class TestOracleIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
@@ -26,7 +30,7 @@ public class TestOracleIntegrationSmokeTest
                         .putAll(TestingOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .build())
-                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
 }

@@ -12,13 +12,16 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.KERBERIZED_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createStandardUsers;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createUser;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
 public class TestOracleParallelSubpartitionsIntegrationSmokeTest
@@ -38,7 +41,7 @@ public class TestOracleParallelSubpartitionsIntegrationSmokeTest
                         .put("oracle.concurrent.max-splits-per-scan", "17")
                         .build())
                 .withSessionModifier(session -> createSession(SUBPARTITIONED_USER, SUBPARTITIONED_USER))
-                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .withCreateUsers(TestOracleParallelSubpartitionsIntegrationSmokeTest::createUsers)
                 .withProvisionTables(TestOracleParallelSubpartitionsIntegrationSmokeTest::partitionTables)
                 .build();
