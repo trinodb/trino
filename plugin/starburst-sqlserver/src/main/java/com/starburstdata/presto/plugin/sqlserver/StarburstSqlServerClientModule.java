@@ -27,6 +27,7 @@ import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -48,6 +49,8 @@ public class StarburstSqlServerClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSqlServerClient.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+
+        install(new CredentialProviderModule());
 
         install(installModuleIf(
                 SqlServerConfig.class,

@@ -11,12 +11,8 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorFactory.JdbcModuleProvider;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
-
-import static io.airlift.configuration.ConfigurationAwareModules.combine;
 
 public class StarburstSqlServerPlugin
         implements Plugin
@@ -26,6 +22,6 @@ public class StarburstSqlServerPlugin
     {
         return ImmutableList.of(new JdbcConnectorFactory(
                 "sqlserver",
-                (JdbcModuleProvider) catalogName -> combine(new CredentialProviderModule(), new StarburstSqlServerClientModule(catalogName))));
+                StarburstSqlServerClientModule::new));
     }
 }
