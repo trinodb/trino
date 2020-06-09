@@ -15,11 +15,8 @@ import com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistribute
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory.JdbcModuleProvider;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
-
-import static io.airlift.configuration.ConfigurationAwareModules.combine;
 
 public class SnowflakePlugin
         implements Plugin
@@ -33,7 +30,7 @@ public class SnowflakePlugin
         return ImmutableList.of(
                 requireLicense(new JdbcConnectorFactory(
                         SNOWFLAKE_JDBC,
-                        (JdbcModuleProvider) catalogName -> combine(new CredentialProviderModule(), new SnowflakeJdbcClientModule(catalogName, false)))),
+                        (JdbcModuleProvider) catalogName -> new SnowflakeJdbcClientModule(catalogName, false))),
                 requireLicense(new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED)));
     }
 

@@ -43,6 +43,7 @@ import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
@@ -84,6 +85,8 @@ public class SnowflakeJdbcClientModule
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
+
+        install(new CredentialProviderModule());
 
         install(new ConnectorObjectNameGeneratorModule(catalogName, "com.starburstdata.presto.plugin.snowflake", "starburst.plugin.snowflake"));
 

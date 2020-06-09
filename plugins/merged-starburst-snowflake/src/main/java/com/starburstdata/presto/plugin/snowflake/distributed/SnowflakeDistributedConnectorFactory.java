@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
@@ -54,7 +53,6 @@ public class SnowflakeDistributedConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Bootstrap app = new Bootstrap(
                     new SnowflakeDistributedModule(catalogName),
-                    new CredentialProviderModule(),
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
 
             Injector injector = app
