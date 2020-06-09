@@ -73,7 +73,6 @@ public class PhoenixClientModule
     {
         binder.bind(ConnectorSplitManager.class).to(PhoenixSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
