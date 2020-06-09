@@ -39,6 +39,7 @@ import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -146,6 +147,7 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -167,9 +169,9 @@ import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.Timestamps.extractTimestampPrecision;
 import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
 import static io.prestosql.type.Timestamps.parseTimestamp;
+import static io.prestosql.type.Timestamps.parseTimestampWithTimeZone;
 import static io.prestosql.type.Timestamps.timestampHasTimeZone;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.timeHasTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -370,7 +372,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
-            if (node.getPrecision() != null && node.getFunction() != LOCALTIMESTAMP) {
+            if (node.getPrecision() != null && node.getFunction() != LOCALTIMESTAMP && node.getFunction() != CurrentTime.Function.TIMESTAMP) {
                 throw semanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
@@ -386,7 +388,12 @@ public class ExpressionAnalyzer
                     type = TIME;
                     break;
                 case TIMESTAMP:
-                    type = TIMESTAMP_WITH_TIME_ZONE;
+                    if (node.getPrecision() != null) {
+                        type = createTimestampWithTimeZoneType(node.getPrecision());
+                    }
+                    else {
+                        type = TIMESTAMP_WITH_TIME_ZONE;
+                    }
                     break;
                 case LOCALTIMESTAMP:
                     if (node.getPrecision() != null) {
@@ -838,8 +845,9 @@ public class ExpressionAnalyzer
             Type type;
             try {
                 if (timestampHasTimeZone(node.getValue())) {
-                    type = TIMESTAMP_WITH_TIME_ZONE;
-                    parseTimestampWithTimeZone(node.getValue());
+                    int precision = extractTimestampPrecision(node.getValue());
+                    type = createTimestampWithTimeZoneType(precision);
+                    parseTimestampWithTimeZone(precision, node.getValue());
                 }
                 else {
                     int precision = extractTimestampPrecision(node.getValue());
@@ -856,7 +864,7 @@ public class ExpressionAnalyzer
                 throw new PrestoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (Exception e) {
-                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid timestamp literal", node.getValue());
             }
 
             return setExpressionType(node, type);
@@ -1037,7 +1045,7 @@ public class ExpressionAnalyzer
         {
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
-            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !(valueType instanceof TimestampType)) {
+            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !(valueType instanceof TimestampWithTimeZoneType) && !valueType.equals(TIME) && !(valueType instanceof TimestampType)) {
                 throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;

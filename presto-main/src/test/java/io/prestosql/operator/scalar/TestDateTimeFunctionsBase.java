@@ -60,6 +60,7 @@ import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
@@ -301,7 +302,7 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testToIso8601()
     {
-        assertFunction("to_iso8601(" + WEIRD_TIMESTAMP_LITERAL + ")", createVarcharType(35), WEIRD_TIMESTAMP_ISO8601_STRING);
+        assertFunction("to_iso8601(" + WEIRD_TIMESTAMP_LITERAL + ")", createVarcharType(32), WEIRD_TIMESTAMP_ISO8601_STRING);
         assertFunction("to_iso8601(" + DATE_LITERAL + ")", createVarcharType(16), DATE_ISO8601_STRING);
     }
 
@@ -1028,10 +1029,10 @@ public abstract class TestDateTimeFunctionsBase
         assertFunctionString("timestamp '2333-02-23 23:59:59.999'", createTimestampType(3), "2333-02-23 23:59:59.999");
 
         // SqlTimestampWithTimeZone
-        assertFunctionString("timestamp '2012-12-31 00:00:00 UTC'", TIMESTAMP_WITH_TIME_ZONE, "2012-12-31 00:00:00.000 UTC");
-        assertFunctionString("timestamp '0000-01-02 01:02:03 Asia/Shanghai'", TIMESTAMP_WITH_TIME_ZONE, "0000-01-02 01:02:03.000 Asia/Shanghai");
-        assertFunctionString("timestamp '1234-05-06 23:23:23.233 America/Los_Angeles'", TIMESTAMP_WITH_TIME_ZONE, "1234-05-06 23:23:23.233 America/Los_Angeles");
-        assertFunctionString("timestamp '2333-02-23 23:59:59.999 Asia/Tokyo'", TIMESTAMP_WITH_TIME_ZONE, "2333-02-23 23:59:59.999 Asia/Tokyo");
+        assertFunctionString("timestamp '2012-12-31 00:00:00 UTC'", createTimestampWithTimeZoneType(0), "2012-12-31 00:00:00 UTC");
+        assertFunctionString("timestamp '0000-01-02 01:02:03 Asia/Shanghai'", createTimestampWithTimeZoneType(0), "0000-01-02 01:02:03 Asia/Shanghai");
+        assertFunctionString("timestamp '1234-05-06 23:23:23.233 America/Los_Angeles'", createTimestampWithTimeZoneType(3), "1234-05-06 23:23:23.233 America/Los_Angeles");
+        assertFunctionString("timestamp '2333-02-23 23:59:59.999 Asia/Tokyo'", createTimestampWithTimeZoneType(3), "2333-02-23 23:59:59.999 Asia/Tokyo");
     }
 
     @Test
@@ -1337,6 +1338,6 @@ public abstract class TestDateTimeFunctionsBase
 
     private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
     {
-        return new SqlTimestampWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
+        return SqlTimestampWithTimeZone.newInstance(3, dateTime.getMillis(), 0, getTimeZoneKey(dateTime.getZone().toTimeZone().getID()));
     }
 }

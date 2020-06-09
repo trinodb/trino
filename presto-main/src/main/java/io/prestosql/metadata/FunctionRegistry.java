@@ -180,7 +180,21 @@ import io.prestosql.operator.scalar.timestamp.ToIso8601;
 import io.prestosql.operator.scalar.timestamp.ToUnixTime;
 import io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast;
 import io.prestosql.operator.scalar.timestamp.WithTimeZone;
+import io.prestosql.operator.scalar.timestamptz.AtTimeZone;
+import io.prestosql.operator.scalar.timestamptz.AtTimeZoneWithOffset;
+import io.prestosql.operator.scalar.timestamptz.CurrentTimestamp;
+import io.prestosql.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimeToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimeWithTimeZoneToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneDistinctFromOperator;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.prestosql.operator.window.CumulativeDistributionFunction;
 import io.prestosql.operator.window.DenseRankFunction;
 import io.prestosql.operator.window.FirstValueFunction;
@@ -218,7 +232,6 @@ import io.prestosql.type.RealOperators;
 import io.prestosql.type.SmallintOperators;
 import io.prestosql.type.TimeOperators;
 import io.prestosql.type.TimeWithTimeZoneOperators;
-import io.prestosql.type.TimestampWithTimeZoneOperators;
 import io.prestosql.type.TinyintOperators;
 import io.prestosql.type.UnknownOperators;
 import io.prestosql.type.UuidOperators;
@@ -500,8 +513,6 @@ public class FunctionRegistry
                 .scalar(IntervalYearMonthOperators.IntervalYearMonthDistinctFromOperator.class)
                 .scalars(TimeWithTimeZoneOperators.class)
                 .scalar(TimeWithTimeZoneOperators.TimeWithTimeZoneDistinctFromOperator.class)
-                .scalars(TimestampWithTimeZoneOperators.class)
-                .scalar(TimestampWithTimeZoneOperators.TimestampWithTimeZoneDistinctFromOperator.class)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(QuantileDigestOperators.class)
@@ -684,6 +695,60 @@ public class FunctionRegistry
                 .scalar(ExtractWeekOfYear.class)
                 .scalar(ExtractYearOfWeek.class)
                 .scalar(LastDayOfMonth.class);
+
+        // timestamp with timezone operators and functions
+        builder
+                .scalar(TimestampWithTimeZoneOperators.Equal.class)
+                .scalar(TimestampWithTimeZoneOperators.NotEqual.class)
+                .scalar(TimestampWithTimeZoneOperators.LessThan.class)
+                .scalar(TimestampWithTimeZoneOperators.LessThanOrEqual.class)
+                .scalar(TimestampWithTimeZoneOperators.GreaterThan.class)
+                .scalar(TimestampWithTimeZoneOperators.GreaterThanOrEqual.class)
+                .scalar(TimestampWithTimeZoneOperators.HashCode.class)
+                .scalar(TimestampWithTimeZoneOperators.Indeterminate.class)
+                .scalar(TimestampWithTimeZoneOperators.XxHash64Operator.class)
+                .scalar(TimestampWithTimeZoneDistinctFromOperator.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampPlusIntervalDayToSecond.class)
+                .scalar(TimestampWithTimeZoneOperators.IntervalDayToSecondPlusTimestamp.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampMinusIntervalDayToSecond.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampPlusIntervalYearToMonth.class)
+                .scalar(TimestampWithTimeZoneOperators.IntervalYearToMonthPlusTimestamp.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampMinusIntervalYearToMonth.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampMinusTimestamp.class)
+                .scalar(CurrentTimestamp.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractYear.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractQuarter.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMonth.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDay.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractHour.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMinute.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractSecond.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMillisecond.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfYear.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfWeek.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractWeekOfYear.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractYearOfWeek.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ToIso8601.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateAdd.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateTrunc.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.TimeZoneHour.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.TimeZoneMinute.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateDiff.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateFormat.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.FormatDateTime.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ToUnixTime.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.LastDayOfMonth.class)
+                .scalar(AtTimeZone.class)
+                .scalar(AtTimeZoneWithOffset.class)
+                .scalar(DateToTimestampWithTimeZoneCast.class)
+                .scalar(TimestampWithTimeZoneToDateCast.class)
+                .scalar(TimestampWithTimeZoneToTimeCast.class)
+                .scalar(TimestampWithTimeZoneToTimestampWithTimeZoneCast.class)
+                .scalar(TimestampWithTimeZoneToTimeWithTimezoneCast.class)
+                .scalar(TimestampWithTimeZoneToVarcharCast.class)
+                .scalar(TimeToTimestampWithTimeZoneCast.class)
+                .scalar(TimeWithTimeZoneToTimestampWithTimeZoneCast.class)
+                .scalar(VarcharToTimestampWithTimeZoneCast.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:

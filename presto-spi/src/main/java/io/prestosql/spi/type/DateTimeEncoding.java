@@ -49,6 +49,11 @@ public final class DateTimeEncoding
         return pack(millisUtc, timeZoneKey.getKey());
     }
 
+    public static long packDateTimeWithZone(long millisUtc, short timeZoneKey)
+    {
+        return pack(millisUtc, timeZoneKey);
+    }
+
     public static long unpackMillisUtc(long dateTimeWithTimeZone)
     {
         return dateTimeWithTimeZone >> MILLIS_SHIFT;

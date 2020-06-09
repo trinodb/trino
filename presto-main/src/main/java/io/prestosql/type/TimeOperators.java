@@ -123,13 +123,6 @@ public final class TimeOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME) long value)
-    {
-        return castToTimeWithTimeZone(session, value);
-    }
-
-    @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice castToSlice(ConnectorSession session, @SqlType(StandardTypes.TIME) long value)

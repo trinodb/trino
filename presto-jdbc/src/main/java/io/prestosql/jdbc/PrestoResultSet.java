@@ -67,6 +67,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -358,16 +359,21 @@ public class PrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp")) {
             try {
-                return parseTimestamp(String.valueOf(value), localTimeZone);
+                return parseTimestamp(String.valueOf(value), timezone -> {
+                    if (timezone != null) {
+                        throw new IllegalArgumentException("Invalid timestamp: " + value);
+                    }
+                    return ZoneId.of(localTimeZone.getID());
+                });
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
             }
         }
 
-        if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp with time zone")) {
+        if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp with time zone")) {
             try {
-                return new Timestamp(TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+                return parseTimestamp(String.valueOf(value), ZoneId::of);
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -1952,10 +1958,10 @@ public class PrestoResultSet
         return list.build();
     }
 
-    private static Timestamp parseTimestamp(String value, DateTimeZone localTimeZone)
+    private static Timestamp parseTimestamp(String value, Function<String, ZoneId> timeZoneParser)
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
-        if (!matcher.matches() || matcher.group("timezone") != null) {
+        if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
         }
 
@@ -1966,6 +1972,7 @@ public class PrestoResultSet
         int minute = Integer.parseInt(matcher.group("minute"));
         int second = Integer.parseInt(matcher.group("second"));
         String fraction = matcher.group("fraction");
+        ZoneId zoneId = timeZoneParser.apply(matcher.group("timezone"));
 
         long fractionValue = 0;
         int precision = 0;
@@ -1975,7 +1982,7 @@ public class PrestoResultSet
         }
 
         long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
-                .atZone(ZoneId.of(localTimeZone.getID()))
+                .atZone(zoneId)
                 .toEpochSecond();
 
         Timestamp timestamp = new Timestamp(epochSecond * 1000);

@@ -137,7 +137,7 @@ public abstract class TestDateBase
     {
         assertFunction("cast(DATE '2001-1-22' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), 0, TIME_ZONE_KEY));
     }
 
     @Test

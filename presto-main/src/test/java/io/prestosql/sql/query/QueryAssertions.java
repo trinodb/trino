@@ -17,7 +17,9 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.SqlTime;
+import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.assertions.PlanAssert;
@@ -348,6 +350,16 @@ public class QueryAssertions
                             timestamp.getPicosOfMicros(),
                             timestamp.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
                 }
+                else if (object instanceof SqlTimestampWithTimeZone) {
+                    SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) object;
+                    return String.format(
+                            "%s [p = %s, epochMillis = %s, fraction = %s, tz = %s]",
+                            timestamp,
+                            timestamp.getPrecision(),
+                            timestamp.getEpochMillis(),
+                            timestamp.getPicosOfMilli(),
+                            timestamp.getTimeZoneKey());
+                }
                 else if (object instanceof SqlTime) {
                     SqlTime time = (SqlTime) object;
                     return String.format(
@@ -355,6 +367,14 @@ public class QueryAssertions
                             time,
                             time.getMillis(),
                             time.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
+                }
+                else if (object instanceof SqlTimeWithTimeZone) {
+                    SqlTimeWithTimeZone time = (SqlTimeWithTimeZone) object;
+                    return String.format(
+                            "%s [millis = %s, tz = %s]",
+                            time,
+                            time.getMillisUtc(),
+                            time.getTimeZoneKey());
                 }
 
                 return Objects.toString(object);

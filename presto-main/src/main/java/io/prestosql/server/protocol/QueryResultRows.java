@@ -25,8 +25,10 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayDeque;
@@ -157,6 +159,9 @@ public class QueryResultRows
             try {
                 if (type instanceof TimestampType && !supportsParametricDateTime) {
                     row.add(channel, ((SqlTimestamp) type.getObjectValue(session, block, inPageIndex)).roundTo(3));
+                }
+                else if (type instanceof TimestampWithTimeZoneType && !supportsParametricDateTime) {
+                    row.add(channel, ((SqlTimestampWithTimeZone) type.getObjectValue(session, block, inPageIndex)).roundTo(3));
                 }
                 else {
                     row.add(channel, type.getObjectValue(session, block, inPageIndex));

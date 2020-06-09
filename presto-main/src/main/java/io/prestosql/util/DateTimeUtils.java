@@ -111,12 +111,6 @@ public final class DateTimeUtils
                 .withOffsetParsed();
     }
 
-    public static long parseTimestampWithTimeZone(String value)
-    {
-        DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withOffsetParsed().parseDateTime(value);
-        return packDateTimeWithZone(dateTime);
-    }
-
     /**
      * Parse a string (optionally containing a zone) as a value of TIMESTAMP WITH TIME ZONE type.
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.

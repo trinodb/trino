@@ -136,7 +136,7 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.getPrecision() != null && node.getFunction() != LOCALTIMESTAMP) {
+            if (node.getPrecision() != null && node.getFunction() != LOCALTIMESTAMP && node.getFunction() != CurrentTime.Function.TIMESTAMP) {
                 throw new UnsupportedOperationException("not yet implemented: non-default precision");
             }
 
@@ -155,7 +155,8 @@ public final class CanonicalizeExpressionRewriter
                             .build();
                 case TIMESTAMP:
                     return new FunctionCallBuilder(metadata)
-                            .setName(QualifiedName.of("current_timestamp"))
+                            .setName(QualifiedName.of("$current_timestamp"))
+                            .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
                 case LOCALTIMESTAMP:
                     return new FunctionCallBuilder(metadata)

@@ -13,63 +13,62 @@
  */
 package io.prestosql.spi.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.PrestoException;
 
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static java.lang.String.format;
 
-public final class TimestampWithTimeZoneType
-        extends AbstractLongType
+public abstract class TimestampWithTimeZoneType
+        extends AbstractType
+        implements FixedWidthType
 {
-    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
+    public static final int MAX_PRECISION = 12;
 
-    private TimestampWithTimeZoneType()
-    {
-        super(new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
-    }
+    public static final int MAX_SHORT_PRECISION = 3;
+    private static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
-    @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    @Deprecated
+    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = createTimestampWithTimeZoneType(DEFAULT_PRECISION);
+
+    private final int precision;
+
+    public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
-        if (block.isNull(position)) {
-            return null;
+        if (precision <= MAX_SHORT_PRECISION) {
+            return new ShortTimestampWithTimeZoneType(precision);
+        }
+        else if (precision <= MAX_PRECISION) {
+            return new LongTimestampWithTimeZoneType(precision);
         }
 
-        return new SqlTimestampWithTimeZone(block.getLong(position, 0));
+        throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]", MAX_PRECISION));
+    }
+
+    protected TimestampWithTimeZoneType(int precision, Class<?> javaType)
+    {
+        super(new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.numericParameter(precision)), javaType);
+
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_PRECISION));
+        }
+
+        this.precision = precision;
+    }
+
+    public final int getPrecision()
+    {
+        return precision;
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    public final boolean isComparable()
     {
-        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition, 0));
-        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition, 0));
-        return leftValue == rightValue;
+        return true;
     }
 
     @Override
-    public long hash(Block block, int position)
+    public final boolean isOrderable()
     {
-        return AbstractLongType.hash(unpackMillisUtc(block.getLong(position, 0)));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition, 0));
-        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition, 0));
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    public boolean equals(Object other)
-    {
-        return other == TIMESTAMP_WITH_TIME_ZONE;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
+        return true;
     }
 }

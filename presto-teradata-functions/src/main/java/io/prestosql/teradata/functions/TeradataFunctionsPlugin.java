@@ -26,6 +26,7 @@ public class TeradataFunctionsPlugin
     {
         return ImmutableSet.<Class<?>>builder()
                 .add(TeradataDateFunctions.class)
+                .add(TeradataDateFunctions.ToChar.class)
                 .add(TeradataStringFunctions.class)
                 .build();
     }
