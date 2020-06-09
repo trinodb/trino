@@ -29,6 +29,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.prestosql.spi.PrestoException;
 import oracle.jdbc.driver.OracleDriver;
@@ -76,7 +77,12 @@ public class OracleAuthenticationModule
 
         install(installModuleIf(
                 OracleConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
+                config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH && config.isConnectionPoolingEnabled(),
+                new PasswordPassThroughWithPoolingModule()));
+
+        install(installModuleIf(
+                OracleConfig.class,
+                config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH && !config.isConnectionPoolingEnabled(),
                 new PasswordPassThroughModule()));
 
         install(installModuleIf(
@@ -142,7 +148,10 @@ public class OracleAuthenticationModule
             implements Module
     {
         @Override
-        public void configure(Binder binder) {}
+        public void configure(Binder binder)
+        {
+            install(new CredentialProviderModule());
+        }
 
         @Provides
         @Singleton
@@ -156,38 +165,48 @@ public class OracleAuthenticationModule
         }
     }
 
-    private class PasswordPassThroughModule
+    private static class PasswordPassThroughModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder) {}
+
+        @Provides
+        @Singleton
+        @ForAuthentication
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
+        {
+            return new DriverConnectionFactory(
+                    new OracleDriver(),
+                    config.getConnectionUrl(),
+                    getProperties(oracleConfig),
+                    new PassThroughCredentialProvider());
+        }
+    }
+
+    private class PasswordPassThroughWithPoolingModule
             implements Module
     {
         @Override
         public void configure(Binder binder)
         {
+            install(new CredentialProviderModule());
             configBinder(binder).bindConfig(OracleConnectionPoolingConfig.class);
         }
 
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, Optional<OracleConnectionPoolingConfig> poolingConfig, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, OracleConnectionPoolingConfig poolingConfig, CredentialProvider credentialProvider)
         {
-            if (oracleConfig.isConnectionPoolingEnabled()) {
-                // pass-through credentials are be handled by OraclePoolingConnectionFactory
-                verify(poolingConfig.isPresent(), "Connection pooling config is not present");
-                return new OraclePoolingConnectionFactory(
-                        catalogName,
-                        config,
-                        getProperties(oracleConfig),
-                        Optional.of(credentialProvider), // static credentials are needed to initialize the pool
-                        poolingConfig.get(),
-                        oracleConfig.getAuthenticationType());
-            }
-            else {
-                return new DriverConnectionFactory(
-                        new OracleDriver(),
-                        config.getConnectionUrl(),
-                        getProperties(oracleConfig),
-                        new PassThroughCredentialProvider());
-            }
+            // pass-through credentials are be handled by OraclePoolingConnectionFactory
+            return new OraclePoolingConnectionFactory(
+                    catalogName,
+                    config,
+                    getProperties(oracleConfig),
+                    Optional.of(credentialProvider), // static credentials are needed to initialize the pool
+                    poolingConfig,
+                    oracleConfig.getAuthenticationType());
         }
     }
 
