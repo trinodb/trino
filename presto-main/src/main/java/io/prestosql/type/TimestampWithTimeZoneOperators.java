@@ -15,7 +15,7 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
-import io.prestosql.operator.scalar.timestamp.TimestampWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimezoneToTimestampCast;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
