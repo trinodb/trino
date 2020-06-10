@@ -2,6 +2,13 @@
 Date and Time Functions and Operators
 =====================================
 
+These functions and operators operate on :ref:`date and time data types <date-time-data-types>`.
+
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
 Date and Time Operators
 -----------------------
 
@@ -67,7 +74,7 @@ Date and Time Functions
 
     Parses the ISO 8601 formatted date ``string``, optionally with
     time and time zone, into a ``timestamp with time zone``. The time defaults
-    to zero, and the time zone defaults to the session time zone::
+    to ``00:00:00.000``, and the time zone defaults to the session time zone::
 
         SELECT from_iso8601_timestamp('2020-05-11');
         -- 2020-05-11 00:00:00.000 America/Vancouver
@@ -101,19 +108,22 @@ Date and Time Functions
 
     Returns a timestamp with time zone from ``timestamp`` and ``zone``.
 
-.. function:: from_unixtime(unixtime) -> timestamp
+.. function:: from_unixtime(unixtime) -> timestamp(3)
 
-    Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
+    Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the
+    number of seconds since ``1970-01-01 00:00:00 UTC``.
 
 .. function:: from_unixtime(unixtime, zone) -> timestamp with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
-    using ``zone`` for the time zone. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
+    using ``zone`` for the time zone. ``unixtime`` is the number of seconds
+    since ``1970-01-01 00:00:00 UTC``.
 
 .. function:: from_unixtime(unixtime, hours, minutes) -> timestamp with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
-    using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
+    using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is
+    the number of seconds since ``1970-01-01 00:00:00`` in ``double`` data type.
 
 .. data:: localtime
 
@@ -121,7 +131,16 @@ Date and Time Functions
 
 .. data:: localtimestamp
 
-    Returns the current timestamp as of the start of the query.
+    Returns the current timestamp as of the start of the query, with ``3``
+    digits of subsecond precision.
+
+.. data:: localtimestamp(p)
+
+    Returns the current :ref:`timestamp <timestamp-data-type>` as of the start
+    of the query, with ``p`` digits of subsecond precision::
+
+        SELECT localtimestamp(6);
+        -- 2020-06-10 15:55:23.383628
 
 .. function:: now() -> timestamp with time zone
 
@@ -220,6 +239,12 @@ Unit              Description
         SELECT date_diff('day', DATE '2020-03-01', DATE '2020-03-02');
         -- 1
 
+        SELECT date_diff('second', TIMESTAMP '2020-06-01 12:30:45.000000000', TIMESTAMP '2020-06-02 12:30:45.123456789');
+        -- 86400
+
+        SELECT date_diff('millisecond', TIMESTAMP '2020-06-01 12:30:45.000000000', TIMESTAMP '2020-06-02 12:30:45.123456789');
+        -- 86400123
+
 Duration Function
 -----------------
 
@@ -307,7 +332,7 @@ Specifier Description
 
     Formats ``timestamp`` as a string using ``format``.
 
-.. function:: date_parse(string, format) -> timestamp
+.. function:: date_parse(string, format) -> timestamp(3)
 
     Parses ``string`` into a timestamp using ``format``.
 
