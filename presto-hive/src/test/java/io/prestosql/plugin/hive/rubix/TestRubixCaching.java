@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
-import com.qubole.rubix.core.utils.DummyClusterManager;
+import com.qubole.rubix.core.CachingFileSystem;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.metadata.InternalNode;
@@ -32,12 +32,16 @@ import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode;
+import io.prestosql.spi.Node;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -62,7 +66,6 @@ import java.util.concurrent.Future;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static com.qubole.rubix.spi.CacheConfig.setRemoteFetchProcessInterval;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -73,6 +76,7 @@ import static io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode.READ_THROUGH;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.net.InetAddress.getLocalHost;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempDirectory;
@@ -138,6 +142,17 @@ public class TestRubixCaching
     private void initializeRubix(RubixConfig rubixConfig)
             throws IOException
     {
+        InternalNode coordinatorNode = new InternalNode(
+                "master",
+                URI.create("http://" + getLocalHost().getHostAddress() + ":8080"),
+                UNKNOWN,
+                true);
+        initializeRubix(rubixConfig, ImmutableList.of(coordinatorNode));
+    }
+
+    private void initializeRubix(RubixConfig rubixConfig, List<Node> nodes)
+            throws IOException
+    {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
 
         // create cache directories
@@ -159,14 +174,7 @@ public class TestRubixCaching
                 ImmutableSet.of(
                         // fetch data immediately in async mode
                         config -> setRemoteFetchProcessInterval(config, 0)));
-        InternalNode coordinatorNode = new InternalNode(
-                "master",
-                URI.create("http://127.0.0.1:8080"),
-                UNKNOWN,
-                true);
-        TestingNodeManager nodeManager = new TestingNodeManager(
-                coordinatorNode,
-                ImmutableList.of());
+        TestingNodeManager nodeManager = new TestingNodeManager(nodes);
         rubixInitializer = new RubixInitializer(
                 rubixConfig,
                 nodeManager,
@@ -191,11 +199,7 @@ public class TestRubixCaching
                 configurationInitializer,
                 ImmutableSet.of(
                         rubixConfigInitializer,
-                        (dynamicConfig, ignoredContext, ignoredUri) -> {
-                            // make sure that dummy cluster manager is used
-                            setPrestoClusterManager(dynamicConfig, DummyClusterManager.class.getName());
-                            dynamicConfig.set("fs.file.impl", CachingLocalFileSystem.class.getName());
-                        }));
+                        (dynamicConfig, ignoredContext, ignoredUri) -> dynamicConfig.set("fs.file.impl", CachingLocalFileSystem.class.getName())));
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
         return environment.getFileSystem(context, cacheStoragePath);
     }
@@ -220,6 +224,8 @@ public class TestRubixCaching
             });
             closer.register(() -> {
                 if (cachingFileSystem != null) {
+                    // reset cluster manager
+                    unwrapCachingFileSystem(cachingFileSystem).setClusterManager(null);
                     cachingFileSystem.close();
                     cachingFileSystem = null;
                 }
@@ -243,6 +249,17 @@ public class TestRubixCaching
         }
     }
 
+    private static CachingFileSystem<?> unwrapCachingFileSystem(FileSystem fileSystem)
+    {
+        if (fileSystem instanceof CachingFileSystem) {
+            return (CachingFileSystem<?>) fileSystem;
+        }
+        if (fileSystem instanceof FilterFileSystem) {
+            return unwrapCachingFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
+        }
+        throw new IllegalStateException();
+    }
+
     @DataProvider
     public static Object[][] readMode()
     {
@@ -256,7 +273,7 @@ public class TestRubixCaching
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
         InternalNode workerNode = new InternalNode(
                 "worker",
-                URI.create("http://127.0.0.1:8080"),
+                URI.create("http://127.0.0.2:8080"),
                 UNKNOWN,
                 false);
         RubixInitializer rubixInitializer = new RubixInitializer(
@@ -268,6 +285,42 @@ public class TestRubixCaching
                 Optional.empty());
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
+    }
+
+    @Test
+    public void testGetBlockLocations()
+            throws Exception
+    {
+        RubixConfig rubixConfig = new RubixConfig();
+        InternalNode coordinatorNode = new InternalNode(
+                "master",
+                URI.create("http://" + getLocalHost().getHostAddress() + ":8080"),
+                UNKNOWN,
+                true);
+        InternalNode workerNode1 = new InternalNode(
+                "worker1",
+                URI.create("http://127.0.0.2:8080"),
+                UNKNOWN,
+                false);
+        InternalNode workerNode2 = new InternalNode(
+                "worker2",
+                URI.create("http://127.0.0.3:8080"),
+                UNKNOWN,
+                false);
+        initializeRubix(rubixConfig, ImmutableList.of(coordinatorNode, workerNode1, workerNode2));
+        cachingFileSystem = getCachingFileSystem();
+
+        FileStatus file1 = new FileStatus(3, false, 0, 3, 0, new Path("aaa"));
+        FileStatus file2 = new FileStatus(3, false, 0, 3, 0, new Path("bbb"));
+
+        BlockLocation[] file1Locations = cachingFileSystem.getFileBlockLocations(file1, 0, 3);
+        BlockLocation[] file2Locations = cachingFileSystem.getFileBlockLocations(file2, 0, 3);
+
+        assertEquals(file1Locations.length, 1);
+        assertEquals(file2Locations.length, 1);
+
+        assertEquals(file1Locations[0].getHosts()[0], "127.0.0.3");
+        assertEquals(file2Locations[0].getHosts()[0], "127.0.0.2");
     }
 
     @Test(dataProvider = "readMode")
