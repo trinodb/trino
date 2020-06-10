@@ -94,7 +94,7 @@ where profile is one of either:
 
 ### Running a single test
 
-The `run_on_docker.sh` script can also run individual product tests. Presto
+The `run-launcher` script can also run individual product tests. Presto
 product tests are either [Java based](https://github.com/prestosql/tempto#java-based-tests)
 or [convention based](https://github.com/prestosql/tempto#convention-based-sql-query-tests)
 and each type can be run individually with the following commands:
@@ -170,7 +170,7 @@ You can override the default socks proxy port (1180) used by dockerized Hive dep
 `HIVE_PROXY_PORT` environment variable, e.g. `export HIVE_PROXY_PORT=1180`. This will run all of the dockerized tests using the custom port for the socks proxy.
 When you change the default socks proxy port (1180) and want to use Hive provided by product tests from outside docker (e.g. access it from Presto running in your IDE),
 you have to modify the property `hive.metastore.thrift.client.socks-proxy` and `hive.hdfs.socks-proxy` in your `hive.properties` file accordingly.
-Presto inside docker (used while starting tests using `run_on_docker.sh`) will still use default port (1180) though.
+Presto inside docker (used while starting tests using `run-launcher`) will still use default port (1180) though.
 
 ### Malformed reply from SOCKS server
 
