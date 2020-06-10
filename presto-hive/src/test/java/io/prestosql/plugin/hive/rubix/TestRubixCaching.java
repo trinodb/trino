@@ -266,7 +266,6 @@ public class TestRubixCaching
                 new CatalogName("catalog"),
                 configurationInitializer,
                 Optional.empty());
-        RubixConfigurationInitializer rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }
