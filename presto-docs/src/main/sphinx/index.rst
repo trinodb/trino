@@ -8,6 +8,7 @@ Presto Documentation
 
     overview
     installation
+    client
     security
     admin
     optimizer
