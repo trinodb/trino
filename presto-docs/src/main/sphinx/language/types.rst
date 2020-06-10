@@ -141,10 +141,12 @@ String
     JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON string,
     ``true``, ``false`` or ``null``.
 
+.. _date-time-data-types:
+
 Date and Time
 -------------
 
-See also :doc:`/language/timestamp`
+See also :doc:`/functions/datetime` and :doc:`/language/timestamp`
 
 ``DATE``
 ^^^^^^^^
@@ -169,13 +171,48 @@ See also :doc:`/language/timestamp`
 
     Example: ``TIME '01:02:03.456 America/Los_Angeles'``
 
+.. _timestamp-data-type:
+
 ``TIMESTAMP``
 ^^^^^^^^^^^^^
 
-    Instant in time that includes the date and time of day without a time zone.
-    Values of this type are parsed and rendered in the session time zone.
+    ``TIMESTAMP`` is an alias for ``TIMESTAMP(3)`` (millisecond precision).
 
-    Example: ``TIMESTAMP '2001-08-22 03:04:05.321'``
+``TIMESTAMP(P)``
+^^^^^^^^^^^^^^^^
+
+    Instant in time that includes the date and time of day without a time zone
+    with ``P`` digits of precision for the fraction of seconds. A precision of
+    up to 12 (picoseconds) is supported. Values of this type are parsed and
+    rendered in the session time zone.
+
+    ``TIMESTAMP(P) WITHOUT TIME ZONE`` is an equivalent name.
+
+    Timestamp values can be constructed with the ``TIMESTAMP`` literal
+    expression. Alternatively, language constructs such as
+    ``localtimestamp(p)``, or a number of :doc:`date and time functions and
+    operators </functions/datetime>` can return timestamp values.
+
+    Casting to lower precision causes the value to be rounded, and not
+    truncated. Casting to higher precision appends zeros for the additional
+    digits.
+
+    The following examples illustrate the behavior::
+
+        SELECT TIMESTAMP '2020-06-10 15:55:23';
+        -- 2020-06-10 15:55:23
+
+        SELECT TIMESTAMP '2020-06-10 15:55:23.383345';
+        -- 2020-06-10 15:55:23.383345
+
+        SELECT typeof(TIMESTAMP '2020-06-10 15:55:23.383345');
+        -- timestamp(6)
+
+        SELECT cast(TIMESTAMP '2020-06-10 15:55:23.383345' as TIMESTAMP(1));
+         -- 2020-06-10 15:55:23.4
+
+        SELECT cast(TIMESTAMP '2020-06-10 15:55:23.383345' as TIMESTAMP(12));
+        -- 2020-06-10 15:55:23.383345000000
 
 ``TIMESTAMP WITH TIME ZONE``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
