@@ -30,7 +30,7 @@ public class TestOrcReaderConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OrcReaderConfig.class)
-                .setUseColumnNames(false)
+                .setUseColumnNames(true)
                 .setBloomFiltersEnabled(false)
                 .setMaxMergeDistance(DataSize.of(1, Unit.MEGABYTE))
                 .setMaxBufferSize(DataSize.of(8, Unit.MEGABYTE))
@@ -45,7 +45,7 @@ public class TestOrcReaderConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.orc.use-column-names", "true")
+                .put("hive.orc.use-column-names", "false")
                 .put("hive.orc.bloom-filters.enabled", "true")
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
@@ -57,7 +57,7 @@ public class TestOrcReaderConfig
                 .build();
 
         OrcReaderConfig expected = new OrcReaderConfig()
-                .setUseColumnNames(true)
+                .setUseColumnNames(false)
                 .setBloomFiltersEnabled(true)
                 .setMaxMergeDistance(DataSize.of(22, Unit.KILOBYTE))
                 .setMaxBufferSize(DataSize.of(44, Unit.KILOBYTE))

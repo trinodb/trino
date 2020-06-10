@@ -65,7 +65,7 @@ public class TestHiveConfig
                 .setMaxOpenSortFiles(50)
                 .setWriteValidationThreads(16)
                 .setTextMaxLineLength(DataSize.of(100, Unit.MEGABYTE))
-                .setUseParquetColumnNames(false)
+                .setUseParquetColumnNames(true)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setRcfileWriterValidate(false)
                 .setSkipDeletionForAlter(false)
@@ -93,7 +93,7 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(5)
                 .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false)
-                .setPartitionUseColumnNames(false)
+                .setPartitionUseColumnNames(true)
                 .setProjectionPushdownEnabled(true));
     }
 
@@ -132,7 +132,7 @@ public class TestHiveConfig
                 .put("hive.max-concurrent-metastore-drops", "100")
                 .put("hive.assume-canonical-partition-keys", "true")
                 .put("hive.text.max-line-length", "13MB")
-                .put("hive.parquet.use-column-names", "true")
+                .put("hive.parquet.use-column-names", "false")
                 .put("hive.rcfile.writer.validate", "true")
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.skip-target-cleanup-on-rollback", "true")
@@ -160,7 +160,7 @@ public class TestHiveConfig
                 .put("hive.transaction-heartbeat-threads", "10")
                 .put("hive.allow-register-partition-procedure", "true")
                 .put("hive.query-partition-filter-required", "true")
-                .put("hive.partition-use-column-names", "true")
+                .put("hive.partition-use-column-names", "false")
                 .put("hive.projection-pushdown-enabled", "false")
                 .build();
 
@@ -195,7 +195,7 @@ public class TestHiveConfig
                 .setMaxOpenSortFiles(333)
                 .setWriteValidationThreads(11)
                 .setTextMaxLineLength(DataSize.of(13, Unit.MEGABYTE))
-                .setUseParquetColumnNames(true)
+                .setUseParquetColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(true)
                 .setRcfileWriterValidate(true)
                 .setSkipDeletionForAlter(true)
@@ -224,7 +224,7 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(10)
                 .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true)
-                .setPartitionUseColumnNames(true)
+                .setPartitionUseColumnNames(false)
                 .setProjectionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);

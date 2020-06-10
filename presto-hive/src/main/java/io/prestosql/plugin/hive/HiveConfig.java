@@ -87,7 +87,7 @@ public class HiveConfig
 
     private DataSize textMaxLineLength = DataSize.of(100, MEGABYTE);
 
-    private boolean useParquetColumnNames;
+    private boolean useParquetColumnNames = true;
 
     private boolean assumeCanonicalPartitionKeys;
 
@@ -127,7 +127,7 @@ public class HiveConfig
 
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
-    private boolean partitionUseColumnNames;
+    private boolean partitionUseColumnNames = true;
 
     private boolean projectionPushdownEnabled = true;
 
