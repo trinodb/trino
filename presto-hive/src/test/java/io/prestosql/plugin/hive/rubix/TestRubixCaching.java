@@ -255,7 +255,7 @@ public class TestRubixCaching
         RubixConfig rubixConfig = new RubixConfig();
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
         InternalNode workerNode = new InternalNode(
-                "master",
+                "worker",
                 URI.create("http://127.0.0.1:8080"),
                 UNKNOWN,
                 false);
