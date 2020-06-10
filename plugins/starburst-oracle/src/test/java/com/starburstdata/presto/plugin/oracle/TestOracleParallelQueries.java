@@ -21,7 +21,6 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
-import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.sql.PreparedStatement;
@@ -55,7 +54,7 @@ public class TestOracleParallelQueries
                         .put("allow-drop-table", "true")
                         .put("oracle.number.default-scale", "3")
                         .build())
-                .withTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.NATION))
+                .withTables(ImmutableList.of())
                 .build();
     }
 
