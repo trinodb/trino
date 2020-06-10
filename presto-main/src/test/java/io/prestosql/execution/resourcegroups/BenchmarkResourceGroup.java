@@ -16,7 +16,6 @@ package io.prestosql.execution.resourcegroups;
 import io.airlift.units.DataSize;
 import io.prestosql.execution.MockManagedQueryExecution;
 import io.prestosql.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
-import io.prestosql.execution.resourcegroups.InternalResourceGroup.RootInternalResourceGroup;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -67,12 +66,12 @@ public class BenchmarkResourceGroup
         private int queries = 100;
 
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
-        private RootInternalResourceGroup root;
+        private InternalResourceGroup root;
 
         @Setup
         public void setup()
         {
-            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor);
+            root = new InternalResourceGroup("root", (group, export) -> {}, executor);
             root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
             root.setMaxQueuedQueries(queries);
             root.setHardConcurrencyLimit(queries);
@@ -97,7 +96,7 @@ public class BenchmarkResourceGroup
             executor.shutdownNow();
         }
 
-        public RootInternalResourceGroup getRoot()
+        public InternalResourceGroup getRoot()
         {
             return root;
         }
