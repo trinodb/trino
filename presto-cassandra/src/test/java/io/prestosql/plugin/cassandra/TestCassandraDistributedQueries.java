@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -36,7 +37,7 @@ public class TestCassandraDistributedQueries
             throws Exception
     {
         this.server = new CassandraServer();
-        return createCassandraQueryRunner(server, TpchTable.getTables());
+        return createCassandraQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)

@@ -15,10 +15,14 @@ package io.prestosql.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tpch.TpchTable;
+
+import java.util.Map;
 
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -32,13 +36,18 @@ public final class CassandraQueryRunner
     public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, TpchTable<?>... tables)
             throws Exception
     {
-        return createCassandraQueryRunner(server, ImmutableList.copyOf(tables));
+        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createCassandraQueryRunner(
+            CassandraServer server,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createCassandraSession("tpch")).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createCassandraSession("tpch"))
+                .setExtraProperties(extraProperties)
+                .build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -64,5 +73,20 @@ public final class CassandraQueryRunner
                 .setCatalog("cassandra")
                 .setSchema(schema)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        DistributedQueryRunner queryRunner = createCassandraQueryRunner(
+                new CassandraServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(CassandraQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
