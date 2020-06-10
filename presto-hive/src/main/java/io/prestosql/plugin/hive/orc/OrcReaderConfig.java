@@ -22,7 +22,7 @@ import javax.validation.constraints.NotNull;
 
 public class OrcReaderConfig
 {
-    private boolean useColumnNames = true;
+    private boolean useColumnNames;
 
     private OrcReaderOptions options = new OrcReaderOptions();
 
