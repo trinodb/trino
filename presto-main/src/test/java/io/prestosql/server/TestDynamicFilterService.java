@@ -88,7 +88,7 @@ public class TestDynamicFilterService
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
         TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier();
         dynamicFiltersStageSupplier.addDynamicFilter(filterId, taskIds, "probeColumn");
-        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier);
+        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId));
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -97,6 +97,7 @@ public class TestDynamicFilterService
                 singleValue(INTEGER, 1L));
         dynamicFilterService.collectDynamicFilters();
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
@@ -104,6 +105,7 @@ public class TestDynamicFilterService
                 singleValue(INTEGER, 2L));
         dynamicFilterService.collectDynamicFilters();
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 2);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
@@ -113,6 +115,11 @@ public class TestDynamicFilterService
         Optional<Domain> summary = dynamicFilterService.getSummary(queryId, filterId);
         assertTrue(summary.isPresent());
         assertEquals(summary.get(), multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
+
+        // all dynamic filters have been collected, no need for more requests
+        dynamicFilterService.collectDynamicFilters();
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
     }
 
     @Test
@@ -153,7 +160,7 @@ public class TestDynamicFilterService
         taskIds = ImmutableList.of(new TaskId(stageId3, 0), new TaskId(stageId3, 1));
         dynamicFiltersStageSupplier.addDynamicFilter(filterId3, taskIds, "probeColumnB");
 
-        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier);
+        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId1, filterId2, filterId3));
         assertTrue(dynamicFilterSupplier.get().isAll());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -162,6 +169,7 @@ public class TestDynamicFilterService
                 singleValue(INTEGER, 1L));
         dynamicFilterService.collectDynamicFilters();
         assertTrue(dynamicFilterSupplier.get().isAll());
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId1,
@@ -171,6 +179,7 @@ public class TestDynamicFilterService
         assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 2);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId2,
@@ -180,6 +189,7 @@ public class TestDynamicFilterService
         assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId2,
@@ -189,6 +199,7 @@ public class TestDynamicFilterService
         assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 2L))));
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 4);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId3,
@@ -198,6 +209,7 @@ public class TestDynamicFilterService
         assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 2L))));
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 5);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId3,
@@ -205,6 +217,11 @@ public class TestDynamicFilterService
                 none(INTEGER));
         dynamicFilterService.collectDynamicFilters();
         assertEquals(dynamicFilterSupplier.get(), TupleDomain.none());
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 6);
+
+        // all dynamic filters have been collected, no need for more requests
+        dynamicFilterService.collectDynamicFilters();
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 6);
     }
 
     private static class TestDynamicFiltersStageSupplier
@@ -270,6 +287,8 @@ public class TestDynamicFilterService
 
         private final Map<Symbol, TableScanNode> probes = new HashMap<>();
         private final Map<StageId, StageInfo> stagesInfo = new HashMap<>();
+
+        private int requestCount;
 
         void addDynamicFilter(String filterId, List<TaskId> taskIds, String probeColumnName)
         {
@@ -383,9 +402,15 @@ public class TestDynamicFilterService
                     null));
         }
 
+        int getRequestCount()
+        {
+            return requestCount;
+        }
+
         @Override
         public List<StageInfo> get()
         {
+            requestCount++;
             return ImmutableList.copyOf(stagesInfo.values());
         }
     }
