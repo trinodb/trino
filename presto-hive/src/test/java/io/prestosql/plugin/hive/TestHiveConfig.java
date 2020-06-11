@@ -56,7 +56,7 @@ public class TestHiveConfig
                 .setRecursiveDirWalkerEnabled(false)
                 .setIgnoreAbsentPartitions(false)
                 .setHiveStorageFormat(HiveStorageFormat.ORC)
-                .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
+                .setHiveCompressionCodec(HiveCompressionCodec.ZSTD)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
                 .setCreateEmptyBucketFiles(true)
