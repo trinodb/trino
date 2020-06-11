@@ -32,7 +32,6 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.connector.system.jdbc.FilterUtil.emptyOrEquals;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
@@ -85,8 +84,8 @@ public class TableJdbcTable
         Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
         Optional<String> typeFilter = tryGetSingleVarcharValue(constraint, 3);
 
-        boolean includeTables = emptyOrEquals(typeFilter, "TABLE");
-        boolean includeViews = emptyOrEquals(typeFilter, "VIEW");
+        boolean includeTables = typeFilter.map("TABLE"::equals.orElse(true);
+        boolean includeViews = typeFilter.map("VIEW"::equals.orElse(true);
         Builder table = InMemoryRecordSet.builder(METADATA);
 
         if (!includeTables && !includeViews) {

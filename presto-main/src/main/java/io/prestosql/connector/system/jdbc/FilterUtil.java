@@ -49,9 +49,4 @@ public final class FilterUtil
         }
         return new QualifiedTablePrefix(catalog);
     }
-
-    public static <T> boolean emptyOrEquals(Optional<T> value, T other)
-    {
-        return value.isEmpty() || value.get().equals(other);
-    }
 }
