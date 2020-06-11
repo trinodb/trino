@@ -45,6 +45,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
@@ -53,7 +54,6 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
-import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class DynamicFilterService
@@ -115,7 +115,7 @@ public class DynamicFilterService
                 tasks.stream()
                         .map(taskInfo -> taskInfo.getTaskStatus().getDynamicFilterDomains())
                         .flatMap(taskDomains -> taskDomains.entrySet().stream())
-                        .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())))
+                        .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toImmutableList())))
                         .entrySet().stream()
                         // check if all tasks of a dynamic filter source have reported dynamic filter summary
                         .filter(stageDomains -> stageDomains.getValue().size() == tasks.size())
