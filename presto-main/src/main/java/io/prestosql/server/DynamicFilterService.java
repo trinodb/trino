@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
@@ -47,6 +48,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -62,6 +64,7 @@ public class DynamicFilterService
 
     @GuardedBy("this")
     private final Map<QueryId, Supplier<List<StageInfo>>> queries = new HashMap<>();
+    private final Map<QueryId, Set<SourceDescriptor>> queryDynamicFilters = new HashMap<>();
 
     private final ScheduledExecutorService collectDynamicFiltersExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DynamicFilterService"));
 
@@ -80,24 +83,32 @@ public class DynamicFilterService
     public void registerQuery(SqlQueryExecution sqlQueryExecution)
     {
         // register query only if it contains dynamic filters
-        boolean hasDynamicFilters = PlanNodeSearcher.searchFrom(sqlQueryExecution.getQueryPlan().getRoot())
-                .where(node -> node instanceof JoinNode && !((JoinNode) node).getDynamicFilters().isEmpty())
-                .matches();
-        if (hasDynamicFilters) {
-            registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getAllStages);
+        Set<String> dynamicFilters = PlanNodeSearcher.searchFrom(sqlQueryExecution.getQueryPlan().getRoot())
+                .where(JoinNode.class::isInstance)
+                .<JoinNode>findAll().stream()
+                .flatMap(node -> node.getDynamicFilters().keySet().stream())
+                .collect(toImmutableSet());
+        if (!dynamicFilters.isEmpty()) {
+            registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getAllStages, dynamicFilters);
         }
     }
 
     @VisibleForTesting
-    public synchronized void registerQuery(QueryId queryId, Supplier<List<StageInfo>> stageInfoSupplier)
+    public synchronized void registerQuery(QueryId queryId, Supplier<List<StageInfo>> stageInfoSupplier, Set<String> dynamicFilters)
     {
         queries.putIfAbsent(queryId, stageInfoSupplier);
+        queryDynamicFilters.put(
+                queryId,
+                dynamicFilters.stream()
+                        .map(dynamicFilter -> SourceDescriptor.of(queryId, dynamicFilter))
+                        .collect(toImmutableSet()));
     }
 
     public synchronized void removeQuery(QueryId queryId)
     {
         dynamicFilterSummaries.keySet().removeIf(sourceDescriptor -> sourceDescriptor.getQueryId().equals(queryId));
         queries.remove(queryId);
+        queryDynamicFilters.remove(queryId);
     }
 
     @VisibleForTesting
@@ -123,6 +134,11 @@ public class DynamicFilterService
                         .forEach(stageDomains -> dynamicFilterSummaries.put(
                                 SourceDescriptor.of(queryId, stageDomains.getKey()),
                                 Domain.union(stageDomains.getValue())));
+            }
+
+            // stop collecting dynamic filters for query when all dynamic filters have been collected
+            if (dynamicFilterSummaries.keySet().containsAll(queryDynamicFilters.get(queryId))) {
+                queries.remove(queryId);
             }
         }
     }
