@@ -56,7 +56,7 @@ public abstract class AbstractWindowFunctionSupplier
     }
 
     @Override
-    public final WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lamdaProviders)
+    public final WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
     {
         requireNonNull(argumentChannels, "inputs is null");
 
@@ -70,7 +70,7 @@ public abstract class AbstractWindowFunctionSupplier
                 signature.getName(),
                 argumentChannels.size());
 
-        return newWindowFunction(argumentChannels, ignoreNulls, lamdaProviders);
+        return newWindowFunction(argumentChannels, ignoreNulls, lambdaProviders);
     }
 
     /**
