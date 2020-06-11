@@ -942,6 +942,8 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
+.. _hive-procedures:
+
 Procedures
 ----------
 
