@@ -201,9 +201,6 @@ public class DynamicFilterService
 
     private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(String filterId, Domain summary, Map<String, ColumnHandle> sourceColumnHandles)
     {
-        if (summary.isNone()) {
-            return TupleDomain.none();
-        }
         ColumnHandle sourceColumnHandle = requireNonNull(sourceColumnHandles.get(filterId), () -> format("Source column handle for dynamic filter %s is null", filterId));
         return TupleDomain.withColumnDomains(ImmutableMap.of(sourceColumnHandle, summary));
     }
