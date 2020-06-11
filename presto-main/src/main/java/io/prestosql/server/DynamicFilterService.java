@@ -115,6 +115,7 @@ public class DynamicFilterService
                 tasks.stream()
                         .map(taskInfo -> taskInfo.getTaskStatus().getDynamicFilterDomains())
                         .flatMap(taskDomains -> taskDomains.entrySet().stream())
+                        .filter(domain -> !dynamicFilterSummaries.containsKey(SourceDescriptor.of(queryId, domain.getKey())))
                         .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toImmutableList())))
                         .entrySet().stream()
                         // check if all tasks of a dynamic filter source have reported dynamic filter summary
