@@ -16,7 +16,6 @@ package io.prestosql.connector.informationschema;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
@@ -34,15 +33,10 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.EquatableValueSet;
 import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +46,6 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -65,6 +58,7 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.TA
 import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
+import static io.prestosql.plugin.base.DomainUtils.extractStringValues;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
@@ -226,7 +220,7 @@ public class InformationSchemaMetadata
             return ImmutableSet.of();
         }
 
-        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
+        Optional<Set<String>> catalogs = extractStringValues(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
         if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
             return ImmutableSet.of();
         }
@@ -260,7 +254,7 @@ public class InformationSchemaMetadata
             return Optional.empty();
         }
 
-        Optional<Set<String>> roles = filterString(constraint, ROLE_NAME_COLUMN_HANDLE);
+        Optional<Set<String>> roles = extractStringValues(constraint, ROLE_NAME_COLUMN_HANDLE);
         if (roles.isPresent()) {
             Set<String> result = roles.get().stream()
                     .filter(this::isLowerCase)
@@ -295,7 +289,7 @@ public class InformationSchemaMetadata
             return Optional.empty();
         }
 
-        Optional<Set<String>> grantees = filterString(constraint, GRANTEE_COLUMN_HANDLE);
+        Optional<Set<String>> grantees = extractStringValues(constraint, GRANTEE_COLUMN_HANDLE);
         if (grantees.isEmpty()) {
             return Optional.empty();
         }
@@ -317,7 +311,7 @@ public class InformationSchemaMetadata
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
-        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
+        Optional<Set<String>> schemas = extractStringValues(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
                     .filter(this::isLowerCase)
@@ -345,7 +339,7 @@ public class InformationSchemaMetadata
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
+        Optional<Set<String>> tables = extractStringValues(constraint, TABLE_NAME_COLUMN_HANDLE);
         if (tables.isPresent()) {
             return prefixes.stream()
                     .peek(prefix -> verify(prefix.asQualifiedObjectName().isEmpty()))
@@ -383,43 +377,6 @@ public class InformationSchemaMetadata
     {
         return metadata.listSchemaNames(session, catalogName).stream()
                 .map(schema -> new QualifiedTablePrefix(catalogName, schema));
-    }
-
-    private <T> Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)
-    {
-        if (constraint.isNone()) {
-            return Optional.of(ImmutableSet.of());
-        }
-
-        Domain domain = constraint.getDomains().get().get(column);
-        if (domain == null) {
-            return Optional.empty();
-        }
-
-        if (domain.isSingleValue()) {
-            return Optional.of(ImmutableSet.of(((Slice) domain.getSingleValue()).toStringUtf8()));
-        }
-        if (domain.getValues() instanceof EquatableValueSet) {
-            Collection<Object> values = ((EquatableValueSet) domain.getValues()).getValues();
-            return Optional.of(values.stream()
-                    .map(Slice.class::cast)
-                    .map(Slice::toStringUtf8)
-                    .collect(toImmutableSet()));
-        }
-        if (domain.getValues() instanceof SortedRangeSet) {
-            ImmutableSet.Builder<String> result = ImmutableSet.builder();
-            for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-                checkState(!range.isAll()); // Already checked
-                if (!range.isSingleValue()) {
-                    return Optional.empty();
-                }
-
-                result.add(((Slice) range.getSingleValue()).toStringUtf8());
-            }
-
-            return Optional.of(result.build());
-        }
-        return Optional.empty();
     }
 
     private Map<ColumnHandle, NullableValue> schemaAsFixedValues(String schema)
