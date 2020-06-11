@@ -112,12 +112,11 @@ public class DynamicFilterService
                     continue;
                 }
                 List<TaskInfo> tasks = stageInfo.getTasks();
-                Map<String, List<Domain>> stageDynamicFilterDomains = tasks.stream()
+                tasks.stream()
                         .map(taskInfo -> taskInfo.getTaskStatus().getDynamicFilterDomains())
                         .flatMap(taskDomains -> taskDomains.entrySet().stream())
-                        .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
-
-                stageDynamicFilterDomains.entrySet().stream()
+                        .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())))
+                        .entrySet().stream()
                         // check if all tasks of a dynamic filter source have reported dynamic filter summary
                         .filter(stageDomains -> stageDomains.getValue().size() == tasks.size())
                         .forEach(stageDomains -> dynamicFilterSummaries.put(
