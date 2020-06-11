@@ -13,31 +13,13 @@
  */
 package io.prestosql.connector.system.jdbc;
 
-import io.airlift.slice.Slice;
 import io.prestosql.metadata.QualifiedTablePrefix;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 
 public final class FilterUtil
 {
     private FilterUtil() {}
-
-    public static <T> Optional<String> tryGetSingleVarcharValue(TupleDomain<T> constraint, T index)
-    {
-        if (constraint.isNone()) {
-            return Optional.empty();
-        }
-
-        Domain domain = constraint.getDomains().get().get(index);
-        if ((domain == null) || !domain.isSingleValue()) {
-            return Optional.empty();
-        }
-
-        Object value = domain.getSingleValue();
-        return Optional.of(((Slice) value).toStringUtf8());
-    }
 
     public static QualifiedTablePrefix tablePrefix(String catalog, Optional<String> schema, Optional<String> table)
     {

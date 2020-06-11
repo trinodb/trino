@@ -38,7 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
-import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.prestosql.plugin.base.DomainUtils.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;

@@ -81,4 +81,19 @@ public class DomainUtils
         }
         return Optional.empty();
     }
+
+    public static <T> Optional<String> tryGetSingleVarcharValue(TupleDomain<T> constraint, T index)
+    {
+        if (constraint.isNone()) {
+            return Optional.empty();
+        }
+
+        Domain domain = constraint.getDomains().get().get(index);
+        if ((domain == null) || !domain.isSingleValue()) {
+            return Optional.empty();
+        }
+
+        Object value = domain.getSingleValue();
+        return Optional.of(((Slice) value).toStringUtf8());
+    }
 }

@@ -30,7 +30,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
-import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.prestosql.plugin.base.DomainUtils.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;

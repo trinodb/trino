@@ -61,7 +61,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
-import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.prestosql.plugin.base.DomainUtils.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
