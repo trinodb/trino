@@ -166,11 +166,6 @@ public class DynamicFilterService
             return queryId;
         }
 
-        public String getFilterId()
-        {
-            return filterId;
-        }
-
         @Override
         public boolean equals(Object other)
         {
