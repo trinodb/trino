@@ -127,4 +127,10 @@ public final class ElasticsearchTableHandle
     {
         return Objects.hash(type, schema, index, constraint, query, limit);
     }
+
+    @Override
+    public String toString()
+    {
+        return type + ":" + index;
+    }
 }
