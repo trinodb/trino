@@ -32,8 +32,15 @@ public class JdbcRecordSet
     private final List<Type> columnTypes;
     private final JdbcSplit split;
     private final ConnectorSession session;
+    private final JdbcRecordCursorFactory cursorFactory;
 
-    public JdbcRecordSet(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordSet(
+            JdbcClient jdbcClient,
+            ConnectorSession session,
+            JdbcSplit split,
+            JdbcTableHandle table,
+            List<JdbcColumnHandle> columnHandles,
+            JdbcRecordCursorFactory cursorFactory)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.split = requireNonNull(split, "split is null");
@@ -46,6 +53,7 @@ public class JdbcRecordSet
         }
         this.columnTypes = types.build();
         this.session = requireNonNull(session, "session is null");
+        this.cursorFactory = requireNonNull(cursorFactory, "cursorFactory is null");
     }
 
     @Override
@@ -57,6 +65,6 @@ public class JdbcRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, session, split, table, columnHandles);
+        return cursorFactory.create(jdbcClient, session, split, table, columnHandles);
     }
 }

@@ -163,6 +163,6 @@ public class TestJdbcRecordSet
 
     private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcRecordSet(jdbcClient, SESSION, split, table, columnHandles);
+        return new JdbcRecordSet(jdbcClient, SESSION, split, table, columnHandles, new DefaultJdbcRecordCursorFactory());
     }
 }

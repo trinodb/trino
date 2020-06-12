@@ -33,11 +33,13 @@ public class JdbcRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final JdbcClient jdbcClient;
+    private final JdbcRecordCursorFactory cursorFactory;
 
     @Inject
-    public JdbcRecordSetProvider(JdbcClient jdbcClient)
+    public JdbcRecordSetProvider(JdbcClient jdbcClient, JdbcRecordCursorFactory cursorFactory)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.cursorFactory = requireNonNull(cursorFactory, "cursorFactory is null");
     }
 
     @Override
@@ -58,6 +60,6 @@ public class JdbcRecordSetProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
+        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, jdbcTable, handles.build(), cursorFactory);
     }
 }

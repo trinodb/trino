@@ -83,7 +83,7 @@ public class TestJdbcRecordSetProvider
     public void testGetRecordSet()
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
+        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, new DefaultJdbcRecordCursorFactory());
         RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
@@ -191,7 +191,7 @@ public class TestJdbcRecordSetProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
+        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, new DefaultJdbcRecordCursorFactory());
         RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, jdbcTableHandle, columns);
 
         return recordSet.cursor();

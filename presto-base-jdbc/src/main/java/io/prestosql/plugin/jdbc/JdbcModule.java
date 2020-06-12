@@ -50,6 +50,7 @@ public class JdbcModule
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcRecordCursorFactory.class).setDefault().to(DefaultJdbcRecordCursorFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
