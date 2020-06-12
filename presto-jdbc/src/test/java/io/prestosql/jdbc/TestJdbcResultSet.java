@@ -210,6 +210,18 @@ public class TestJdbcResultSet
 //            ...
 //        });
 
+        // distant past, but apparently not an uncommon value in practice; on this date Julian and Gregorian calendars should be in sync, but they appear not to be
+        checkRepresentation("TIMESTAMP '0001-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
+        });
+
+        // distant past, before Julian-Gregorian calendar "default cut-over", but after 0001-01-01 when Julian and Gregorian calendars are supposed to be in sync
+        checkRepresentation("TIMESTAMP '1300-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1300, 1, 1, 0, 0, 0)));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1300, 1, 1, 0, 0, 0)));
+        });
+
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
             assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
             assertThrows(() -> rs.getDate(column));
