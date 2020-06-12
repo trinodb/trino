@@ -114,6 +114,7 @@ import io.prestosql.operator.scalar.JoniRegexpFunctions;
 import io.prestosql.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.prestosql.operator.scalar.JsonFunctions;
 import io.prestosql.operator.scalar.JsonOperators;
+import io.prestosql.operator.scalar.LuhnCheckFunction;
 import io.prestosql.operator.scalar.MapCardinalityFunction;
 import io.prestosql.operator.scalar.MapDistinctFromOperator;
 import io.prestosql.operator.scalar.MapEntriesFunction;
@@ -537,6 +538,7 @@ public class FunctionRegistry
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharOperators.class)
+                .scalars(LuhnCheckFunction.class)
                 .scalar(CharOperators.CharDistinctFromOperator.class)
                 .scalar(DecimalOperators.Negation.class)
                 .scalar(DecimalOperators.HashCode.class)
