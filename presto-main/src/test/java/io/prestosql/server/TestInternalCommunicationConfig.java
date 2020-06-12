@@ -32,6 +32,7 @@ public class TestInternalCommunicationConfig
     {
         assertRecordedDefaults(recordDefaults(InternalCommunicationConfig.class)
                 .setSharedSecret(null)
+                .setInternalJwtEnabled(true)
                 .setHttpsRequired(false)
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
@@ -48,6 +49,7 @@ public class TestInternalCommunicationConfig
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("internal-communication.shared-secret", "secret")
+                .put("internal-communication.jwt.enabled", "false")
                 .put("internal-communication.https.required", "true")
                 .put("internal-communication.https.keystore.path", keystoreFile.toString())
                 .put("internal-communication.https.keystore.key", "key-key")
@@ -57,6 +59,7 @@ public class TestInternalCommunicationConfig
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
                 .setSharedSecret("secret")
+                .setInternalJwtEnabled(false)
                 .setHttpsRequired(true)
                 .setKeyStorePath(keystoreFile.toString())
                 .setKeyStorePassword("key-key")

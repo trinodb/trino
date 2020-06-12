@@ -41,13 +41,17 @@ public class InternalAuthenticationManager
 
     private static final String PRESTO_INTERNAL_BEARER = "X-Presto-Internal-Bearer";
 
+    private final boolean internalJwtEnabled;
     private final byte[] hmac;
     private final String nodeId;
 
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
     {
-        this(getSharedSecret(internalCommunicationConfig, nodeInfo), nodeInfo.getNodeId());
+        this(
+                getSharedSecret(internalCommunicationConfig, nodeInfo),
+                nodeInfo.getNodeId(),
+                internalCommunicationConfig.isInternalJwtEnabled());
     }
 
     private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
@@ -64,11 +68,17 @@ public class InternalAuthenticationManager
         return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
     }
 
-    public InternalAuthenticationManager(String sharedSecret, String nodeId)
+    public InternalAuthenticationManager(String sharedSecret, String nodeId, boolean internalJwtEnabled)
     {
         requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
-        this.hmac = Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes();
+        this.internalJwtEnabled = internalJwtEnabled;
+        if (internalJwtEnabled) {
+            this.hmac = Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes();
+        }
+        else {
+            this.hmac = null;
+        }
         this.nodeId = nodeId;
     }
 
@@ -79,6 +89,11 @@ public class InternalAuthenticationManager
 
     public Principal authenticateInternalRequest(HttpServletRequest request)
     {
+        if (!internalJwtEnabled) {
+            log.debug("Internal authentication is not enabled");
+            return null;
+        }
+
         String internalBarer = request.getHeader(PRESTO_INTERNAL_BEARER);
         try {
             String subject = parseJwt(internalBarer);
@@ -96,6 +111,10 @@ public class InternalAuthenticationManager
     @Override
     public Request filterRequest(Request request)
     {
+        if (!internalJwtEnabled) {
+            return request;
+        }
+
         return fromRequest(request)
                 .addHeader(PRESTO_INTERNAL_BEARER, generateJwt())
                 .build();
