@@ -48,8 +48,6 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestJdbcRecordSetProvider
 {
-    private static final JdbcIdentity IDENTITY = JdbcIdentity.from(SESSION);
-
     private TestingDatabase database;
     private JdbcClient jdbcClient;
     private JdbcSplit split;
