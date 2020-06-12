@@ -260,6 +260,7 @@ M
 N
 
 - :func:`nan`
+- :func:`next_day`
 - :func:`ngrams`
 - :func:`none_match`
 - :func:`normal_cdf`
