@@ -37,6 +37,9 @@ including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 Many distributed storage systems including HDFS, Amazon S3, Google Cloud Storage,
 Azure Storage, and S3 compatible systems are supported.
 
+The coordinator and all workers must have network access to the Hive metastore
+and the storage system.
+
 Supported File Types
 --------------------
 
