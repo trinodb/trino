@@ -29,8 +29,11 @@ Authentication
 --------------
 
 You can override your username with the ``--user`` option. It defaults to your
-operating system username. If your Presto server requires password authentication,
-use the ``--password`` option to have the CLI prompt for a password.
+operating system username. If your Presto server requires password
+authentication, use the ``--password`` option to have the CLI prompt for a
+password. You can set the ``PRESTO_PASSWORD`` environment variable with the
+password value to avoid the prompt.
+
 Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
 
