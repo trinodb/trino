@@ -1073,4 +1073,23 @@ public class TestStringFunctions
         assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
         assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
     }
+
+    @Test
+    public void testSoundex()
+    {
+        assertFunction("soundex('jim')", VARCHAR, "J500");
+        assertFunction("soundex('jIM')", VARCHAR, "J500");
+        assertFunction("soundex('JIM')", VARCHAR, "J500");
+        assertFunction("soundex('Jim')", VARCHAR, "J500");
+        assertFunction("soundex('John')", VARCHAR, "J500");
+        assertFunction("soundex('johannes')", VARCHAR, "J520");
+        assertFunction("soundex('Sarah')", VARCHAR, "S600");
+        assertFunction("soundex(null)", VARCHAR, null);
+        assertFunction("soundex('')", VARCHAR, "");
+        assertFunction("soundex('123')", VARCHAR, "");
+        assertFunction("soundex('\uD83D\uDE80')", VARCHAR, "");
+        assertFunction("soundex('j~im')", VARCHAR, "J500");
+        assertInvalidFunction("soundex('jąmes')", "The character is not mapped: Ą (index=195)");
+        assertFunction("soundex('x123')", VARCHAR, "X000");
+    }
 }
