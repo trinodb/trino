@@ -84,10 +84,11 @@ public class DynamicFilterService
     public void registerQuery(SqlQueryExecution sqlQueryExecution)
     {
         // register query only if it contains dynamic filters
-        Set<String> dynamicFilters = PlanNodeSearcher.searchFrom(sqlQueryExecution.getQueryPlan().getRoot())
+        Set<SourceDescriptor> dynamicFilters = PlanNodeSearcher.searchFrom(sqlQueryExecution.getQueryPlan().getRoot())
                 .where(JoinNode.class::isInstance)
                 .<JoinNode>findAll().stream()
                 .flatMap(node -> node.getDynamicFilters().keySet().stream())
+                .map(dynamicFilter -> SourceDescriptor.of(sqlQueryExecution.getQueryId(), dynamicFilter))
                 .collect(toImmutableSet());
         if (!dynamicFilters.isEmpty()) {
             registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getAllStages, dynamicFilters);
@@ -95,14 +96,10 @@ public class DynamicFilterService
     }
 
     @VisibleForTesting
-    public synchronized void registerQuery(QueryId queryId, Supplier<List<StageInfo>> stageInfoSupplier, Set<String> dynamicFilters)
+    synchronized void registerQuery(QueryId queryId, Supplier<List<StageInfo>> stageInfoSupplier, Set<SourceDescriptor> dynamicFilters)
     {
         queries.putIfAbsent(queryId, stageInfoSupplier);
-        queryDynamicFilters.put(
-                queryId,
-                dynamicFilters.stream()
-                        .map(dynamicFilter -> SourceDescriptor.of(queryId, dynamicFilter))
-                        .collect(toImmutableSet()));
+        queryDynamicFilters.put(queryId, dynamicFilters);
     }
 
     public synchronized void removeQuery(QueryId queryId)
@@ -113,10 +110,11 @@ public class DynamicFilterService
     }
 
     @VisibleForTesting
-    public synchronized void collectDynamicFilters()
+    public void collectDynamicFilters()
     {
-        for (Map.Entry<QueryId, Supplier<List<StageInfo>>> entry : queries.entrySet()) {
+        for (Map.Entry<QueryId, Supplier<List<StageInfo>>> entry : getQueries().entrySet()) {
             QueryId queryId = entry.getKey();
+            ImmutableMap.Builder<SourceDescriptor, Domain> newDynamicFiltersBuilder = ImmutableMap.builder();
             for (StageInfo stageInfo : entry.getValue().get()) {
                 StageState stageState = stageInfo.getState();
                 // wait until stage has finished scheduling tasks
@@ -132,14 +130,14 @@ public class DynamicFilterService
                         .entrySet().stream()
                         // check if all tasks of a dynamic filter source have reported dynamic filter summary
                         .filter(stageDomains -> stageDomains.getValue().size() == tasks.size())
-                        .forEach(stageDomains -> dynamicFilterSummaries.put(
+                        .forEach(stageDomains -> newDynamicFiltersBuilder.put(
                                 SourceDescriptor.of(queryId, stageDomains.getKey()),
                                 Domain.union(stageDomains.getValue())));
             }
 
-            // stop collecting dynamic filters for query when all dynamic filters have been collected
-            if (dynamicFilterSummaries.keySet().containsAll(queryDynamicFilters.get(queryId))) {
-                queries.remove(queryId);
+            Map<SourceDescriptor, Domain> newDynamicFilters = newDynamicFiltersBuilder.build();
+            if (!newDynamicFilters.isEmpty()) {
+                addDynamicFilters(queryId, newDynamicFiltersBuilder.build());
             }
         }
     }
@@ -162,6 +160,26 @@ public class DynamicFilterService
         return Optional.ofNullable(dynamicFilterSummaries.get(SourceDescriptor.of(queryId, filterId)));
     }
 
+    private synchronized Map<QueryId, Supplier<List<StageInfo>>> getQueries()
+    {
+        return ImmutableMap.copyOf(queries);
+    }
+
+    private synchronized void addDynamicFilters(QueryId queryId, Map<SourceDescriptor, Domain> dynamicFilters)
+    {
+        // query might have been removed while we collected dynamic filters asynchronously
+        if (!queries.containsKey(queryId)) {
+            return;
+        }
+
+        dynamicFilterSummaries.putAll(dynamicFilters);
+
+        // stop collecting dynamic filters for query when all dynamic filters have been collected
+        if (dynamicFilterSummaries.keySet().containsAll(queryDynamicFilters.get(queryId))) {
+            queries.remove(queryId);
+        }
+    }
+
     private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(String filterId, Domain summary, Map<String, ColumnHandle> sourceColumnHandles)
     {
         ColumnHandle sourceColumnHandle = requireNonNull(sourceColumnHandles.get(filterId), () -> format("Source column handle for dynamic filter %s is null", filterId));
@@ -177,7 +195,8 @@ public class DynamicFilterService
     }
 
     @Immutable
-    private static class SourceDescriptor
+    @VisibleForTesting
+    static class SourceDescriptor
     {
         private final QueryId queryId;
         private final String filterId;
