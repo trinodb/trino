@@ -19,7 +19,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -35,7 +38,7 @@ public class TestSqlServerIntegrationSmokeTest
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createSqlServerQueryRunner(sqlServer, ORDERS);
+        return createSqlServerQueryRunner(sqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)

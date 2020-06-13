@@ -15,6 +15,7 @@ package io.prestosql.server.security;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -81,7 +82,7 @@ public class JsonWebTokenConfig
         return this;
     }
 
-    public Optional<File> getUserMappingFile()
+    public Optional<@FileExists File> getUserMappingFile()
     {
         return userMappingFile;
     }

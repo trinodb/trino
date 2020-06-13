@@ -15,6 +15,7 @@ package io.prestosql.plugin.atop;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -54,6 +55,7 @@ public class AtopConnectorConfig
     }
 
     @NotNull
+    @FileExists
     public String getExecutablePath()
     {
         return executablePath;

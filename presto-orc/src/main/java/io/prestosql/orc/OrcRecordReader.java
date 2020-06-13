@@ -552,8 +552,7 @@ public class OrcRecordReader
             throws OrcCorruptionException
     {
         ColumnReader[] columnReaders = new ColumnReader[columns.size()];
-        for (int i = 0; i < columns.size(); i++) {
-            int columnIndex = i;
+        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
             OrcReader.ProjectedLayout projectedLayout = readLayouts.get(columnIndex);

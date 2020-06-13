@@ -116,10 +116,8 @@ public class TestDynamicFilter
                         node(
                                 JoinNode.class,
                                 anyTree(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
-                                                .with(numberOfDynamicFilters(1))),
+                                        project(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }

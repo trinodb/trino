@@ -1076,7 +1076,7 @@ public final class DateTimeFunctions
     // By adding this difference to instance that we would like to convert to other TZ, we can
     // get exact value of utcMillis for current session start time.
     // Silent assumption is made, that no changes in TZ offsets were done on 1970-01-01.
-    private static long valueToSessionTimeZoneOffsetDiff(long millisUtcSessionStart, DateTimeZone timeZone)
+    public static long valueToSessionTimeZoneOffsetDiff(long millisUtcSessionStart, DateTimeZone timeZone)
     {
         return timeZone.getOffset(0) - timeZone.getOffset(millisUtcSessionStart);
     }

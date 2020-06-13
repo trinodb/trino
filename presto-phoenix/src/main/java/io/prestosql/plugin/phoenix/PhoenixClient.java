@@ -312,7 +312,7 @@ public class PhoenixClient
                 arrayWriteFunction(session, arrayType.getElementType(), elementJdbcTypeName));
     }
 
-    private static ObjectReadFunction<Block> arrayReadFunction(ConnectorSession session, Type elementType)
+    private static ObjectReadFunction arrayReadFunction(ConnectorSession session, Type elementType)
     {
         return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             Object[] objectArray = toBoxedArray(resultSet.getArray(columnIndex).getArray());
@@ -320,7 +320,7 @@ public class PhoenixClient
         });
     }
 
-    private static ObjectWriteFunction<Block> arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
+    private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             Array jdbcArray = statement.getConnection().createArrayOf(elementJdbcTypeName, getJdbcObjectArray(session, elementType, block));

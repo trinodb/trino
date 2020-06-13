@@ -126,7 +126,9 @@ import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -163,7 +165,7 @@ public class TestHiveIntegrationSmokeTest
     {
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
-                .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
+                .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
 
@@ -5916,7 +5918,7 @@ public class TestHiveIntegrationSmokeTest
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Clear table stats
-        assertUpdate(format("CALL system.drop_stats('%s', '%s', null)", TPCH_SCHEMA, tableName));
+        assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
 
         // No stats before ANALYZE
         assertQuery(
@@ -6103,8 +6105,8 @@ public class TestHiveIntegrationSmokeTest
                         "('p_bigint', null, 0.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 0.0, null, null)");
 
-        // Drop stats for the entire table (partition_values = NULL)
-        assertUpdate(format("CALL system.drop_stats('%s', '%s', NULL)", TPCH_SCHEMA, tableName));
+        // Drop stats for the entire table
+        assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1' AND p_bigint = 7)", tableName),
                 "SELECT * FROM VALUES " +
@@ -6211,8 +6213,8 @@ public class TestHiveIntegrationSmokeTest
                         "('p_bigint', null, 2.0, 0.25, null, '7', '8'), " +
                         "(null, null, null, null, 16.0, null, null)");
 
-        // Drop stats for the entire table (partition_values = NULL)
-        assertUpdate(format("CALL system.drop_stats('%s', '%s', NULL)", TPCH_SCHEMA, tableName));
+        // Drop stats for the entire table
+        assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
 
         // All table stats are gone
         assertQuery(

@@ -16,6 +16,7 @@ package io.prestosql.plugin.bigquery;
 import com.google.auth.oauth2.GoogleCredentials;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
@@ -71,7 +72,7 @@ public class BigQueryConfig
         return this;
     }
 
-    public Optional<String> getCredentialsFile()
+    public Optional<@FileExists String> getCredentialsFile()
     {
         return credentialsFile;
     }

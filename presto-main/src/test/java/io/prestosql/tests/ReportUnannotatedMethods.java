@@ -92,6 +92,10 @@ public class ReportUnannotatedMethods
                         // testng annotation (@Test, @Before*, @DataProvider, etc.)
                         return true;
                     }
+                    if ("io.prestosql.tempto".equals(annotationClass.getPackage().getName())) {
+                        // tempto annotation (@BeforeTestWithContext, @AfterTestWithContext)
+                        return true;
+                    }
                     return false;
                 });
     }

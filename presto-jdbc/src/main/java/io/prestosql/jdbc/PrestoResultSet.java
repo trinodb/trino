@@ -52,13 +52,16 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -296,7 +299,10 @@ public class PrestoResultSet
         }
 
         try {
-            return new Date(DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+            long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
+            return Date.valueOf(Instant.ofEpochMilli(millis)
+                    .atZone(ZoneOffset.UTC)
+                    .toLocalDate());
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Invalid date from server: " + value, e);
@@ -344,10 +350,10 @@ public class PrestoResultSet
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException
     {
-        return getTimestamp(columnIndex, sessionTimeZone);
+        return getTimestamp(columnIndex, Optional.empty());
     }
 
-    private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
+    private Timestamp getTimestamp(int columnIndex, Optional<DateTimeZone> localTimeZone)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -1229,7 +1235,7 @@ public class PrestoResultSet
     public Timestamp getTimestamp(int columnIndex, Calendar cal)
             throws SQLException
     {
-        return getTimestamp(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
+        return getTimestamp(columnIndex, Optional.of(DateTimeZone.forTimeZone(cal.getTimeZone())));
     }
 
     @Override
@@ -1952,7 +1958,7 @@ public class PrestoResultSet
         return list.build();
     }
 
-    private static Timestamp parseTimestamp(String value, DateTimeZone localTimeZone)
+    private static Timestamp parseTimestamp(String value, Optional<DateTimeZone> localTimeZone)
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") != null) {
@@ -1974,12 +1980,21 @@ public class PrestoResultSet
             fractionValue = Long.parseLong(fraction);
         }
 
-        long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
-                .atZone(ZoneId.of(localTimeZone.getID()))
+        int nanos = (int) rescale(fractionValue, precision, 9);
+        LocalDateTime dateTime = LocalDateTime.of(year, month, day, hour, minute, second, 0);
+
+        if (!localTimeZone.isPresent()) {
+            Timestamp timestamp = Timestamp.valueOf(dateTime);
+            timestamp.setNanos(nanos);
+            return timestamp;
+        }
+
+        long epochSecond = dateTime
+                .atZone(ZoneId.of(localTimeZone.get().getID()))
                 .toEpochSecond();
 
         Timestamp timestamp = new Timestamp(epochSecond * 1000);
-        timestamp.setNanos((int) rescale(fractionValue, precision, 9));
+        timestamp.setNanos(nanos);
         return timestamp;
     }
 

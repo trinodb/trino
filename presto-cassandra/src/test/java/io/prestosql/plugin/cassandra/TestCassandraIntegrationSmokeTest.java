@@ -57,7 +57,10 @@ import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.QueryAssertions.assertContainsEventually;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -84,7 +87,7 @@ public class TestCassandraIntegrationSmokeTest
         server = new CassandraServer();
         session = server.getSession();
         createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
-        return createCassandraQueryRunner(server, ORDERS);
+        return createCassandraQueryRunner(server, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)

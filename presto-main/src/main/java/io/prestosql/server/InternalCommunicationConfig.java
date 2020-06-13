@@ -16,6 +16,7 @@ package io.prestosql.server;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
@@ -62,6 +63,7 @@ public class InternalCommunicationConfig
         return this;
     }
 
+    @FileExists
     public String getKeyStorePath()
     {
         return keyStorePath;
@@ -87,6 +89,7 @@ public class InternalCommunicationConfig
         return this;
     }
 
+    @FileExists
     public String getTrustStorePath()
     {
         return trustStorePath;

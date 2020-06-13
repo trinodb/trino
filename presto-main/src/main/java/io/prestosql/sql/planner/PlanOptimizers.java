@@ -98,6 +98,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneSortColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSpatialJoinChildrenColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneSpatialJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneTableWriterSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneTopNRowNumberColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnionColumns;
@@ -106,6 +107,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneUnnestColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnnestSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
+import io.prestosql.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDeleteIntoConnector;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
@@ -304,6 +306,7 @@ public class PlanOptimizers
                 new PruneSpatialJoinChildrenColumns(),
                 new PruneSpatialJoinColumns(),
                 new PruneTableScanColumns(metadata),
+                new PruneTableWriterSourceColumns(),
                 new PruneTopNColumns(),
                 new PruneTopNRowNumberColumns(),
                 new PruneUnionColumns(),
@@ -508,6 +511,7 @@ public class PlanOptimizers
                                 .add(new PushLimitIntoTableScan(metadata))
                                 .add(new PushPredicateIntoTableScan(metadata, typeAnalyzer))
                                 .add(new PushSampleIntoTableScan(metadata))
+                                .add(new PushAggregationIntoTableScan(metadata))
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,

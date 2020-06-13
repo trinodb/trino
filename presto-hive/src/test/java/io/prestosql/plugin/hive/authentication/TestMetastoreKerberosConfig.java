@@ -16,6 +16,9 @@ package io.prestosql.plugin.hive.authentication;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -35,17 +38,20 @@ public class TestMetastoreKerberosConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path clientKeytabFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.service.principal", "hive/_HOST@EXAMPLE.COM")
                 .put("hive.metastore.client.principal", "metastore@EXAMPLE.COM")
-                .put("hive.metastore.client.keytab", "/tmp/metastore.keytab")
+                .put("hive.metastore.client.keytab", clientKeytabFile.toString())
                 .build();
 
         MetastoreKerberosConfig expected = new MetastoreKerberosConfig()
                 .setHiveMetastoreServicePrincipal("hive/_HOST@EXAMPLE.COM")
                 .setHiveMetastoreClientPrincipal("metastore@EXAMPLE.COM")
-                .setHiveMetastoreClientKeytab("/tmp/metastore.keytab");
+                .setHiveMetastoreClientKeytab(clientKeytabFile.toString());
 
         assertFullMapping(properties, expected);
     }

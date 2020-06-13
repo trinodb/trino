@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
@@ -36,7 +37,8 @@ public class ThriftMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(ThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
+                .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);

@@ -26,8 +26,11 @@ import javax.ws.rs.core.MediaType;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static io.prestosql.server.ThreadResource.Info.byName;
 
@@ -40,16 +43,22 @@ public class ThreadResource
     {
         ThreadMXBean mbean = ManagementFactory.getThreadMXBean();
 
-        ImmutableList.Builder<Info> builder = ImmutableList.builder();
-        for (ThreadInfo info : mbean.getThreadInfo(mbean.getAllThreadIds(), Integer.MAX_VALUE)) {
-            builder.add(new Info(
-                    info.getThreadId(),
-                    info.getThreadName(),
-                    info.getThreadState().name(),
-                    info.getLockOwnerId() == -1 ? null : info.getLockOwnerId(),
-                    toStackTrace(info.getStackTrace())));
-        }
-        return Ordering.from(byName()).sortedCopy(builder.build());
+        List<Info> threads = Arrays.stream(mbean.getThreadInfo(mbean.getAllThreadIds(), Integer.MAX_VALUE))
+                .filter(Objects::nonNull)
+                .map(ThreadResource::toInfo)
+                .collect(Collectors.toUnmodifiableList());
+
+        return Ordering.from(byName()).sortedCopy(threads);
+    }
+
+    private static Info toInfo(ThreadInfo info)
+    {
+        return new Info(
+                info.getThreadId(),
+                info.getThreadName(),
+                info.getThreadState().name(),
+                info.getLockOwnerId() == -1 ? null : info.getLockOwnerId(),
+                toStackTrace(info.getStackTrace()));
     }
 
     private static List<StackLine> toStackTrace(StackTraceElement[] stackTrace)

@@ -88,4 +88,28 @@ public enum StageState
     {
         return failureState;
     }
+
+    public boolean canScheduleMoreTasks()
+    {
+        switch (this) {
+            case PLANNED:
+            case SCHEDULING:
+                // workers are still being added to the query
+                return true;
+            case SCHEDULING_SPLITS:
+            case SCHEDULED:
+            case RUNNING:
+            case FINISHED:
+            case CANCELED:
+                // no more workers will be added to the query
+                return false;
+            case ABORTED:
+            case FAILED:
+                // DO NOT complete a FAILED or ABORTED stage.  This will cause the
+                // stage above to finish normally, which will result in a query
+                // completing successfully when it should fail..
+                return true;
+        }
+        return true;
+    }
 }

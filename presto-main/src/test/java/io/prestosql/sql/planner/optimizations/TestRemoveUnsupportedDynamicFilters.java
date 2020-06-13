@@ -183,6 +183,41 @@ public class TestRemoveUnsupportedDynamicFilters
     }
 
     @Test
+    public void testRemoveDynamicFilterNotAboveTableScan()
+    {
+        PlanNode root = builder.output(
+                ImmutableList.of(),
+                ImmutableList.of(),
+                builder.join(
+                        INNER,
+                        builder.filter(
+                                combineConjuncts(
+                                        metadata,
+                                        expression("LINEITEM_OK > 0"),
+                                        createDynamicFilterExpression(metadata, "DF", BIGINT, ordersOrderKeySymbol.toSymbolReference())),
+                                builder.values(lineitemOrderKeySymbol)),
+                        ordersTableScanNode,
+                        ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("DF", ordersOrderKeySymbol)));
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                output(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                                filter(
+                                        expression("LINEITEM_OK > 0"),
+                                        TRUE_LITERAL,
+                                        values("LINEITEM_OK")),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))));
+    }
+
+    @Test
     public void testNestedDynamicFilterDisjunctionRewrite()
     {
         PlanNode root = builder.output(

@@ -16,7 +16,9 @@ package io.prestosql.proxy;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -38,9 +40,12 @@ public class TestJwtHandlerConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keyFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("jwt.key-file", "test.key")
+                .put("jwt.key-file", keyFile.toString())
                 .put("jwt.key-file-password", "password")
                 .put("jwt.key-id", "testkeyid")
                 .put("jwt.issuer", "testissuer")
@@ -48,7 +53,7 @@ public class TestJwtHandlerConfig
                 .build();
 
         JwtHandlerConfig expected = new JwtHandlerConfig()
-                .setJwtKeyFile(new File("test.key"))
+                .setJwtKeyFile(keyFile.toFile())
                 .setJwtKeyFilePassword("password")
                 .setJwtKeyId("testkeyid")
                 .setJwtIssuer("testissuer")

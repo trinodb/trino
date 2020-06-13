@@ -25,7 +25,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
 
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -44,7 +47,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     {
         this.postgreSqlServer = new TestingPostgreSqlServer();
         execute("CREATE EXTENSION file_fdw");
-        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS);
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
@@ -172,7 +175,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     @Test
-    public void testInsertWithFailureDoesntLeaveBehindOrphanedTable()
+    public void testInsertWithFailureDoesNotLeaveBehindOrphanedTable()
             throws Exception
     {
         String schemaName = format("tmp_schema_%s", UUID.randomUUID().toString().replaceAll("-", ""));
@@ -289,7 +292,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testColumnComment()
             throws Exception
     {
-        try (AutoCloseable ignoreTable = withTable("tpch.test_column_comment",
+        try (AutoCloseable ignore = withTable("tpch.test_column_comment",
                 "(col1 bigint, col2 bigint, col3 bigint)")) {
             execute("COMMENT ON COLUMN tpch.test_column_comment.col1 IS 'test comment'");
             execute("COMMENT ON COLUMN tpch.test_column_comment.col2 IS ''"); // it will be NULL, PostgreSQL doesn't store empty comment

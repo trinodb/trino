@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
@@ -88,7 +89,7 @@ public class PruneTableScanColumns
             handle = result.get().getHandle();
 
             Map<String, ColumnHandle> assignments = result.get().getAssignments().stream()
-                    .collect(toImmutableMap(ProjectionApplicationResult.Assignment::getVariable, ProjectionApplicationResult.Assignment::getColumn));
+                    .collect(toImmutableMap(Assignment::getVariable, Assignment::getColumn));
 
             ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
             for (int i = 0; i < newOutputs.size(); i++) {

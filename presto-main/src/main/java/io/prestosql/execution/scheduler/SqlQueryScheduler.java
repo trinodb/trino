@@ -699,27 +699,7 @@ public class SqlQueryScheduler
 
         public void processScheduleResults(StageState newState, Set<RemoteTask> newTasks)
         {
-            boolean noMoreTasks = false;
-            switch (newState) {
-                case PLANNED:
-                case SCHEDULING:
-                    // workers are still being added to the query
-                    break;
-                case SCHEDULING_SPLITS:
-                case SCHEDULED:
-                case RUNNING:
-                case FINISHED:
-                case CANCELED:
-                    // no more workers will be added to the query
-                    noMoreTasks = true;
-                case ABORTED:
-                case FAILED:
-                    // DO NOT complete a FAILED or ABORTED stage.  This will cause the
-                    // stage above to finish normally, which will result in a query
-                    // completing successfully when it should fail..
-                    break;
-            }
-
+            boolean noMoreTasks = !newState.canScheduleMoreTasks();
             // Add an exchange location to the parent stage for each new task
             parent.addExchangeLocations(currentStageFragmentId, newTasks, noMoreTasks);
 

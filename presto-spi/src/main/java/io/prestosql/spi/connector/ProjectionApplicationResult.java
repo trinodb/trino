@@ -14,7 +14,6 @@
 package io.prestosql.spi.connector;
 
 import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -46,34 +45,5 @@ public class ProjectionApplicationResult<T>
     public List<Assignment> getAssignments()
     {
         return assignments;
-    }
-
-    public static class Assignment
-    {
-        private final String variable;
-        private final ColumnHandle column;
-        private final Type type;
-
-        public Assignment(String variable, ColumnHandle column, Type type)
-        {
-            this.variable = requireNonNull(variable, "variable is null");
-            this.column = requireNonNull(column, "column is null");
-            this.type = requireNonNull(type, "type is null");
-        }
-
-        public String getVariable()
-        {
-            return variable;
-        }
-
-        public ColumnHandle getColumn()
-        {
-            return column;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
     }
 }

@@ -37,6 +37,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -71,7 +72,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntPredicate;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -85,6 +88,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static io.prestosql.plugin.hive.HivePartitionManager.partitionMatches;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
@@ -97,6 +101,7 @@ import static io.prestosql.plugin.hive.util.HiveUtil.checkCondition;
 import static io.prestosql.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.prestosql.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.prestosql.plugin.hive.util.HiveUtil.getInputFormat;
+import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.max;
@@ -119,6 +124,8 @@ public class BackgroundHiveSplitLoader
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier;
+    private final TypeManager typeManager;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -157,6 +164,8 @@ public class BackgroundHiveSplitLoader
             Table table,
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier,
+            TypeManager typeManager,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
@@ -170,6 +179,8 @@ public class BackgroundHiveSplitLoader
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
+        this.dynamicFilterSupplier = dynamicFilterSupplier;
+        this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
         this.session = session;
@@ -302,10 +313,18 @@ public class BackgroundHiveSplitLoader
     private ListenableFuture<?> loadPartition(HivePartitionMetadata partition)
             throws IOException
     {
-        String partitionName = partition.getHivePartition().getPartitionId();
+        HivePartition hivePartition = partition.getHivePartition();
+        String partitionName = hivePartition.getPartitionId();
         Properties schema = getPartitionSchema(table, partition.getPartition());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
         TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transform(HiveColumnHandle.class::cast);
+
+        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, typeManager);
+        BooleanSupplier partitionMatchSupplier = () -> partitionMatches(partitionColumns, dynamicFilterSupplier.get(), hivePartition);
+        if (!partitionMatchSupplier.getAsBoolean()) {
+            // Avoid listing files and creating splits from a partition if it has been pruned due to dynamic filters
+            return COMPLETED_FUTURE;
+        }
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
@@ -349,6 +368,7 @@ public class BackgroundHiveSplitLoader
                         schema,
                         partitionKeys,
                         effectivePredicate,
+                        partitionMatchSupplier,
                         partition.getTableToPartitionMapping(),
                         Optional.empty(),
                         isForceLocalScheduling(session),
@@ -386,6 +406,7 @@ public class BackgroundHiveSplitLoader
                 schema,
                 partitionKeys,
                 effectivePredicate,
+                partitionMatchSupplier,
                 partition.getTableToPartitionMapping(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
                 isForceLocalScheduling(session),
