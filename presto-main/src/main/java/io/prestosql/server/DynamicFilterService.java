@@ -64,6 +64,7 @@ public class DynamicFilterService
 
     @GuardedBy("this")
     private final Map<QueryId, Supplier<List<StageInfo>>> queries = new HashMap<>();
+    @GuardedBy("this")
     private final Map<QueryId, Set<SourceDescriptor>> queryDynamicFilters = new HashMap<>();
 
     private final ScheduledExecutorService collectDynamicFiltersExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DynamicFilterService"));
