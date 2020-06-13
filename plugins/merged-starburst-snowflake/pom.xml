@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>334-e-SNAPSHOT</version>
+        <version>335-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -15,6 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.thread-count>8</air.test.thread-count>
     </properties>
 
     <dependencies>
@@ -337,6 +338,8 @@
                                 <exclude>**/TestJdbcSnowflakeDistributedQueries.java</exclude>
                                 <exclude>**/TestJdbcSnowflakeIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestJdbcSnowflakeTypeMapping.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeOktaIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeOktaRoleIntegrationSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
