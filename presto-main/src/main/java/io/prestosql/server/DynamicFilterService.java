@@ -162,6 +162,20 @@ public class DynamicFilterService
         return Optional.ofNullable(dynamicFilterSummaries.get(SourceDescriptor.of(queryId, filterId)));
     }
 
+    private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(String filterId, Domain summary, Map<String, ColumnHandle> sourceColumnHandles)
+    {
+        ColumnHandle sourceColumnHandle = requireNonNull(sourceColumnHandles.get(filterId), () -> format("Source column handle for dynamic filter %s is null", filterId));
+        return TupleDomain.withColumnDomains(ImmutableMap.of(sourceColumnHandle, summary));
+    }
+
+    private static Map<String, ColumnHandle> extractSourceColumnHandles(List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+    {
+        return dynamicFilters.stream()
+                .collect(toImmutableMap(
+                        DynamicFilters.Descriptor::getId,
+                        descriptor -> columnHandles.get(Symbol.from(descriptor.getInput()))));
+    }
+
     @Immutable
     private static class SourceDescriptor
     {
@@ -214,19 +228,5 @@ public class DynamicFilterService
                     .add("filterId", filterId)
                     .toString();
         }
-    }
-
-    private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(String filterId, Domain summary, Map<String, ColumnHandle> sourceColumnHandles)
-    {
-        ColumnHandle sourceColumnHandle = requireNonNull(sourceColumnHandles.get(filterId), () -> format("Source column handle for dynamic filter %s is null", filterId));
-        return TupleDomain.withColumnDomains(ImmutableMap.of(sourceColumnHandle, summary));
-    }
-
-    private static Map<String, ColumnHandle> extractSourceColumnHandles(List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
-    {
-        return dynamicFilters.stream()
-                .collect(toImmutableMap(
-                        DynamicFilters.Descriptor::getId,
-                        descriptor -> columnHandles.get(Symbol.from(descriptor.getInput()))));
     }
 }
