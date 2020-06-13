@@ -127,18 +127,6 @@ public class TestJdbcResultSet
             assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
         });
 
-        // distant past, but apparently not an uncommon value in practice; on this date Julian and Gregorian calendars should be in sync, but they appear not to be
-        checkRepresentation("DATE '0001-01-01'", Types.DATE, (rs, column) -> {
-            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1, 1, 1)));
-            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1, 1, 1)));
-        });
-
-        // distant past, before Julian-Gregorian calendar "default cut-over", but after 0001-01-01 when Julian and Gregorian calendars are supposed to be in sync
-        checkRepresentation("DATE '1300-01-01'", Types.DATE, (rs, column) -> {
-            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1300, 1, 1)));
-            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1300, 1, 1)));
-        });
-
         checkRepresentation("TIME '09:39:05'", Types.TIME, (rs, column) -> {
             assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertThrows(() -> rs.getDate(column));
