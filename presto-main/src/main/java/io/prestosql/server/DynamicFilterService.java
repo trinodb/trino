@@ -137,7 +137,7 @@ public class DynamicFilterService
 
             Map<SourceDescriptor, Domain> newDynamicFilters = newDynamicFiltersBuilder.build();
             if (!newDynamicFilters.isEmpty()) {
-                addDynamicFilters(queryId, newDynamicFiltersBuilder.build());
+                addDynamicFilters(queryId, newDynamicFilters);
             }
         }
     }
