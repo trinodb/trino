@@ -29,6 +29,7 @@ import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.operator.TaskStats;
+import io.prestosql.server.DynamicFilterService.SourceDescriptor;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.TestingColumnHandle;
@@ -88,7 +89,7 @@ public class TestDynamicFilterService
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
         TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier();
         dynamicFiltersStageSupplier.addDynamicFilter(filterId, taskIds, "probeColumn");
-        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId));
+        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(SourceDescriptor.of(queryId, filterId)));
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -160,7 +161,13 @@ public class TestDynamicFilterService
         taskIds = ImmutableList.of(new TaskId(stageId3, 0), new TaskId(stageId3, 1));
         dynamicFiltersStageSupplier.addDynamicFilter(filterId3, taskIds, "probeColumnB");
 
-        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId1, filterId2, filterId3));
+        dynamicFilterService.registerQuery(
+                queryId,
+                dynamicFiltersStageSupplier,
+                ImmutableSet.of(
+                        SourceDescriptor.of(queryId, filterId1),
+                        SourceDescriptor.of(queryId, filterId2),
+                        SourceDescriptor.of(queryId, filterId3)));
         assertTrue(dynamicFilterSupplier.get().isAll());
 
         dynamicFiltersStageSupplier.storeSummary(
