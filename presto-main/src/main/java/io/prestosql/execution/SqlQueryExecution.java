@@ -83,6 +83,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.prestosql.execution.QueryState.STARTING;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -182,6 +183,10 @@ public class SqlQueryExecution
             this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
             stateMachine.addStateChangeListener(state -> {
+                if (!isEnableDynamicFiltering(stateMachine.getSession())) {
+                    return;
+                }
+
                 if (state == STARTING) {
                     dynamicFilterService.registerQuery(this);
                 }
