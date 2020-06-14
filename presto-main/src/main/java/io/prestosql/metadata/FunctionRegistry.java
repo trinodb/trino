@@ -140,6 +140,7 @@ import io.prestosql.operator.scalar.StringFunctions;
 import io.prestosql.operator.scalar.TryFunction;
 import io.prestosql.operator.scalar.TypeOfFunction;
 import io.prestosql.operator.scalar.UrlFunctions;
+import io.prestosql.operator.scalar.XPathFunctions;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
 import io.prestosql.operator.scalar.WilsonInterval;
 import io.prestosql.operator.scalar.WordStemFunction;
@@ -453,6 +454,7 @@ public class FunctionRegistry
                 .scalar(SplitToMultimapFunction.class)
                 .scalars(VarbinaryFunctions.class)
                 .scalars(UrlFunctions.class)
+                .scalars(XPathFunctions.class)
                 .scalars(MathFunctions.class)
                 .scalar(MathFunctions.Abs.class)
                 .scalar(MathFunctions.Sign.class)
