@@ -575,8 +575,11 @@ class Query
 
     private Column createColumn(String name, Type type)
     {
-        TypeSignature signature = type.getTypeSignature();
-        return new Column(name, type.getDisplayName(), toClientTypeSignature(signature));
+        ClientTypeSignature signature = toClientTypeSignature(type.getTypeSignature());
+
+        // TODO: the type name should be rendered by the SQL expression formatter to account for delimited field names in row types
+        // and special types such as timestamp(p) with time zone in a future version
+        return new Column(name, signature.toString(), signature);
     }
 
     private ClientTypeSignature toClientTypeSignature(TypeSignature signature)
