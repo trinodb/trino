@@ -212,20 +212,4 @@ public final class VarcharType
     {
         return Objects.hash(length);
     }
-
-    @Override
-    public String getDisplayName()
-    {
-        if (length == UNBOUNDED_LENGTH) {
-            return getBaseName();
-        }
-
-        return getTypeSignature().toString();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getDisplayName();
-    }
 }

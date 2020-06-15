@@ -166,16 +166,4 @@ public final class CharType
     {
         return Objects.hash(length);
     }
-
-    @Override
-    public String getDisplayName()
-    {
-        return getTypeSignature().toString();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getDisplayName();
-    }
 }
