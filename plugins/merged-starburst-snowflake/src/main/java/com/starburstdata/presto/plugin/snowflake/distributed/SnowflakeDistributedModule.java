@@ -30,6 +30,8 @@ import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.procedure.Procedure;
 
+import javax.inject.Provider;
+
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -76,16 +78,9 @@ class SnowflakeDistributedModule
         install(new JdbcModule(catalogName));
         install(new SnowflakeJdbcClientModule(catalogName, true));
 
-        // cleanup
-        binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
-    }
-
-    @Inject
-    @Provides
-    @Singleton
-    public ConnectorSplitManager createSplitManager(SnowflakeSplitManager snowflakeSplitManager)
-    {
-        return new ClassLoaderSafeConnectorSplitManager(snowflakeSplitManager, getClass().getClassLoader());
+        newOptionalBinder(binder, ConnectorSplitManager.class).setBinding()
+                .toProvider(ConnectorSplitManagerProvider.class)
+                .in(Scopes.SINGLETON);
     }
 
     @Inject
@@ -101,5 +96,23 @@ class SnowflakeDistributedModule
     public static ListeningExecutorService createListeningExecutorService()
     {
         return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("snowflake-%s")));
+    }
+
+    private static class ConnectorSplitManagerProvider
+            implements Provider<ConnectorSplitManager>
+    {
+        private final SnowflakeSplitManager snowflakeSplitManager;
+
+        @Inject
+        public ConnectorSplitManagerProvider(SnowflakeSplitManager snowflakeSplitManager)
+        {
+            this.snowflakeSplitManager = requireNonNull(snowflakeSplitManager, "snowflakeSplitManager is null");
+        }
+
+        @Override
+        public ConnectorSplitManager get()
+        {
+            return new ClassLoaderSafeConnectorSplitManager(snowflakeSplitManager, getClass().getClassLoader());
+        }
     }
 }
