@@ -123,6 +123,7 @@ public class OracleClient
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
     private final boolean synonymsEnabled;
+    private final int fetchSize;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BOOLEAN, oracleBooleanWriteMapping())
@@ -147,6 +148,7 @@ public class OracleClient
 
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
+        this.fetchSize = oracleConfig.getFetchSize();
     }
 
     private String[] getTableTypes()
@@ -175,7 +177,7 @@ public class OracleClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        statement.setFetchSize(fetchSize);
         return statement;
     }
 

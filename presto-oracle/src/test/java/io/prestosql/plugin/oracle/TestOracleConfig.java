@@ -35,7 +35,8 @@ public class TestOracleConfig
         assertRecordedDefaults(recordDefaults(OracleConfig.class)
                 .setSynonymsEnabled(false)
                 .setDefaultNumberScale(null)
-                .setNumberRoundingMode(RoundingMode.UNNECESSARY));
+                .setNumberRoundingMode(RoundingMode.UNNECESSARY)
+                .setFetchSize(1000));
     }
 
     @Test
@@ -45,11 +46,13 @@ public class TestOracleConfig
                 .put("oracle.synonyms.enabled", "true")
                 .put("oracle.number.default-scale", "2")
                 .put("oracle.number.rounding-mode", "CEILING")
+                .put("oracle.fetch-size", "5000")
                 .build();
 
         OracleConfig expected = new OracleConfig()
                 .setSynonymsEnabled(true)
                 .setDefaultNumberScale(2)
+                .setFetchSize(5000)
                 .setNumberRoundingMode(RoundingMode.CEILING);
 
         assertFullMapping(properties, expected);
@@ -71,5 +74,12 @@ public class TestOracleConfig
                 "defaultNumberScale",
                 "must be less than or equal to 38",
                 Max.class);
+
+        assertFailsValidation(
+                new OracleConfig()
+                        .setFetchSize(0),
+                "fetchSize",
+                "must be greater than or equal to 1",
+                Min.class);
     }
 }

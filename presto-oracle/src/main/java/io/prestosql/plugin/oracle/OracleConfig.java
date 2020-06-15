@@ -27,6 +27,7 @@ public class OracleConfig
 {
     private boolean synonymsEnabled;
     private Integer defaultNumberScale;
+    private int fetchSize = 1000;
     private RoundingMode numberRoundingMode = RoundingMode.UNNECESSARY;
 
     @NotNull
@@ -65,6 +66,19 @@ public class OracleConfig
     public OracleConfig setNumberRoundingMode(RoundingMode numberRoundingMode)
     {
         this.numberRoundingMode = numberRoundingMode;
+        return this;
+    }
+
+    @Min(1)
+    public int getFetchSize()
+    {
+        return fetchSize;
+    }
+
+    @Config("oracle.fetch-size")
+    public OracleConfig setFetchSize(int fetchSize)
+    {
+        this.fetchSize = fetchSize;
         return this;
     }
 }
