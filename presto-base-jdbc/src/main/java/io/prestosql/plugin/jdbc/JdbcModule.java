@@ -19,6 +19,9 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.procedure.Procedure;
 
 import javax.inject.Provider;
@@ -48,9 +51,9 @@ public class JdbcModule
         procedureBinder(binder);
 
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
