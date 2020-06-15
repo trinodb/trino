@@ -175,6 +175,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.prestosql.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.prestosql.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
 import static io.prestosql.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.prestosql.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -191,6 +192,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.getExternalLocation;
 import static io.prestosql.plugin.hive.HiveTableProperties.getFooterSkipCount;
 import static io.prestosql.plugin.hive.HiveTableProperties.getHeaderSkipCount;
 import static io.prestosql.plugin.hive.HiveTableProperties.getHiveStorageFormat;
+import static io.prestosql.plugin.hive.HiveTableProperties.getNullFormat;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.prestosql.plugin.hive.HiveTableProperties.getPartitionedBy;
@@ -269,6 +271,7 @@ public class HiveMetadata
 
     private static final String TEXT_FIELD_SEPARATOR_KEY = serdeConstants.FIELD_DELIM;
     private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = serdeConstants.ESCAPE_CHAR;
+    private static final String NULL_FORMAT_KEY = serdeConstants.SERIALIZATION_NULL_FORMAT;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
@@ -610,6 +613,8 @@ public class HiveMetadata
                 .ifPresent(fieldSeparator -> properties.put(TEXTFILE_FIELD_SEPARATOR, fieldSeparator));
         getSerdeProperty(table, TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
                 .ifPresent(fieldEscape -> properties.put(TEXTFILE_FIELD_SEPARATOR_ESCAPE, fieldEscape));
+        getSerdeProperty(table, NULL_FORMAT_KEY)
+                .ifPresent(nullFormat -> properties.put(NULL_FORMAT_PROPERTY, nullFormat));
 
         // CSV specific property
         getCsvSerdeProperty(table, CSV_SEPARATOR_KEY)
@@ -915,6 +920,13 @@ public class HiveMetadata
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_FOOTER_LINE_COUNT, footerSkipCount));
             }
         });
+
+        // Textfile-specific properties
+        getNullFormat(tableMetadata.getProperties())
+                .ifPresent(format -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, NULL_FORMAT_PROPERTY);
+                    tableProperties.put(NULL_FORMAT_KEY, format);
+                });
 
         getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_FIELD_SEPARATOR)
                 .ifPresent(separator -> {
