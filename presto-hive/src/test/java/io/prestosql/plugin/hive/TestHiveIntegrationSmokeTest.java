@@ -3326,6 +3326,16 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateExternalTableWithNullFormat() throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_textfile_with_null_format",
+                "hello\u0001NULL_VALUE\nNULL_VALUE\u0001123",
+                "VALUES ('hello', NULL), (NULL, 123)",
+                ImmutableList.of("null_format = 'NULL_VALUE'"));
+    }
+
+    @Test
     public void testCreateExternalTableWithDataNotAllowed()
             throws IOException
     {
@@ -3597,6 +3607,8 @@ public class TestHiveIntegrationSmokeTest
                 .hasMessageMatching("Cannot specify skip_header_line_count table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', skip_footer_line_count = 1)"))
                 .hasMessageMatching("Cannot specify skip_footer_line_count table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', null_format = 'ERROR')"))
+                .hasMessageMatching("Cannot specify null_format table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', skip_header_line_count = -1)"))
                 .hasMessageMatching("Invalid value for skip_header_line_count property: -1");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', skip_footer_line_count = -1)"))
