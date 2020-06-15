@@ -19,7 +19,6 @@ databases:
       - USE ${databases.hive.schema}
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
-    path: /user/hive/warehouse
     inject_stats_for_immutable_tables: true
     inject_stats_for_mutable_tables: true
     major_version: ${TESTS_HIVE_VERSION_MAJOR}
