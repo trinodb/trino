@@ -48,9 +48,9 @@ public class JdbcConnector
 {
     private final LifeCycleManager lifeCycleManager;
     private final JdbcMetadataFactory jdbcMetadataFactory;
-    private final JdbcSplitManager jdbcSplitManager;
-    private final JdbcRecordSetProvider jdbcRecordSetProvider;
-    private final JdbcPageSinkProvider jdbcPageSinkProvider;
+    private final ConnectorSplitManager jdbcSplitManager;
+    private final ConnectorRecordSetProvider jdbcRecordSetProvider;
+    private final ConnectorPageSinkProvider jdbcPageSinkProvider;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -61,9 +61,9 @@ public class JdbcConnector
     public JdbcConnector(
             LifeCycleManager lifeCycleManager,
             JdbcMetadataFactory jdbcMetadataFactory,
-            JdbcSplitManager jdbcSplitManager,
-            JdbcRecordSetProvider jdbcRecordSetProvider,
-            JdbcPageSinkProvider jdbcPageSinkProvider,
+            ConnectorSplitManager jdbcSplitManager,
+            ConnectorRecordSetProvider jdbcRecordSetProvider,
+            ConnectorPageSinkProvider jdbcPageSinkProvider,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
             Set<SessionPropertiesProvider> sessionProperties)
