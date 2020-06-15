@@ -182,7 +182,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.allow-drop-table")
-    @ConfigDescription("Allow hive connector to drop table")
+    @ConfigDescription("Allow cassandra connector to drop table")
     public CassandraClientConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
