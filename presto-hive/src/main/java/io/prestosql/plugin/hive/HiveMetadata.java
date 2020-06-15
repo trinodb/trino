@@ -539,26 +539,28 @@ public class HiveMetadata
 
     private ConnectorTableMetadata doGetTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
-        if (table.isEmpty() || (!translateHiveViews && isHiveOrPrestoView(table.get()))) {
+        Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        if (!translateHiveViews && isHiveOrPrestoView(table)) {
             throw new TableNotFoundException(tableName);
         }
 
-        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get());
+        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get(), typeManager)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager)) {
             columns.add(metadataGetter.apply(columnHandle));
         }
 
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        if (table.get().getTableType().equals(EXTERNAL_TABLE.name())) {
-            properties.put(EXTERNAL_LOCATION_PROPERTY, table.get().getStorage().getLocation());
+        if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
+            properties.put(EXTERNAL_LOCATION_PROPERTY, table.getStorage().getLocation());
         }
 
         // Storage format property
         try {
-            HiveStorageFormat format = extractHiveStorageFormat(table.get());
+            HiveStorageFormat format = extractHiveStorageFormat(table);
             properties.put(STORAGE_FORMAT_PROPERTY, format);
         }
         catch (PrestoException ignored) {
@@ -566,7 +568,7 @@ public class HiveMetadata
         }
 
         // Partitioning property
-        List<String> partitionedBy = table.get().getPartitionColumns().stream()
+        List<String> partitionedBy = table.getPartitionColumns().stream()
                 .map(Column::getName)
                 .collect(toList());
         if (!partitionedBy.isEmpty()) {
@@ -574,7 +576,7 @@ public class HiveMetadata
         }
 
         // Bucket properties
-        table.get().getStorage().getBucketProperty().ifPresent(property -> {
+        table.getStorage().getBucketProperty().ifPresent(property -> {
             properties.put(BUCKETING_VERSION, property.getBucketingVersion().getVersion());
             properties.put(BUCKET_COUNT_PROPERTY, property.getBucketCount());
             properties.put(BUCKETED_BY_PROPERTY, property.getBucketedBy());
@@ -582,42 +584,42 @@ public class HiveMetadata
         });
 
         // ORC format specific properties
-        String orcBloomFilterColumns = table.get().getParameters().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
+        String orcBloomFilterColumns = table.getParameters().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
         if (orcBloomFilterColumns != null) {
             properties.put(ORC_BLOOM_FILTER_COLUMNS, Splitter.on(',').trimResults().omitEmptyStrings().splitToList(orcBloomFilterColumns));
         }
-        String orcBloomFilterFfp = table.get().getParameters().get(ORC_BLOOM_FILTER_FPP_KEY);
+        String orcBloomFilterFfp = table.getParameters().get(ORC_BLOOM_FILTER_FPP_KEY);
         if (orcBloomFilterFfp != null) {
             properties.put(ORC_BLOOM_FILTER_FPP, Double.parseDouble(orcBloomFilterFfp));
         }
 
         // Avro specific property
-        String avroSchemaUrl = table.get().getParameters().get(AVRO_SCHEMA_URL_KEY);
+        String avroSchemaUrl = table.getParameters().get(AVRO_SCHEMA_URL_KEY);
         if (avroSchemaUrl != null) {
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
 
         // Textfile and CSV specific property
-        getSerdeProperty(table.get(), SKIP_HEADER_COUNT_KEY)
+        getSerdeProperty(table, SKIP_HEADER_COUNT_KEY)
                 .ifPresent(skipHeaderCount -> properties.put(SKIP_HEADER_LINE_COUNT, Integer.valueOf(skipHeaderCount)));
-        getSerdeProperty(table.get(), SKIP_FOOTER_COUNT_KEY)
+        getSerdeProperty(table, SKIP_FOOTER_COUNT_KEY)
                 .ifPresent(skipFooterCount -> properties.put(SKIP_FOOTER_LINE_COUNT, Integer.valueOf(skipFooterCount)));
 
         // Textfile specific property
-        getSerdeProperty(table.get(), TEXT_FIELD_SEPARATOR_KEY)
+        getSerdeProperty(table, TEXT_FIELD_SEPARATOR_KEY)
                 .ifPresent(fieldSeparator -> properties.put(TEXTFILE_FIELD_SEPARATOR, fieldSeparator));
-        getSerdeProperty(table.get(), TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
+        getSerdeProperty(table, TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
                 .ifPresent(fieldEscape -> properties.put(TEXTFILE_FIELD_SEPARATOR_ESCAPE, fieldEscape));
 
         // CSV specific property
-        getCsvSerdeProperty(table.get(), CSV_SEPARATOR_KEY)
+        getCsvSerdeProperty(table, CSV_SEPARATOR_KEY)
                 .ifPresent(csvSeparator -> properties.put(CSV_SEPARATOR, csvSeparator));
-        getCsvSerdeProperty(table.get(), CSV_QUOTE_KEY)
+        getCsvSerdeProperty(table, CSV_QUOTE_KEY)
                 .ifPresent(csvQuote -> properties.put(CSV_QUOTE, csvQuote));
-        getCsvSerdeProperty(table.get(), CSV_ESCAPE_KEY)
+        getCsvSerdeProperty(table, CSV_ESCAPE_KEY)
                 .ifPresent(csvEscape -> properties.put(CSV_ESCAPE, csvEscape));
 
-        Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
+        Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
     }
