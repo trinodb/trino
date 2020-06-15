@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>334-e-SNAPSHOT</version>
+        <version>336-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
