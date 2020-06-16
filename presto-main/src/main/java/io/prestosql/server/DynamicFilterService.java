@@ -27,6 +27,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
 
 import javax.annotation.PreDestroy;
@@ -144,7 +145,7 @@ public class DynamicFilterService
 
     public Supplier<TupleDomain<ColumnHandle>> createDynamicFilterSupplier(QueryId queryId, List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
     {
-        Map<String, ColumnHandle> sourceColumnHandles = extractSourceColumnHandles(dynamicFilters, columnHandles);
+        Map<DynamicFilterId, ColumnHandle> sourceColumnHandles = extractSourceColumnHandles(dynamicFilters, columnHandles);
 
         return () -> dynamicFilters.stream()
                 .map(filter -> getSummary(queryId, filter.getId())
@@ -155,7 +156,7 @@ public class DynamicFilterService
     }
 
     @VisibleForTesting
-    Optional<Domain> getSummary(QueryId queryId, String filterId)
+    Optional<Domain> getSummary(QueryId queryId, DynamicFilterId filterId)
     {
         return Optional.ofNullable(dynamicFilterSummaries.get(SourceDescriptor.of(queryId, filterId)));
     }
@@ -180,13 +181,13 @@ public class DynamicFilterService
         }
     }
 
-    private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(String filterId, Domain summary, Map<String, ColumnHandle> sourceColumnHandles)
+    private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(DynamicFilterId filterId, Domain summary, Map<DynamicFilterId, ColumnHandle> sourceColumnHandles)
     {
         ColumnHandle sourceColumnHandle = requireNonNull(sourceColumnHandles.get(filterId), () -> format("Source column handle for dynamic filter %s is null", filterId));
         return TupleDomain.withColumnDomains(ImmutableMap.of(sourceColumnHandle, summary));
     }
 
-    private static Map<String, ColumnHandle> extractSourceColumnHandles(List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+    private static Map<DynamicFilterId, ColumnHandle> extractSourceColumnHandles(List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
     {
         return dynamicFilters.stream()
                 .collect(toImmutableMap(
@@ -199,14 +200,14 @@ public class DynamicFilterService
     static class SourceDescriptor
     {
         private final QueryId queryId;
-        private final String filterId;
+        private final DynamicFilterId filterId;
 
-        public static SourceDescriptor of(QueryId queryId, String filterId)
+        public static SourceDescriptor of(QueryId queryId, DynamicFilterId filterId)
         {
             return new SourceDescriptor(queryId, filterId);
         }
 
-        private SourceDescriptor(QueryId queryId, String filterId)
+        private SourceDescriptor(QueryId queryId, DynamicFilterId filterId)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.filterId = requireNonNull(filterId, "filterId is null");

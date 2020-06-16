@@ -38,6 +38,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -527,7 +528,7 @@ public class UnaliasSymbolReferences
             Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
             Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
 
-            Map<String, Symbol> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
+            Map<DynamicFilterId, Symbol> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
 
             if (node.getType() == INNER) {
                 canonicalCriteria.stream()
@@ -736,11 +737,11 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private Map<String, Symbol> canonicalizeAndDistinct(Map<String, Symbol> dynamicFilters)
+        private Map<DynamicFilterId, Symbol> canonicalizeAndDistinct(Map<DynamicFilterId, Symbol> dynamicFilters)
         {
             Set<Symbol> added = new HashSet<>();
-            ImmutableMap.Builder<String, Symbol> builder = ImmutableMap.builder();
-            for (Map.Entry<String, Symbol> entry : dynamicFilters.entrySet()) {
+            ImmutableMap.Builder<DynamicFilterId, Symbol> builder = ImmutableMap.builder();
+            for (Map.Entry<DynamicFilterId, Symbol> entry : dynamicFilters.entrySet()) {
                 Symbol canonical = canonicalize(entry.getValue());
                 if (added.add(canonical)) {
                     builder.put(entry.getKey(), canonical);

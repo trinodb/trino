@@ -25,6 +25,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -52,23 +53,23 @@ public class LocalDynamicFilterConsumer
     private static final Logger log = Logger.get(LocalDynamicFilterConsumer.class);
 
     // Mapping from dynamic filter ID to its probe symbols.
-    private final Multimap<String, Symbol> probeSymbols;
+    private final Multimap<DynamicFilterId, Symbol> probeSymbols;
 
     // Mapping from dynamic filter ID to its build channel indices.
-    private final Map<String, Integer> buildChannels;
+    private final Map<DynamicFilterId, Integer> buildChannels;
 
     // Mapping from dynamic filter ID to its build channel type.
-    private final Map<String, Type> filterBuildTypes;
+    private final Map<DynamicFilterId, Type> filterBuildTypes;
 
-    private final SettableFuture<TupleDomain<String>> resultFuture;
+    private final SettableFuture<TupleDomain<DynamicFilterId>> resultFuture;
 
     // Number of build-side partitions to be collected.
     private final int partitionCount;
 
     // The resulting predicates from each build-side partition.
-    private final List<TupleDomain<String>> partitions;
+    private final List<TupleDomain<DynamicFilterId>> partitions;
 
-    public LocalDynamicFilterConsumer(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, Map<String, Type> filterBuildTypes, int partitionCount)
+    public LocalDynamicFilterConsumer(Multimap<DynamicFilterId, Symbol> probeSymbols, Map<DynamicFilterId, Integer> buildChannels, Map<DynamicFilterId, Type> filterBuildTypes, int partitionCount)
     {
         this.probeSymbols = requireNonNull(probeSymbols, "probeSymbols is null");
         this.buildChannels = requireNonNull(buildChannels, "buildChannels is null");
@@ -83,7 +84,7 @@ public class LocalDynamicFilterConsumer
         this.partitions = new ArrayList<>(partitionCount);
     }
 
-    public ListenableFuture<Map<String, Domain>> getDynamicFilterDomains()
+    public ListenableFuture<Map<DynamicFilterId, Domain>> getDynamicFilterDomains()
     {
         return Futures.transform(resultFuture, this::convertTupleDomain, directExecutor());
     }
@@ -93,7 +94,7 @@ public class LocalDynamicFilterConsumer
         return Futures.transform(resultFuture, this::convertTupleDomainForLocalFilters, directExecutor());
     }
 
-    private synchronized void addPartition(TupleDomain<String> tupleDomain)
+    private synchronized void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
     {
         // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
         verify(partitions.size() < partitionCount);
@@ -101,18 +102,18 @@ public class LocalDynamicFilterConsumer
         // See the comment at TupleDomain::columnWiseUnion() for more details.
         partitions.add(tupleDomain);
         if (partitions.size() == partitionCount) {
-            TupleDomain<String> result = TupleDomain.columnWiseUnion(partitions);
+            TupleDomain<DynamicFilterId> result = TupleDomain.columnWiseUnion(partitions);
             // No more partitions are left to be processed.
             resultFuture.set(result);
         }
     }
 
-    private Map<Symbol, Domain> convertTupleDomainForLocalFilters(TupleDomain<String> result)
+    private Map<Symbol, Domain> convertTupleDomainForLocalFilters(TupleDomain<DynamicFilterId> result)
     {
         if (result.isNone()) {
             // One of the join build symbols has no non-null values, therefore no symbols can match predicate
             ImmutableMap.Builder<Symbol, Domain> builder = ImmutableMap.builder();
-            for (Map.Entry<String, Type> entry : filterBuildTypes.entrySet()) {
+            for (Map.Entry<DynamicFilterId, Type> entry : filterBuildTypes.entrySet()) {
                 // Store `none` domain explicitly for each probe symbol
                 for (Symbol probeSymbol : probeSymbols.get(entry.getKey())) {
                     builder.put(probeSymbol, Domain.none(entry.getValue()));
@@ -123,7 +124,7 @@ public class LocalDynamicFilterConsumer
         // Convert the predicate to use probe symbols (instead dynamic filter IDs).
         // Note that in case of a probe-side union, a single dynamic filter may match multiple probe symbols.
         ImmutableMap.Builder<Symbol, Domain> builder = ImmutableMap.builder();
-        for (Map.Entry<String, Domain> entry : result.getDomains().get().entrySet()) {
+        for (Map.Entry<DynamicFilterId, Domain> entry : result.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
             // Store all matching symbols for each build channel index.
             for (Symbol probeSymbol : probeSymbols.get(entry.getKey())) {
@@ -133,7 +134,7 @@ public class LocalDynamicFilterConsumer
         return builder.build();
     }
 
-    private Map<String, Domain> convertTupleDomain(TupleDomain<String> result)
+    private Map<DynamicFilterId, Domain> convertTupleDomain(TupleDomain<DynamicFilterId> result)
     {
         if (result.isNone()) {
             // One of the join build symbols has no non-null values, therefore no filters can match predicate
@@ -147,14 +148,14 @@ public class LocalDynamicFilterConsumer
     {
         checkArgument(!planNode.getDynamicFilters().isEmpty(), "Join node dynamicFilters is empty.");
 
-        Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
+        Set<DynamicFilterId> joinDynamicFilters = planNode.getDynamicFilters().keySet();
         List<FilterNode> filterNodes = PlanNodeSearcher
                 .searchFrom(planNode.getLeft())
                 .where(LocalDynamicFilterConsumer::isFilterAboveTableScan)
                 .findAll();
 
         // Mapping from probe-side dynamic filters' IDs to their matching probe symbols.
-        ImmutableMultimap.Builder<String, Symbol> probeSymbolsBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<DynamicFilterId, Symbol> probeSymbolsBuilder = ImmutableMultimap.builder();
         for (FilterNode filterNode : filterNodes) {
             DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterNode.getPredicate());
             for (Descriptor descriptor : extractResult.getDynamicConjuncts()) {
@@ -169,10 +170,10 @@ public class LocalDynamicFilterConsumer
             }
         }
 
-        Multimap<String, Symbol> probeSymbols = probeSymbolsBuilder.build();
+        Multimap<DynamicFilterId, Symbol> probeSymbols = probeSymbolsBuilder.build();
         PlanNode buildNode = planNode.getRight();
         // Collect dynamic filters for all dynamic filters produced by join
-        Map<String, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
+        Map<DynamicFilterId, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
                 .collect(toImmutableMap(
                         // Dynamic filter ID
                         Map.Entry::getKey,
@@ -184,7 +185,7 @@ public class LocalDynamicFilterConsumer
                             return buildChannelIndex;
                         }));
 
-        Map<String, Type> filterBuildTypes = buildChannels.entrySet().stream()
+        Map<DynamicFilterId, Type> filterBuildTypes = buildChannels.entrySet().stream()
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> buildSourceTypes.get(entry.getValue())));
@@ -201,12 +202,12 @@ public class LocalDynamicFilterConsumer
         return false;
     }
 
-    public Map<String, Integer> getBuildChannels()
+    public Map<DynamicFilterId, Integer> getBuildChannels()
     {
         return buildChannels;
     }
 
-    public Consumer<TupleDomain<String>> getTupleDomainConsumer()
+    public Consumer<TupleDomain<DynamicFilterId>> getTupleDomainConsumer()
     {
         return this::addPartition;
     }
