@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
+import io.prestosql.tempto.query.QueryExecutor.QueryParam;
 import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.utils.JdbcDriverUtils;
 import org.testng.annotations.DataProvider;
@@ -25,7 +26,10 @@ import org.testng.annotations.Test;
 import javax.inject.Named;
 
 import java.sql.Connection;
+import java.sql.JDBCType;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,6 +42,7 @@ import static com.google.common.collect.Maps.immutableEntry;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
+import static io.prestosql.tempto.query.QueryExecutor.param;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
@@ -67,6 +72,16 @@ public class TestHiveStorageFormats
                 {storageFormat("TEXTFILE")},
                 {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))},
                 {storageFormat("AVRO")}
+        };
+    }
+
+    @DataProvider(name = "storage_formats_with_null_format")
+    public static Object[][] storageFormatsWithNullFormat()
+    {
+        return new StorageFormat[][] {
+                {storageFormat("TEXTFILE")},
+                {storageFormat("RCTEXT")},
+                {storageFormat("SEQUENCEFILE")},
         };
     }
 
@@ -183,6 +198,56 @@ public class TestHiveStorageFormats
                 "select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
         query(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(dataProvider = "storage_formats_with_null_format", groups = STORAGE_FORMATS)
+    public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
+    {
+        String nullFormat = "null_value";
+        String tableName = format("test_storage_format_%s_insert_and_select_with_null_format",
+                storageFormat.getName());
+        query(format("CREATE TABLE %s (value VARCHAR) " +
+                        "WITH (format = '%s', null_format = '%s')",
+                tableName,
+                storageFormat.getName(),
+                nullFormat));
+
+        // \N is the default null format
+        String[] values = new String[] {nullFormat, null, "non-null", "", "\\N"};
+        Row[] storedValues = Arrays.stream(values).map(Row::row).toArray(Row[]::new);
+        storedValues[0] = row((Object) null); // if you put in the null format, it saves as null
+
+        String placeholders = String.join(", ", Collections.nCopies(values.length, "(?)"));
+        query(format("INSERT INTO %s VALUES %s", tableName, placeholders),
+                Arrays.stream(values)
+                        .map(value -> param(JDBCType.VARCHAR, value))
+                        .toArray(QueryParam[]::new));
+
+        assertThat(query(format("SELECT * FROM %s", tableName))).containsOnly(storedValues);
+
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(dataProvider = "storage_formats_with_null_format", groups = STORAGE_FORMATS)
+    public void testSelectWithNullFormat(StorageFormat storageFormat)
+    {
+        String nullFormat = "null_value";
+        String tableName = format("test_storage_format_%s_select_with_null_format",
+                storageFormat.getName());
+        query(format("CREATE TABLE %s (value VARCHAR) " +
+                        "WITH (format = '%s', null_format = '%s')",
+                tableName,
+                storageFormat.getName(),
+                nullFormat));
+
+        // Manually format data for insertion b/c Hive's PreparedStatement can't handle nulls
+        onHive().executeQuery(format("INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')",
+                tableName, nullFormat));
+
+        assertThat(query(format("SELECT * FROM %s", tableName)))
+                .containsOnly(row("non-null"), row((Object) null), row((Object) null));
+
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)

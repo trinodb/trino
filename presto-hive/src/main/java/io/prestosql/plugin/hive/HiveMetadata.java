@@ -602,21 +602,23 @@ public class HiveMetadata
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
 
-        // Textfile and CSV specific property
+        // Textfile and CSV specific properties
         getSerdeProperty(table, SKIP_HEADER_COUNT_KEY)
                 .ifPresent(skipHeaderCount -> properties.put(SKIP_HEADER_LINE_COUNT, Integer.valueOf(skipHeaderCount)));
         getSerdeProperty(table, SKIP_FOOTER_COUNT_KEY)
                 .ifPresent(skipFooterCount -> properties.put(SKIP_FOOTER_LINE_COUNT, Integer.valueOf(skipFooterCount)));
 
-        // Textfile specific property
+        // Multi-format property
+        getSerdeProperty(table, NULL_FORMAT_KEY)
+                .ifPresent(nullFormat -> properties.put(NULL_FORMAT_PROPERTY, nullFormat));
+
+        // Textfile specific properties
         getSerdeProperty(table, TEXT_FIELD_SEPARATOR_KEY)
                 .ifPresent(fieldSeparator -> properties.put(TEXTFILE_FIELD_SEPARATOR, fieldSeparator));
         getSerdeProperty(table, TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
                 .ifPresent(fieldEscape -> properties.put(TEXTFILE_FIELD_SEPARATOR_ESCAPE, fieldEscape));
-        getSerdeProperty(table, NULL_FORMAT_KEY)
-                .ifPresent(nullFormat -> properties.put(NULL_FORMAT_PROPERTY, nullFormat));
 
-        // CSV specific property
+        // CSV specific properties
         getCsvSerdeProperty(table, CSV_SEPARATOR_KEY)
                 .ifPresent(csvSeparator -> properties.put(CSV_SEPARATOR, csvSeparator));
         getCsvSerdeProperty(table, CSV_QUOTE_KEY)
@@ -921,13 +923,16 @@ public class HiveMetadata
             }
         });
 
-        // Textfile-specific properties
+        // null_format is allowed in textfile, rctext, and sequencefile
+        Set<HiveStorageFormat> allowsNullFormat = ImmutableSet.of(
+                HiveStorageFormat.TEXTFILE, HiveStorageFormat.RCTEXT, HiveStorageFormat.SEQUENCEFILE);
         getNullFormat(tableMetadata.getProperties())
                 .ifPresent(format -> {
-                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, NULL_FORMAT_PROPERTY);
-                    tableProperties.put(NULL_FORMAT_KEY, format);
+                    checkFormatForProperty(hiveStorageFormat, allowsNullFormat, NULL_FORMAT_PROPERTY);
+                    tableProperties.put(NULL_FORMAT_KEY, format.toString());
                 });
 
+        // Textfile-specific properties
         getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_FIELD_SEPARATOR)
                 .ifPresent(separator -> {
                     checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, TEXT_FIELD_SEPARATOR_KEY);
