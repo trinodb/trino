@@ -37,6 +37,7 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -245,7 +246,7 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
-        Map<String, Domain> dynamicTupleDomains = ImmutableMap.of();
+        Map<DynamicFilterId, Domain> dynamicTupleDomains = ImmutableMap.of();
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
@@ -278,7 +279,7 @@ public class SqlTask
             dynamicTupleDomains = taskContext.getDynamicTupleDomains();
         }
         // Compact TupleDomain before reporting dynamic filters to coordinator to avoid bloating QueryInfo
-        Map<String, Domain> compactDynamicTupleDomains = dynamicTupleDomains.entrySet().stream()
+        Map<DynamicFilterId, Domain> compactDynamicTupleDomains = dynamicTupleDomains.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().simplify()));
 
         return new TaskStatus(taskStateMachine.getTaskId(),

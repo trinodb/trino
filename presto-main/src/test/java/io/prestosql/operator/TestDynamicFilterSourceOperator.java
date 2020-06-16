@@ -21,6 +21,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
@@ -63,7 +64,7 @@ public class TestDynamicFilterSourceOperator
     private ScheduledExecutorService scheduledExecutor;
     private PipelineContext pipelineContext;
 
-    private ImmutableList.Builder<TupleDomain<String>> partitions;
+    private ImmutableList.Builder<TupleDomain<DynamicFilterId>> partitions;
 
     @BeforeMethod
     public void setUp()
@@ -103,7 +104,7 @@ public class TestDynamicFilterSourceOperator
                 getDynamicFilteringMaxPerDriverSize(TEST_SESSION));
     }
 
-    private void consumePredicate(TupleDomain<String> partitionPredicate)
+    private void consumePredicate(TupleDomain<DynamicFilterId> partitionPredicate)
     {
         partitions.add(partitionPredicate);
     }
@@ -115,7 +116,7 @@ public class TestDynamicFilterSourceOperator
 
     private static DynamicFilterSourceOperator.Channel channel(int index, Type type)
     {
-        return new DynamicFilterSourceOperator.Channel(Integer.toString(index), type, index);
+        return new DynamicFilterSourceOperator.Channel(new DynamicFilterId(Integer.toString(index)), type, index);
     }
 
     @Test
@@ -133,7 +134,7 @@ public class TestDynamicFilterSourceOperator
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L))))));
+                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L))))));
 
         verifyPassthrough(op2,
                 ImmutableList.of(BIGINT),
@@ -142,9 +143,9 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L)))),
+                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L)))),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 4L))))));
+                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 4L))))));
     }
 
     @Test
@@ -159,8 +160,8 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.multipleValues(BOOLEAN, ImmutableList.of(true, false)),
-                        "1", Domain.multipleValues(DOUBLE, ImmutableList.of(1.5, 3.0, 4.5))))));
+                        new DynamicFilterId("0"), Domain.multipleValues(BOOLEAN, ImmutableList.of(true, false)),
+                        new DynamicFilterId("1"), Domain.multipleValues(DOUBLE, ImmutableList.of(1.5, 3.0, 4.5))))));
     }
 
     @Test
@@ -175,7 +176,7 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.multipleValues(BOOLEAN, ImmutableList.of(true, false))))));
+                        new DynamicFilterId("0"), Domain.multipleValues(BOOLEAN, ImmutableList.of(true, false))))));
     }
 
     @Test
@@ -190,7 +191,7 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "1", Domain.multipleValues(DOUBLE, ImmutableList.of(1.5, 3.0, 4.5))))));
+                        new DynamicFilterId("1"), Domain.multipleValues(DOUBLE, ImmutableList.of(1.5, 3.0, 4.5))))));
     }
 
     @Test
@@ -213,7 +214,7 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.create(ValueSet.of(INTEGER, 1L, 2L, 3L, 4L, 5L), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.of(INTEGER, 1L, 2L, 3L, 4L, 5L), false)))));
     }
 
     @Test
@@ -295,6 +296,6 @@ public class TestDynamicFilterSourceOperator
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.create(ValueSet.of(BIGINT, 7L), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.of(BIGINT, 7L), false)))));
     }
 }

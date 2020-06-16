@@ -41,6 +41,7 @@ import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -81,7 +82,7 @@ public class TestDynamicFilterService
     public void testDynamicFilterSummaryCompletion()
     {
         DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
-        String filterId = "df";
+        DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
         List<TaskId> taskIds = ImmutableList.of(new TaskId(stageId, 0), new TaskId(stageId, 1), new TaskId(stageId, 2));
@@ -127,9 +128,9 @@ public class TestDynamicFilterService
     public void testDynamicFilterSupplier()
     {
         DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
-        String filterId1 = "df1";
-        String filterId2 = "df2";
-        String filterId3 = "df3";
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        DynamicFilterId filterId2 = new DynamicFilterId("df2");
+        DynamicFilterId filterId3 = new DynamicFilterId("df3");
         Expression df1 = expression("DF_SYMBOL1");
         Expression df2 = expression("DF_SYMBOL2");
         Expression df3 = expression("DF_SYMBOL3");
@@ -297,7 +298,7 @@ public class TestDynamicFilterService
 
         private int requestCount;
 
-        void addDynamicFilter(String filterId, List<TaskId> taskIds, String probeColumnName)
+        void addDynamicFilter(DynamicFilterId filterId, List<TaskId> taskIds, String probeColumnName)
         {
             String colName = "column" + filterId;
             Symbol buildSymbol = new Symbol(colName);
@@ -359,7 +360,7 @@ public class TestDynamicFilterService
                     null));
         }
 
-        void storeSummary(String filterId, TaskId taskId, Domain domain)
+        void storeSummary(DynamicFilterId filterId, TaskId taskId, Domain domain)
         {
             StageId stageId = taskId.getStageId();
             ImmutableList.Builder<TaskInfo> updatedTasks = ImmutableList.builder();
