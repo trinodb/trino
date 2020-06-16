@@ -2,6 +2,8 @@
 
 set -xeuo pipefail
 
+DISTRO_SKIP_GROUP="${DISTRO_SKIP_GROUP:-}"
+
 suite_exit_code=0
 
 presto-product-tests-launcher/bin/run-launcher test run \
