@@ -168,6 +168,28 @@ String Functions
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
 
+.. function:: translate(source, from, to) -> varchar
+
+   Returns the ``source`` string translated by replacing characters found in the
+   ``from`` string with the corresponding characters in the ``to`` string.  If the ``from``
+   string contains duplicates, only the first is used.  If the ``source`` character
+   does not exist in the ``from`` string, the ``source`` character will be copied
+   without translation.  If the index of the matching character in the ``from``
+   string is beyond the length of the ``to`` string, the ``source`` character will
+   be omitted from the resulting string.
+
+   Here are some examples illustrating the translate function::
+
+       SELECT translate('abcd', '', ''); -- 'abcd'
+       SELECT translate('abcd', 'a', 'z'); -- 'zbcd'
+       SELECT translate('abcda', 'a', 'z'); -- 'zbcdz'
+       SELECT translate('Palhoça', 'ç','c'); -- 'Palhoca'
+       SELECT translate('abcd', 'b', U&'\+01F600'); -- a😀cd
+       SELECT translate('abcd', 'a', ''); -- 'bcd'
+       SELECT translate('abcd', 'a', 'zy'); -- 'zbcd'
+       SELECT translate('abcd', 'ac', 'z'); -- 'zbd'
+       SELECT translate('abcd', 'aac', 'zq'); -- 'zbd'
+
 .. function:: trim(string) -> varchar
 
     Removes leading and trailing whitespace from ``string``.

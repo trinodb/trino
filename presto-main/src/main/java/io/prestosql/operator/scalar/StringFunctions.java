@@ -33,6 +33,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.CodePointsType;
 import io.prestosql.type.Constraint;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 
 import java.text.Normalizer;
 import java.util.OptionalInt;
@@ -42,6 +43,7 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointSafe;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.airlift.slice.SliceUtf8.toLowerCase;
 import static io.airlift.slice.SliceUtf8.toUpperCase;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
@@ -910,5 +912,46 @@ public final class StringFunctions
             return false;
         }
         return source.compareTo(0, prefix.length(), prefix, 0, prefix.length()) == 0;
+    }
+
+    @Description("Translate characters from the source string based on original and translations strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y", "z"})
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice translate(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
+    {
+        int[] fromCodePoints = castToCodePoints(from);
+        int[] toCodePoints = castToCodePoints(to);
+
+        Int2IntOpenHashMap map = new Int2IntOpenHashMap(fromCodePoints.length);
+        for (int index = 0; index < fromCodePoints.length; index++) {
+            int fromCodePoint = fromCodePoints[index];
+            map.putIfAbsent(fromCodePoint, index < toCodePoints.length ? toCodePoints[index] : -1);
+        }
+
+        int[] sourceCodePoints = castToCodePoints(source);
+        int[] targetCodePoints = new int[sourceCodePoints.length];
+        int targetPositions = 0;
+        int targetBytes = 0;
+        for (int index = 0; index < sourceCodePoints.length; index++) {
+            int codePoint = sourceCodePoints[index];
+            if (map.containsKey(codePoint)) {
+                int translatedCodePoint = map.get(codePoint);
+                if (translatedCodePoint == -1) {
+                    continue;
+                }
+                codePoint = translatedCodePoint;
+            }
+            targetCodePoints[targetPositions++] = codePoint;
+            targetBytes += lengthOfCodePoint(codePoint);
+        }
+
+        Slice target = Slices.allocate(targetBytes);
+        int offset = 0;
+        for (int index = 0; index < targetPositions; index++) {
+            offset += setCodePointAt(targetCodePoints[index], target, offset);
+        }
+
+        return target;
     }
 }
