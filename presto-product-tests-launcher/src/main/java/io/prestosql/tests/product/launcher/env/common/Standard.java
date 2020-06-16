@@ -39,6 +39,7 @@ public final class Standard
 {
     public static final String CONTAINER_PRESTO_ETC = "/docker/presto-product-tests/conf/presto/etc";
     public static final String CONTAINER_PRESTO_JVM_CONFIG = CONTAINER_PRESTO_ETC + "/jvm.config";
+    public static final String CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES = CONTAINER_PRESTO_ETC + "/access-control.properties";
     public static final String CONTAINER_PRESTO_CONFIG_PROPERTIES = CONTAINER_PRESTO_ETC + "/config.properties";
     public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
@@ -79,6 +80,7 @@ public final class Standard
     {
         DockerContainer container =
                 createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
         portBinder.exposePort(container, 8080); // Presto default port
