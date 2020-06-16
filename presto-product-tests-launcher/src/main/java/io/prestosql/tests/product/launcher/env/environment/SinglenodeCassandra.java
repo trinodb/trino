@@ -30,6 +30,7 @@ import java.time.Duration;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeCassandra
@@ -55,7 +56,7 @@ public final class SinglenodeCassandra
         builder.addContainer("cassandra", createCassandra());
 
         builder.configureContainer("presto-master", container -> container
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties"), CONTAINER_PRESTO_CASSANDRA_PROPERTIES));
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties")), CONTAINER_PRESTO_CASSANDRA_PROPERTIES));
     }
 
     private DockerContainer createCassandra()

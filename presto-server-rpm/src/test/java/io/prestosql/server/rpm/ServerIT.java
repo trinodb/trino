@@ -72,6 +72,7 @@ public class ServerIT
 
         try (GenericContainer<?> container = new GenericContainer<>(baseImage)) {
             container.withExposedPorts(8080)
+                    // the RPM is hundreds MB and file system bind is much more efficient
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", command)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))

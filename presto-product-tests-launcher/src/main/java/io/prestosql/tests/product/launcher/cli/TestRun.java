@@ -168,6 +168,7 @@ public final class TestRun
                 }
 
                 container
+                        // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(pathResolver.resolvePlaceholders(testJar).getPath(), "/docker/test.jar", READ_ONLY)
                         .withEnv("TESTS_HIVE_VERSION_MAJOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MAJOR", "1"))
                         .withEnv("TESTS_HIVE_VERSION_MINOR", System.getenv().getOrDefault("TESTS_HIVE_VERSION_MINOR", "2"))

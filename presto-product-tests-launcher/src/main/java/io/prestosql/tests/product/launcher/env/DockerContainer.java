@@ -13,13 +13,45 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.google.common.base.Stopwatch;
+import io.airlift.log.Logger;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
+import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.utility.MountableFile;
+
+import java.util.LinkedHashMap;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DockerContainer
         extends FixedHostPortGenericContainer<DockerContainer>
 {
+    private static final Logger log = Logger.get(DockerContainer.class);
+
     public DockerContainer(String dockerImageName)
     {
         super(dockerImageName);
+
+        // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
+        setCopyToFileContainerPathMap(new LinkedHashMap<>());
+    }
+
+    @Override
+    public void copyFileToContainer(MountableFile mountableFile, String containerPath)
+    {
+        copyFileToContainer(containerPath, () -> super.copyFileToContainer(mountableFile, containerPath));
+    }
+
+    @Override
+    public void copyFileToContainer(Transferable transferable, String containerPath)
+    {
+        copyFileToContainer(containerPath, () -> super.copyFileToContainer(transferable, containerPath));
+    }
+
+    private void copyFileToContainer(String containerPath, Runnable copy)
+    {
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        copy.run();
+        log.info("Copied files into %s in %.1f s", containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
     }
 }

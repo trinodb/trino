@@ -23,7 +23,7 @@ import javax.inject.Inject;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class Kerberos
         implements EnvironmentExtender
@@ -61,11 +61,11 @@ public class Kerberos
             container
                     .withNetworkAliases("presto-master.docker.cluster")
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
-                    .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/kerberos/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
+                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/kerberos/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
         });
         builder.configureContainer("tests", container -> {
             container.setDockerImageName(dockerImageName);
-            container.withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos.yaml"), CONTAINER_TEMPTO_PROFILE_CONFIG, READ_ONLY);
+            container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
     }
 }
