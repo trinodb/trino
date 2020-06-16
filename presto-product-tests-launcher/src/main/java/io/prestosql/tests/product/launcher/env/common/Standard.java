@@ -32,6 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.enableJavaDebugger;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public final class Standard
         implements EnvironmentExtender
@@ -78,7 +79,7 @@ public final class Standard
     {
         DockerContainer container =
                 createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
-                        .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
         portBinder.exposePort(container, 8080); // Presto default port
 
@@ -93,7 +94,7 @@ public final class Standard
     private DockerContainer createTestsContainer()
     {
         DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy());
@@ -105,8 +106,9 @@ public final class Standard
     public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, PathResolver pathResolver, File serverPackage, String dockerImageName)
     {
         return new DockerContainer(dockerImageName)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config"), CONTAINER_PRESTO_JVM_CONFIG, READ_ONLY)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
+                // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(pathResolver.resolvePlaceholders(serverPackage).getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())

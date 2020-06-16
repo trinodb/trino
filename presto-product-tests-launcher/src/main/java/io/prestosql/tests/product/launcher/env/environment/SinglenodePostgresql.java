@@ -29,7 +29,7 @@ import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodePostgresql
@@ -53,10 +53,9 @@ public final class SinglenodePostgresql
     protected void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer("presto-master", container -> container
-                .withFileSystemBind(
-                        dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-postgresql/postgresql.properties"),
-                        CONTAINER_PRESTO_ETC + "/catalog/postgresql.properties",
-                        READ_ONLY));
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-postgresql/postgresql.properties")),
+                        CONTAINER_PRESTO_ETC + "/catalog/postgresql.properties"));
 
         builder.addContainer("postgresql", createPostgreSql());
     }
