@@ -17,7 +17,9 @@ Presto offers three built-in plugins:
 ================================================== ============================================================
 Plugin Name                                        Description
 ================================================== ============================================================
-``allow-all`` (default value)                      All operations are permitted.
+``default`` (default value)                        All operations are permitted, except for user impersonation.
+
+``allow-all``                                      All operations are permitted.
 
 ``read-only``                                      Operations that read data or metadata are permitted, but
                                                    none of the operations that write data or metadata are
@@ -29,10 +31,15 @@ Plugin Name                                        Description
                                                    See :ref:`file-based-system-access-control` for details.
 ================================================== ============================================================
 
+Default System Access Control
+===============================
+
+All operations are permitted, except for user impersonation. This plugin is enabled by default.
+
 Allow All System Access Control
 ===============================
 
-All operations are permitted under this plugin. This plugin is enabled by default.
+All operations are permitted under this plugin.
 
 .. _read-only-system-access-control:
 

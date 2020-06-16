@@ -100,6 +100,7 @@ public class AccessControlManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
+        addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
@@ -132,8 +133,8 @@ public class AccessControlManager
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
-                setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-                log.info("Using system access control %s", AllowAllSystemAccessControl.NAME);
+                setSystemAccessControl(DefaultSystemAccessControl.NAME, ImmutableMap.of());
+                log.info("Using system access control %s", DefaultSystemAccessControl.NAME);
                 return;
             }
             configFiles = ImmutableList.of(CONFIG_FILE);
