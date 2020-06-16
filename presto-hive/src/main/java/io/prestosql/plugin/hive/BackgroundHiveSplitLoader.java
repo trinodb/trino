@@ -112,13 +112,16 @@ import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
+    // See https://github.com/apache/hive/commit/ffee30e6267e85f00a22767262192abb9681cfb7#diff-5fe26c36b4e029dcd344fc5d484e7347R165
+    private static final Pattern BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN = Pattern.compile("bucket_(\\d+)(_\\d+)?$");
+
     private static final Iterable<Pattern> BUCKET_PATTERNS = ImmutableList.of(
             // legacy Presto naming pattern (current version matches Hive)
             Pattern.compile("\\d{8}_\\d{6}_\\d{5}_[a-z0-9]{5}_bucket-(\\d+)(?:[-_.].*)?"),
             // Hive naming pattern per `org.apache.hadoop.hive.ql.exec.Utilities#getBucketIdFromFile()`
             Pattern.compile("(\\d+)_\\d+.*"),
-            // Hive ACID
-            Pattern.compile("bucket_(\\d+)"));
+            // Hive ACID with optional direct insert attempt id
+            BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN);
 
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
@@ -623,7 +626,7 @@ public class BackgroundHiveSplitLoader
             }
             if (containsEligibleTableBucket) {
                 for (LocatedFileStatus file : bucketFiles.get(partitionBucketNumber)) {
-                    // OrcDeletedRows will load only delete delta files matching current bucket (same file name),
+                    // OrcDeletedRows will load only delete delta files matching current bucket id,
                     // so we can pass all delete delta locations here, without filtering.
                     splitFactory.createInternalHiveSplit(file, OptionalInt.of(readBucketNumber), splittable, acidInfo)
                             .ifPresent(splitList::add);
@@ -643,6 +646,12 @@ public class BackgroundHiveSplitLoader
             }
         }
         return OptionalInt.empty();
+    }
+
+    public static boolean hasAttemptId(String bucketFilename)
+    {
+        Matcher matcher = BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN.matcher(bucketFilename);
+        return matcher.matches() && matcher.group(2) != null;
     }
 
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
