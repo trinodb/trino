@@ -50,7 +50,7 @@ public class HiveSplit
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
-    private final Optional<DeleteDeltaLocations> deleteDeltaLocations;
+    private final Optional<AcidInfo> acidInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -70,7 +70,7 @@ public class HiveSplit
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
-            @JsonProperty("deleteDeltaLocations") Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -85,7 +85,7 @@ public class HiveSplit
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
-        requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
+        requireNonNull(acidInfo, "acidInfo is null");
 
         this.database = database;
         this.table = table;
@@ -103,7 +103,7 @@ public class HiveSplit
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        this.deleteDeltaLocations = deleteDeltaLocations;
+        this.acidInfo = acidInfo;
     }
 
     @JsonProperty
@@ -210,9 +210,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Optional<DeleteDeltaLocations> getDeleteDeltaLocations()
+    public Optional<AcidInfo> getAcidInfo()
     {
-        return deleteDeltaLocations;
+        return acidInfo;
     }
 
     @Override

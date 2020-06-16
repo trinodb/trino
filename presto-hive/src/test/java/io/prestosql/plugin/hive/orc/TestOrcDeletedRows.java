@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -58,11 +58,11 @@ public class TestOrcDeletedRows
     @Test
     public void testDeleteLocations()
     {
-        DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder = DeleteDeltaLocations.builder(partitionDirectory);
-        addDeleteDelta(deleteDeltaLocationsBuilder, 4L, 4L, 0);
-        addDeleteDelta(deleteDeltaLocationsBuilder, 7L, 7L, 0);
+        AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(partitionDirectory);
+        addDeleteDelta(acidInfoBuilder, 4L, 4L, 0);
+        addDeleteDelta(acidInfoBuilder, 7L, 7L, 0);
 
-        OrcDeletedRows deletedRows = createOrcDeletedRows(deleteDeltaLocationsBuilder.build().get());
+        OrcDeletedRows deletedRows = createOrcDeletedRows(acidInfoBuilder.build().get());
 
         // page with deleted rows
         Page testPage = createTestPage(0, 10);
@@ -81,13 +81,13 @@ public class TestOrcDeletedRows
         assertEquals(block.getPositionCount(), 10);
     }
 
-    private void addDeleteDelta(DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder, long minWriteId, long maxWriteId, int statementId)
+    private void addDeleteDelta(AcidInfo.Builder acidInfoBuilder, long minWriteId, long maxWriteId, int statementId)
     {
         Path deleteDeltaPath = new Path(partitionDirectory, AcidUtils.deleteDeltaSubdir(minWriteId, maxWriteId, statementId));
-        deleteDeltaLocationsBuilder.addDeleteDelta(deleteDeltaPath, minWriteId, maxWriteId, statementId);
+        acidInfoBuilder.addDeleteDelta(deleteDeltaPath, minWriteId, maxWriteId, statementId);
     }
 
-    private OrcDeletedRows createOrcDeletedRows(DeleteDeltaLocations deleteDeltaLocations)
+    private OrcDeletedRows createOrcDeletedRows(AcidInfo acidInfo)
     {
         JobConf configuration = new JobConf(new Configuration(false));
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
@@ -103,7 +103,7 @@ public class TestOrcDeletedRows
                 "test",
                 configuration,
                 HDFS_ENVIRONMENT,
-                deleteDeltaLocations);
+                acidInfo);
     }
 
     private Page createTestPage(int originalTransactionStart, int originalTransactionEnd)

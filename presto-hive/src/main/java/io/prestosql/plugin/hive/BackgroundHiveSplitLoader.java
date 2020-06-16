@@ -431,7 +431,7 @@ public class BackgroundHiveSplitLoader
         }
 
         List<Path> readPaths;
-        Optional<DeleteDeltaLocations> deleteDeltaLocations;
+        Optional<AcidInfo> acidInfo;
         if (AcidUtils.isTransactionalTable(table.getParameters())) {
             AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
                     path,
@@ -470,18 +470,18 @@ public class BackgroundHiveSplitLoader
             }
 
             // Create a registry of delete_delta directories for the partition
-            DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder = DeleteDeltaLocations.builder(path);
+            AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
             for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (delta.isDeleteDelta()) {
-                    deleteDeltaLocationsBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId());
+                    acidInfoBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId());
                 }
             }
 
-            deleteDeltaLocations = deleteDeltaLocationsBuilder.build();
+            acidInfo = acidInfoBuilder.build();
         }
         else {
             readPaths = ImmutableList.of(path);
-            deleteDeltaLocations = Optional.empty();
+            acidInfo = Optional.empty();
         }
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
@@ -492,13 +492,13 @@ public class BackgroundHiveSplitLoader
         if (tableBucketInfo.isPresent()) {
             ListenableFuture<?> lastResult = immediateFuture(null); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
             for (Path readPath : readPaths) {
-                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(readPath, fs, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, deleteDeltaLocations));
+                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(readPath, fs, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
             }
             return lastResult;
         }
 
         for (Path readPath : readPaths) {
-            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, deleteDeltaLocations));
+            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, acidInfo));
         }
 
         return COMPLETED_FUTURE;
@@ -528,16 +528,16 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
     {
         return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions))
-                .map(status -> splitFactory.createInternalHiveSplit(status, OptionalInt.empty(), splittable, deleteDeltaLocations))
+                .map(status -> splitFactory.createInternalHiveSplit(status, OptionalInt.empty(), splittable, acidInfo))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator();
     }
 
-    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)
+    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion, boolean splittable, Optional<AcidInfo> acidInfo)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -625,7 +625,7 @@ public class BackgroundHiveSplitLoader
                 for (LocatedFileStatus file : bucketFiles.get(partitionBucketNumber)) {
                     // OrcDeletedRows will load only delete delta files matching current bucket (same file name),
                     // so we can pass all delete delta locations here, without filtering.
-                    splitFactory.createInternalHiveSplit(file, OptionalInt.of(readBucketNumber), splittable, deleteDeltaLocations)
+                    splitFactory.createInternalHiveSplit(file, OptionalInt.of(readBucketNumber), splittable, acidInfo)
                             .ifPresent(splitList::add);
                 }
             }

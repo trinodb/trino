@@ -370,7 +370,7 @@ class HiveSplitSource
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled(),
-                        internalSplit.getDeleteDeltaLocations()));
+                        internalSplit.getAcidInfo()));
 
                 internalSplit.increaseStart(splitBytes);
 

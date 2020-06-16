@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
@@ -113,15 +113,15 @@ public class TestOrcPageSourceFactory
             throws Exception
     {
         Path partitionLocation = new Path(getClass().getClassLoader().getResource("nation_delete_deltas") + "/");
-        Optional<DeleteDeltaLocations> deleteDeltaLocations = DeleteDeltaLocations.builder(partitionLocation)
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(partitionLocation)
                 .addDeleteDelta(new Path(partitionLocation, deleteDeltaSubdir(3L, 3L, 0)), 3L, 3L, 0)
                 .addDeleteDelta(new Path(partitionLocation, deleteDeltaSubdir(4L, 4L, 0)), 4L, 4L, 0)
                 .build();
 
-        assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), deleteDeltaLocations, nationKey -> nationKey == 5 || nationKey == 19);
+        assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), acidInfo, nationKey -> nationKey == 5 || nationKey == 19);
     }
 
-    private static void assertRead(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<DeleteDeltaLocations> deleteDeltaLocations, LongPredicate deletedRows)
+    private static void assertRead(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, LongPredicate deletedRows)
             throws Exception
     {
         TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.all();
@@ -129,7 +129,7 @@ public class TestOrcPageSourceFactory
             tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(toHiveColumnHandle(NATION_KEY), Domain.singleValue(BIGINT, nationKeyPredicate.getAsLong())));
         }
 
-        List<Nation> actual = readFile(columns, tupleDomain, deleteDeltaLocations);
+        List<Nation> actual = readFile(columns, tupleDomain, acidInfo);
 
         List<Nation> expected = new ArrayList<>();
         for (Nation nation : ImmutableList.copyOf(new NationGenerator().iterator())) {
@@ -145,7 +145,7 @@ public class TestOrcPageSourceFactory
         assertEqualsByColumns(columns, actual, expected);
     }
 
-    private static List<Nation> readFile(Set<NationColumn> columns, TupleDomain<HiveColumnHandle> tupleDomain, Optional<DeleteDeltaLocations> deleteDeltaLocations)
+    private static List<Nation> readFile(Set<NationColumn> columns, TupleDomain<HiveColumnHandle> tupleDomain, Optional<AcidInfo> acidInfo)
             throws Exception
     {
         List<HiveColumnHandle> columnHandles = columns.stream()
@@ -170,7 +170,7 @@ public class TestOrcPageSourceFactory
                 columnHandles,
                 tupleDomain,
                 DateTimeZone.UTC,
-                deleteDeltaLocations);
+                acidInfo);
 
         checkArgument(pageSourceWithProjections.isPresent());
         checkArgument(pageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(),
