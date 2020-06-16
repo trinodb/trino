@@ -59,9 +59,19 @@ public final class Hadoop
     {
         builder.addContainer("hadoop-master", createHadoopMaster());
 
-        builder.configureContainer("presto-master", container -> container
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties"), CONTAINER_PRESTO_ICEBERG_PROPERTIES, READ_ONLY));
+        builder.configureContainer("presto-master", container -> {
+            container
+                    .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY)
+                    .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties"), CONTAINER_PRESTO_ICEBERG_PROPERTIES, READ_ONLY);
+
+            if (System.getenv("HADOOP_PRESTO_INIT_SCRIPT") != null) {
+                container
+                        .withFileSystemBind(
+                                dockerFiles.getDockerFilesHostPath(System.getenv("HADOOP_PRESTO_INIT_SCRIPT")),
+                                "/docker/presto-init.d/hadoop-presto-init.sh",
+                                READ_ONLY);
+            }
+        });
     }
 
     @SuppressWarnings("resource")
