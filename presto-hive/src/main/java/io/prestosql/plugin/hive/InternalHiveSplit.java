@@ -55,7 +55,7 @@ public class InternalHiveSplit
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
-    private final Optional<DeleteDeltaLocations> deleteDeltaLocations;
+    private final Optional<AcidInfo> acidInfo;
 
     private long start;
     private int currentBlockIndex;
@@ -76,7 +76,7 @@ public class InternalHiveSplit
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
@@ -89,7 +89,7 @@ public class InternalHiveSplit
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
-        requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
+        requireNonNull(acidInfo, "acidInfo is null");
 
         this.partitionName = partitionName;
         this.path = path;
@@ -106,7 +106,7 @@ public class InternalHiveSplit
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        this.deleteDeltaLocations = deleteDeltaLocations;
+        this.acidInfo = acidInfo;
     }
 
     public String getPath()
@@ -219,9 +219,9 @@ public class InternalHiveSplit
         return result;
     }
 
-    public Optional<DeleteDeltaLocations> getDeleteDeltaLocations()
+    public Optional<AcidInfo> getAcidInfo()
     {
-        return deleteDeltaLocations;
+        return acidInfo;
     }
 
     @Override

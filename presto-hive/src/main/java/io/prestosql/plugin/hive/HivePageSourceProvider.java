@@ -122,7 +122,7 @@ public class HivePageSourceProvider
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                hiveSplit.getDeleteDeltaLocations());
+                hiveSplit.getAcidInfo());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -149,7 +149,7 @@ public class HivePageSourceProvider
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
@@ -183,7 +183,7 @@ public class HivePageSourceProvider
                     desiredColumns,
                     effectivePredicate,
                     hiveStorageTimeZone,
-                    deleteDeltaLocations);
+                    acidInfo);
 
             if (readerWithProjections.isPresent()) {
                 ConnectorPageSource pageSource = readerWithProjections.get().getConnectorPageSource();
@@ -232,7 +232,7 @@ public class HivePageSourceProvider
                     delegate = new HiveReaderProjectionsAdaptingRecordCursor(delegate, projectionsAdapter);
                 }
 
-                checkArgument(deleteDeltaLocations.isEmpty(), "Delete delta is not supported");
+                checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
                 if (bucketAdaptation.isPresent()) {
                     delegate = new HiveBucketAdapterRecordCursor(
