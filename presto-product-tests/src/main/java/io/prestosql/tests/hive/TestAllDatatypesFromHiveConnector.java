@@ -215,7 +215,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {JDBC, SKIP_ON_CDH})
+    @Test(groups = {JDBC, SKIP_ON_CDH /* CDH 5's Avro does not support date type */})
     public void testSelectAllDatatypesAvro()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
