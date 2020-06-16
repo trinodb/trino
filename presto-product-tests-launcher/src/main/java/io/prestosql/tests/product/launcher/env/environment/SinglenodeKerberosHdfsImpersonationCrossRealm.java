@@ -27,7 +27,7 @@ import javax.inject.Inject;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeKerberosHdfsImpersonationCrossRealm
@@ -48,14 +48,12 @@ public final class SinglenodeKerberosHdfsImpersonationCrossRealm
     {
         builder.configureContainer("presto-master", container -> {
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-cross-realm/hive.properties"),
-                            CONTAINER_PRESTO_HIVE_PROPERTIES,
-                            READ_ONLY)
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-cross-realm/iceberg.properties"),
-                            CONTAINER_PRESTO_ICEBERG_PROPERTIES,
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-cross-realm/hive.properties")),
+                            CONTAINER_PRESTO_HIVE_PROPERTIES)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-cross-realm/iceberg.properties")),
+                            CONTAINER_PRESTO_ICEBERG_PROPERTIES);
         });
     }
 }

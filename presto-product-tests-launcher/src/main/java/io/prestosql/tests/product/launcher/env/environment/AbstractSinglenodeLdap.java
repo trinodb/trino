@@ -31,7 +31,7 @@ import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public abstract class AbstractSinglenodeLdap
         extends AbstractEnvironmentProvider
@@ -58,25 +58,22 @@ public abstract class AbstractSinglenodeLdap
         builder.configureContainer("presto-master", dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
 
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath()),
-                    CONTAINER_PRESTO_ETC + "/password-authenticator.properties",
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath())),
+                    CONTAINER_PRESTO_ETC + "/password-authenticator.properties");
 
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-ldap/config.properties"),
-                    CONTAINER_PRESTO_CONFIG_PROPERTIES,
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-ldap/config.properties")),
+                    CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
             portBinder.exposePort(dockerContainer, 8443);
         });
 
         builder.configureContainer("tests", dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-ldap.yaml"),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG,
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-ldap.yaml")),
+                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
         DockerContainer container = new DockerContainer(baseImage)

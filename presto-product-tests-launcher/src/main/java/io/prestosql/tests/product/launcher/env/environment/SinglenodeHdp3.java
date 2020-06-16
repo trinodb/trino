@@ -26,7 +26,7 @@ import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 // HDP 3.1 images (code) + HDP 3.1-like configuration.
 // See https://github.com/prestosql/presto/issues/1841 for more information.
@@ -57,10 +57,9 @@ public class SinglenodeHdp3
         });
 
         builder.configureContainer("tests", dockerContainer -> {
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml"),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG,
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
+                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
     }
 }
