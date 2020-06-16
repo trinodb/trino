@@ -45,7 +45,7 @@ public final class TwoMixedHives
     private final DockerFiles dockerFiles;
 
     private final String hadoopBaseImage;
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     @Inject
     public TwoMixedHives(
@@ -58,7 +58,7 @@ public final class TwoMixedHives
         super(ImmutableList.of(standard, hadoop, kerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
     }
 
     @Override
@@ -89,7 +89,7 @@ public final class TwoMixedHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2()
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + imagesVersion)
+        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
                 .withFileSystemBind(
                         dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/core-site.xml"),
                         "/etc/hadoop/conf/core-site.xml",

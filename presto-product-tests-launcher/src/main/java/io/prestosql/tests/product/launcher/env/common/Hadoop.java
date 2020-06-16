@@ -39,7 +39,7 @@ public final class Hadoop
     private final PortBinder portBinder;
 
     private final String hadoopBaseImage;
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     @Inject
     public Hadoop(
@@ -51,7 +51,7 @@ public final class Hadoop
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         requireNonNull(environmentOptions, "environmentOptions is null");
         hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
     }
 
     @Override
@@ -67,7 +67,7 @@ public final class Hadoop
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster()
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + imagesVersion)
+        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
                 // TODO HIVE_PROXY_PORT:1180
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
