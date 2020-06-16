@@ -1046,4 +1046,32 @@ public class TestStringFunctions
 
         assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
     }
+
+    @Test
+    public void testTranslate()
+    {
+        assertFunction("translate('abcd', '', '')", VARCHAR, "abcd");
+        assertFunction("translate('abcd', 'a', 'z')", VARCHAR, "zbcd");
+        assertFunction("translate('abcda', 'a', 'z')", VARCHAR, "zbcdz");
+
+        assertFunction("translate('áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU");
+
+        assertFunction("translate('Goiânia', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Goiania");
+        assertFunction("translate('São Paulo', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Sao Paulo");
+        assertFunction("translate('Palhoça', 'ç','c')", VARCHAR, "Palhoca");
+        assertFunction("translate('Várzea Paulista', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Varzea Paulista");
+
+        // Test chars that don't fit in 16 bits - - U+20000 is written as "\uD840\uDC00"
+
+        assertFunction("translate('\uD840\uDC00bcd', '\uD840\uDC00', 'z')", VARCHAR, "zbcd");
+        assertFunction("translate('\uD840\uDC00bcd\uD840\uDC00', '\uD840\uDC00', 'z')", VARCHAR, "zbcdz");
+        assertFunction("translate('abcd', 'b', '\uD840\uDC00')", VARCHAR, "a\uD840\uDC00cd");
+
+        // Test that the to string can be shorter than the from string, and that we choose the first duplicate in the from string
+
+        assertFunction("translate('abcd', 'a', '')", VARCHAR, "bcd");
+        assertFunction("translate('abcd', 'a', 'zy')", VARCHAR, "zbcd");
+        assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
+        assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
+    }
 }
