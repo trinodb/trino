@@ -106,7 +106,7 @@ public class TaskContext
     private final MemoryTrackingContext taskMemoryContext;
 
     @GuardedBy("this")
-    private Map<String, Domain> dynamicTupleDomains = new HashMap<>();
+    private final Map<String, Domain> dynamicTupleDomains = new HashMap<>();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
