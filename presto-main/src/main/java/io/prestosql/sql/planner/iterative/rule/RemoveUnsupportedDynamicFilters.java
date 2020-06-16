@@ -41,9 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.DynamicFilters.getDescriptor;
@@ -113,7 +113,7 @@ public class RemoveUnsupportedDynamicFilters
             Set<String> consumedProbeSide = leftResult.getConsumedDynamicFilterIds();
             Map<String, Symbol> dynamicFilters = node.getDynamicFilters().entrySet().stream()
                     .filter(entry -> consumedProbeSide.contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
             PlanWithConsumedDynamicFilters rightResult = node.getRight().accept(this, allowedDynamicFilterIds);
             Set<String> consumed = new HashSet<>(rightResult.getConsumedDynamicFilterIds());
