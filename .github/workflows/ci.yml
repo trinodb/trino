@@ -36,7 +36,7 @@ jobs:
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw package -B -pl presto-server-rpm
+          ./bin/retry ./mvnw clean package -B -pl presto-server-rpm
           ./mvnw verify -B -pl presto-server-rpm
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!presto-server,!presto-cli'
