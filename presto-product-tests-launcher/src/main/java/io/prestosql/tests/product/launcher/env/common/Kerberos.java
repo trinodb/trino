@@ -32,7 +32,7 @@ public class Kerberos
     private final PortBinder portBinder;
 
     private final String hadoopBaseImage;
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     @Inject
     public Kerberos(
@@ -44,13 +44,13 @@ public class Kerberos
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         requireNonNull(environmentOptions, "environmentOptions is null");
         hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String dockerImageName = hadoopBaseImage + "-kerberized:" + imagesVersion;
+        String dockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
         builder.configureContainer("hadoop-master", container -> {
             container.setDockerImageName(dockerImageName);
             portBinder.exposePort(container, 88);

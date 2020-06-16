@@ -61,8 +61,8 @@ public final class MultinodeTlsKerberos
         this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         String hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        String imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
-        prestoDockerImageName = hadoopBaseImage + "-kerberized:" + imagesVersion;
+        String hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
+        prestoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
         serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
     }
 

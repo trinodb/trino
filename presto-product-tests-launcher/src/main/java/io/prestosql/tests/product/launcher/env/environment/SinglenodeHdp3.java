@@ -35,20 +35,20 @@ public class SinglenodeHdp3
         extends AbstractEnvironmentProvider
 {
     private final DockerFiles dockerFiles;
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     @Inject
     protected SinglenodeHdp3(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentOptions environmentOptions)
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        this.hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
     }
 
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        String dockerImageName = "prestodev/hdp3.1-hive:" + imagesVersion;
+        String dockerImageName = "prestodev/hdp3.1-hive:" + hadoopImagesVersion;
 
         builder.configureContainer("hadoop-master", dockerContainer -> {
             dockerContainer.setDockerImageName(dockerImageName);

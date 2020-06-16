@@ -55,7 +55,7 @@ public final class TwoKerberosHives
     private final DockerFiles dockerFiles;
 
     private final String hadoopBaseImage;
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     private final Closer closer = Closer.create();
 
@@ -70,7 +70,7 @@ public final class TwoKerberosHives
         super(ImmutableList.of(standard, hadoop, kerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
     }
 
     @PreDestroy
@@ -141,7 +141,7 @@ public final class TwoKerberosHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2(String keytabsHostDirectory)
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + "-kerberized-2:" + imagesVersion)
+        DockerContainer container = new DockerContainer(hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion)
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
                 .withFileSystemBind(keytabsHostDirectory, "/presto_keytabs", READ_WRITE)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withEntrypoint(ImmutableList.of(

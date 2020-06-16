@@ -24,11 +24,16 @@ import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentOptions
 {
+    private static final String DOCKER_IMAGES_VERSION = "28";
+
     @Option(name = "--hadoop-base-image", title = "image", description = "Hadoop base image")
     public String hadoopBaseImage = System.getenv().getOrDefault("HADOOP_BASE_IMAGE", "prestodev/hdp2.6-hive");
 
     @Option(name = "--image-version", title = "version", description = "docker images version")
-    public String imagesVersion = System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", "28");
+    public String imagesVersion = System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", DOCKER_IMAGES_VERSION);
+
+    @Option(name = "--hadoop-image-version", title = "version", description = "docker images version")
+    public String hadoopImagesVersion = System.getenv().getOrDefault("HADOOP_IMAGES_VERSION", System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", DOCKER_IMAGES_VERSION));
 
     @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
     public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");

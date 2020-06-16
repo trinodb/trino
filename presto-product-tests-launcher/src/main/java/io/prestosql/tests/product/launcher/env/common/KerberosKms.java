@@ -28,21 +28,21 @@ public class KerberosKms
 {
     private final DockerFiles dockerFiles;
 
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     @Inject
     public KerberosKms(DockerFiles dockerFiles, EnvironmentOptions environmentOptions)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         requireNonNull(environmentOptions, "environmentOptions is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
         // TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-        String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + imagesVersion;
+        String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + hadoopImagesVersion;
 
         builder.configureContainer("hadoop-master", container -> {
             container.setDockerImageName(dockerImageName);
