@@ -59,6 +59,15 @@ import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.ExpressionFormatter;
+import io.prestosql.sql.analyzer.TypeSignatureTranslator;
+import io.prestosql.sql.tree.DataType;
+import io.prestosql.sql.tree.DateTimeDataType;
+import io.prestosql.sql.tree.GenericDataType;
+import io.prestosql.sql.tree.IntervalDayTimeDataType;
+import io.prestosql.sql.tree.NumericParameter;
+import io.prestosql.sql.tree.RowDataType;
+import io.prestosql.sql.tree.TypeParameter;
 import io.prestosql.transaction.TransactionId;
 import io.prestosql.util.Failures;
 
@@ -78,6 +87,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -92,6 +102,7 @@ import static io.prestosql.server.protocol.QueryResultRows.queryResultRowsBuilde
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
+import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -592,11 +603,50 @@ class Query
 
     private Column createColumn(String name, Type type)
     {
-        ClientTypeSignature signature = toClientTypeSignature(type.getTypeSignature());
+        String formatted = formatType(TypeSignatureTranslator.toSqlType(type));
 
-        // TODO: the type name should be rendered by the SQL expression formatter to account for delimited field names in row types
-        // and special types such as timestamp(p) with time zone in a future version
-        return new Column(name, signature.toString(), signature);
+        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature()));
+    }
+
+    private String formatType(DataType type)
+    {
+        if (type instanceof DateTimeDataType) {
+            DateTimeDataType dataTimeType = (DateTimeDataType) type;
+            if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone() && !supportsParametricDateTime) {
+                return TIMESTAMP;
+            }
+
+            return ExpressionFormatter.formatExpression(type);
+        }
+        else if (type instanceof RowDataType) {
+            RowDataType rowDataType = (RowDataType) type;
+            return rowDataType.getFields().stream()
+                    .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType()))
+                    .collect(Collectors.joining(", ", ROW + "(", ")"));
+        }
+        else if (type instanceof GenericDataType) {
+            GenericDataType dataType = (GenericDataType) type;
+            if (dataType.getArguments().isEmpty()) {
+                return dataType.getName().getValue();
+            }
+
+            return dataType.getArguments().stream()
+                    .map(parameter -> {
+                        if (parameter instanceof NumericParameter) {
+                            return ((NumericParameter) parameter).getValue();
+                        }
+                        else if (parameter instanceof TypeParameter) {
+                            return formatType(((TypeParameter) parameter).getValue());
+                        }
+                        throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
+                    })
+                    .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
+        }
+        else if (type instanceof IntervalDayTimeDataType) {
+            return ExpressionFormatter.formatExpression(type);
+        }
+
+        throw new IllegalArgumentException("Unsupported data type: " + type.getClass().getName());
     }
 
     private ClientTypeSignature toClientTypeSignature(TypeSignature signature)
