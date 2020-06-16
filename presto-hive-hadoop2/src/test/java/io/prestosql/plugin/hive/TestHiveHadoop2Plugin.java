@@ -62,6 +62,8 @@ public class TestHiveHadoop2Plugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.s3.security-mapping.config-file", mappingConfig.toString())
                         .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.cache.location", tempDirectory.toString())
                         .build(),
                 new TestingConnectorContext())
                 .shutdown()).hasMessageContaining("S3 security mapping is not compatible with Hive caching");
@@ -78,6 +80,8 @@ public class TestHiveHadoop2Plugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.gcs.use-access-token", "true")
                         .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.cache.location", tempDirectory.toString())
                         .build(),
                 new TestingConnectorContext())
                 .shutdown())
@@ -95,6 +99,8 @@ public class TestHiveHadoop2Plugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.hdfs.impersonation.enabled", "true")
                         .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.cache.location", tempDirectory.toString())
                         .build(),
                 new TestingConnectorContext())
                 .shutdown())
