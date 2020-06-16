@@ -51,6 +51,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -743,7 +744,7 @@ public class PlanBuilder
             Optional<Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
-            Map<String, Symbol> dynamicFilters)
+            Map<DynamicFilterId, Symbol> dynamicFilters)
     {
         return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilters);
     }
@@ -759,7 +760,7 @@ public class PlanBuilder
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType,
-            Map<String, Symbol> dynamicFilters)
+            Map<DynamicFilterId, Symbol> dynamicFilters)
     {
         return new JoinNode(
                 idAllocator.getNextId(),

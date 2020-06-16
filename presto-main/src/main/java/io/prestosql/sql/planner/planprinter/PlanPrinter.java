@@ -57,6 +57,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -822,7 +823,7 @@ public class PlanPrinter
                     .collect(Collectors.joining(", ", "{", "}"));
         }
 
-        private String printDynamicFilterAssignments(Map<String, Symbol> filters)
+        private String printDynamicFilterAssignments(Map<DynamicFilterId, Symbol> filters)
         {
             return filters.entrySet().stream()
                     .map(filter -> filter.getValue() + " -> " + filter.getKey())

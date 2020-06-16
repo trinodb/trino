@@ -19,6 +19,7 @@ import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -94,10 +95,10 @@ public class DynamicFilterMatcher
             return true;
         }
 
-        Map<String, Symbol> idToProbeSymbolMap = extractDynamicFilters(filterNode.getPredicate())
+        Map<DynamicFilterId, Symbol> idToProbeSymbolMap = extractDynamicFilters(filterNode.getPredicate())
                 .getDynamicConjuncts().stream()
                 .collect(toImmutableMap(DynamicFilters.Descriptor::getId, filter -> Symbol.from(filter.getInput())));
-        Map<String, Symbol> idToBuildSymbolMap = joinNode.getDynamicFilters();
+        Map<DynamicFilterId, Symbol> idToBuildSymbolMap = joinNode.getDynamicFilters();
 
         if (idToProbeSymbolMap == null) {
             return false;
@@ -108,8 +109,8 @@ public class DynamicFilterMatcher
         }
 
         Map<Symbol, Symbol> actual = new HashMap<>();
-        for (Map.Entry<String, Symbol> idToProbeSymbol : idToProbeSymbolMap.entrySet()) {
-            String id = idToProbeSymbol.getKey();
+        for (Map.Entry<DynamicFilterId, Symbol> idToProbeSymbol : idToProbeSymbolMap.entrySet()) {
+            DynamicFilterId id = idToProbeSymbol.getKey();
             Symbol probe = idToProbeSymbol.getValue();
             Symbol build = idToBuildSymbolMap.get(id);
             if (build == null) {

@@ -57,7 +57,7 @@ public class JoinNode
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
     private final Optional<Boolean> spillable;
-    private final Map<String, Symbol> dynamicFilters;
+    private final Map<DynamicFilterId, Symbol> dynamicFilters;
 
     // stats and cost used for join reordering
     private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
@@ -76,7 +76,7 @@ public class JoinNode
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType,
             @JsonProperty("spillable") Optional<Boolean> spillable,
-            @JsonProperty("dynamicFilters") Map<String, Symbol> dynamicFilters,
+            @JsonProperty("dynamicFilters") Map<DynamicFilterId, Symbol> dynamicFilters,
             @JsonProperty("reorderJoinStatsAndCost") Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
     {
         super(id);
@@ -303,7 +303,7 @@ public class JoinNode
     }
 
     @JsonProperty
-    public Map<String, Symbol> getDynamicFilters()
+    public Map<DynamicFilterId, Symbol> getDynamicFilters()
     {
         return dynamicFilters;
     }

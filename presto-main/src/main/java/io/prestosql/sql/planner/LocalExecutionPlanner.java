@@ -149,6 +149,7 @@ import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
@@ -608,7 +609,7 @@ public class LocalExecutionPlanner
             return dynamicFiltersCollector;
         }
 
-        private void addDynamicFilter(Map<String, Domain> dynamicTupleDomain)
+        private void addDynamicFilter(Map<DynamicFilterId, Domain> dynamicTupleDomain)
         {
             taskContext.collectDynamicTupleDomain(dynamicTupleDomain);
         }
@@ -2132,7 +2133,7 @@ public class LocalExecutionPlanner
         {
             List<DynamicFilterSourceOperator.Channel> filterBuildChannels = dynamicFilter.getBuildChannels().entrySet().stream()
                     .map(entry -> {
-                        String filterId = entry.getKey();
+                        DynamicFilterId filterId = entry.getKey();
                         int index = entry.getValue();
                         Type type = buildSource.getTypes().get(index);
                         return new DynamicFilterSourceOperator.Channel(filterId, type, index);
