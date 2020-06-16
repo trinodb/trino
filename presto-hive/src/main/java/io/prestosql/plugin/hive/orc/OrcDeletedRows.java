@@ -37,6 +37,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -181,7 +182,8 @@ public class OrcDeletedRows
 
         ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
         for (AcidInfo.DeleteDeltaInfo deleteDeltaInfo : acidInfo.getDeleteDeltas()) {
-            Path path = createPath(acidInfo.getPartitionLocation(), deleteDeltaInfo, sourceFileName);
+            Path path = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
+
             try {
                 FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
                 FileStatus fileStatus = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.getFileStatus(path));
@@ -214,12 +216,19 @@ public class OrcDeletedRows
         return deletedRows;
     }
 
-    private static Path createPath(String partitionLocation, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
+    private static Path createPath(AcidInfo acidInfo, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
     {
-        Path directory = new Path(partitionLocation, deleteDeltaSubdir(
+        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaSubdir(
                 deleteDeltaInfo.getMinWriteId(),
                 deleteDeltaInfo.getMaxWriteId(),
                 deleteDeltaInfo.getStatementId()));
+
+        // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
+        // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
+        if (hasAttemptId(fileName)) {
+            return new Path(directory, fileName.substring(0, fileName.lastIndexOf("_")));
+        }
+
         return new Path(directory, fileName);
     }
 
