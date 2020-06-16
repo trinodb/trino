@@ -206,6 +206,12 @@ public class RubixInitializer
         setCacheKey(configuration, "rubix_disabled");
     }
 
+    @VisibleForTesting
+    boolean isServerUp()
+    {
+        return LocalDataTransferServer.isServerUp() && bookKeeperServer != null && bookKeeperServer.isServerUp();
+    }
+
     private void waitForCoordinator()
     {
         try {

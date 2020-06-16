@@ -133,14 +133,14 @@ public class TestRubixCaching
     }
 
     private void initializeCachingFileSystem(RubixConfig rubixConfig)
-            throws IOException
+            throws Exception
     {
         initializeRubix(rubixConfig);
         cachingFileSystem = getCachingFileSystem();
     }
 
     private void initializeRubix(RubixConfig rubixConfig)
-            throws IOException
+            throws Exception
     {
         InternalNode coordinatorNode = new InternalNode(
                 "master",
@@ -151,7 +151,7 @@ public class TestRubixCaching
     }
 
     private void initializeRubix(RubixConfig rubixConfig, List<Node> nodes)
-            throws IOException
+            throws Exception
     {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
 
@@ -183,6 +183,12 @@ public class TestRubixCaching
                 Optional.empty());
         rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
+        retry().run("wait for rubix to startup", () -> {
+            if (!rubixInitializer.isServerUp()) {
+                throw new IllegalStateException("Rubix server has not started");
+            }
+            return null;
+        });
     }
 
     private FileSystem getCachingFileSystem()
@@ -370,7 +376,7 @@ public class TestRubixCaching
 
     @Test(dataProvider = "readMode")
     public void testCacheWrite(ReadMode readMode)
-            throws IOException
+            throws Exception
     {
         initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
         Path file = getStoragePath("some_file_write");
