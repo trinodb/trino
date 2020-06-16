@@ -27,15 +27,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Stores information about ACID DELETE_DELTA for a Partition
+ * Stores information about Acid properties of a partition.
  */
-public class DeleteDeltaLocations
+public class AcidInfo
 {
     private final String partitionLocation;
     private final List<DeleteDeltaInfo> deleteDeltas;
 
     @JsonCreator
-    public DeleteDeltaLocations(
+    public AcidInfo(
             @JsonProperty("partitionLocation") String partitionLocation,
             @JsonProperty("deleteDeltas") List<DeleteDeltaInfo> deleteDeltas)
     {
@@ -67,7 +67,7 @@ public class DeleteDeltaLocations
             return false;
         }
 
-        DeleteDeltaLocations that = (DeleteDeltaLocations) o;
+        AcidInfo that = (AcidInfo) o;
         return partitionLocation.equals(that.partitionLocation) &&
                 deleteDeltas.equals(that.deleteDeltas);
     }
@@ -185,13 +185,13 @@ public class DeleteDeltaLocations
             return this;
         }
 
-        public Optional<DeleteDeltaLocations> build()
+        public Optional<AcidInfo> build()
         {
             List<DeleteDeltaInfo> deleteDeltas = deleteDeltaInfoBuilder.build();
             if (deleteDeltas.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new DeleteDeltaLocations(partitionLocation.toString(), deleteDeltas));
+            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas));
         }
     }
 }

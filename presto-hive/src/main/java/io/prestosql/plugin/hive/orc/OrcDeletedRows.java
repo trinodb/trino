@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -53,7 +53,7 @@ public class OrcDeletedRows
     private final String sessionUser;
     private final Configuration configuration;
     private final HdfsEnvironment hdfsEnvironment;
-    private final DeleteDeltaLocations deleteDeltaLocations;
+    private final AcidInfo acidInfo;
 
     @Nullable
     private Set<RowId> deletedRows;
@@ -64,14 +64,14 @@ public class OrcDeletedRows
             String sessionUser,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
-            DeleteDeltaLocations deleteDeltaLocations)
+            AcidInfo acidInfo)
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.deleteDeltaLocations = requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
+        this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
     }
 
     public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage)
@@ -180,8 +180,8 @@ public class OrcDeletedRows
         }
 
         ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
-        for (DeleteDeltaLocations.DeleteDeltaInfo deleteDeltaInfo : deleteDeltaLocations.getDeleteDeltas()) {
-            Path path = createPath(deleteDeltaLocations.getPartitionLocation(), deleteDeltaInfo, sourceFileName);
+        for (AcidInfo.DeleteDeltaInfo deleteDeltaInfo : acidInfo.getDeleteDeltas()) {
+            Path path = createPath(acidInfo.getPartitionLocation(), deleteDeltaInfo, sourceFileName);
             try {
                 FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
                 FileStatus fileStatus = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.getFileStatus(path));
@@ -214,7 +214,7 @@ public class OrcDeletedRows
         return deletedRows;
     }
 
-    private static Path createPath(String partitionLocation, DeleteDeltaLocations.DeleteDeltaInfo deleteDeltaInfo, String fileName)
+    private static Path createPath(String partitionLocation, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
     {
         Path directory = new Path(partitionLocation, deleteDeltaSubdir(
                 deleteDeltaInfo.getMinWriteId(),
