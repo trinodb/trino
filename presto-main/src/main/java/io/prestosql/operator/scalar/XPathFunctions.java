@@ -62,7 +62,7 @@ public final class XPathFunctions
     @Description("Returns a string array of values within xml nodes that match the xpath expression")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
-    @SqlType("array(unknown)")
+    @SqlType("array(varchar)")
     public static Block xpath(@SqlType("varchar(x)") Slice xml, @SqlType("varchar(y)") Slice path)
     {
         List<String> initList = eval(xml.toStringUtf8(), path.toStringUtf8());
@@ -70,6 +70,7 @@ public final class XPathFunctions
         //VarcharType varchar = createUnboundedVarcharType();
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, initList.size());
         for (String value : initList) {
+            //VARCHAR.writeSlice(builder, utf8Slice(value));
             if (value == null) {
                 builder.appendNull();
             }
