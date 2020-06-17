@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -3251,78 +3252,67 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
-    @Test
-    public void testCreateExternalTable()
+    private void testCreateExternalTable(
+            String tableName,
+            String fileContents,
+            String expectedResults,
+            List<String> tableProperties)
             throws Exception
     {
         File tempDir = createTempDir();
         File dataFile = new File(tempDir, "test.txt");
-        Files.write("hello\u0001world\nbye\u0001world", dataFile, UTF_8);
+        Files.asCharSink(dataFile, UTF_8).write(fileContents);
 
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_create_external (\n" +
-                        "   action varchar,\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE',\n" +
-                        "   textfile_field_separator = U&'\\0001'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                new Path(tempDir.toURI().toASCIIString()).toString());
-
-        assertUpdate(createTableSql);
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-
-        assertQuery("SELECT action, name FROM test_create_external", "VALUES ('hello', 'world'), ('bye', 'world')");
-        assertUpdate("DROP TABLE test_create_external");
-
-        // file should still exist after drop
-        assertFile(dataFile);
-
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
-    }
-
-    @Test
-    public void testCreateExternalTableTextFileFieldSeparatorEscape()
-            throws Exception
-    {
-        String tableName = "test_create_external_text_file_with_field_separator_and_escape";
-
-        File tempDir = createTempDir();
-        File dataFile = new File(tempDir, "test.txt");
-        Files.write("HelloEFFWorld\nByeEFFWorld", dataFile, UTF_8);
+        // Table properties
+        StringJoiner propertiesSql = new StringJoiner(",\n   ");
+        propertiesSql.add(
+                format("external_location = '%s'", new Path(tempDir.toURI().toASCIIString())));
+        propertiesSql.add("format = 'TEXTFILE'");
+        tableProperties.forEach(propertiesSql::add);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   action varchar,\n" +
-                        "   name varchar\n" +
+                        "   col1 varchar,\n" +
+                        "   col2 varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE',\n" +
-                        "   textfile_field_separator = 'F',\n" +
-                        "   textfile_field_separator_escape = 'E'\n" +
+                        "   %s\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,
-                new Path(tempDir.toURI().toASCIIString()).toString());
+                propertiesSql);
 
         assertUpdate(createTableSql);
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external_text_file_with_field_separator_and_escape");
+        MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s", tableName));
         assertEquals(actual.getOnlyValue(), createTableSql);
 
-        assertQuery("SELECT action, name FROM test_create_external_text_file_with_field_separator_and_escape", "VALUES ('HelloF', 'World'), ('ByeF', 'World')");
-        assertUpdate("DROP TABLE test_create_external_text_file_with_field_separator_and_escape");
-
-        // file should still exist after drop
-        assertFile(dataFile);
-
+        assertQuery(format("SELECT col1, col2 from %s", tableName), expectedResults);
+        assertUpdate(format("DROP TABLE %s", tableName));
+        assertFile(dataFile); // file should still exist after drop
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTable() throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external",
+                "hello\u0001world\nbye\u0001world",
+                "VALUES ('hello', 'world'), ('bye', 'world')",
+                ImmutableList.of("textfile_field_separator = U&'\\0001'"));
+    }
+
+    @Test
+    public void testCreateExternalTableWithFieldSeparatorEscape() throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_text_file_with_field_separator_and_escape",
+                "HelloEFFWorld\nByeEFFWorld",
+                "VALUES ('HelloF', 'World'), ('ByeF', 'World')",
+                ImmutableList.of(
+                        "textfile_field_separator = 'F'",
+                        "textfile_field_separator_escape = 'E'"));
     }
 
     @Test
