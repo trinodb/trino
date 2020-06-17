@@ -3417,116 +3417,72 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE test_comment_table");
     }
 
-    @Test
-    public void testCreateTableWithHeaderAndFooterForTextFile()
+    private void testCreateTableWithHeaderAndFooter(String format)
     {
+        String name = format.toLowerCase(ENGLISH);
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+
         @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_table_skip_header (\n" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header (\n" +
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'TEXTFILE',\n" +
+                        "   format = '%s',\n" +
                         "   skip_header_line_count = 1\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
+                catalog, schema, name, format);
 
         assertUpdate(createTableSql);
 
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_table_skip_header");
+        MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE test_table_skip_header");
+        assertUpdate(format("DROP TABLE %s_table_skip_header", format));
 
         createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_table_skip_footer (\n" +
+                        "CREATE TABLE %s.%s.%s_table_skip_footer (\n" +
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'TEXTFILE',\n" +
+                        "   format = '%s',\n" +
                         "   skip_footer_line_count = 1\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
+                catalog, schema, name, format);
 
         assertUpdate(createTableSql);
 
-        actual = computeActual("SHOW CREATE TABLE test_table_skip_footer");
+        actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_footer", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE test_table_skip_footer");
+        assertUpdate(format("DROP TABLE %s_table_skip_footer", format));
 
         createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_table_skip_header_footer (\n" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header_footer (\n" +
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'TEXTFILE',\n" +
+                        "   format = '%s',\n" +
                         "   skip_footer_line_count = 1,\n" +
                         "   skip_header_line_count = 1\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
+                catalog, schema, name, format);
 
         assertUpdate(createTableSql);
 
-        actual = computeActual("SHOW CREATE TABLE test_table_skip_header_footer");
+        actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header_footer", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE test_table_skip_header_footer");
+        assertUpdate(format("DROP TABLE %s_table_skip_header_footer", format));
+    }
+
+    @Test
+    public void testCreateTableWithHeaderAndFooterForTextFile()
+    {
+        testCreateTableWithHeaderAndFooter("TEXTFILE");
     }
 
     @Test
     public void testCreateTableWithHeaderAndFooterForCsv()
     {
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.csv_table_skip_header (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
-
-        assertUpdate(createTableSql);
-
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE csv_table_skip_header");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE csv_table_skip_header");
-
-        createTableSql = format("" +
-                        "CREATE TABLE %s.%s.csv_table_skip_footer (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_footer_line_count = 1\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
-
-        assertUpdate(createTableSql);
-
-        actual = computeActual("SHOW CREATE TABLE csv_table_skip_footer");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE csv_table_skip_footer");
-
-        createTableSql = format("" +
-                        "CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_footer_line_count = 1,\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
-
-        assertUpdate(createTableSql);
-
-        actual = computeActual("SHOW CREATE TABLE csv_table_skip_header_footer");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE csv_table_skip_header_footer");
+        testCreateTableWithHeaderAndFooter("CSV");
     }
 
     @Test
