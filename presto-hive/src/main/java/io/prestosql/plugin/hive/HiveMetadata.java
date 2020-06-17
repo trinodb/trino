@@ -264,8 +264,8 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    public static final String SKIP_HEADER_COUNT_KEY = "skip.header.line.count";
-    public static final String SKIP_FOOTER_COUNT_KEY = "skip.footer.line.count";
+    public static final String SKIP_HEADER_COUNT_KEY = serdeConstants.HEADER_COUNT;
+    public static final String SKIP_FOOTER_COUNT_KEY = serdeConstants.FOOTER_COUNT;
 
     private static final String TEXT_FIELD_SEPARATOR_KEY = serdeConstants.FIELD_DELIM;
     private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = serdeConstants.ESCAPE_CHAR;
