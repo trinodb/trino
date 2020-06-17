@@ -22,6 +22,7 @@ import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
@@ -29,14 +30,13 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
 import static io.prestosql.tests.TestGroups.PRESTO_JDBC;
 import static io.prestosql.tests.TestGroups.SMOKE;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSyncPartitionMetadata
         extends ProductTest
 {
-    private static final String WAREHOUSE_DIRECTORY_PATH = "/user/hive/warehouse/";
-
     @Inject
     private HdfsClient hdfsClient;
 
@@ -99,7 +99,7 @@ public class TestSyncPartitionMetadata
     {
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
-        String tableLocation = WAREHOUSE_DIRECTORY_PATH + tableName;
+        String tableLocation = getTableLocation(tableName, 2);
         HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h/col_Y=11", dataSource);
         hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=12");
@@ -115,7 +115,7 @@ public class TestSyncPartitionMetadata
     {
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
-        String tableLocation = WAREHOUSE_DIRECTORY_PATH + tableName;
+        String tableLocation = getTableLocation(tableName, 2);
         HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
         // this conflicts with a partition that already exits in the metastore
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=a/cOl_y=1", dataSource);
@@ -132,7 +132,7 @@ public class TestSyncPartitionMetadata
         query("CREATE TABLE " + tableName + " (payload bigint, col_x varchar, col_y varchar) WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])");
         query("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
 
-        String tableLocation = WAREHOUSE_DIRECTORY_PATH + tableName;
+        String tableLocation = getTableLocation(tableName, 2);
         // remove partition col_x=b/col_y=2
         hdfsClient.delete(tableLocation + "/col_x=b/col_y=2");
         // add partition directory col_x=f/col_y=9 with single_int_column/data.orc file
@@ -150,6 +150,15 @@ public class TestSyncPartitionMetadata
         hdfsClient.createDirectory(tableLocation + "/xyz");
 
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
+    }
+
+    private static String getTableLocation(String tableName, int partitionLevels)
+    {
+        String regex = "/[^/]*$";
+        for (int i = 0; i < partitionLevels; i++) {
+            regex = "/[^/]*" + regex;
+        }
+        return getOnlyElement(onPresto().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
     }
 
     private static void cleanup(String tableName)
