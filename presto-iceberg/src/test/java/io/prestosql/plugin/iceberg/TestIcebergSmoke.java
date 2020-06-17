@@ -24,6 +24,8 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.function.BiConsumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -37,6 +39,8 @@ import static org.testng.Assert.assertFalse;
 public class TestIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
 {
+    private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -345,6 +349,63 @@ public class TestIcebergSmoke
         assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable(session, "test_schema_evolution_drop_middle");
+    }
+
+    @Test
+    private void testCreateTableLike()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
+        assertEquals(getTablePropertiesString("test_create_table_like_original"), "WITH (\n" +
+                "   format = 'PARQUET',\n" +
+                "   partitioning = ARRAY['adate']\n" +
+                ")");
+
+        assertUpdate(session, "CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
+        assertUpdate(session, "INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
+        assertQuery(session, "SELECT * from test_create_table_like_copy0", "VALUES(1, CAST('1950-06-28' AS DATE), 3)");
+        dropTable(session, "test_create_table_like_copy0");
+
+        assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
+        assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")");
+        dropTable(session, "test_create_table_like_copy1");
+
+        assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
+        assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")");
+        dropTable(session, "test_create_table_like_copy2");
+
+        assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
+        assertEquals(getTablePropertiesString("test_create_table_like_copy3"), "WITH (\n" +
+                "   format = 'PARQUET',\n" +
+                "   partitioning = ARRAY['adate']\n" +
+                ")");
+        dropTable(session, "test_create_table_like_copy3");
+
+        assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
+        assertEquals(getTablePropertiesString("test_create_table_like_copy4"), "WITH (\n" +
+                "   format = 'ORC',\n" +
+                "   partitioning = ARRAY['adate']\n" +
+                ")");
+        dropTable(session, "test_create_table_like_copy4");
+
+        dropTable(session, "test_create_table_like_original");
+    }
+
+    private String getTablePropertiesString(String tableName)
+    {
+        MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
+        String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
+        Matcher matcher = WITH_CLAUSE_EXTRACTER.matcher(createTable);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+        else {
+            return null;
+        }
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
