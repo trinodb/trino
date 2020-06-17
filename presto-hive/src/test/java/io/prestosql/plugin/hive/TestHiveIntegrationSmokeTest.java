@@ -3337,7 +3337,7 @@ public class TestHiveIntegrationSmokeTest
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
 
-        assertQueryFails(createTableSql, "Cannot create a non-managed Hive table using CREATE TABLE AS");
+        assertQueryFails(createTableSql, "Writes to non-managed Hive tables is disabled");
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 

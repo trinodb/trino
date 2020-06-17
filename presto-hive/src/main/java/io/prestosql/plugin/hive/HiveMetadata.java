@@ -1233,8 +1233,14 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
-        if ((!writesToNonManagedTablesEnabled || !createsOfNonManagedTablesEnabled) && getExternalLocation(tableMetadata.getProperties()) != null) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot create a non-managed Hive table using CREATE TABLE AS");
+        Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
+                .map(HiveMetadata::getExternalLocationAsPath);
+        if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, "Creating non-managed Hive tables is disabled");
+        }
+
+        if (!writesToNonManagedTablesEnabled && externalLocation.isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, "Writes to non-managed Hive tables is disabled");
         }
 
         if (getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
@@ -1264,9 +1270,6 @@ public class HiveMetadata
                 .map(column -> new Column(column.getName(), column.getHiveType(), column.getComment()))
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
-
-        Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
-                .map(HiveMetadata::getExternalLocationAsPath);
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
 
