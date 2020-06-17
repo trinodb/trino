@@ -3300,7 +3300,17 @@ public class TestHiveIntegrationSmokeTest
                 "test_create_external",
                 "hello\u0001world\nbye\u0001world",
                 "VALUES ('hello', 'world'), ('bye', 'world')",
-                ImmutableList.of("textfile_field_separator = U&'\\0001'"));
+                ImmutableList.of());
+    }
+
+    @Test
+    public void testCreateExternalTableWithFieldSeparator() throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external",
+                "helloXworld\nbyeXworld",
+                "VALUES ('hello', 'world'), ('bye', 'world')",
+                ImmutableList.of("textfile_field_separator = 'X'"));
     }
 
     @Test
