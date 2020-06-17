@@ -177,10 +177,6 @@ Hive Configuration Properties
 ================================================== ============================================================ ============
 Property Name                                      Description                                                  Default
 ================================================== ============================================================ ============
-``hive.metastore``                                 The type of Hive metastore to use. Presto currently supports ``thrift``
-                                                   the default Hive Thrift metastore (``thrift``), and the AWS
-                                                   Glue Catalog (``glue``) as metadata sources.
-
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
                                                    machines running Presto. Only specify this if
@@ -258,6 +254,35 @@ Property Name                                      Description                  
                                                    valid.
 ================================================== ============================================================ ============
 
+Hive Metastore Configuration Properties
+---------------------------------------
+
+The required Hive metastore can be configured with a number of properties.
+Specific properties can be used to further configure the :ref:`Thrift
+<thrift-metastore-properties>` or :ref:`Glue <glue-metastore-properties>`
+metastore.
+
+======================================= ============================================================ ============
+Property Name                                      Description                                       Default
+======================================= ============================================================ ============
+``hive.metastore``                      The type of Hive metastore to use. Presto currently supports ``thrift``
+                                        the default Hive Thrift metastore (``thrift``), and the AWS
+                                        Glue Catalog (``glue``) as metadata sources.
+
+``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
+                                        valid.
+
+``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
+
+``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access
+                                        if it is older than this but is not yet expired, allowing
+                                        subsequent accesses to see fresh data.
+
+``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+======================================= ============================================================ ============
+
+.. _thrift-metastore-properties:
+
 Hive Thrift Metastore Configuration Properties
 ----------------------------------------------
 
@@ -299,14 +324,10 @@ Property Name                                                 Description       
 
 ``hive.metastore.client.keytab``                              Hive metastore client keytab location.
 
-``hive.metastore-cache-ttl``                                  Time to live Hive metadata cache.                            ``0s``
-
-``hive.metastore-refresh-interval``                           How often to refresh the Hive metastore cache.
-
-``hive.metastore-cache-maximum-size``                         Hive metastore cache maximum size.                           10,000
-
-``hive.metastore-refresh-max-threads``                        Maximum number of threads to refresh Hive metastore cache.   100
 ============================================================= ============================================================ ============
+
+
+.. _glue-metastore-properties:
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
