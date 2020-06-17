@@ -132,10 +132,15 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
             assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3));
 
-            // test major compaction
-            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
-            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("5m"));
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
+            if (getHiveVersionMajor() >= 4) {
+                // Major compaction on insert only table does not work prior to Hive 4:
+                // https://issues.apache.org/jira/browse/HIVE-21280
+
+                // test major compaction
+                onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
+                compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("5m"));
+                assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
+            }
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
