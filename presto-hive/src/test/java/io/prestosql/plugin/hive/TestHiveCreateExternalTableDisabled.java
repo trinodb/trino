@@ -55,7 +55,7 @@ public class TestHiveCreateExternalTableDisabled
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
-        assertQueryFails(createTableSql, "Cannot create a non-managed Hive table using CREATE TABLE AS");
+        assertQueryFails(createTableSql, "Creating non-managed Hive tables is disabled");
 
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
