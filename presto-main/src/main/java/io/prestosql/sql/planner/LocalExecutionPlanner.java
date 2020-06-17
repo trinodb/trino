@@ -2335,12 +2335,17 @@ public class LocalExecutionPlanner
                     .map(source::symbolToChannel)
                     .collect(toImmutableList());
 
+            List<String> notNullChannelColumnNames = node.getColumns().stream()
+                    .map(symbol -> node.getNotNullColumnSymbols().contains(symbol) ? node.getColumnNames().get(source.symbolToChannel(symbol)) : null)
+                    .collect(Collectors.toList());
+
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     pageSinkManager,
                     node.getTarget(),
                     inputChannels,
+                    notNullChannelColumnNames,
                     session,
                     statisticsAggregation,
                     getSymbolTypes(node.getOutputSymbols(), context.getTypes()));

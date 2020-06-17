@@ -92,11 +92,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.prestosql.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.prestosql.SystemSessionProperties.isUsePreferredWritePartitioning;
@@ -334,6 +336,7 @@ public class LogicalPlanner
                 plan,
                 new CreateReference(destination.getCatalogName(), tableMetadata, newTableLayout),
                 columnNames,
+                tableMetadata.getColumns(),
                 newTableLayout,
                 statisticsMetadata);
     }
@@ -407,6 +410,7 @@ public class LogicalPlanner
                                 .map(columns::get)
                                 .collect(toImmutableList())),
                 insertedTableColumnNames,
+                insertedColumns,
                 insert.getNewTableLayout(),
                 statisticsMetadata);
     }
@@ -416,6 +420,7 @@ public class LogicalPlanner
             RelationPlan plan,
             WriterTarget target,
             List<String> columnNames,
+            List<ColumnMetadata> columnMetadataList,
             Optional<NewTableLayout> writeTableLayout,
             TableStatisticsMetadata statisticsMetadata)
     {
@@ -448,11 +453,17 @@ public class LogicalPlanner
             }
         }
 
-        if (!statisticsMetadata.isEmpty()) {
-            verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
-            Map<String, Symbol> columnToSymbolMap = zip(columnNames.stream(), symbols.stream(), SimpleImmutableEntry::new)
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
+        Map<String, Symbol> columnToSymbolMap = zip(columnNames.stream(), symbols.stream(), SimpleImmutableEntry::new)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
+        Set<Symbol> notNullColumnSymbols = columnMetadataList.stream()
+                .filter(column -> !column.isNullable())
+                .map(ColumnMetadata::getName)
+                .map(columnToSymbolMap::get)
+                .collect(toImmutableSet());
+
+        if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToSymbolMap);
 
             StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, metadata);
@@ -473,6 +484,7 @@ public class LogicalPlanner
                             symbolAllocator.newSymbol("fragment", VARBINARY),
                             symbols,
                             columnNames,
+                            notNullColumnSymbols,
                             partitioningScheme,
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
@@ -494,6 +506,7 @@ public class LogicalPlanner
                         symbolAllocator.newSymbol("fragment", VARBINARY),
                         symbols,
                         columnNames,
+                        notNullColumnSymbols,
                         partitioningScheme,
                         Optional.empty(),
                         Optional.empty()),

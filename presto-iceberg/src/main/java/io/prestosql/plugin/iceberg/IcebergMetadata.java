@@ -543,6 +543,7 @@ public class IcebergMetadata
                     return ColumnMetadata.builder()
                             .setName(column.name())
                             .setType(toPrestoType(column.type(), typeManager))
+                            .setNullable(column.isOptional())
                             .setComment(Optional.ofNullable(column.doc()))
                             .build();
                 })
