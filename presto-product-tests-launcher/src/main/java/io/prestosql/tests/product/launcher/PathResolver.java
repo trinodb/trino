@@ -32,11 +32,15 @@ public final class PathResolver
 
     public File resolvePlaceholders(File path)
     {
-        String result = path.getPath();
+        return new File(resolvePlaceholders(path.getPath()));
+    }
+
+    public String resolvePlaceholders(String result)
+    {
         if (result.contains(PROJECT_VERSION_PLACEHOLDER)) {
             result = result.replace(PROJECT_VERSION_PLACEHOLDER, projectVersion.get());
         }
-        return new File(result);
+        return result;
     }
 
     private String readProjectVersion()
