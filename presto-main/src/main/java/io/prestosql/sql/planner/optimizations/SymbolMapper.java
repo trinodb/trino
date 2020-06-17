@@ -162,6 +162,7 @@ public class SymbolMapper
                 map(node.getFragmentSymbol()),
                 columns,
                 node.getColumnNames(),
+                node.getNotNullColumnSymbols(),
                 node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(this::map));

@@ -200,7 +200,7 @@ public class TestMySqlIntegrationSmokeTest
         assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_a) VALUES (date '2012-12-31')", "Failed to insert data: Field 'column_b' doesn't have a default value");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "Failed to insert data: Column 'column_b' cannot be null");
+        assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
 
         assertUpdate("ALTER TABLE test_insert_not_null ADD COLUMN column_c BIGINT NOT NULL");
 
@@ -214,7 +214,7 @@ public class TestMySqlIntegrationSmokeTest
         assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_b) VALUES (date '2012-12-31')", "Failed to insert data: Field 'column_c' doesn't have a default value");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "Failed to insert data: Column 'column_c' cannot be null");
+        assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
 
         assertUpdate("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
         assertUpdate("INSERT INTO test_insert_not_null (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);

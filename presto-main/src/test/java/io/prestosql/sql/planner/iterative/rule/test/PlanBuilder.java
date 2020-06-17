@@ -873,6 +873,7 @@ public class PlanBuilder
                 symbol("fragment", VARBINARY),
                 columns,
                 columnNames,
+                ImmutableSet.of(),
                 partitioningScheme,
                 statisticAggregations,
                 statisticAggregationsDescriptor);
