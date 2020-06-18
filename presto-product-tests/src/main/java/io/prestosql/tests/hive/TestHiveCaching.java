@@ -77,6 +77,7 @@ public class TestHiveCaching
                 new Duration(10, SECONDS),
                 () -> {
                     QueryResult beforeQueryCacheStats = getCacheStats();
+                    long beforeQueryCachedReads = getCachedReads(beforeQueryCacheStats);
                     long beforeQueryRemoteReads = getRemoteReads(beforeQueryCacheStats);
                     long beforeQueryNonLocalReads = getNonLocalReads(beforeQueryCacheStats);
 
@@ -85,6 +86,7 @@ public class TestHiveCaching
 
                     // query via caching catalog should read exclusively from cache
                     QueryResult afterQueryCacheStats = getCacheStats();
+                    assertGreaterThan(getCachedReads(afterQueryCacheStats), beforeQueryCachedReads);
                     assertEquals(getRemoteReads(afterQueryCacheStats), beforeQueryRemoteReads);
                     // all reads should be local as Presto would schedule splits on nodes with cached data
                     assertEquals(getNonLocalReads(afterQueryCacheStats), beforeQueryNonLocalReads);
