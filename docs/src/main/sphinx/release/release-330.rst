@@ -39,7 +39,7 @@ Server changes
 Security changes
 ----------------
 
-* :ref:`principal_rules` are deprecated and will be removed in a future release.
+* Principal Rules are deprecated and will be removed in a future release.
   These rules have been replaced with :doc:`/security/user-mapping`, which
   specifies how a complex authentication user name is mapped to a simple
   user name for Presto, and :ref:`impersonation_rules` which control the ability

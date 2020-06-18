@@ -25,7 +25,6 @@ public class FileBasedSystemAccessControlRules
     private final Optional<List<CatalogAccessControlRule>> catalogRules;
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
-    private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final Optional<List<CatalogSchemaAccessControlRule>> schemaRules;
     private final Optional<List<CatalogTableAccessControlRule>> tableRules;
@@ -37,7 +36,6 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("catalogs") Optional<List<CatalogAccessControlRule>> catalogRules,
             @JsonProperty("queries") Optional<List<QueryAccessRule>> queryAccessRules,
             @JsonProperty("impersonation") Optional<List<ImpersonationRule>> impersonationRules,
-            @JsonProperty("principals") Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             @JsonProperty("system_information") Optional<List<SystemInformationRule>> systemInformationRules,
             @JsonProperty("schemas") Optional<List<CatalogSchemaAccessControlRule>> schemaAccessControlRules,
             @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules,
@@ -46,7 +44,6 @@ public class FileBasedSystemAccessControlRules
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf);
         this.queryAccessRules = queryAccessRules.map(ImmutableList::copyOf);
-        this.principalUserMatchRules = principalUserMatchRules.map(ImmutableList::copyOf);
         this.impersonationRules = impersonationRules.map(ImmutableList::copyOf);
         this.systemInformationRules = systemInformationRules.map(ImmutableList::copyOf);
         this.schemaRules = schemaAccessControlRules.map(ImmutableList::copyOf);
@@ -68,11 +65,6 @@ public class FileBasedSystemAccessControlRules
     public Optional<List<ImpersonationRule>> getImpersonationRules()
     {
         return impersonationRules;
-    }
-
-    public Optional<List<PrincipalUserMatchRule>> getPrincipalUserMatchRules()
-    {
-        return principalUserMatchRules;
     }
 
     public Optional<List<SystemInformationRule>> getSystemInformationRules()

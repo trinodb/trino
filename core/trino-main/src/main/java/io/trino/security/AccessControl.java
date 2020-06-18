@@ -25,7 +25,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -34,15 +33,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorizati
 
 public interface AccessControl
 {
-    /**
-     * Check if the principal is allowed to be the specified user.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated replaced with user mapping during authentication and {@link #checkCanImpersonateUser}
-     */
-    @Deprecated
-    void checkCanSetUser(Optional<Principal> principal, String userName);
-
     /**
      * Check if the identity is allowed impersonate the specified user.
      *

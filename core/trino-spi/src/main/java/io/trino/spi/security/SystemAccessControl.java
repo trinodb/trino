@@ -20,7 +20,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.type.Type;
 
-import java.security.Principal;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -57,7 +56,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -79,18 +77,6 @@ public interface SystemAccessControl
     default void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
         denyImpersonateUser(context.getIdentity().getUser(), userName);
-    }
-
-    /**
-     * Check if the principal is allowed to be the specified user.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated use user mapping and {@link #checkCanImpersonateUser} instead
-     */
-    @Deprecated
-    default void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-        denySetUser(principal, userName);
     }
 
     /**

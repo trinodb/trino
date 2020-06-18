@@ -21,7 +21,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 
-import java.security.Principal;
 import java.util.Optional;
 import java.util.Set;
 
@@ -30,11 +29,6 @@ public class AllowAllAccessControl
 {
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName)
-    {
-    }
-
-    @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
     }
 

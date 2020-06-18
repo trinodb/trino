@@ -25,7 +25,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.security.Principal;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -54,12 +53,6 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
         delegate().checkCanImpersonateUser(context, userName);
-    }
-
-    @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-        delegate().checkCanSetUser(principal, userName);
     }
 
     @Override

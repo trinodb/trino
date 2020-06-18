@@ -54,7 +54,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -210,16 +209,6 @@ public class AccessControlManager
         requireNonNull(userName, "userName is null");
 
         systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity, Optional.empty()), userName));
-    }
-
-    @Override
-    @Deprecated
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-        requireNonNull(principal, "principal is null");
-        requireNonNull(userName, "userName is null");
-
-        systemAuthorizationCheck(control -> control.checkCanSetUser(principal, userName));
     }
 
     @Override

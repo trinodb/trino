@@ -22,7 +22,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 
-import java.security.Principal;
 import java.util.Optional;
 import java.util.Set;
 
@@ -64,7 +63,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -85,12 +83,6 @@ public class DenyAllAccessControl
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
         denyImpersonateUser(identity.getUser(), userName);
-    }
-
-    @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-        denySetUser(principal, userName);
     }
 
     @Override

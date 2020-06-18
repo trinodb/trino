@@ -71,7 +71,6 @@ public class QuerySessionSupplier
     public Session createSession(QueryId queryId, SessionContext context)
     {
         Identity identity = context.getIdentity();
-        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
 
         // authenticated identity is not present for HTTP or if authentication is not setup
         context.getAuthenticatedIdentity().ifPresent(authenticatedIdentity -> {

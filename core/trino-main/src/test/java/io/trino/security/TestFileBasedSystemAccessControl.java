@@ -26,10 +26,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
-import javax.security.auth.kerberos.KerberosPrincipal;
-
 import java.io.File;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.Files.copy;
@@ -48,14 +45,6 @@ import static org.testng.Assert.assertEquals;
 public class TestFileBasedSystemAccessControl
 {
     private static final Identity alice = Identity.forUser("alice").withGroups(ImmutableSet.of("staff")).build();
-    private static final Identity kerberosValidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosValidNonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withPrincipal(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosInvalidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosValidShare = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("valid/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosInValidShare = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("invalid/example.com@EXAMPLE.COM")).build();
-    private static final Identity validSpecialRegexWildDot = Identity.forUser(".*").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
-    private static final Identity validSpecialRegexEndQuote = Identity.forUser("\\E").withPrincipal(new KerberosPrincipal("special/\\E@EXAMPLE.COM")).build();
-    private static final Identity invalidSpecialRegex = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
     private static final Identity bob = Identity.forUser("bob").withGroups(ImmutableSet.of("staff")).build();
     private static final Identity admin = Identity.forUser("admin").withGroups(ImmutableSet.of("admin")).build();
     private static final Identity nonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withGroups(ImmutableSet.of("\u0194\u0194\u0194")).build();
@@ -107,9 +96,6 @@ public class TestFileBasedSystemAccessControl
         }
         catch (AccessDeniedException expected) {
         }
-
-        accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
-        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
     }
 
     @Test
@@ -134,49 +120,6 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Access Denied: User charlie cannot impersonate user doris");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("charlie"), "test");
-    }
-
-    @Test
-    public void testCanSetUserOperations()
-    {
-        TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
-
-        try {
-            accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        accessControlManager.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
-        accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
-        try {
-            accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        accessControlManager.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
-        try {
-            accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        accessControlManager.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
-        accessControlManager.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
-        try {
-            accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
-        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
     }
 
     @Test
