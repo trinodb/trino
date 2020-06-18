@@ -34,6 +34,7 @@ import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
@@ -57,7 +58,7 @@ public class TestInsertIntoCassandraTable
         return mutableTable(CASSANDRA_ALL_TYPES, CASSANDRA_INSERT_TABLE, CREATED);
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInsertIntoValuesToCassandraTableAllSimpleTypes()
     {
         TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();
@@ -139,7 +140,7 @@ public class TestInsertIntoCassandraTable
                 .failsWithMessage("Invalid null value in condition for column a");
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInsertIntoValuesToCassandraMaterizedView()
     {
         TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();
