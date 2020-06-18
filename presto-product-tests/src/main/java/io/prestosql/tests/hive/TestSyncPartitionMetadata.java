@@ -22,6 +22,9 @@ import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
@@ -158,7 +161,17 @@ public class TestSyncPartitionMetadata
         for (int i = 0; i < partitionLevels; i++) {
             regex = "/[^/]*" + regex;
         }
-        return getOnlyElement(onPresto().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
+        String location = getOnlyElement(onPresto().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
+        if (location.startsWith("hdfs://")) {
+            try {
+                URI uri = new URI(location);
+                location = uri.getPath();
+            }
+            catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return location;
     }
 
     private static void cleanup(String tableName)
