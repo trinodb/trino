@@ -41,6 +41,7 @@ import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.DynamicFilterService;
+import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
@@ -573,13 +574,14 @@ public class SqlQueryExecution
         }
     }
 
-    public List<StageInfo> getAllStages()
+    public List<StageDynamicFilters> getStageDynamicFilters()
     {
         SqlQueryScheduler scheduler = queryScheduler.get();
-        if (scheduler != null) {
-            return StageInfo.getAllStages(Optional.of(scheduler.getStageInfo()));
+        if (scheduler == null) {
+            return ImmutableList.of();
         }
-        return ImmutableList.of();
+
+        return queryScheduler.get().getStageDynamicFilters();
     }
 
     @Override
