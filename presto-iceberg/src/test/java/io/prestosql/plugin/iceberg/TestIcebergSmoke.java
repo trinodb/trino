@@ -112,8 +112,8 @@ public class TestIcebergSmoke
     public void testTimestamp()
     {
         assertUpdate("CREATE TABLE test_timestamp (x timestamp)");
-        assertQueryFails("INSERT INTO test_timestamp VALUES (timestamp '2017-05-01 10:12:34')", "Writing to columns of type timestamp not yet supported");
-//        assertQuery("SELECT * FROM test_timestamp", "SELECT CAST('2017-05-01 10:12:34' AS TIMESTAMP)");
+        assertUpdate("INSERT INTO test_timestamp VALUES (timestamp '2017-05-01 10:12:34')", 1);
+        assertQuery("SELECT * FROM test_timestamp", "SELECT CAST('2017-05-01 10:12:34' AS TIMESTAMP)");
         dropTable(getSession(), "test_timestamp");
     }
 

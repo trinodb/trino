@@ -59,6 +59,7 @@ import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class IcebergPageSource
         implements ConnectorPageSource
@@ -215,7 +216,7 @@ public class IcebergPageSource
                 return parseLong(valueString);
             }
             if (type.equals(TIMESTAMP)) {
-                return parseLong(valueString);
+                return MICROSECONDS.toMillis(parseLong(valueString));
             }
             if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                 return packDateTimeWithZone(parseLong(valueString), timeZoneKey);

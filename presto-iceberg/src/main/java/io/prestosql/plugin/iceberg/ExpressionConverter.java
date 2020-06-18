@@ -24,10 +24,6 @@ import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimeWithTimeZoneType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -40,9 +36,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.expressions.Expressions.and;
@@ -168,14 +162,6 @@ public final class ExpressionConverter
 
     private static Object getValue(Type type, Marker marker, ConnectorSession session)
     {
-        if (type instanceof TimestampWithTimeZoneType || type instanceof TimeWithTimeZoneType) {
-            return MILLISECONDS.toMicros(unpackMillisUtc((Long) marker.getValue()));
-        }
-
-        if (type instanceof TimestampType || type instanceof TimeType) {
-            return MILLISECONDS.toMicros((Long) marker.getValue());
-        }
-
         // TODO: Remove this conversion once we move to next iceberg version
         if (type instanceof DateType) {
             return toIntExact(((Long) marker.getValue()));
